@@ -147,7 +147,40 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
     { label: 'Signatures', value: signatures.length, icon: CheckCircle2, color: 'text-success', tab: 'portal' },
   ]
 
-  const recentSigs = signatures.slice(0, 5)
+  // Needs attention: operatives with unsigned documents
+  const now = Date.now()
+  const needsAttention = operatives
+    .filter(op => op.project_id)
+    .map(op => {
+      const projDocs = documents.filter(d => d.project_id === op.project_id)
+      const validSigs = signatures.filter(s => s.operative_id === op.id && !s.invalidated)
+      const signedDocIds = new Set(validSigs.map(s => s.document_id))
+      const unsignedDocs = projDocs.filter(d => !signedDocIds.has(d.id))
+      const project = projects.find(p => p.id === op.project_id)
+
+      // Check if operative was created more than 24 hours ago with pending docs
+      const createdAt = new Date(op.created_at).getTime()
+      const overdue = unsignedDocs.length > 0 && (now - createdAt > 24 * 60 * 60 * 1000)
+
+      return {
+        ...op,
+        projectName: project?.name || 'Unknown',
+        totalDocs: projDocs.length,
+        pendingDocs: unsignedDocs.length,
+        overdue,
+      }
+    })
+    .filter(op => op.pendingDocs > 0)
+    .sort((a, b) => b.overdue - a.overdue || b.pendingDocs - a.pendingDocs)
+
+  // Recent activity: last 10 signatures
+  const recentActivity = signatures
+    .filter(s => !s.invalidated)
+    .slice(0, 10)
+    .map(sig => {
+      const project = projects.find(p => p.id === sig.project_id)
+      return { ...sig, projectName: project?.name || 'Unknown' }
+    })
 
   return (
     <div className="space-y-6">
@@ -168,19 +201,80 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
         </div>
       </div>
 
-      {recentSigs.length > 0 && (
+      {/* Needs Attention */}
+      {needsAttention.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Recent Sign-Offs</h3>
+          <div className="flex items-center gap-2 mb-3">
+            <AlertCircle size={16} className="text-warning" />
+            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Needs Attention</h3>
+            <span className="text-xs bg-warning/20 text-warning px-2 py-0.5 rounded-full font-semibold">{needsAttention.length}</span>
+          </div>
           <div className="space-y-2">
-            {recentSigs.map(sig => (
-              <div key={sig.id} className="bg-navy-800 border border-navy-600 rounded-lg p-3 flex items-center gap-3">
-                <CheckCircle2 size={16} className="text-success shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-white truncate">{sig.operative_name}</p>
-                  <p className="text-xs text-gray-400">{new Date(sig.signed_at).toLocaleString()}</p>
+            {needsAttention.map(op => (
+              <div key={op.id} className={`bg-navy-800 border rounded-xl p-3.5 flex items-center gap-3 ${op.overdue ? 'border-danger/40' : 'border-navy-600'}`}>
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${op.overdue ? 'bg-danger/15' : 'bg-warning/15'}`}>
+                  {op.photo_url ? (
+                    <img src={op.photo_url} alt={op.name} className="w-9 h-9 rounded-full object-cover" />
+                  ) : (
+                    <span className={`font-bold text-sm ${op.overdue ? 'text-danger' : 'text-warning'}`}>{op.name.charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-white font-medium truncate">{op.name}</p>
+                    {op.overdue && (
+                      <span className="text-[10px] bg-danger/20 text-danger px-1.5 py-0.5 rounded font-semibold shrink-0">OVERDUE</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 truncate">{op.projectName}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className={`text-sm font-bold ${op.overdue ? 'text-danger' : 'text-warning'}`}>{op.pendingDocs}</p>
+                  <p className="text-[10px] text-gray-500">pending</p>
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Activity */}
+      {recentActivity.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Clock size={16} className="text-accent" />
+            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent Activity</h3>
+          </div>
+          <div className="space-y-2">
+            {recentActivity.map(sig => {
+              const signedDate = new Date(sig.signed_at)
+              const diffMs = now - signedDate.getTime()
+              const diffMins = Math.floor(diffMs / 60000)
+              const diffHours = Math.floor(diffMs / 3600000)
+              const diffDays = Math.floor(diffMs / 86400000)
+              let timeAgo
+              if (diffMins < 1) timeAgo = 'Just now'
+              else if (diffMins < 60) timeAgo = `${diffMins}m ago`
+              else if (diffHours < 24) timeAgo = `${diffHours}h ago`
+              else timeAgo = `${diffDays}d ago`
+
+              return (
+                <div key={sig.id} className="bg-navy-800 border border-navy-600 rounded-xl p-3.5 flex items-center gap-3">
+                  <div className="w-8 h-8 bg-success/10 rounded-full flex items-center justify-center shrink-0">
+                    <CheckCircle2 size={14} className="text-success" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white truncate">
+                      <span className="font-medium">{sig.operative_name}</span>
+                      <span className="text-gray-500"> signed </span>
+                      <span className="text-gray-300">{sig.document_title}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">{sig.projectName}</p>
+                  </div>
+                  <span className="text-[11px] text-gray-500 shrink-0">{timeAgo}</span>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
