@@ -21,7 +21,7 @@ export default function PMLogin() {
     const { data, error: dbErr } = await supabase
       .from('managers')
       .select('*')
-      .eq('email', email.trim().toLowerCase())
+      .ilike('email', email.trim())
       .eq('password', password.trim())
       .single()
 
