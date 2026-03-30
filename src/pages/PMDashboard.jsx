@@ -73,19 +73,19 @@ export default function PMDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-navy-950">
-        <div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full" />
+      <div className="min-h-dvh flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50">
+        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-dvh bg-navy-950 flex flex-col">
+    <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
       {/* Header */}
-      <header className="bg-navy-900 border-b border-navy-700 px-4 py-3 flex items-center justify-between shrink-0">
+      <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           {tab !== 'home' && (
-            <button onClick={() => setTab('home')} className="p-1 text-gray-400 hover:text-white transition-colors">
+            <button onClick={() => setTab('home')} className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
               <ArrowLeft size={22} />
             </button>
           )}
@@ -93,17 +93,17 @@ export default function PMDashboard() {
             <img src="/bancroft-logo.png" alt="Bancroft" className="h-8" />
           </button>
           <div>
-            <p className="text-xs text-white font-medium">{managerData.name || 'Manager'}</p>
-            <p className="text-[10px] text-gray-500">{isAdmin ? 'Admin' : 'Project Manager'}</p>
+            <p className="text-xs text-slate-900 font-medium">{managerData.name || 'Manager'}</p>
+            <p className="text-[10px] text-slate-400">{isAdmin ? 'Admin' : 'Project Manager'}</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
           {isAdmin && (
-            <button onClick={() => navigate('/admin')} className="px-2.5 py-1.5 text-[11px] text-accent bg-accent/10 hover:bg-accent/20 rounded-lg transition-colors font-medium">
+            <button onClick={() => navigate('/admin')} className="px-2.5 py-1.5 text-[11px] text-blue-500 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors font-medium">
               Admin
             </button>
           )}
-          <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-white transition-colors">
+          <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
             <LogOut size={20} />
           </button>
         </div>
@@ -120,13 +120,13 @@ export default function PMDashboard() {
       </div>
 
       {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-navy-900 border-t border-navy-700 flex z-40">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex z-40">
         {TABS.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             className={`flex-1 flex flex-col items-center py-3 text-xs transition-colors ${
-              tab === t.id ? 'text-accent' : 'text-gray-500 hover:text-gray-300'
+              tab === t.id ? 'text-blue-600' : 'text-slate-400 hover:text-slate-500'
             }`}
           >
             <t.icon size={20} />
@@ -141,8 +141,8 @@ export default function PMDashboard() {
 /* ==================== HOME TAB ==================== */
 function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
   const stats = [
-    { label: 'Projects', value: projects.length, icon: FolderOpen, color: 'text-accent', tab: 'projects' },
-    { label: 'Operatives', value: operatives.length, icon: Users, color: 'text-accent-light', tab: 'team' },
+    { label: 'Projects', value: projects.length, icon: FolderOpen, color: 'text-blue-500', tab: 'projects' },
+    { label: 'Operatives', value: operatives.length, icon: Users, color: 'text-blue-400', tab: 'team' },
     { label: 'Documents', value: documents.length, icon: FileText, color: 'text-warning', tab: 'projects' },
     { label: 'Signatures', value: signatures.length, icon: CheckCircle2, color: 'text-success', tab: 'portal' },
   ]
@@ -185,17 +185,17 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-white mb-4">Dashboard</h2>
+        <h2 className="text-xl font-bold text-slate-900 mb-4">Dashboard</h2>
         <div className="grid grid-cols-2 gap-3">
           {stats.map(s => (
             <button
               key={s.label}
               onClick={() => onNavigate(s.tab)}
-              className="bg-navy-800 border border-navy-600 rounded-xl p-4 text-left hover:border-accent/50 active:scale-[0.97] transition-all"
+              className="bg-white border border-slate-200 rounded-xl p-4 text-left hover:border-blue-400/50 active:scale-[0.97] transition-all"
             >
               <s.icon size={20} className={s.color} />
-              <p className="text-2xl font-bold text-white mt-2">{s.value}</p>
-              <p className="text-xs text-gray-400">{s.label}</p>
+              <p className="text-2xl font-bold text-slate-900 mt-2">{s.value}</p>
+              <p className="text-xs text-slate-500">{s.label}</p>
             </button>
           ))}
         </div>
@@ -206,12 +206,12 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <AlertCircle size={16} className="text-warning" />
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Needs Attention</h3>
+            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Needs Attention</h3>
             <span className="text-xs bg-warning/20 text-warning px-2 py-0.5 rounded-full font-semibold">{needsAttention.length}</span>
           </div>
           <div className="space-y-2">
             {needsAttention.map(op => (
-              <div key={op.id} className={`bg-navy-800 border rounded-xl p-3.5 flex items-center gap-3 ${op.overdue ? 'border-danger/40' : 'border-navy-600'}`}>
+              <div key={op.id} className={`bg-white border rounded-xl p-3.5 flex items-center gap-3 ${op.overdue ? 'border-danger/40' : 'border-slate-200'}`}>
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${op.overdue ? 'bg-danger/15' : 'bg-warning/15'}`}>
                   {op.photo_url ? (
                     <img src={op.photo_url} alt={op.name} className="w-9 h-9 rounded-full object-cover" />
@@ -221,16 +221,16 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm text-white font-medium truncate">{op.name}</p>
+                    <p className="text-sm text-slate-900 font-medium truncate">{op.name}</p>
                     {op.overdue && (
                       <span className="text-[10px] bg-danger/20 text-danger px-1.5 py-0.5 rounded font-semibold shrink-0">OVERDUE</span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 truncate">{op.projectName}</p>
+                  <p className="text-xs text-slate-500 truncate">{op.projectName}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className={`text-sm font-bold ${op.overdue ? 'text-danger' : 'text-warning'}`}>{op.pendingDocs}</p>
-                  <p className="text-[10px] text-gray-500">pending</p>
+                  <p className="text-[10px] text-slate-400">pending</p>
                 </div>
               </div>
             ))}
@@ -242,8 +242,8 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
       {recentActivity.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <Clock size={16} className="text-accent" />
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent Activity</h3>
+            <Clock size={16} className="text-blue-500" />
+            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Recent Activity</h3>
           </div>
           <div className="space-y-2">
             {recentActivity.map(sig => {
@@ -259,19 +259,19 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
               else timeAgo = `${diffDays}d ago`
 
               return (
-                <div key={sig.id} className="bg-navy-800 border border-navy-600 rounded-xl p-3.5 flex items-center gap-3">
+                <div key={sig.id} className="bg-white border border-slate-200 rounded-xl p-3.5 flex items-center gap-3">
                   <div className="w-8 h-8 bg-success/10 rounded-full flex items-center justify-center shrink-0">
                     <CheckCircle2 size={14} className="text-success" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white truncate">
+                    <p className="text-sm text-slate-900 truncate">
                       <span className="font-medium">{sig.operative_name}</span>
-                      <span className="text-gray-500"> signed </span>
-                      <span className="text-gray-300">{sig.document_title}</span>
+                      <span className="text-slate-400"> signed </span>
+                      <span className="text-slate-600">{sig.document_title}</span>
                     </p>
-                    <p className="text-xs text-gray-500 truncate">{sig.projectName}</p>
+                    <p className="text-xs text-slate-400 truncate">{sig.projectName}</p>
                   </div>
-                  <span className="text-[11px] text-gray-500 shrink-0">{timeAgo}</span>
+                  <span className="text-[11px] text-slate-400 shrink-0">{timeAgo}</span>
                 </div>
               )
             })}
@@ -424,14 +424,14 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-white">Projects</h2>
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 bg-accent hover:bg-accent-dark text-white text-sm font-medium rounded-lg transition-colors">
+        <h2 className="text-xl font-bold text-slate-900">Projects</h2>
+        <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors">
           <Plus size={16} /> Add
         </button>
       </div>
 
       {projects.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-slate-400">
           <FolderOpen size={40} className="mx-auto mb-3 opacity-50" />
           <p>No projects yet</p>
         </div>
@@ -442,43 +442,43 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
             const projOps = operatives.filter(o => o.project_id === p.id)
             const expanded = expandedProject === p.id
             return (
-              <div key={p.id} className="bg-navy-800 border border-navy-600 rounded-xl overflow-hidden">
+              <div key={p.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
                 <button
                   onClick={() => setExpandedProject(expanded ? null : p.id)}
                   className="w-full flex items-center gap-3 p-4 text-left"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold truncate">{p.name}</p>
-                    {p.location && <p className="text-xs text-gray-400 truncate">{p.location}</p>}
+                    <p className="text-slate-900 font-semibold truncate">{p.name}</p>
+                    {p.location && <p className="text-xs text-slate-500 truncate">{p.location}</p>}
                     <div className="flex gap-3 mt-1.5">
-                      <span className="text-xs text-gray-500">{projDocs.length} doc{projDocs.length !== 1 ? 's' : ''}</span>
-                      <span className="text-xs text-gray-500">{projOps.length} operative{projOps.length !== 1 ? 's' : ''}</span>
+                      <span className="text-xs text-slate-400">{projDocs.length} doc{projDocs.length !== 1 ? 's' : ''}</span>
+                      <span className="text-xs text-slate-400">{projOps.length} operative{projOps.length !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
-                  <ChevronRight size={18} className={`text-gray-500 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+                  <ChevronRight size={18} className={`text-slate-400 transition-transform ${expanded ? 'rotate-90' : ''}`} />
                 </button>
 
                 {expanded && (
-                  <div className="border-t border-navy-600 p-4 space-y-3">
+                  <div className="border-t border-slate-200 p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-semibold text-gray-300">Documents</h4>
-                      <button onClick={() => { setShowUpload(p.id); setDocTitle(''); setUploadFile(null) }} className="text-xs text-accent hover:underline flex items-center gap-1">
+                      <h4 className="text-sm font-semibold text-slate-600">Documents</h4>
+                      <button onClick={() => { setShowUpload(p.id); setDocTitle(''); setUploadFile(null) }} className="text-xs text-blue-500 hover:underline flex items-center gap-1">
                         <Upload size={12} /> Upload
                       </button>
                     </div>
                     {projDocs.length === 0 ? (
-                      <p className="text-xs text-gray-500">No documents uploaded</p>
+                      <p className="text-xs text-slate-400">No documents uploaded</p>
                     ) : (
                       <div className="space-y-1.5">
                         {projDocs.map(d => {
                           const docSigs = signatures.filter(s => s.document_id === d.id && !s.invalidated)
                           const invalidatedCount = signatures.filter(s => s.document_id === d.id && s.invalidated).length
                           return (
-                            <div key={d.id} className="bg-navy-700 rounded-lg px-3 py-2">
+                            <div key={d.id} className="bg-slate-50 rounded-lg px-3 py-2">
                               <div className="flex items-center gap-2">
-                                <FileText size={14} className="text-accent shrink-0" />
-                                <span className="flex-1 text-sm text-white truncate">{d.title}</span>
-                                <span className="text-[10px] text-gray-500 bg-navy-600 px-1.5 py-0.5 rounded">v{d.version || 1}</span>
+                                <FileText size={14} className="text-blue-500 shrink-0" />
+                                <span className="flex-1 text-sm text-slate-900 truncate">{d.title}</span>
+                                <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">v{d.version || 1}</span>
                                 {docSigs.length > 0 && (
                                   <button
                                     disabled={downloading === d.id}
@@ -497,11 +497,11 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                                       }
                                       setDownloading(null)
                                     }}
-                                    className="p-1 text-accent hover:text-accent-light transition-colors"
+                                    className="p-1 text-blue-500 hover:text-blue-400 transition-colors"
                                     title="Download sign-off sheet"
                                   >
                                     {downloading === d.id ? (
-                                      <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                                      <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                                     ) : (
                                       <Download size={14} />
                                     )}
@@ -510,8 +510,8 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                                 <button onClick={() => { setShowUpdateDoc(d); setUploadFile(null) }} className="p-1 text-warning hover:text-yellow-400 transition-colors" title="Upload new version">
                                   <RefreshCw size={14} />
                                 </button>
-                                <span className="text-xs text-gray-500">{docSigs.length} sig{docSigs.length !== 1 ? 's' : ''}</span>
-                                <button onClick={() => deleteDocument(d.id)} className="p-1 text-gray-500 hover:text-danger transition-colors">
+                                <span className="text-xs text-slate-400">{docSigs.length} sig{docSigs.length !== 1 ? 's' : ''}</span>
+                                <button onClick={() => deleteDocument(d.id)} className="p-1 text-slate-400 hover:text-danger transition-colors">
                                   <Trash2 size={14} />
                                 </button>
                               </div>
@@ -530,10 +530,10 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                     <button
                       disabled={exportingAudit === p.id}
                       onClick={() => handleAuditExport(p)}
-                      className="w-full mt-2 py-2 text-sm text-accent hover:bg-accent/10 rounded-lg transition-colors flex items-center justify-center gap-2"
+                      className="w-full mt-2 py-2 text-sm text-blue-500 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-center gap-2"
                     >
                       {exportingAudit === p.id ? (
-                        <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                       ) : (
                         <ShieldCheck size={14} />
                       )}
@@ -557,16 +557,16 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="Project name"
-            className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent"
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
             autoFocus
           />
           <input
             value={location}
             onChange={e => setLocation(e.target.value)}
             placeholder="Location (optional)"
-            className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent"
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
           />
-          <LoadingButton loading={saving} type="submit" className="w-full bg-accent hover:bg-accent-dark text-white">
+          <LoadingButton loading={saving} type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white">
             Add Project
           </LoadingButton>
         </form>
@@ -579,17 +579,17 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
             value={docTitle}
             onChange={e => setDocTitle(e.target.value)}
             placeholder="Document title"
-            className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent"
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
             autoFocus
           />
           <div>
-            <label className="block w-full px-4 py-3 bg-navy-700 border border-navy-600 border-dashed rounded-lg text-center cursor-pointer hover:border-accent transition-colors">
+            <label className="block w-full px-4 py-3 bg-white border border-slate-200 border-dashed rounded-lg text-center cursor-pointer hover:border-blue-400 transition-colors">
               <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onChange={e => setUploadFile(e.target.files[0])} className="hidden" />
-              <Upload size={20} className="mx-auto text-gray-400 mb-1" />
-              <p className="text-sm text-gray-400">{uploadFile ? uploadFile.name : 'Tap to select file'}</p>
+              <Upload size={20} className="mx-auto text-slate-400 mb-1" />
+              <p className="text-sm text-slate-500">{uploadFile ? uploadFile.name : 'Tap to select file'}</p>
             </label>
           </div>
-          <LoadingButton loading={saving} type="submit" className="w-full bg-accent hover:bg-accent-dark text-white">
+          <LoadingButton loading={saving} type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white">
             Upload
           </LoadingButton>
         </form>
@@ -603,17 +603,17 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
               <FileWarning size={16} />
               <span className="text-sm font-semibold">Version Control Warning</span>
             </div>
-            <p className="text-xs text-gray-400">
-              Uploading a new version will <strong className="text-white">invalidate all existing signatures</strong> for this document.
+            <p className="text-xs text-slate-500">
+              Uploading a new version will <strong className="text-slate-900">invalidate all existing signatures</strong> for this document.
               All operatives will be flagged to re-sign.
             </p>
           </div>
-          <p className="text-sm text-gray-400">Current version: <span className="text-white font-medium">v{showUpdateDoc?.version || 1}</span> → New version: <span className="text-accent font-medium">v{(showUpdateDoc?.version || 1) + 1}</span></p>
+          <p className="text-sm text-slate-500">Current version: <span className="text-slate-900 font-medium">v{showUpdateDoc?.version || 1}</span> → New version: <span className="text-blue-500 font-medium">v{(showUpdateDoc?.version || 1) + 1}</span></p>
           <div>
-            <label className="block w-full px-4 py-3 bg-navy-700 border border-navy-600 border-dashed rounded-lg text-center cursor-pointer hover:border-accent transition-colors">
+            <label className="block w-full px-4 py-3 bg-white border border-slate-200 border-dashed rounded-lg text-center cursor-pointer hover:border-blue-400 transition-colors">
               <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onChange={e => setUploadFile(e.target.files[0])} className="hidden" />
-              <Upload size={20} className="mx-auto text-gray-400 mb-1" />
-              <p className="text-sm text-gray-400">{uploadFile ? uploadFile.name : 'Tap to select new file'}</p>
+              <Upload size={20} className="mx-auto text-slate-400 mb-1" />
+              <p className="text-sm text-slate-500">{uploadFile ? uploadFile.name : 'Tap to select new file'}</p>
             </label>
           </div>
           <LoadingButton loading={saving} type="submit" className="w-full bg-warning hover:bg-yellow-600 text-black font-semibold">
@@ -711,14 +711,14 @@ function TeamTab({ operatives, projects, onRefresh }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-white">Team</h2>
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 bg-accent hover:bg-accent-dark text-white text-sm font-medium rounded-lg transition-colors">
+        <h2 className="text-xl font-bold text-slate-900">Team</h2>
+        <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors">
           <UserPlus size={16} /> Add
         </button>
       </div>
 
       {operatives.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-slate-400">
           <Users size={40} className="mx-auto mb-3 opacity-50" />
           <p>No operatives yet</p>
         </div>
@@ -727,13 +727,13 @@ function TeamTab({ operatives, projects, onRefresh }) {
           {operatives.map(op => {
             const proj = projects.find(p => p.id === op.project_id)
             return (
-              <div key={op.id} className="bg-navy-800 border border-navy-600 rounded-xl p-4 flex items-center gap-3">
+              <div key={op.id} className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3">
                 <label className="relative w-12 h-12 rounded-full shrink-0 cursor-pointer group">
                   {op.photo_url ? (
                     <img src={op.photo_url} alt={op.name} className="w-12 h-12 rounded-full object-cover" />
                   ) : (
-                    <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center">
-                      <span className="text-accent font-semibold">{op.name.charAt(0).toUpperCase()}</span>
+                    <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
+                      <span className="text-blue-500 font-semibold">{op.name.charAt(0).toUpperCase()}</span>
                     </div>
                   )}
                   <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -752,10 +752,10 @@ function TeamTab({ operatives, projects, onRefresh }) {
                   />
                 </label>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-medium truncate">{op.name}</p>
-                  <p className="text-xs text-gray-400 truncate">{proj ? proj.name : 'Unassigned'}</p>
+                  <p className="text-slate-900 font-medium truncate">{op.name}</p>
+                  <p className="text-xs text-slate-500 truncate">{proj ? proj.name : 'Unassigned'}</p>
                   {(op.mobile || op.email) && (
-                    <p className="text-[11px] text-gray-500 truncate mt-0.5">
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5">
                       {op.mobile}{op.mobile && op.email ? ' · ' : ''}{op.email}
                     </p>
                   )}
@@ -763,7 +763,7 @@ function TeamTab({ operatives, projects, onRefresh }) {
                     <p className="text-[11px] text-warning mt-0.5">Profile incomplete</p>
                   )}
                 </div>
-                <button onClick={() => removeOperative(op.id)} className="p-2 text-gray-500 hover:text-danger transition-colors">
+                <button onClick={() => removeOperative(op.id)} className="p-2 text-slate-400 hover:text-danger transition-colors">
                   <Trash2 size={16} />
                 </button>
               </div>
@@ -779,13 +779,13 @@ function TeamTab({ operatives, projects, onRefresh }) {
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="Full name"
-            className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent"
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
             autoFocus
           />
           <select
             value={projectId}
             onChange={e => setProjectId(e.target.value)}
-            className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white focus:outline-none focus:border-accent"
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
           >
             <option value="">Select site</option>
             {projects.map(p => (
@@ -797,17 +797,17 @@ function TeamTab({ operatives, projects, onRefresh }) {
             value={mobile}
             onChange={e => setMobile(e.target.value)}
             placeholder="Mobile number"
-            className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent"
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
           />
           <input
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="Email address"
-            className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent"
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
           />
-          <p className="text-xs text-gray-500">The operative will complete their full profile (DOB, NI, address, next of kin) themselves.</p>
-          <LoadingButton loading={saving} type="submit" className="w-full bg-accent hover:bg-accent-dark text-white">
+          <p className="text-xs text-slate-400">The operative will complete their full profile (DOB, NI, address, next of kin) themselves.</p>
+          <LoadingButton loading={saving} type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white">
             Add Operative
           </LoadingButton>
         </form>
@@ -820,11 +820,11 @@ function TeamTab({ operatives, projects, onRefresh }) {
 function PortalTab({ projects, navigate }) {
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-white">Portal</h2>
-      <p className="text-sm text-gray-400">Select a project to view its sign-off record.</p>
+      <h2 className="text-xl font-bold text-slate-900">Portal</h2>
+      <p className="text-sm text-slate-500">Select a project to view its sign-off record.</p>
 
       {projects.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-slate-400">
           <Globe size={40} className="mx-auto mb-3 opacity-50" />
           <p>No projects yet</p>
         </div>
@@ -834,14 +834,14 @@ function PortalTab({ projects, navigate }) {
             <button
               key={p.id}
               onClick={() => navigate(`/portal/${p.id}`)}
-              className="w-full flex items-center gap-3 bg-navy-800 border border-navy-600 rounded-xl p-4 hover:border-accent/50 transition-colors text-left"
+              className="w-full flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-4 hover:border-blue-400/50 transition-colors text-left"
             >
-              <FolderOpen size={20} className="text-accent shrink-0" />
+              <FolderOpen size={20} className="text-blue-500 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-white font-medium truncate">{p.name}</p>
-                {p.location && <p className="text-xs text-gray-400 truncate">{p.location}</p>}
+                <p className="text-slate-900 font-medium truncate">{p.name}</p>
+                {p.location && <p className="text-xs text-slate-500 truncate">{p.location}</p>}
               </div>
-              <ChevronRight size={18} className="text-gray-500" />
+              <ChevronRight size={18} className="text-slate-400" />
             </button>
           ))}
         </div>
@@ -885,23 +885,23 @@ function SettingsTab() {
   if (!loaded) {
     return (
       <div className="flex justify-center py-12">
-        <div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-white">Settings</h2>
+      <h2 className="text-xl font-bold text-slate-900">Settings</h2>
 
-      <div className="bg-navy-800 border border-navy-600 rounded-xl p-4 space-y-4">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-accent/10 rounded-xl flex items-center justify-center shrink-0">
-            <Mail size={20} className="text-accent" />
+          <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+            <Mail size={20} className="text-blue-500" />
           </div>
           <div>
-            <p className="text-white font-semibold">Email Notifications</p>
-            <p className="text-xs text-gray-400">Get notified when an operative completes all their documents</p>
+            <p className="text-slate-900 font-semibold">Email Notifications</p>
+            <p className="text-xs text-slate-500">Get notified when an operative completes all their documents</p>
           </div>
         </div>
 
@@ -911,38 +911,38 @@ function SettingsTab() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="your@email.com"
-            className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent"
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
           />
-          <LoadingButton loading={saving} type="submit" className="w-full bg-accent hover:bg-accent-dark text-white">
+          <LoadingButton loading={saving} type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white">
             Save Email
           </LoadingButton>
         </form>
       </div>
 
-      <div className="bg-navy-800 border border-navy-600 rounded-xl p-4">
+      <div className="bg-white border border-slate-200 rounded-xl p-4">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 bg-accent/10 rounded-xl flex items-center justify-center shrink-0">
-            <ShieldCheck size={20} className="text-accent" />
+          <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+            <ShieldCheck size={20} className="text-blue-500" />
           </div>
           <div>
-            <p className="text-white font-semibold">Security Features</p>
-            <p className="text-xs text-gray-400">Active on all sign-offs</p>
+            <p className="text-slate-900 font-semibold">Security Features</p>
+            <p className="text-xs text-slate-500">Active on all sign-offs</p>
           </div>
         </div>
         <div className="space-y-2 text-sm">
-          <div className="flex items-center gap-2 text-gray-300">
+          <div className="flex items-center gap-2 text-slate-600">
             <CheckCircle2 size={14} className="text-success" />
             DOB identity verification on sign-off
           </div>
-          <div className="flex items-center gap-2 text-gray-300">
+          <div className="flex items-center gap-2 text-slate-600">
             <CheckCircle2 size={14} className="text-success" />
             IP address captured with every signature
           </div>
-          <div className="flex items-center gap-2 text-gray-300">
+          <div className="flex items-center gap-2 text-slate-600">
             <CheckCircle2 size={14} className="text-success" />
             Document version control with re-sign flags
           </div>
-          <div className="flex items-center gap-2 text-gray-300">
+          <div className="flex items-center gap-2 text-slate-600">
             <CheckCircle2 size={14} className="text-success" />
             In-app PDF viewer — operatives must read before signing
           </div>

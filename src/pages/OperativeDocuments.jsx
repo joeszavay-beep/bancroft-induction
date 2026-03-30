@@ -47,8 +47,8 @@ export default function OperativeDocuments() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-navy-950">
-        <div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full" />
+      <div className="min-h-dvh flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50">
+        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
       </div>
     )
   }
@@ -62,14 +62,14 @@ export default function OperativeDocuments() {
   const signedCount = documents.filter(d => signedDocIds.has(d.id)).length
 
   return (
-    <div className="min-h-dvh bg-navy-950 flex flex-col">
-      <header className="bg-navy-900 border-b border-navy-700 px-4 py-3 flex items-center gap-3 shrink-0">
-        <button onClick={() => navigate('/operative')} className="p-1 text-gray-400 hover:text-white transition-colors">
+    <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
+      <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-4 py-3 flex items-center gap-3 shrink-0">
+        <button onClick={() => navigate('/operative')} className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
           <ArrowLeft size={22} />
         </button>
         <div className="min-w-0">
-          <h1 className="text-lg font-bold text-white truncate">{operative?.name}</h1>
-          <p className="text-xs text-gray-400 truncate">{operative?.projects?.name}</p>
+          <h1 className="text-lg font-bold text-slate-900 truncate">{operative?.name}</h1>
+          <p className="text-xs text-slate-500 truncate">{operative?.projects?.name}</p>
         </div>
       </header>
 
@@ -84,21 +84,21 @@ export default function OperativeDocuments() {
               <User size={20} className="text-warning" />
             </div>
             <div className="flex-1">
-              <p className="text-white font-semibold text-sm">Complete Your Profile</p>
-              <p className="text-xs text-gray-400">DOB, NI number, address & next of kin</p>
+              <p className="text-slate-900 font-semibold text-sm">Complete Your Profile</p>
+              <p className="text-xs text-slate-500">DOB, NI number, address & next of kin</p>
             </div>
           </button>
         )}
 
         {/* Progress */}
-        <div className="bg-navy-800 border border-navy-600 rounded-xl p-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-400">Progress</p>
-            <p className="text-sm font-semibold text-white">{signedCount}/{totalDocs}</p>
+            <p className="text-sm text-slate-500">Progress</p>
+            <p className="text-sm font-semibold text-slate-900">{signedCount}/{totalDocs}</p>
           </div>
-          <div className="w-full h-2 bg-navy-700 rounded-full overflow-hidden">
+          <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden">
             <div
-              className="h-full bg-accent rounded-full transition-all duration-500"
+              className="h-full bg-blue-500 rounded-full transition-all duration-500"
               style={{ width: totalDocs > 0 ? `${(signedCount / totalDocs) * 100}%` : '0%' }}
             />
           </div>
@@ -112,7 +112,7 @@ export default function OperativeDocuments() {
 
         {/* Document list */}
         {documents.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-slate-400">
             <FileText size={40} className="mx-auto mb-3 opacity-50" />
             <p>No documents assigned yet</p>
           </div>
@@ -129,27 +129,27 @@ export default function OperativeDocuments() {
                   key={doc.id}
                   disabled={(isSigned && !needsResign) || isLocked}
                   onClick={() => navigate(`/operative/${operativeId}/sign/${doc.id}`)}
-                  className={`w-full flex items-center gap-3 bg-navy-800 border rounded-xl p-4 text-left transition-all ${
+                  className={`w-full flex items-center gap-3 bg-white border rounded-xl p-4 text-left transition-all ${
                     needsResign
                       ? 'border-warning/50 hover:border-warning active:scale-[0.98]'
                       : isSigned
                         ? 'border-success/30 opacity-70'
                         : isLocked
-                          ? 'border-navy-600 opacity-40 cursor-not-allowed'
-                          : 'border-navy-600 hover:border-accent/50 active:scale-[0.98]'
+                          ? 'border-slate-200 opacity-40 cursor-not-allowed'
+                          : 'border-slate-200 hover:border-blue-400/50 active:scale-[0.98]'
                   }`}
                 >
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    needsResign ? 'bg-warning/10' : isSigned ? 'bg-success/10' : isLocked ? 'bg-navy-700' : 'bg-accent/10'
+                    needsResign ? 'bg-warning/10' : isSigned ? 'bg-success/10' : isLocked ? 'bg-slate-50' : 'bg-blue-50'
                   }`}>
                     {needsResign ? <AlertTriangle size={20} className="text-warning" /> :
                      isSigned ? <CheckCircle2 size={20} className="text-success" /> :
                      isLocked ? <Lock size={20} className="text-gray-600" /> :
-                     <FileText size={20} className="text-accent" />}
+                     <FileText size={20} className="text-blue-500" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`font-medium truncate ${needsResign ? 'text-warning' : isSigned ? 'text-gray-400' : 'text-white'}`}>{doc.title}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className={`font-medium truncate ${needsResign ? 'text-warning' : isSigned ? 'text-slate-500' : 'text-slate-900'}`}>{doc.title}</p>
+                    <p className="text-xs text-slate-400">
                       {needsResign ? 'Document updated — re-sign required' : isSigned ? 'Signed' : isLocked ? 'Complete previous documents first' : 'Tap to review & sign'}
                     </p>
                   </div>

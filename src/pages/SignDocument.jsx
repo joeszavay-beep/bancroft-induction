@@ -174,32 +174,32 @@ export default function SignDocument() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-navy-950">
-        <div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full" />
+      <div className="min-h-dvh flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50">
+        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
       </div>
     )
   }
 
   if (showSuccess) {
     return (
-      <div className="min-h-dvh bg-navy-950 flex flex-col items-center justify-center p-6">
+      <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col items-center justify-center p-6">
         <div className="w-20 h-20 bg-success/10 rounded-full flex items-center justify-center mb-6 animate-bounce">
           <CheckCircle2 size={44} className="text-success" />
         </div>
-        <h2 className="text-2xl font-bold text-white mb-2">Document Signed!</h2>
-        <p className="text-gray-400 text-center mb-2">
-          You have successfully signed <span className="text-white font-medium">{document.title}</span>
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">Document Signed!</h2>
+        <p className="text-slate-500 text-center mb-2">
+          You have successfully signed <span className="text-slate-900 font-medium">{document.title}</span>
         </p>
         {allComplete && (
           <div className="bg-success/10 border border-success/30 rounded-xl p-4 mt-4 mb-4 text-center">
             <CheckCircle2 size={24} className="text-success mx-auto mb-2" />
             <p className="text-success font-semibold">All documents complete!</p>
-            <p className="text-sm text-gray-400 mt-1">Your project manager has been notified.</p>
+            <p className="text-sm text-slate-500 mt-1">Your project manager has been notified.</p>
           </div>
         )}
         <button
           onClick={() => navigate(`/operative/${operativeId}/documents`)}
-          className="px-6 py-3 bg-accent hover:bg-accent-dark text-white font-medium rounded-lg transition-colors mt-4"
+          className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors mt-4"
         >
           Back to Documents
         </button>
@@ -210,22 +210,22 @@ export default function SignDocument() {
   const canSign = hasReadDoc || !document?.file_url
 
   return (
-    <div className="min-h-dvh bg-navy-950 flex flex-col">
-      <header className="bg-navy-900 border-b border-navy-700 px-4 py-3 flex items-center gap-3 shrink-0">
-        <button onClick={() => navigate(`/operative/${operativeId}/documents`)} className="p-1 text-gray-400 hover:text-white transition-colors">
+    <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
+      <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-4 py-3 flex items-center gap-3 shrink-0">
+        <button onClick={() => navigate(`/operative/${operativeId}/documents`)} className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
           <ArrowLeft size={22} />
         </button>
         <div className="min-w-0">
-          <h1 className="text-lg font-bold text-white truncate">{document?.title}</h1>
-          <p className="text-xs text-gray-400 truncate">{document?.projects?.name}</p>
+          <h1 className="text-lg font-bold text-slate-900 truncate">{document?.title}</h1>
+          <p className="text-xs text-slate-500 truncate">{document?.projects?.name}</p>
         </div>
       </header>
 
       <div className="flex-1 p-4 space-y-4 overflow-y-auto">
         {/* Built-in document viewer */}
         {document?.file_url && (
-          <div className="bg-navy-800 border border-navy-600 rounded-xl p-4">
-            <h3 className="text-sm font-semibold text-gray-300 mb-3">Read Document</h3>
+          <div className="bg-white border border-slate-200 rounded-xl p-4">
+            <h3 className="text-sm font-semibold text-slate-600 mb-3">Read Document</h3>
             <PDFViewer
               url={document.file_url}
               title={document.title}
@@ -238,14 +238,14 @@ export default function SignDocument() {
         {canSign ? (
           <>
             {/* Signature pad */}
-            <div className="bg-navy-800 border border-navy-600 rounded-xl p-4">
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-semibold text-gray-300">Your Signature</p>
-                <button onClick={clearSignature} className="text-xs text-accent hover:underline flex items-center gap-1">
+                <p className="text-sm font-semibold text-slate-600">Your Signature</p>
+                <button onClick={clearSignature} className="text-xs text-blue-500 hover:underline flex items-center gap-1">
                   <RotateCcw size={12} /> Clear
                 </button>
               </div>
-              <div className="bg-white rounded-lg overflow-hidden" style={{ touchAction: 'none' }}>
+              <div className="bg-white rounded-lg overflow-hidden border border-slate-200" style={{ touchAction: 'none' }}>
                 <SignatureCanvas
                   ref={sigRef}
                   penColor="#000"
@@ -256,21 +256,21 @@ export default function SignDocument() {
                   onEnd={onSignEnd}
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-2">Draw your signature above</p>
+              <p className="text-xs text-slate-400 mt-2">Draw your signature above</p>
             </div>
 
             {/* Identity verification */}
-            <div className="bg-navy-800 border border-navy-600 rounded-xl p-4">
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
-                <Shield size={16} className="text-accent" />
-                <label className="text-sm font-semibold text-gray-300">Identity Verification</label>
+                <Shield size={16} className="text-blue-500" />
+                <label className="text-sm font-semibold text-slate-600">Identity Verification</label>
               </div>
-              <p className="text-xs text-gray-400 mb-3">Enter your date of birth to confirm your identity</p>
+              <p className="text-xs text-slate-500 mb-3">Enter your date of birth to confirm your identity</p>
               <input
                 type="date"
                 value={typedDob}
                 onChange={e => setTypedDob(e.target.value)}
-                className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white focus:outline-none focus:border-accent"
+                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
               />
             </div>
 
@@ -285,9 +285,9 @@ export default function SignDocument() {
             </LoadingButton>
           </>
         ) : (
-          <div className="bg-navy-700/50 border border-navy-600 rounded-xl p-6 text-center">
-            <Shield size={28} className="text-gray-500 mx-auto mb-2" />
-            <p className="text-gray-400 text-sm">Read the document above and tick the confirmation box to proceed with signing</p>
+          <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-6 text-center">
+            <Shield size={28} className="text-slate-400 mx-auto mb-2" />
+            <p className="text-slate-500 text-sm">Read the document above and tick the confirmation box to proceed with signing</p>
           </div>
         )}
       </div>
