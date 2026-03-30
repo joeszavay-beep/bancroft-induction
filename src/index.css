@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy-950: #0a0e1a;
+  --color-navy-900: #0f1529;
+  --color-navy-800: #141c36;
+  --color-navy-700: #1c2744;
+  --color-navy-600: #253356;
+  --color-accent: #3b82f6;
+  --color-accent-light: #60a5fa;
+  --color-accent-dark: #2563eb;
+  --color-success: #22c55e;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-navy-950);
+  color: white;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-navy-900);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-navy-600);
+  border-radius: 3px;
+}
+
+/* Signature canvas */
+.sig-canvas {
+  touch-action: none;
+}
