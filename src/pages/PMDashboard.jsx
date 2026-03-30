@@ -522,18 +522,34 @@ function TeamTab({ operatives, projects, onRefresh }) {
     e.preventDefault()
     if (!name.trim() || !projectId) return
     setSaving(true)
-    const { error } = await supabase.from('operatives').insert({
+    const { data, error } = await supabase.from('operatives').insert({
       name: name.trim(),
       project_id: projectId,
       mobile: mobile.trim() || null,
       email: email.trim() || null,
-    })
-    setSaving(false)
+    }).select().single()
     if (error) {
+      setSaving(false)
       toast.error('Failed to add operative')
       return
     }
-    toast.success('Operative added')
+    // Send invite email/SMS
+    if (data && (email.trim() || mobile.trim())) {
+      const proj = projects.find(p => p.id === projectId)
+      await fetch('/api/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          operativeId: data.id,
+          operativeName: name.trim(),
+          email: email.trim() || null,
+          mobile: mobile.trim() || null,
+          projectName: proj?.name || '',
+        }),
+      }).catch(() => {})
+    }
+    setSaving(false)
+    toast.success(email.trim() ? 'Operative added — invite sent' : 'Operative added')
     setShowAdd(false)
     setName('')
     setProjectId('')
