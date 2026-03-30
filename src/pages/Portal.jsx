@@ -57,8 +57,8 @@ export default function Portal() {
             <ArrowLeft size={22} />
           </button>
           <div>
-            <h1 className="text-lg font-bold text-white">Sign-Off Portal</h1>
-            <p className="text-xs text-gray-400">Bancroft Ltd</p>
+            <img src="/bancroft-logo.png" alt="Bancroft" className="h-7" />
+            <span className="text-xs text-gray-400">Sign-Off Portal</span>
           </div>
         </header>
         <div className="p-4 space-y-2">

@@ -26,9 +26,7 @@ export default function PMLogin() {
 
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-accent/10 border border-accent/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Lock size={28} className="text-accent" />
-          </div>
+          <img src="/bancroft-logo.png" alt="Bancroft" className="h-12 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-white mb-1">Project Manager Login</h1>
           <p className="text-gray-400 text-sm">Enter your password to continue</p>
         </div>

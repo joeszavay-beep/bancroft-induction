@@ -32,7 +32,8 @@ export default function OperativeSelect() {
         <button onClick={() => navigate('/')} className="p-1 text-gray-400 hover:text-white transition-colors">
           <ArrowLeft size={22} />
         </button>
-        <div>
+        <img src="/bancroft-logo.png" alt="Bancroft" className="h-7" />
+        <div className="flex-1">
           <h1 className="text-lg font-bold text-white">Select Your Name</h1>
           <p className="text-xs text-gray-400">Tap your name to begin</p>
         </div>

@@ -69,8 +69,8 @@ export default function PMDashboard() {
     <div className="min-h-dvh bg-navy-950 flex flex-col">
       {/* Header */}
       <header className="bg-navy-900 border-b border-navy-700 px-4 py-3 flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-lg font-bold text-white">Bancroft Ltd</h1>
+        <div className="flex items-center gap-3">
+          <img src="/bancroft-logo.png" alt="Bancroft" className="h-8" />
           <p className="text-xs text-gray-400">Project Manager</p>
         </div>
         <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-white transition-colors">
@@ -80,7 +80,7 @@ export default function PMDashboard() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 pb-24">
-        {tab === 'home' && <HomeTab projects={projects} operatives={operatives} documents={documents} signatures={signatures} />}
+        {tab === 'home' && <HomeTab projects={projects} operatives={operatives} documents={documents} signatures={signatures} onNavigate={setTab} />}
         {tab === 'projects' && <ProjectsTab projects={projects} documents={documents} operatives={operatives} signatures={signatures} onRefresh={loadData} />}
         {tab === 'team' && <TeamTab operatives={operatives} projects={projects} onRefresh={loadData} />}
         {tab === 'portal' && <PortalTab projects={projects} navigate={navigate} />}
@@ -107,12 +107,12 @@ export default function PMDashboard() {
 }
 
 /* ==================== HOME TAB ==================== */
-function HomeTab({ projects, operatives, documents, signatures }) {
+function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
   const stats = [
-    { label: 'Projects', value: projects.length, icon: FolderOpen, color: 'text-accent' },
-    { label: 'Operatives', value: operatives.length, icon: Users, color: 'text-accent-light' },
-    { label: 'Documents', value: documents.length, icon: FileText, color: 'text-warning' },
-    { label: 'Signatures', value: signatures.length, icon: CheckCircle2, color: 'text-success' },
+    { label: 'Projects', value: projects.length, icon: FolderOpen, color: 'text-accent', tab: 'projects' },
+    { label: 'Operatives', value: operatives.length, icon: Users, color: 'text-accent-light', tab: 'team' },
+    { label: 'Documents', value: documents.length, icon: FileText, color: 'text-warning', tab: 'projects' },
+    { label: 'Signatures', value: signatures.length, icon: CheckCircle2, color: 'text-success', tab: 'portal' },
   ]
 
   const recentSigs = signatures.slice(0, 5)
@@ -123,11 +123,15 @@ function HomeTab({ projects, operatives, documents, signatures }) {
         <h2 className="text-xl font-bold text-white mb-4">Dashboard</h2>
         <div className="grid grid-cols-2 gap-3">
           {stats.map(s => (
-            <div key={s.label} className="bg-navy-800 border border-navy-600 rounded-xl p-4">
+            <button
+              key={s.label}
+              onClick={() => onNavigate(s.tab)}
+              className="bg-navy-800 border border-navy-600 rounded-xl p-4 text-left hover:border-accent/50 active:scale-[0.97] transition-all"
+            >
               <s.icon size={20} className={s.color} />
               <p className="text-2xl font-bold text-white mt-2">{s.value}</p>
               <p className="text-xs text-gray-400">{s.label}</p>
-            </div>
+            </button>
           ))}
         </div>
       </div>

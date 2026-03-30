@@ -7,10 +7,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center p-6 bg-navy-950">
       <div className="text-center mb-12">
-        <div className="w-20 h-20 bg-accent/10 border border-accent/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
-          <span className="text-3xl font-bold text-accent">B</span>
-        </div>
-        <h1 className="text-3xl font-bold text-white mb-2">Bancroft Ltd</h1>
+        <img src="/bancroft-logo.png" alt="Bancroft" className="h-16 mx-auto mb-6" />
         <p className="text-gray-400 text-sm">Site Induction & RAMS Sign-Off</p>
       </div>
 
