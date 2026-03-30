@@ -165,7 +165,8 @@ function ProjectsTab({ projects, documents, operatives, onRefresh }) {
     const { error } = await supabase.from('projects').insert({ name: name.trim(), location: location.trim() })
     setSaving(false)
     if (error) {
-      toast.error('Failed to add project')
+      console.error('Add project error:', error)
+      toast.error(`Failed to add project: ${error.message}`)
       return
     }
     toast.success('Project added')
