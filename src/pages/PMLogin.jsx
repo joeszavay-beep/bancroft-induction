@@ -1,21 +1,56 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
 import { ArrowLeft, Lock, Eye, EyeOff } from 'lucide-react'
 import LoadingButton from '../components/LoadingButton'
 
 export default function PMLogin() {
   const navigate = useNavigate()
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault()
-    if (password === 'TEST') {
-      sessionStorage.setItem('pm_auth', 'true')
-      navigate('/pm')
+    if (!email.trim() || !password.trim()) return
+    setLoading(true)
+    setError('')
+
+    const { data, error: dbErr } = await supabase
+      .from('managers')
+      .select('*')
+      .eq('email', email.trim().toLowerCase())
+      .eq('password', password.trim())
+      .single()
+
+    setLoading(false)
+
+    if (dbErr || !data) {
+      setError('Invalid email or password')
+      return
+    }
+
+    if (!data.is_active) {
+      setError('This account has been disabled. Contact your admin.')
+      return
+    }
+
+    // Store manager data in session
+    sessionStorage.setItem('pm_auth', 'true')
+    sessionStorage.setItem('manager_data', JSON.stringify({
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      project_ids: data.project_ids || [],
+    }))
+
+    if (data.role === 'admin') {
+      navigate('/admin')
     } else {
-      setError('Incorrect password')
+      navigate('/pm')
     }
   }
 
@@ -35,10 +70,20 @@ export default function PMLogin() {
               <Lock size={26} className="text-white" />
             </div>
             <h1 className="text-2xl font-semibold text-slate-900 mb-1">Manager Login</h1>
-            <p className="text-slate-400 text-sm">Enter your password to continue</p>
+            <p className="text-slate-400 text-sm">Sign in with your account</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <input
+                type="email"
+                value={email}
+                onChange={e => { setEmail(e.target.value); setError('') }}
+                placeholder="Email address"
+                className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10 transition-all"
+                autoFocus
+              />
+            </div>
             <div>
               <div className="relative">
                 <input
@@ -47,7 +92,6 @@ export default function PMLogin() {
                   onChange={e => { setPassword(e.target.value); setError('') }}
                   placeholder="Password"
                   className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10 transition-all pr-12"
-                  autoFocus
                 />
                 <button
                   type="button"
@@ -64,7 +108,7 @@ export default function PMLogin() {
                 </p>
               )}
             </div>
-            <LoadingButton type="submit" className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-sm shadow-blue-500/20 rounded-xl">
+            <LoadingButton loading={loading} type="submit" className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-sm shadow-blue-500/20 rounded-xl">
               Sign In
             </LoadingButton>
           </form>

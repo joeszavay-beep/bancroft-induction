@@ -30,6 +30,10 @@ export default function PMDashboard() {
   const [signatures, setSignatures] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+  const managerProjectIds = managerData.project_ids || []
+  const isAdmin = managerData.role === 'admin'
+
   useEffect(() => {
     if (sessionStorage.getItem('pm_auth') !== 'true') {
       navigate('/pm-login')
@@ -46,15 +50,24 @@ export default function PMDashboard() {
       supabase.from('documents').select('*').order('created_at', { ascending: false }),
       supabase.from('signatures').select('*').order('signed_at', { ascending: false }),
     ])
-    setProjects(p.data || [])
-    setOperatives(o.data || [])
-    setDocuments(d.data || [])
-    setSignatures(s.data || [])
+
+    let filteredProjects = p.data || []
+    // Filter projects if manager has restricted access
+    if (!isAdmin && managerProjectIds.length > 0) {
+      filteredProjects = filteredProjects.filter(proj => managerProjectIds.includes(proj.id))
+    }
+    const projectIds = new Set(filteredProjects.map(proj => proj.id))
+
+    setProjects(filteredProjects)
+    setOperatives((o.data || []).filter(op => !op.project_id || projectIds.has(op.project_id)))
+    setDocuments((d.data || []).filter(doc => projectIds.has(doc.project_id)))
+    setSignatures((s.data || []).filter(sig => projectIds.has(sig.project_id)))
     setLoading(false)
   }
 
   const handleLogout = () => {
     sessionStorage.removeItem('pm_auth')
+    sessionStorage.removeItem('manager_data')
     navigate('/')
   }
 
@@ -79,11 +92,21 @@ export default function PMDashboard() {
           <button onClick={() => setTab('home')}>
             <img src="/bancroft-logo.png" alt="Bancroft" className="h-8" />
           </button>
-          <p className="text-xs text-gray-400">Project Manager</p>
+          <div>
+            <p className="text-xs text-white font-medium">{managerData.name || 'Manager'}</p>
+            <p className="text-[10px] text-gray-500">{isAdmin ? 'Admin' : 'Project Manager'}</p>
+          </div>
         </div>
-        <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-white transition-colors">
-          <LogOut size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+          {isAdmin && (
+            <button onClick={() => navigate('/admin')} className="px-2.5 py-1.5 text-[11px] text-accent bg-accent/10 hover:bg-accent/20 rounded-lg transition-colors font-medium">
+              Admin
+            </button>
+          )}
+          <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-white transition-colors">
+            <LogOut size={20} />
+          </button>
+        </div>
       </header>
 
       {/* Content */}

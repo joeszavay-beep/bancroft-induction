@@ -7,6 +7,7 @@ import OperativeDocuments from './pages/OperativeDocuments'
 import SignDocument from './pages/SignDocument'
 import OperativeProfile from './pages/OperativeProfile'
 import Portal from './pages/Portal'
+import AdminDashboard from './pages/AdminDashboard'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
       <Route path="/operative/:operativeId/documents" element={<OperativeDocuments />} />
       <Route path="/operative/:operativeId/sign/:documentId" element={<SignDocument />} />
       <Route path="/operative/:operativeId/profile" element={<OperativeProfile />} />
+      <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/portal" element={<Portal />} />
       <Route path="/portal/:projectId" element={<Portal />} />
     </Routes>
