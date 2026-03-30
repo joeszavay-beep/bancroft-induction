@@ -13,6 +13,7 @@ export default function OperativeProfile() {
   const [saving, setSaving] = useState(false)
 
   const [role, setRole] = useState('')
+  const [otherRole, setOtherRole] = useState('')
   const [dob, setDob] = useState('')
   const [niNumber, setNiNumber] = useState('')
   const [address, setAddress] = useState('')
@@ -36,7 +37,13 @@ export default function OperativeProfile() {
       return
     }
     setOperative(data)
-    setRole(data.role || '')
+    const trades = ['Labourer', 'Apprentice', 'Electrician', 'Plumber', 'BMS Engineer', 'Lighting Control']
+    if (data.role && !trades.includes(data.role)) {
+      setRole('Other')
+      setOtherRole(data.role)
+    } else {
+      setRole(data.role || '')
+    }
     setDob(data.date_of_birth || '')
     setNiNumber(data.ni_number || '')
     setAddress(data.address || '')
@@ -51,7 +58,7 @@ export default function OperativeProfile() {
     e.preventDefault()
     setSaving(true)
     const { error } = await supabase.from('operatives').update({
-      role: role.trim() || null,
+      role: (role === 'Other' ? otherRole.trim() : role.trim()) || null,
       date_of_birth: dob || null,
       ni_number: niNumber.trim().toUpperCase() || null,
       address: address.trim() || null,
@@ -112,12 +119,28 @@ export default function OperativeProfile() {
 
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Role / Trade</label>
-            <input
+            <select
               value={role}
-              onChange={e => setRole(e.target.value)}
-              placeholder="e.g. Electrician, Plumber, Labourer"
-              className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent"
-            />
+              onChange={e => { setRole(e.target.value); if (e.target.value !== 'Other') setOtherRole('') }}
+              className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white focus:outline-none focus:border-accent"
+            >
+              <option value="">Select trade</option>
+              <option value="Labourer">Labourer</option>
+              <option value="Apprentice">Apprentice</option>
+              <option value="Electrician">Electrician</option>
+              <option value="Plumber">Plumber</option>
+              <option value="BMS Engineer">BMS Engineer</option>
+              <option value="Lighting Control">Lighting Control</option>
+              <option value="Other">Other (Specify)</option>
+            </select>
+            {role === 'Other' && (
+              <input
+                value={otherRole}
+                onChange={e => setOtherRole(e.target.value)}
+                placeholder="Specify your trade"
+                className="w-full mt-2 px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent"
+              />
+            )}
           </div>
 
           <div>
