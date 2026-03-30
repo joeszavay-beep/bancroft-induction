@@ -7,15 +7,18 @@ import LoadingButton from '../components/LoadingButton'
 import {
   Home, FolderOpen, Users, Globe, LogOut, Plus, Trash2, Upload,
   FileText, UserPlus, ChevronRight, CheckCircle2, Clock, AlertCircle, Download,
-  RefreshCw, Mail, Settings, Bell, ShieldCheck, FileWarning, ClipboardList, ArrowLeft
+  RefreshCw, Mail, Settings, Bell, ShieldCheck, FileWarning, ClipboardList, ArrowLeft,
+  MessageSquare
 } from 'lucide-react'
 import { generateSignOffSheet } from '../lib/generateSignOffSheet'
 import { generateAuditReport } from '../lib/generateAuditReport'
+import { generateToolboxPDF } from '../lib/generateToolboxPDF'
 
 const TABS = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'projects', label: 'Projects', icon: FolderOpen },
   { id: 'team', label: 'Team', icon: Users },
+  { id: 'toolbox', label: 'Toolbox', icon: MessageSquare },
   { id: 'portal', label: 'Portal', icon: Globe },
   { id: 'hsreport', label: 'H&S', icon: ClipboardList },
   { id: 'settings', label: 'Settings', icon: Settings },
@@ -114,6 +117,7 @@ export default function PMDashboard() {
         {tab === 'home' && <HomeTab projects={projects} operatives={operatives} documents={documents} signatures={signatures} onNavigate={setTab} />}
         {tab === 'projects' && <ProjectsTab projects={projects} documents={documents} operatives={operatives} signatures={signatures} onRefresh={loadData} />}
         {tab === 'team' && <TeamTab operatives={operatives} projects={projects} onRefresh={loadData} />}
+        {tab === 'toolbox' && <ToolboxTab projects={projects} navigate={navigate} />}
         {tab === 'portal' && <PortalTab projects={projects} navigate={navigate} />}
         {tab === 'hsreport' && <HSReportTab />}
         {tab === 'settings' && <SettingsTab />}
@@ -948,6 +952,226 @@ function SettingsTab() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ==================== H&S REPORT TAB ==================== */
+/* ==================== TOOLBOX TAB ==================== */
+function ToolboxTab({ projects, navigate }) {
+  const [talks, setTalks] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [projectId, setProjectId] = useState('')
+  const [talkSigs, setTalkSigs] = useState({})
+  const [exporting, setExporting] = useState(null)
+
+  useEffect(() => {
+    loadTalks()
+  }, [])
+
+  async function loadTalks() {
+    setLoading(true)
+    const { data: t } = await supabase
+      .from('toolbox_talks')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    const allTalks = t || []
+    setTalks(allTalks)
+
+    // Load signature counts
+    if (allTalks.length > 0) {
+      const { data: sigs } = await supabase
+        .from('toolbox_signatures')
+        .select('talk_id, operative_name, signed_at')
+      const grouped = {}
+      ;(sigs || []).forEach(s => {
+        if (!grouped[s.talk_id]) grouped[s.talk_id] = []
+        grouped[s.talk_id].push(s)
+      })
+      setTalkSigs(grouped)
+    }
+    setLoading(false)
+  }
+
+  async function createTalk(e) {
+    e.preventDefault()
+    if (!title.trim() || !projectId) return
+    setSaving(true)
+    const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+    const { data, error } = await supabase.from('toolbox_talks').insert({
+      title: title.trim(),
+      description: description.trim() || null,
+      project_id: projectId,
+      created_by: managerData.id || null,
+    }).select().single()
+    setSaving(false)
+    if (error) {
+      toast.error('Failed to create toolbox talk')
+      return
+    }
+    toast.success('Toolbox talk created')
+    setShowAdd(false)
+    setTitle(''); setDescription(''); setProjectId('')
+    navigate(`/toolbox-live/${data.id}`)
+  }
+
+  async function handleExport(talk) {
+    setExporting(talk.id)
+    try {
+      const { data: proj } = await supabase.from('projects').select('*').eq('id', talk.project_id).single()
+      const { data: sigs } = await supabase.from('toolbox_signatures').select('*').eq('talk_id', talk.id).order('signed_at')
+      await generateToolboxPDF({ talk, project: proj, signatures: sigs || [] })
+      toast.success('PDF downloaded')
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to generate PDF')
+    }
+    setExporting(null)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
+  const openTalks = talks.filter(t => t.is_open)
+  const closedTalks = talks.filter(t => !t.is_open)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-slate-900">Toolbox Talks</h2>
+        <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors">
+          <Plus size={16} /> New Talk
+        </button>
+      </div>
+
+      {/* Open talks */}
+      {openTalks.length > 0 && (
+        <div>
+          <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-2">Live Now</p>
+          <div className="space-y-2">
+            {openTalks.map(talk => {
+              const proj = projects.find(p => p.id === talk.project_id)
+              const sigs = talkSigs[talk.id] || []
+              return (
+                <button
+                  key={talk.id}
+                  onClick={() => navigate(`/toolbox-live/${talk.id}`)}
+                  className="w-full bg-white border border-green-200 rounded-xl p-4 text-left hover:shadow-md transition-all active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 bg-success rounded-full animate-pulse shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-slate-900 font-semibold truncate">{talk.title}</p>
+                      <p className="text-xs text-slate-400">{proj?.name} · {sigs.length} signed</p>
+                    </div>
+                    <ChevronRight size={16} className="text-slate-400" />
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Completed talks */}
+      {closedTalks.length > 0 && (
+        <div>
+          <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-2">Completed</p>
+          <div className="space-y-2">
+            {closedTalks.map(talk => {
+              const proj = projects.find(p => p.id === talk.project_id)
+              const sigs = talkSigs[talk.id] || []
+              return (
+                <div key={talk.id} className="bg-white border border-slate-200 rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-slate-900 font-semibold truncate">{talk.title}</p>
+                      <p className="text-xs text-slate-400">{proj?.name} · {new Date(talk.created_at).toLocaleDateString()} · {sigs.length} attendees</p>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/toolbox-live/${talk.id}`)}
+                      className="p-2 text-slate-400 hover:text-blue-500 transition-colors"
+                      title="View details"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                    <button
+                      disabled={exporting === talk.id}
+                      onClick={() => handleExport(talk)}
+                      className="p-2 text-slate-400 hover:text-blue-500 transition-colors"
+                      title="Download PDF"
+                    >
+                      {exporting === talk.id ? (
+                        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Download size={16} />
+                      )}
+                    </button>
+                  </div>
+                  {sigs.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2.5">
+                      {sigs.map(s => (
+                        <span key={s.signed_at} className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-full">{s.operative_name}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {talks.length === 0 && (
+        <div className="text-center py-12">
+          <MessageSquare size={40} className="mx-auto mb-3 text-slate-200" />
+          <p className="text-slate-400">No toolbox talks yet</p>
+          <p className="text-xs text-slate-300 mt-1">Create one to generate a QR code for operatives to sign</p>
+        </div>
+      )}
+
+      {/* Create Talk Modal */}
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="New Toolbox Talk">
+        <form onSubmit={createTalk} className="space-y-4">
+          <input
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Talk title (e.g. Working at Height)"
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
+            autoFocus
+          />
+          <select
+            value={projectId}
+            onChange={e => setProjectId(e.target.value)}
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
+          >
+            <option value="">Select project / site</option>
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Brief description of the talk (optional)"
+            rows={3}
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10 resize-none"
+          />
+          <LoadingButton loading={saving} type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-xl">
+            Create & Show QR Code
+          </LoadingButton>
+        </form>
+      </Modal>
     </div>
   )
 }

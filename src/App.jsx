@@ -8,6 +8,8 @@ import SignDocument from './pages/SignDocument'
 import OperativeProfile from './pages/OperativeProfile'
 import Portal from './pages/Portal'
 import AdminDashboard from './pages/AdminDashboard'
+import ToolboxTalkLive from './pages/ToolboxTalkLive'
+import ToolboxSign from './pages/ToolboxSign'
 
 export default function App() {
   return (
@@ -20,6 +22,8 @@ export default function App() {
       <Route path="/operative/:operativeId/sign/:documentId" element={<SignDocument />} />
       <Route path="/operative/:operativeId/profile" element={<OperativeProfile />} />
       <Route path="/admin" element={<AdminDashboard />} />
+      <Route path="/toolbox-live/:talkId" element={<ToolboxTalkLive />} />
+      <Route path="/toolbox/:talkId" element={<ToolboxSign />} />
       <Route path="/portal" element={<Portal />} />
       <Route path="/portal/:projectId" element={<Portal />} />
     </Routes>
