@@ -7,7 +7,7 @@ import LoadingButton from '../components/LoadingButton'
 import {
   Home, FolderOpen, Users, Globe, LogOut, Plus, Trash2, Upload,
   FileText, UserPlus, ChevronRight, CheckCircle2, Clock, AlertCircle, Download,
-  RefreshCw, Mail, Settings, Bell, ShieldCheck, FileWarning
+  RefreshCw, Mail, Settings, Bell, ShieldCheck, FileWarning, ClipboardList, ArrowLeft
 } from 'lucide-react'
 import { generateSignOffSheet } from '../lib/generateSignOffSheet'
 import { generateAuditReport } from '../lib/generateAuditReport'
@@ -17,6 +17,7 @@ const TABS = [
   { id: 'projects', label: 'Projects', icon: FolderOpen },
   { id: 'team', label: 'Team', icon: Users },
   { id: 'portal', label: 'Portal', icon: Globe },
+  { id: 'hsreport', label: 'H&S', icon: ClipboardList },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
@@ -70,7 +71,14 @@ export default function PMDashboard() {
       {/* Header */}
       <header className="bg-navy-900 border-b border-navy-700 px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <img src="/bancroft-logo.png" alt="Bancroft" className="h-8" />
+          {tab !== 'home' && (
+            <button onClick={() => setTab('home')} className="p-1 text-gray-400 hover:text-white transition-colors">
+              <ArrowLeft size={22} />
+            </button>
+          )}
+          <button onClick={() => setTab('home')}>
+            <img src="/bancroft-logo.png" alt="Bancroft" className="h-8" />
+          </button>
           <p className="text-xs text-gray-400">Project Manager</p>
         </div>
         <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-white transition-colors">
@@ -84,6 +92,7 @@ export default function PMDashboard() {
         {tab === 'projects' && <ProjectsTab projects={projects} documents={documents} operatives={operatives} signatures={signatures} onRefresh={loadData} />}
         {tab === 'team' && <TeamTab operatives={operatives} projects={projects} onRefresh={loadData} />}
         {tab === 'portal' && <PortalTab projects={projects} navigate={navigate} />}
+        {tab === 'hsreport' && <HSReportTab />}
         {tab === 'settings' && <SettingsTab />}
       </div>
 
@@ -806,6 +815,20 @@ function SettingsTab() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ==================== H&S REPORT TAB ==================== */
+function HSReportTab() {
+  return (
+    <div className="space-y-4 -mx-4 -mt-4">
+      <iframe
+        src="/hs-report.html"
+        className="w-full border-0"
+        style={{ height: 'calc(100dvh - 120px)' }}
+        title="H&S Report Generator"
+      />
     </div>
   )
 }
