@@ -33,7 +33,7 @@ export default function LandingPage() {
             <Briefcase size={24} className="text-accent" />
           </div>
           <div className="text-left">
-            <p className="text-white font-semibold">I'm a Project Manager</p>
+            <p className="text-white font-semibold">Manager Login</p>
             <p className="text-gray-400 text-sm">Manage projects, team & documents</p>
           </div>
         </button>
