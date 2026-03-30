@@ -149,20 +149,24 @@ export default function Portal() {
                   {opSigs.length > 0 && (
                     <div className="border-t border-navy-600 p-3 space-y-2">
                       {opSigs.map(sig => (
-                        <div key={sig.id} className="flex items-center gap-3 bg-navy-700 rounded-lg p-2.5">
+                        <div key={sig.id} className={`flex items-center gap-3 rounded-lg p-2.5 ${sig.invalidated ? 'bg-danger/10 border border-danger/20' : 'bg-navy-700'}`}>
                           {sig.signature_url ? (
-                            <img src={sig.signature_url} alt="Signature" className="w-16 h-10 object-contain bg-white rounded" />
+                            <img src={sig.signature_url} alt="Signature" className={`w-16 h-10 object-contain bg-white rounded ${sig.invalidated ? 'opacity-40' : ''}`} />
                           ) : (
                             <div className="w-16 h-10 bg-navy-600 rounded flex items-center justify-center">
                               <FileText size={14} className="text-gray-500" />
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm text-white truncate">{sig.document_title}</p>
-                            <div className="flex items-center gap-1 text-xs text-gray-400">
-                              <Calendar size={10} />
-                              {new Date(sig.signed_at).toLocaleDateString()} {new Date(sig.signed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            <p className={`text-sm truncate ${sig.invalidated ? 'text-gray-500 line-through' : 'text-white'}`}>{sig.document_title}</p>
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                              <span className="flex items-center gap-1">
+                                <Calendar size={10} />
+                                {new Date(sig.signed_at).toLocaleDateString()} {new Date(sig.signed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              {sig.ip_address && <span className="text-gray-500">IP: {sig.ip_address}</span>}
                             </div>
+                            {sig.invalidated && <p className="text-[11px] text-danger mt-0.5">Invalidated — document updated, re-sign required</p>}
                           </div>
                         </div>
                       ))}

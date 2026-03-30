@@ -6,15 +6,18 @@ import Modal from '../components/Modal'
 import LoadingButton from '../components/LoadingButton'
 import {
   Home, FolderOpen, Users, Globe, LogOut, Plus, Trash2, Upload,
-  FileText, UserPlus, ChevronRight, CheckCircle2, Clock, AlertCircle, Download
+  FileText, UserPlus, ChevronRight, CheckCircle2, Clock, AlertCircle, Download,
+  RefreshCw, Mail, Settings, Bell, ShieldCheck, FileWarning
 } from 'lucide-react'
 import { generateSignOffSheet } from '../lib/generateSignOffSheet'
+import { generateAuditReport } from '../lib/generateAuditReport'
 
 const TABS = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'projects', label: 'Projects', icon: FolderOpen },
   { id: 'team', label: 'Team', icon: Users },
   { id: 'portal', label: 'Portal', icon: Globe },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
 export default function PMDashboard() {
@@ -81,6 +84,7 @@ export default function PMDashboard() {
         {tab === 'projects' && <ProjectsTab projects={projects} documents={documents} operatives={operatives} signatures={signatures} onRefresh={loadData} />}
         {tab === 'team' && <TeamTab operatives={operatives} projects={projects} onRefresh={loadData} />}
         {tab === 'portal' && <PortalTab projects={projects} navigate={navigate} />}
+        {tab === 'settings' && <SettingsTab />}
       </div>
 
       {/* Bottom nav */}
@@ -152,8 +156,10 @@ function HomeTab({ projects, operatives, documents, signatures }) {
 function ProjectsTab({ projects, documents, operatives, signatures, onRefresh }) {
   const [showAdd, setShowAdd] = useState(false)
   const [showUpload, setShowUpload] = useState(null) // project id
+  const [showUpdateDoc, setShowUpdateDoc] = useState(null) // document to update
   const [saving, setSaving] = useState(false)
   const [downloading, setDownloading] = useState(null)
+  const [exportingAudit, setExportingAudit] = useState(null)
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
   const [uploadFile, setUploadFile] = useState(null)
@@ -232,6 +238,59 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
     onRefresh()
   }
 
+  async function updateDocument(e) {
+    e.preventDefault()
+    if (!uploadFile || !showUpdateDoc) return
+    setSaving(true)
+    const fileExt = uploadFile.name.split('.').pop()
+    const filePath = `${showUpdateDoc.project_id}/${Date.now()}.${fileExt}`
+    const { error: upErr } = await supabase.storage.from('documents').upload(filePath, uploadFile)
+    if (upErr) {
+      setSaving(false)
+      toast.error('Failed to upload file')
+      return
+    }
+    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
+    // Update document with new file and increment version
+    const { error: dbErr } = await supabase.from('documents').update({
+      file_url: urlData.publicUrl,
+      file_name: uploadFile.name,
+      version: (showUpdateDoc.version || 1) + 1,
+    }).eq('id', showUpdateDoc.id)
+    if (dbErr) {
+      setSaving(false)
+      toast.error('Failed to update document')
+      return
+    }
+    // Invalidate all existing signatures for this document
+    await supabase.from('signatures').update({ invalidated: true }).eq('document_id', showUpdateDoc.id)
+    setSaving(false)
+    toast.success('Document updated — operatives flagged to re-sign')
+    setShowUpdateDoc(null)
+    setUploadFile(null)
+    onRefresh()
+  }
+
+  async function handleAuditExport(project) {
+    setExportingAudit(project.id)
+    try {
+      const projDocs = documents.filter(d => d.project_id === project.id)
+      const projOps = operatives.filter(o => o.project_id === project.id)
+      const projSigs = signatures.filter(s => s.project_id === project.id)
+      await generateAuditReport({
+        project,
+        documents: projDocs,
+        operatives: projOps,
+        signatures: projSigs,
+      })
+      toast.success('Audit report downloaded')
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to generate audit report')
+    }
+    setExportingAudit(null)
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -282,49 +341,75 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                     ) : (
                       <div className="space-y-1.5">
                         {projDocs.map(d => {
-                          const docSigs = signatures.filter(s => s.document_id === d.id)
+                          const docSigs = signatures.filter(s => s.document_id === d.id && !s.invalidated)
+                          const invalidatedCount = signatures.filter(s => s.document_id === d.id && s.invalidated).length
                           return (
-                            <div key={d.id} className="flex items-center gap-2 bg-navy-700 rounded-lg px-3 py-2">
-                              <FileText size={14} className="text-accent shrink-0" />
-                              <span className="flex-1 text-sm text-white truncate">{d.title}</span>
-                              {docSigs.length > 0 && (
-                                <button
-                                  disabled={downloading === d.id}
-                                  onClick={async () => {
-                                    setDownloading(d.id)
-                                    try {
-                                      await generateSignOffSheet({
-                                        projectName: p.name,
-                                        documentTitle: d.title,
-                                        signatures: docSigs,
-                                      })
-                                      toast.success(`Sign-off sheet downloaded (${docSigs.length} signatures)`)
-                                    } catch (err) {
-                                      console.error(err)
-                                      toast.error('Failed to generate PDF')
-                                    }
-                                    setDownloading(null)
-                                  }}
-                                  className="p-1 text-accent hover:text-accent-light transition-colors"
-                                  title="Download sign-off sheet"
-                                >
-                                  {downloading === d.id ? (
-                                    <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                                  ) : (
-                                    <Download size={14} />
-                                  )}
+                            <div key={d.id} className="bg-navy-700 rounded-lg px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <FileText size={14} className="text-accent shrink-0" />
+                                <span className="flex-1 text-sm text-white truncate">{d.title}</span>
+                                <span className="text-[10px] text-gray-500 bg-navy-600 px-1.5 py-0.5 rounded">v{d.version || 1}</span>
+                                {docSigs.length > 0 && (
+                                  <button
+                                    disabled={downloading === d.id}
+                                    onClick={async () => {
+                                      setDownloading(d.id)
+                                      try {
+                                        await generateSignOffSheet({
+                                          projectName: p.name,
+                                          documentTitle: d.title,
+                                          signatures: docSigs,
+                                        })
+                                        toast.success(`Sign-off sheet downloaded (${docSigs.length} signatures)`)
+                                      } catch (err) {
+                                        console.error(err)
+                                        toast.error('Failed to generate PDF')
+                                      }
+                                      setDownloading(null)
+                                    }}
+                                    className="p-1 text-accent hover:text-accent-light transition-colors"
+                                    title="Download sign-off sheet"
+                                  >
+                                    {downloading === d.id ? (
+                                      <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <Download size={14} />
+                                    )}
+                                  </button>
+                                )}
+                                <button onClick={() => { setShowUpdateDoc(d); setUploadFile(null) }} className="p-1 text-warning hover:text-yellow-400 transition-colors" title="Upload new version">
+                                  <RefreshCw size={14} />
                                 </button>
+                                <span className="text-xs text-gray-500">{docSigs.length} sig{docSigs.length !== 1 ? 's' : ''}</span>
+                                <button onClick={() => deleteDocument(d.id)} className="p-1 text-gray-500 hover:text-danger transition-colors">
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                              {invalidatedCount > 0 && (
+                                <div className="flex items-center gap-1.5 mt-1.5 text-warning">
+                                  <FileWarning size={12} />
+                                  <span className="text-[11px]">{invalidatedCount} signature{invalidatedCount !== 1 ? 's' : ''} invalidated — operatives must re-sign</span>
+                                </div>
                               )}
-                              <span className="text-xs text-gray-500">{docSigs.length} sig{docSigs.length !== 1 ? 's' : ''}</span>
-                              <button onClick={() => deleteDocument(d.id)} className="p-1 text-gray-500 hover:text-danger transition-colors">
-                                <Trash2 size={14} />
-                              </button>
                             </div>
                           )
                         })}
                       </div>
                     )}
-                    <button onClick={() => deleteProject(p.id)} className="w-full mt-2 py-2 text-sm text-danger hover:bg-danger/10 rounded-lg transition-colors">
+                    {/* Audit trail export */}
+                    <button
+                      disabled={exportingAudit === p.id}
+                      onClick={() => handleAuditExport(p)}
+                      className="w-full mt-2 py-2 text-sm text-accent hover:bg-accent/10 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      {exportingAudit === p.id ? (
+                        <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <ShieldCheck size={14} />
+                      )}
+                      Download Audit Trail
+                    </button>
+                    <button onClick={() => deleteProject(p.id)} className="w-full py-2 text-sm text-danger hover:bg-danger/10 rounded-lg transition-colors">
                       Delete Project
                     </button>
                   </div>
@@ -379,6 +464,33 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
           </LoadingButton>
         </form>
       </Modal>
+
+      {/* Update Document Modal */}
+      <Modal open={!!showUpdateDoc} onClose={() => setShowUpdateDoc(null)} title={`Update: ${showUpdateDoc?.title}`}>
+        <form onSubmit={updateDocument} className="space-y-4">
+          <div className="bg-warning/10 border border-warning/30 rounded-lg p-3">
+            <div className="flex items-center gap-2 text-warning mb-1">
+              <FileWarning size={16} />
+              <span className="text-sm font-semibold">Version Control Warning</span>
+            </div>
+            <p className="text-xs text-gray-400">
+              Uploading a new version will <strong className="text-white">invalidate all existing signatures</strong> for this document.
+              All operatives will be flagged to re-sign.
+            </p>
+          </div>
+          <p className="text-sm text-gray-400">Current version: <span className="text-white font-medium">v{showUpdateDoc?.version || 1}</span> → New version: <span className="text-accent font-medium">v{(showUpdateDoc?.version || 1) + 1}</span></p>
+          <div>
+            <label className="block w-full px-4 py-3 bg-navy-700 border border-navy-600 border-dashed rounded-lg text-center cursor-pointer hover:border-accent transition-colors">
+              <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onChange={e => setUploadFile(e.target.files[0])} className="hidden" />
+              <Upload size={20} className="mx-auto text-gray-400 mb-1" />
+              <p className="text-sm text-gray-400">{uploadFile ? uploadFile.name : 'Tap to select new file'}</p>
+            </label>
+          </div>
+          <LoadingButton loading={saving} type="submit" className="w-full bg-warning hover:bg-yellow-600 text-black font-semibold">
+            Update Document & Invalidate Signatures
+          </LoadingButton>
+        </form>
+      </Modal>
     </div>
   )
 }
@@ -391,6 +503,8 @@ function TeamTab({ operatives, projects, onRefresh }) {
   const [name, setName] = useState('')
   const [role, setRole] = useState('')
   const [projectId, setProjectId] = useState('')
+  const [dob, setDob] = useState('')
+  const [niNumber, setNiNumber] = useState('')
 
   async function addOperative(e) {
     e.preventDefault()
@@ -400,6 +514,8 @@ function TeamTab({ operatives, projects, onRefresh }) {
       name: name.trim(),
       role: role.trim() || null,
       project_id: projectId,
+      date_of_birth: dob || null,
+      ni_number: niNumber.trim().toUpperCase() || null,
     })
     setSaving(false)
     if (error) {
@@ -411,6 +527,8 @@ function TeamTab({ operatives, projects, onRefresh }) {
     setName('')
     setRole('')
     setProjectId('')
+    setDob('')
+    setNiNumber('')
     onRefresh()
   }
 
@@ -531,6 +649,24 @@ function TeamTab({ operatives, projects, onRefresh }) {
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
+          <div>
+            <label className="text-xs text-gray-400 mb-1 block">Date of Birth (for identity verification)</label>
+            <input
+              type="date"
+              value={dob}
+              onChange={e => setDob(e.target.value)}
+              className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 mb-1 block">NI Number (optional)</label>
+            <input
+              value={niNumber}
+              onChange={e => setNiNumber(e.target.value)}
+              placeholder="e.g. AB 12 34 56 C"
+              className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent uppercase"
+            />
+          </div>
           <LoadingButton loading={saving} type="submit" className="w-full bg-accent hover:bg-accent-dark text-white">
             Add Operative
           </LoadingButton>
@@ -570,6 +706,108 @@ function PortalTab({ projects, navigate }) {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/* ==================== SETTINGS TAB ==================== */
+function SettingsTab() {
+  const [email, setEmail] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  async function loadSettings() {
+    const { data } = await supabase.from('settings').select('*').eq('key', 'pm_email').single()
+    if (data) setEmail(data.value)
+    setLoaded(true)
+  }
+
+  async function saveEmail(e) {
+    e.preventDefault()
+    if (!email.trim()) return
+    setSaving(true)
+    const { error } = await supabase.from('settings').upsert({
+      key: 'pm_email',
+      value: email.trim(),
+    }, { onConflict: 'key' })
+    setSaving(false)
+    if (error) {
+      toast.error('Failed to save email')
+      return
+    }
+    toast.success('Notification email saved')
+  }
+
+  if (!loaded) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-xl font-bold text-white">Settings</h2>
+
+      <div className="bg-navy-800 border border-navy-600 rounded-xl p-4 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-accent/10 rounded-xl flex items-center justify-center shrink-0">
+            <Mail size={20} className="text-accent" />
+          </div>
+          <div>
+            <p className="text-white font-semibold">Email Notifications</p>
+            <p className="text-xs text-gray-400">Get notified when an operative completes all their documents</p>
+          </div>
+        </div>
+
+        <form onSubmit={saveEmail} className="space-y-3">
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="your@email.com"
+            className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent"
+          />
+          <LoadingButton loading={saving} type="submit" className="w-full bg-accent hover:bg-accent-dark text-white">
+            Save Email
+          </LoadingButton>
+        </form>
+      </div>
+
+      <div className="bg-navy-800 border border-navy-600 rounded-xl p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 bg-accent/10 rounded-xl flex items-center justify-center shrink-0">
+            <ShieldCheck size={20} className="text-accent" />
+          </div>
+          <div>
+            <p className="text-white font-semibold">Security Features</p>
+            <p className="text-xs text-gray-400">Active on all sign-offs</p>
+          </div>
+        </div>
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center gap-2 text-gray-300">
+            <CheckCircle2 size={14} className="text-success" />
+            DOB identity verification on sign-off
+          </div>
+          <div className="flex items-center gap-2 text-gray-300">
+            <CheckCircle2 size={14} className="text-success" />
+            IP address captured with every signature
+          </div>
+          <div className="flex items-center gap-2 text-gray-300">
+            <CheckCircle2 size={14} className="text-success" />
+            Document version control with re-sign flags
+          </div>
+          <div className="flex items-center gap-2 text-gray-300">
+            <CheckCircle2 size={14} className="text-success" />
+            In-app PDF viewer — operatives must read before signing
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
