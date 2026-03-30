@@ -76,10 +76,10 @@ export default function PMLogin() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={e => { setEmail(e.target.value); setError('') }}
-                placeholder="Email address"
+                placeholder="Username or email"
                 className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10 transition-all"
                 autoFocus
               />
