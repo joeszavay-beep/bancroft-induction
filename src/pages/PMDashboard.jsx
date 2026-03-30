@@ -387,6 +387,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
 function TeamTab({ operatives, projects, onRefresh }) {
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(null)
   const [name, setName] = useState('')
   const [role, setRole] = useState('')
   const [projectId, setProjectId] = useState('')
@@ -425,13 +426,24 @@ function TeamTab({ operatives, projects, onRefresh }) {
     onRefresh()
   }
 
-  async function reassignOperative(opId, newProjectId) {
-    const { error } = await supabase.from('operatives').update({ project_id: newProjectId }).eq('id', opId)
-    if (error) {
-      toast.error('Failed to reassign')
+  async function handlePhotoUpload(opId, file) {
+    if (!file) return
+    setUploadingPhoto(opId)
+    const filePath = `photos/${opId}_${Date.now()}.jpg`
+    const { error: upErr } = await supabase.storage.from('documents').upload(filePath, file, { contentType: file.type })
+    if (upErr) {
+      setUploadingPhoto(null)
+      toast.error('Failed to upload photo')
       return
     }
-    toast.success('Operative reassigned')
+    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
+    const { error: dbErr } = await supabase.from('operatives').update({ photo_url: urlData.publicUrl }).eq('id', opId)
+    setUploadingPhoto(null)
+    if (dbErr) {
+      toast.error('Failed to save photo')
+      return
+    }
+    toast.success('Photo updated')
     onRefresh()
   }
 
@@ -455,9 +467,29 @@ function TeamTab({ operatives, projects, onRefresh }) {
             const proj = projects.find(p => p.id === op.project_id)
             return (
               <div key={op.id} className="bg-navy-800 border border-navy-600 rounded-xl p-4 flex items-center gap-3">
-                <div className="w-10 h-10 bg-accent/10 rounded-full flex items-center justify-center shrink-0">
-                  <span className="text-accent font-semibold text-sm">{op.name.charAt(0).toUpperCase()}</span>
-                </div>
+                <label className="relative w-12 h-12 rounded-full shrink-0 cursor-pointer group">
+                  {op.photo_url ? (
+                    <img src={op.photo_url} alt={op.name} className="w-12 h-12 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center">
+                      <span className="text-accent font-semibold">{op.name.charAt(0).toUpperCase()}</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    {uploadingPhoto === op.id ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Upload size={16} className="text-white" />
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={e => handlePhotoUpload(op.id, e.target.files[0])}
+                  />
+                </label>
                 <div className="flex-1 min-w-0">
                   <p className="text-white font-medium truncate">{op.name}</p>
                   <p className="text-xs text-gray-400 truncate">

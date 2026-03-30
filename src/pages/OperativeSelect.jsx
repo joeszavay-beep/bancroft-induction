@@ -67,9 +67,13 @@ export default function OperativeSelect() {
                 onClick={() => navigate(`/operative/${op.id}/documents`)}
                 className="w-full flex items-center gap-3 bg-navy-800 border border-navy-600 rounded-xl p-4 hover:border-accent/50 active:scale-[0.98] transition-all text-left"
               >
-                <div className="w-11 h-11 bg-accent/10 rounded-full flex items-center justify-center shrink-0">
-                  <span className="text-accent font-bold">{op.name.charAt(0).toUpperCase()}</span>
-                </div>
+                {op.photo_url ? (
+                  <img src={op.photo_url} alt={op.name} className="w-11 h-11 rounded-full object-cover shrink-0" />
+                ) : (
+                  <div className="w-11 h-11 bg-accent/10 rounded-full flex items-center justify-center shrink-0">
+                    <span className="text-accent font-bold">{op.name.charAt(0).toUpperCase()}</span>
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-white font-semibold truncate">{op.name}</p>
                   <p className="text-xs text-gray-400 truncate">

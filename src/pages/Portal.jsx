@@ -132,9 +132,13 @@ export default function Portal() {
               return (
                 <div key={op.id} className="bg-navy-800 border border-navy-600 rounded-xl overflow-hidden">
                   <div className="p-4 flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${allDone ? 'bg-success/10' : 'bg-accent/10'}`}>
-                      {allDone ? <CheckCircle2 size={20} className="text-success" /> : <User size={20} className="text-accent" />}
-                    </div>
+                    {op.photo_url ? (
+                      <img src={op.photo_url} alt={op.name} className={`w-10 h-10 rounded-full object-cover shrink-0 ${allDone ? 'ring-2 ring-success' : ''}`} />
+                    ) : (
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${allDone ? 'bg-success/10' : 'bg-accent/10'}`}>
+                        {allDone ? <CheckCircle2 size={20} className="text-success" /> : <User size={20} className="text-accent" />}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-semibold truncate">{op.name}</p>
                       <p className="text-xs text-gray-400">{op.role || 'Operative'} · {opSigs.length}/{documents.length} signed</p>
