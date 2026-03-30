@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { ArrowLeft, FileText, CheckCircle2, Clock, Lock, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, FileText, CheckCircle2, Clock, Lock, AlertTriangle, User } from 'lucide-react'
 
 export default function OperativeDocuments() {
   const { operativeId } = useParams()
@@ -74,6 +74,22 @@ export default function OperativeDocuments() {
       </header>
 
       <div className="p-4 space-y-4">
+        {/* Profile prompt */}
+        {!operative?.date_of_birth && (
+          <button
+            onClick={() => navigate(`/operative/${operativeId}/profile`)}
+            className="w-full flex items-center gap-3 bg-warning/10 border border-warning/30 rounded-xl p-4 text-left active:scale-[0.98] transition-all"
+          >
+            <div className="w-10 h-10 bg-warning/20 rounded-xl flex items-center justify-center shrink-0">
+              <User size={20} className="text-warning" />
+            </div>
+            <div className="flex-1">
+              <p className="text-white font-semibold text-sm">Complete Your Profile</p>
+              <p className="text-xs text-gray-400">DOB, NI number, address & next of kin</p>
+            </div>
+          </button>
+        )}
+
         {/* Progress */}
         <div className="bg-navy-800 border border-navy-600 rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">

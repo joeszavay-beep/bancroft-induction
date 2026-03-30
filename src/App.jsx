@@ -5,6 +5,7 @@ import PMDashboard from './pages/PMDashboard'
 import OperativeSelect from './pages/OperativeSelect'
 import OperativeDocuments from './pages/OperativeDocuments'
 import SignDocument from './pages/SignDocument'
+import OperativeProfile from './pages/OperativeProfile'
 import Portal from './pages/Portal'
 
 export default function App() {
@@ -16,6 +17,7 @@ export default function App() {
       <Route path="/operative" element={<OperativeSelect />} />
       <Route path="/operative/:operativeId/documents" element={<OperativeDocuments />} />
       <Route path="/operative/:operativeId/sign/:documentId" element={<SignDocument />} />
+      <Route path="/operative/:operativeId/profile" element={<OperativeProfile />} />
       <Route path="/portal" element={<Portal />} />
       <Route path="/portal/:projectId" element={<Portal />} />
     </Routes>

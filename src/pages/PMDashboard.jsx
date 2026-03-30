@@ -505,10 +505,9 @@ function TeamTab({ operatives, projects, onRefresh }) {
   const [saving, setSaving] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(null)
   const [name, setName] = useState('')
-  const [role, setRole] = useState('')
   const [projectId, setProjectId] = useState('')
-  const [dob, setDob] = useState('')
-  const [niNumber, setNiNumber] = useState('')
+  const [mobile, setMobile] = useState('')
+  const [email, setEmail] = useState('')
 
   async function addOperative(e) {
     e.preventDefault()
@@ -516,10 +515,9 @@ function TeamTab({ operatives, projects, onRefresh }) {
     setSaving(true)
     const { error } = await supabase.from('operatives').insert({
       name: name.trim(),
-      role: role.trim() || null,
       project_id: projectId,
-      date_of_birth: dob || null,
-      ni_number: niNumber.trim().toUpperCase() || null,
+      mobile: mobile.trim() || null,
+      email: email.trim() || null,
     })
     setSaving(false)
     if (error) {
@@ -529,10 +527,9 @@ function TeamTab({ operatives, projects, onRefresh }) {
     toast.success('Operative added')
     setShowAdd(false)
     setName('')
-    setRole('')
     setProjectId('')
-    setDob('')
-    setNiNumber('')
+    setMobile('')
+    setEmail('')
     onRefresh()
   }
 
@@ -614,9 +611,15 @@ function TeamTab({ operatives, projects, onRefresh }) {
                 </label>
                 <div className="flex-1 min-w-0">
                   <p className="text-white font-medium truncate">{op.name}</p>
-                  <p className="text-xs text-gray-400 truncate">
-                    {op.role && `${op.role} · `}{proj ? proj.name : 'Unassigned'}
-                  </p>
+                  <p className="text-xs text-gray-400 truncate">{proj ? proj.name : 'Unassigned'}</p>
+                  {(op.mobile || op.email) && (
+                    <p className="text-[11px] text-gray-500 truncate mt-0.5">
+                      {op.mobile}{op.mobile && op.email ? ' · ' : ''}{op.email}
+                    </p>
+                  )}
+                  {!op.date_of_birth && (
+                    <p className="text-[11px] text-warning mt-0.5">Profile incomplete</p>
+                  )}
                 </div>
                 <button onClick={() => removeOperative(op.id)} className="p-2 text-gray-500 hover:text-danger transition-colors">
                   <Trash2 size={16} />
@@ -637,40 +640,31 @@ function TeamTab({ operatives, projects, onRefresh }) {
             className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent"
             autoFocus
           />
-          <input
-            value={role}
-            onChange={e => setRole(e.target.value)}
-            placeholder="Role (optional)"
-            className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent"
-          />
           <select
             value={projectId}
             onChange={e => setProjectId(e.target.value)}
             className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white focus:outline-none focus:border-accent"
           >
-            <option value="">Select project</option>
+            <option value="">Select site</option>
             {projects.map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">Date of Birth (for identity verification)</label>
-            <input
-              type="date"
-              value={dob}
-              onChange={e => setDob(e.target.value)}
-              className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white focus:outline-none focus:border-accent"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">NI Number (optional)</label>
-            <input
-              value={niNumber}
-              onChange={e => setNiNumber(e.target.value)}
-              placeholder="e.g. AB 12 34 56 C"
-              className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent uppercase"
-            />
-          </div>
+          <input
+            type="tel"
+            value={mobile}
+            onChange={e => setMobile(e.target.value)}
+            placeholder="Mobile number"
+            className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent"
+          />
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="Email address"
+            className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent"
+          />
+          <p className="text-xs text-gray-500">The operative will complete their full profile (DOB, NI, address, next of kin) themselves.</p>
           <LoadingButton loading={saving} type="submit" className="w-full bg-accent hover:bg-accent-dark text-white">
             Add Operative
           </LoadingButton>
