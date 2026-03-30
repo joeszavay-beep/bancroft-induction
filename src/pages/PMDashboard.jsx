@@ -6,8 +6,9 @@ import Modal from '../components/Modal'
 import LoadingButton from '../components/LoadingButton'
 import {
   Home, FolderOpen, Users, Globe, LogOut, Plus, Trash2, Upload,
-  FileText, UserPlus, ChevronRight, CheckCircle2, Clock, AlertCircle
+  FileText, UserPlus, ChevronRight, CheckCircle2, Clock, AlertCircle, Download
 } from 'lucide-react'
+import { generateSignOffSheet } from '../lib/generateSignOffSheet'
 
 const TABS = [
   { id: 'home', label: 'Home', icon: Home },
@@ -77,7 +78,7 @@ export default function PMDashboard() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 pb-24">
         {tab === 'home' && <HomeTab projects={projects} operatives={operatives} documents={documents} signatures={signatures} />}
-        {tab === 'projects' && <ProjectsTab projects={projects} documents={documents} operatives={operatives} onRefresh={loadData} />}
+        {tab === 'projects' && <ProjectsTab projects={projects} documents={documents} operatives={operatives} signatures={signatures} onRefresh={loadData} />}
         {tab === 'team' && <TeamTab operatives={operatives} projects={projects} onRefresh={loadData} />}
         {tab === 'portal' && <PortalTab projects={projects} navigate={navigate} />}
       </div>
@@ -148,10 +149,11 @@ function HomeTab({ projects, operatives, documents, signatures }) {
 }
 
 /* ==================== PROJECTS TAB ==================== */
-function ProjectsTab({ projects, documents, operatives, onRefresh }) {
+function ProjectsTab({ projects, documents, operatives, signatures, onRefresh }) {
   const [showAdd, setShowAdd] = useState(false)
   const [showUpload, setShowUpload] = useState(null) // project id
   const [saving, setSaving] = useState(false)
+  const [downloading, setDownloading] = useState(null)
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
   const [uploadFile, setUploadFile] = useState(null)
@@ -279,15 +281,47 @@ function ProjectsTab({ projects, documents, operatives, onRefresh }) {
                       <p className="text-xs text-gray-500">No documents uploaded</p>
                     ) : (
                       <div className="space-y-1.5">
-                        {projDocs.map(d => (
-                          <div key={d.id} className="flex items-center gap-2 bg-navy-700 rounded-lg px-3 py-2">
-                            <FileText size={14} className="text-accent shrink-0" />
-                            <span className="flex-1 text-sm text-white truncate">{d.title}</span>
-                            <button onClick={() => deleteDocument(d.id)} className="p-1 text-gray-500 hover:text-danger transition-colors">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        ))}
+                        {projDocs.map(d => {
+                          const docSigs = signatures.filter(s => s.document_id === d.id)
+                          return (
+                            <div key={d.id} className="flex items-center gap-2 bg-navy-700 rounded-lg px-3 py-2">
+                              <FileText size={14} className="text-accent shrink-0" />
+                              <span className="flex-1 text-sm text-white truncate">{d.title}</span>
+                              {docSigs.length > 0 && (
+                                <button
+                                  disabled={downloading === d.id}
+                                  onClick={async () => {
+                                    setDownloading(d.id)
+                                    try {
+                                      await generateSignOffSheet({
+                                        projectName: p.name,
+                                        documentTitle: d.title,
+                                        signatures: docSigs,
+                                      })
+                                      toast.success(`Sign-off sheet downloaded (${docSigs.length} signatures)`)
+                                    } catch (err) {
+                                      console.error(err)
+                                      toast.error('Failed to generate PDF')
+                                    }
+                                    setDownloading(null)
+                                  }}
+                                  className="p-1 text-accent hover:text-accent-light transition-colors"
+                                  title="Download sign-off sheet"
+                                >
+                                  {downloading === d.id ? (
+                                    <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <Download size={14} />
+                                  )}
+                                </button>
+                              )}
+                              <span className="text-xs text-gray-500">{docSigs.length} sig{docSigs.length !== 1 ? 's' : ''}</span>
+                              <button onClick={() => deleteDocument(d.id)} className="p-1 text-gray-500 hover:text-danger transition-colors">
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                     <button onClick={() => deleteProject(p.id)} className="w-full mt-2 py-2 text-sm text-danger hover:bg-danger/10 rounded-lg transition-colors">
