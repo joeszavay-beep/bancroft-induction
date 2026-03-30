@@ -149,7 +149,10 @@ export default function OperativeProfile() {
               type="date"
               value={dob}
               onChange={e => setDob(e.target.value)}
-              className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white focus:outline-none focus:border-accent"
+              onClick={e => e.target.showPicker?.()}
+              max={new Date().toISOString().split('T')[0]}
+              className="w-full px-4 py-3 bg-navy-700 border border-navy-600 rounded-lg text-white focus:outline-none focus:border-accent appearance-none"
+              style={{ colorScheme: 'dark' }}
             />
           </div>
 
