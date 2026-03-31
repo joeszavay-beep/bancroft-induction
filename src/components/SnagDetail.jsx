@@ -3,8 +3,12 @@ import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import {
   X, MapPin, Calendar, User, MessageSquare, Send,
-  CheckCircle2, XCircle, RefreshCw, Trash2, ZoomIn
+  CheckCircle2, XCircle, RefreshCw, Trash2, ZoomIn, Edit3, Save
 } from 'lucide-react'
+
+const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Other']
+const TYPES = ['General', 'Installation', 'Commissioning', 'Design', 'Other']
+const PRIORITIES = ['high', 'medium', 'low']
 
 const STATUS_BADGE = {
   open: 'bg-red-100 text-red-700',
@@ -100,6 +104,13 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
   const [reassignTo, setReassignTo] = useState('')
   const [showReassign, setShowReassign] = useState(false)
   const [photoZoom, setPhotoZoom] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editTrade, setEditTrade] = useState(snag.trade || '')
+  const [editType, setEditType] = useState(snag.type || '')
+  const [editDesc, setEditDesc] = useState(snag.description || '')
+  const [editPriority, setEditPriority] = useState(snag.priority || 'medium')
+  const [editDueDate, setEditDueDate] = useState(snag.due_date || '')
+  const [editAssigned, setEditAssigned] = useState(snag.assigned_to || '')
 
   useEffect(() => {
     loadComments()
@@ -153,7 +164,26 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
     onUpdated()
   }
 
+  async function saveEdit() {
+    setUpdating(true)
+    const { error } = await supabase.from('snags').update({
+      trade: editTrade || null,
+      type: editType || null,
+      description: editDesc.trim(),
+      priority: editPriority,
+      due_date: editDueDate || null,
+      assigned_to: editAssigned || null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', snag.id)
+    setUpdating(false)
+    if (error) { toast.error('Failed to save changes'); return }
+    toast.success('Snag updated')
+    setEditing(false)
+    onUpdated()
+  }
+
   const isOverdue = snag.due_date && new Date(snag.due_date) < new Date() && snag.status === 'open'
+  const inputCls = "w-full px-3 py-2 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]"
 
   return (
     <>
@@ -178,9 +208,21 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
               </span>
               <h3 className="text-lg font-bold text-slate-900">Snag #{snag.snag_number}</h3>
             </div>
-            <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-              <X size={20} />
-            </button>
+            <div className="flex items-center gap-1">
+              {isPM && !editing && (
+                <button onClick={() => setEditing(true)} className="p-1.5 text-slate-400 hover:text-[#1B6FC8] hover:bg-blue-50 rounded-lg transition-colors" title="Edit snag">
+                  <Edit3 size={18} />
+                </button>
+              )}
+              {editing && (
+                <button onClick={() => setEditing(false)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" title="Cancel editing">
+                  <X size={18} />
+                </button>
+              )}
+              <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                <X size={20} />
+              </button>
+            </div>
           </div>
 
           <div className="p-4 space-y-4">
@@ -194,55 +236,112 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
               </button>
             )}
 
-            {/* Info cards */}
-            <div className="grid grid-cols-2 gap-2.5">
-              {snag.trade && (
-                <div className="bg-slate-50 rounded-lg p-2.5">
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Trade</p>
-                  <p className="text-sm text-slate-900 font-semibold mt-0.5">{snag.trade}</p>
+            {editing ? (
+              /* ===== EDIT MODE ===== */
+              <div className="space-y-3 bg-blue-50/50 border border-blue-200 rounded-xl p-4">
+                <p className="text-xs font-semibold text-[#1B6FC8] uppercase tracking-wider">Editing Snag #{snag.snag_number}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-slate-500 mb-0.5 block">Trade</label>
+                    <select value={editTrade} onChange={e => setEditTrade(e.target.value)} className={inputCls}>
+                      <option value="">None</option>
+                      {TRADES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500 mb-0.5 block">Type</label>
+                    <select value={editType} onChange={e => setEditType(e.target.value)} className={inputCls}>
+                      <option value="">None</option>
+                      {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500 mb-0.5 block">Priority</label>
+                    <select value={editPriority} onChange={e => setEditPriority(e.target.value)} className={inputCls}>
+                      {PRIORITIES.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500 mb-0.5 block">Due Date</label>
+                    <input type="date" value={editDueDate} onChange={e => setEditDueDate(e.target.value)} className={inputCls} />
+                  </div>
                 </div>
-              )}
-              {snag.type && (
-                <div className="bg-slate-50 rounded-lg p-2.5">
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Type</p>
-                  <p className="text-sm text-slate-900 font-semibold mt-0.5">{snag.type}</p>
+                <div>
+                  <label className="text-[10px] text-slate-500 mb-0.5 block">Assigned To</label>
+                  <select value={editAssigned} onChange={e => setEditAssigned(e.target.value)} className={inputCls}>
+                    <option value="">Unassigned</option>
+                    {operatives.map(op => <option key={op.id} value={op.name}>{op.name}{op.role ? ` — ${op.role}` : ''}</option>)}
+                  </select>
                 </div>
-              )}
-              <div className="bg-slate-50 rounded-lg p-2.5">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Priority</p>
-                <p className={`text-sm font-semibold mt-0.5 ${
-                  snag.priority === 'high' ? 'text-red-600' : snag.priority === 'medium' ? 'text-amber-600' : 'text-blue-600'
-                }`}>{snag.priority}{snag.priority === 'high' ? ' (2 day)' : snag.priority === 'medium' ? ' (5 day)' : ' (10 day)'}</p>
+                <div>
+                  <label className="text-[10px] text-slate-500 mb-0.5 block">Description</label>
+                  <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={3}
+                    className={`${inputCls} resize-none`} />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setEditing(false)} className="px-4 py-2 text-xs text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
+                    Cancel
+                  </button>
+                  <button onClick={saveEdit} disabled={updating}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
+                    <Save size={14} /> Save Changes
+                  </button>
+                </div>
               </div>
-              <div className={`rounded-lg p-2.5 ${isOverdue ? 'bg-red-50 border border-red-200' : 'bg-slate-50'}`}>
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Due Date</p>
-                <p className={`text-sm font-semibold mt-0.5 ${isOverdue ? 'text-red-600' : 'text-slate-900'}`}>
-                  {snag.due_date ? new Date(snag.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Not set'}
-                </p>
-                {isOverdue && <p className="text-[10px] text-red-500 font-bold mt-0.5">OVERDUE</p>}
-              </div>
-              <div className="bg-slate-50 rounded-lg p-2.5">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Created</p>
-                <p className="text-sm text-slate-900 font-medium mt-0.5">{new Date(snag.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-              </div>
-              <div className="bg-slate-50 rounded-lg p-2.5">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Assigned To</p>
-                <p className="text-sm text-slate-900 font-medium mt-0.5">{snag.assigned_to || 'Unassigned'}</p>
-              </div>
-            </div>
+            ) : (
+              /* ===== VIEW MODE ===== */
+              <>
+                {/* Info cards */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  {snag.trade && (
+                    <div className="bg-slate-50 rounded-lg p-2.5">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider">Trade</p>
+                      <p className="text-sm text-slate-900 font-semibold mt-0.5">{snag.trade}</p>
+                    </div>
+                  )}
+                  {snag.type && (
+                    <div className="bg-slate-50 rounded-lg p-2.5">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider">Type</p>
+                      <p className="text-sm text-slate-900 font-semibold mt-0.5">{snag.type}</p>
+                    </div>
+                  )}
+                  <div className="bg-slate-50 rounded-lg p-2.5">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Priority</p>
+                    <p className={`text-sm font-semibold mt-0.5 ${
+                      snag.priority === 'high' ? 'text-red-600' : snag.priority === 'medium' ? 'text-amber-600' : 'text-blue-600'
+                    }`}>{snag.priority}{snag.priority === 'high' ? ' (2 day)' : snag.priority === 'medium' ? ' (5 day)' : ' (10 day)'}</p>
+                  </div>
+                  <div className={`rounded-lg p-2.5 ${isOverdue ? 'bg-red-50 border border-red-200' : 'bg-slate-50'}`}>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Due Date</p>
+                    <p className={`text-sm font-semibold mt-0.5 ${isOverdue ? 'text-red-600' : 'text-slate-900'}`}>
+                      {snag.due_date ? new Date(snag.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Not set'}
+                    </p>
+                    {isOverdue && <p className="text-[10px] text-red-500 font-bold mt-0.5">OVERDUE</p>}
+                  </div>
+                  <div className="bg-slate-50 rounded-lg p-2.5">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Created</p>
+                    <p className="text-sm text-slate-900 font-medium mt-0.5">{new Date(snag.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-lg p-2.5">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Assigned To</p>
+                    <p className="text-sm text-slate-900 font-medium mt-0.5">{snag.assigned_to || 'Unassigned'}</p>
+                  </div>
+                </div>
 
-            {/* Description */}
-            <div className="bg-slate-50 rounded-lg p-3">
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Description</p>
-              <p className="text-sm text-slate-700 leading-relaxed">{snag.description || 'No description'}</p>
-            </div>
+                {/* Description */}
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Description</p>
+                  <p className="text-sm text-slate-700 leading-relaxed">{snag.description || 'No description'}</p>
+                </div>
 
-            {/* Raised by */}
-            {snag.raised_by && (
-              <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                <User size={11} />
-                <span>Raised by <span className="text-slate-600 font-medium">{snag.raised_by}</span></span>
-              </div>
+                {/* Raised by */}
+                {snag.raised_by && (
+                  <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                    <User size={11} />
+                    <span>Raised by <span className="text-slate-600 font-medium">{snag.raised_by}</span></span>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Location map */}

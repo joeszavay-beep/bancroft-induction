@@ -994,6 +994,22 @@ function SnagsTab({ projects, navigate }) {
     setLoading(false)
   }
 
+  async function deleteDrawing(drawingId, drawingName) {
+    if (!confirm(`Delete "${drawingName}" and all its snags? This cannot be undone.`)) return
+    // Delete snags first (cascade should handle it but let's be safe)
+    await supabase.from('snag_comments').delete().in('snag_id',
+      (await supabase.from('snags').select('id').eq('drawing_id', drawingId)).data?.map(s => s.id) || []
+    )
+    await supabase.from('snags').delete().eq('drawing_id', drawingId)
+    const { error } = await supabase.from('drawings').delete().eq('id', drawingId)
+    if (error) {
+      toast.error('Failed to delete drawing')
+      return
+    }
+    toast.success('Drawing deleted')
+    loadAll()
+  }
+
   async function uploadDrawing(e) {
     e.preventDefault()
     if (!drawingName.trim() || !drawingProjectId || !drawingFile) return
@@ -1240,6 +1256,9 @@ function SnagsTab({ projects, navigate }) {
                     <span className="bg-slate-700 text-white text-[9px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{dAllSnags.length}</span>
                   </div>
                   <button onClick={() => navigate(`/snags/${d.id}`)} className="text-[10px] text-blue-500 hover:underline shrink-0 px-1">View</button>
+                  <button onClick={() => deleteDrawing(d.id, d.name)} className="p-1 text-slate-400 hover:text-[#DA3633] transition-colors shrink-0" title="Delete drawing">
+                    <Trash2 size={12} />
+                  </button>
                 </div>
 
                 {/* Expanded snag table */}
