@@ -961,10 +961,16 @@ function SettingsTab() {
 /* ==================== SNAGS TAB ==================== */
 function SnagsTab({ projects, navigate }) {
   const [drawings, setDrawings] = useState([])
+  const [allSnags, setAllSnags] = useState([])
   const [loading, setLoading] = useState(true)
   const [showUpload, setShowUpload] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [snagCounts, setSnagCounts] = useState({})
+  const [expandedDrawing, setExpandedDrawing] = useState(null)
+
+  // Filters
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterDrawing, setFilterDrawing] = useState('all')
+  const [filterSnagNo, setFilterSnagNo] = useState('')
 
   // Upload form
   const [drawingName, setDrawingName] = useState('')
@@ -974,23 +980,16 @@ function SnagsTab({ projects, navigate }) {
   const [drawingProjectId, setDrawingProjectId] = useState('')
   const [drawingFile, setDrawingFile] = useState(null)
 
-  useEffect(() => { loadDrawings() }, [])
+  useEffect(() => { loadAll() }, [])
 
-  async function loadDrawings() {
+  async function loadAll() {
     setLoading(true)
-    const { data: d } = await supabase.from('drawings').select('*').order('uploaded_at', { ascending: false })
-    setDrawings(d || [])
-    // Get snag counts per drawing
-    if (d && d.length > 0) {
-      const { data: snags } = await supabase.from('snags').select('drawing_id, status')
-      const counts = {}
-      ;(snags || []).forEach(s => {
-        if (!counts[s.drawing_id]) counts[s.drawing_id] = { total: 0, open: 0, completed: 0, closed: 0 }
-        counts[s.drawing_id].total++
-        counts[s.drawing_id][s.status] = (counts[s.drawing_id][s.status] || 0) + 1
-      })
-      setSnagCounts(counts)
-    }
+    const [d, s] = await Promise.all([
+      supabase.from('drawings').select('*').order('uploaded_at', { ascending: false }),
+      supabase.from('snags').select('*').order('snag_number'),
+    ])
+    setDrawings(d.data || [])
+    setAllSnags(s.data || [])
     setLoading(false)
   }
 
@@ -999,15 +998,35 @@ function SnagsTab({ projects, navigate }) {
     if (!drawingName.trim() || !drawingProjectId || !drawingFile) return
     setSaving(true)
 
-    const fileExt = drawingFile.name.split('.').pop()
+    let fileToUpload = drawingFile
+    let fileExt = drawingFile.name.split('.').pop().toLowerCase()
+
+    // Convert PDF to image
+    if (fileExt === 'pdf') {
+      try {
+        const { pdfToImage } = await import('../lib/pdfToImage')
+        fileToUpload = await pdfToImage(drawingFile)
+        fileExt = 'png'
+      } catch (err) {
+        console.error('PDF conversion failed:', err)
+        setSaving(false)
+        toast.error('Failed to convert PDF — try uploading as an image instead')
+        return
+      }
+    }
+
     const filePath = `${drawingProjectId}/${Date.now()}.${fileExt}`
-    const { error: upErr } = await supabase.storage.from('drawings').upload(filePath, drawingFile)
+    const { error: upErr } = await supabase.storage.from('drawings').upload(filePath, fileToUpload, {
+      contentType: fileExt === 'png' ? 'image/png' : fileToUpload.type || 'image/jpeg',
+    })
     if (upErr) {
+      console.error('Upload error:', upErr)
       setSaving(false)
       toast.error('Failed to upload drawing')
       return
     }
     const { data: urlData } = supabase.storage.from('drawings').getPublicUrl(filePath)
+    console.log('Drawing URL:', urlData.publicUrl)
     const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
 
     const { error: dbErr } = await supabase.from('drawings').insert({
@@ -1021,13 +1040,13 @@ function SnagsTab({ projects, navigate }) {
     })
     setSaving(false)
     if (dbErr) {
-      toast.error('Failed to save drawing')
+      toast.error('Failed to save drawing record')
       return
     }
     toast.success('Drawing uploaded')
     setShowUpload(false)
     setDrawingName(''); setLevelRef(''); setDrawingNumber(''); setRevision(''); setDrawingProjectId(''); setDrawingFile(null)
-    loadDrawings()
+    loadAll()
   }
 
   if (loading) {
@@ -1038,52 +1057,253 @@ function SnagsTab({ projects, navigate }) {
     )
   }
 
+  // Stats
+  const openCount = allSnags.filter(s => s.status === 'open').length
+  const completedCount = allSnags.filter(s => s.status === 'completed').length
+  const closedCount = allSnags.filter(s => s.status === 'closed').length
+  const reassignedCount = allSnags.filter(s => s.status === 'reassigned').length
+  const totalCount = allSnags.length
+
+  // Donut chart data
+  const donutData = [
+    { label: 'Open', count: openCount, color: '#ef4444' },
+    { label: 'Completed', count: completedCount, color: '#22c55e' },
+    { label: 'Closed', count: closedCount, color: '#9ca3af' },
+    { label: 'Reassigned', count: reassignedCount, color: '#f59e0b' },
+  ]
+
+  // Top 5 drawings by open snags
+  const drawingOpenCounts = drawings.map(d => ({
+    name: d.name,
+    count: allSnags.filter(s => s.drawing_id === d.id && s.status === 'open').length,
+  })).filter(d => d.count > 0).sort((a, b) => b.count - a.count).slice(0, 5)
+  const maxOpen = Math.max(...drawingOpenCounts.map(d => d.count), 1)
+
+  // Filtered snags
+  let filtered = allSnags
+  if (filterStatus !== 'all') filtered = filtered.filter(s => s.status === filterStatus)
+  if (filterDrawing !== 'all') filtered = filtered.filter(s => s.drawing_id === filterDrawing)
+  if (filterSnagNo) filtered = filtered.filter(s => String(s.snag_number).includes(filterSnagNo))
+
+  // Group by drawing
+  const snagsByDrawing = {}
+  filtered.forEach(s => {
+    if (!snagsByDrawing[s.drawing_id]) snagsByDrawing[s.drawing_id] = []
+    snagsByDrawing[s.drawing_id].push(s)
+  })
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-900">Snagging</h2>
-        <button onClick={() => setShowUpload(true)} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors">
-          <Upload size={16} /> Upload Drawing
-        </button>
+        <h2 className="text-xl font-bold text-slate-900">Snags</h2>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowUpload(true)} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors">
+            <Upload size={14} /> Upload Drawing
+          </button>
+        </div>
       </div>
 
+      {/* Status pills - top right style */}
+      <div className="flex items-center gap-1.5 justify-end">
+        {[
+          { count: closedCount, color: 'bg-gray-400' },
+          { count: openCount, color: 'bg-red-500' },
+          { count: completedCount, color: 'bg-green-500' },
+          { count: reassignedCount, color: 'bg-amber-500' },
+          { count: 0, color: 'bg-pink-400' },
+        ].map((s, i) => (
+          <span key={i} className={`${s.color} text-white text-[10px] font-bold w-7 h-7 rounded-full flex items-center justify-center`}>{s.count}</span>
+        ))}
+      </div>
+
+      {/* Charts */}
+      {totalCount > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Snags by Status - Donut */}
+          <div className="bg-white border border-slate-200 rounded-xl p-4">
+            <h3 className="text-sm font-bold text-slate-900 mb-3">Snags By Status</h3>
+            <div className="flex items-center gap-4">
+              <svg viewBox="0 0 100 100" className="w-32 h-32 shrink-0">
+                {(() => {
+                  let cumulative = 0
+                  return donutData.filter(d => d.count > 0).map((d, i) => {
+                    const pct = (d.count / totalCount) * 100
+                    const dashArray = `${pct * 2.51327} ${251.327 - pct * 2.51327}`
+                    const rotation = cumulative * 3.6 - 90
+                    cumulative += pct
+                    return <circle key={i} cx="50" cy="50" r="40" fill="none" stroke={d.color} strokeWidth="20"
+                      strokeDasharray={dashArray} transform={`rotate(${rotation} 50 50)`} />
+                  })
+                })()}
+                <text x="50" y="50" textAnchor="middle" dy="4" fontSize="16" fontWeight="700" fill="#1e293b">{totalCount}</text>
+              </svg>
+              <div className="space-y-1.5">
+                {donutData.map(d => (
+                  <div key={d.label} className="flex items-center gap-2 text-xs">
+                    <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: d.color }} />
+                    <span className="text-slate-600">{d.label} ({d.count})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Top 5 Open Snags by Drawing */}
+          <div className="bg-white border border-slate-200 rounded-xl p-4">
+            <h3 className="text-sm font-bold text-slate-900 mb-3">Top 5 Open Snags By Drawing</h3>
+            {drawingOpenCounts.length === 0 ? (
+              <p className="text-xs text-slate-400 py-4 text-center">No open snags</p>
+            ) : (
+              <div className="space-y-2.5">
+                {drawingOpenCounts.map((d, i) => (
+                  <div key={i}>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-[11px] text-slate-600 truncate flex-1 mr-2">{d.name}</p>
+                      <span className="text-[11px] text-slate-900 font-bold">{d.count}</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-red-500 rounded-full" style={{ width: `${(d.count / maxOpen) * 100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1">
+          <label className="text-[10px] text-slate-400">Status:</label>
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+            className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-400">
+            <option value="all">All Active</option>
+            <option value="open">Open</option>
+            <option value="completed">Completed</option>
+            <option value="closed">Closed</option>
+            <option value="reassigned">Reassigned</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-1">
+          <label className="text-[10px] text-slate-400">Drawing:</label>
+          <select value={filterDrawing} onChange={e => setFilterDrawing(e.target.value)}
+            className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-400 max-w-[160px]">
+            <option value="all">All Drawings</option>
+            {drawings.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-1">
+          <label className="text-[10px] text-slate-400">Snag No:</label>
+          <input value={filterSnagNo} onChange={e => setFilterSnagNo(e.target.value)} placeholder="#"
+            className="w-14 px-2 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-400" />
+        </div>
+        <button onClick={() => { setFilterStatus('all'); setFilterDrawing('all'); setFilterSnagNo('') }}
+          className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-600">Reset</button>
+      </div>
+
+      {/* Drawings list with snags */}
       {drawings.length === 0 ? (
         <div className="text-center py-12">
           <MapPin size={40} className="mx-auto mb-3 text-slate-200" />
           <p className="text-slate-400">No drawings uploaded yet</p>
-          <p className="text-xs text-slate-300 mt-1">Upload a drawing to start raising snags</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {drawings.map(d => {
-            const counts = snagCounts[d.id] || { total: 0, open: 0, completed: 0, closed: 0 }
+            const dSnags = snagsByDrawing[d.id] || []
+            const dAllSnags = allSnags.filter(s => s.drawing_id === d.id)
             const proj = projects.find(p => p.id === d.project_id)
+            const expanded = expandedDrawing === d.id
+            const dOpen = dAllSnags.filter(s => s.status === 'open').length
+            const dCompleted = dAllSnags.filter(s => s.status === 'completed').length
+            const dClosed = dAllSnags.filter(s => s.status === 'closed').length
+            const dReassigned = dAllSnags.filter(s => s.status === 'reassigned').length
+
+            if (filterDrawing !== 'all' && filterDrawing !== d.id) return null
+
             return (
-              <button
-                key={d.id}
-                onClick={() => navigate(`/snags/${d.id}`)}
-                className="w-full bg-white border border-slate-200 rounded-xl p-4 text-left hover:shadow-md hover:border-blue-300 transition-all active:scale-[0.99]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
-                    <MapPin size={22} className="text-blue-500" />
+              <div key={d.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                {/* Drawing header */}
+                <div className="p-3 flex items-center gap-3">
+                  <button onClick={() => setExpandedDrawing(expanded ? null : d.id)} className="flex-1 text-left min-w-0">
+                    <p className="text-blue-600 font-semibold text-sm truncate hover:underline">{d.name}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{d.drawing_number || ''}{d.revision ? `, Rev: ${d.revision}` : ''}</p>
+                  </button>
+                  {/* Status count pills */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {dOpen > 0 && <span className="bg-red-500 text-white text-[9px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{dOpen}</span>}
+                    {dCompleted > 0 && <span className="bg-green-500 text-white text-[9px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{dCompleted}</span>}
+                    {dClosed > 0 && <span className="bg-gray-400 text-white text-[9px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{dClosed}</span>}
+                    {dReassigned > 0 && <span className="bg-amber-500 text-white text-[9px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{dReassigned}</span>}
+                    <span className="bg-slate-700 text-white text-[9px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{dAllSnags.length}</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-slate-900 font-semibold truncate">{d.name}</p>
-                    <p className="text-xs text-slate-400 truncate">
-                      {d.drawing_number && `${d.drawing_number} `}{d.revision && `Rev ${d.revision} · `}{proj?.name || ''}{d.level_ref && ` · ${d.level_ref}`}
-                    </p>
-                    {counts.total > 0 && (
-                      <div className="flex items-center gap-2 mt-1.5">
-                        {counts.open > 0 && <span className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium">{counts.open} open</span>}
-                        {counts.completed > 0 && <span className="text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-medium">{counts.completed} done</span>}
-                        {counts.closed > 0 && <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">{counts.closed} closed</span>}
-                      </div>
-                    )}
-                  </div>
-                  <ChevronRight size={16} className="text-slate-300" />
+                  <button onClick={() => navigate(`/snags/${d.id}`)} className="text-[10px] text-blue-500 hover:underline shrink-0 px-1">View</button>
                 </div>
-              </button>
+
+                {/* Expanded snag table */}
+                {expanded && dSnags.length > 0 && (
+                  <div className="border-t border-slate-100 overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 text-left">
+                          <th className="px-3 py-2 font-semibold">No.</th>
+                          <th className="px-3 py-2 font-semibold">Photo</th>
+                          <th className="px-3 py-2 font-semibold">Details</th>
+                          <th className="px-3 py-2 font-semibold">Status</th>
+                          <th className="px-3 py-2 font-semibold">Priority</th>
+                          <th className="px-3 py-2 font-semibold">Due On</th>
+                          <th className="px-3 py-2 font-semibold">Created</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dSnags.map(snag => {
+                          const isOverdue = snag.due_date && new Date(snag.due_date) < new Date() && snag.status === 'open'
+                          return (
+                            <tr key={snag.id} className="border-t border-slate-100 hover:bg-blue-50/30">
+                              <td className="px-3 py-2.5 font-bold text-slate-700">{snag.snag_number}</td>
+                              <td className="px-3 py-2.5">
+                                {snag.photo_url ? (
+                                  <img src={snag.photo_url} alt="" className="w-14 h-10 object-cover rounded" />
+                                ) : <span className="text-slate-300">—</span>}
+                              </td>
+                              <td className="px-3 py-2.5 max-w-[200px]">
+                                <p className="text-slate-800 font-medium">{snag.trade || ''}</p>
+                                {snag.type && <p className="text-slate-500">— {snag.type}</p>}
+                                <p className="text-slate-600 truncate mt-0.5">{snag.description}</p>
+                                {snag.assigned_to && <p className="text-slate-400 mt-0.5">→ {snag.assigned_to}</p>}
+                              </td>
+                              <td className="px-3 py-2.5">
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                  snag.status === 'open' ? 'bg-red-100 text-red-700' :
+                                  snag.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                  snag.status === 'closed' ? 'bg-gray-100 text-gray-600' :
+                                  'bg-amber-100 text-amber-700'
+                                }`}>{snag.status}</span>
+                              </td>
+                              <td className="px-3 py-2.5">
+                                <span className={`text-[10px] ${
+                                  snag.priority === 'high' ? 'text-red-600' : snag.priority === 'medium' ? 'text-amber-600' : 'text-blue-600'
+                                }`}>{snag.priority}{snag.priority === 'high' ? ' (2 day)' : snag.priority === 'medium' ? ' (5 day)' : ' (10 day)'}</span>
+                              </td>
+                              <td className={`px-3 py-2.5 ${isOverdue ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
+                                {snag.due_date ? new Date(snag.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                              </td>
+                              <td className="px-3 py-2.5 text-slate-500">
+                                {new Date(snag.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {expanded && dSnags.length === 0 && (
+                  <div className="border-t border-slate-100 p-4 text-center text-xs text-slate-400">No snags match filters</div>
+                )}
+              </div>
             )
           })}
         </div>
@@ -1105,13 +1325,14 @@ function SnagsTab({ projects, navigate }) {
             <input value={revision} onChange={e => setRevision(e.target.value)} placeholder="Revision (e.g. C01)"
               className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm placeholder-slate-300 focus:outline-none focus:border-blue-400" />
           </div>
-          <input value={drawingNumber} onChange={e => setDrawingNumber(e.target.value)} placeholder="Drawing number (e.g. ML-BAN-08-DR-E-640080)"
+          <input value={drawingNumber} onChange={e => setDrawingNumber(e.target.value)} placeholder="Drawing number"
             className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm placeholder-slate-300 focus:outline-none focus:border-blue-400" />
-          <label className="flex items-center justify-center gap-2 w-full px-3 py-3 bg-slate-50 border border-slate-200 border-dashed rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
+          <label className="flex items-center justify-center gap-2 w-full px-3 py-4 bg-slate-50 border border-slate-200 border-dashed rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
             <Upload size={16} className="text-slate-400" />
-            <span className="text-sm text-slate-400">{drawingFile ? drawingFile.name : 'Select drawing file (PDF or image)'}</span>
-            <input type="file" accept=".pdf,.png,.jpg,.jpeg,.tiff,.bmp" onChange={e => setDrawingFile(e.target.files[0])} className="hidden" />
+            <span className="text-sm text-slate-400">{drawingFile ? drawingFile.name : 'Select PDF or image file'}</span>
+            <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={e => setDrawingFile(e.target.files[0])} className="hidden" />
           </label>
+          <p className="text-[11px] text-slate-400">PDFs will be automatically converted to high-res images</p>
           <LoadingButton loading={saving} type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-xl">
             Upload Drawing
           </LoadingButton>
