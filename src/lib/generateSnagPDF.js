@@ -11,18 +11,39 @@ async function fetchImageAsDataUrl(url) {
   try {
     const res = await fetch(url)
     const blob = await res.blob()
-    return new Promise((resolve) => {
+    // Compress by drawing to canvas at reduced size
+    const origUrl = await new Promise((resolve) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result)
       reader.onerror = () => resolve(null)
       reader.readAsDataURL(blob)
+    })
+    if (!origUrl) return null
+    // Downscale large images
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const maxDim = 800
+        let w = img.width, h = img.height
+        if (w > maxDim || h > maxDim) {
+          const ratio = Math.min(maxDim / w, maxDim / h)
+          w = Math.round(w * ratio)
+          h = Math.round(h * ratio)
+        }
+        const c = document.createElement('canvas')
+        c.width = w; c.height = h
+        c.getContext('2d').drawImage(img, 0, 0, w, h)
+        resolve(c.toDataURL('image/jpeg', 0.6))
+      }
+      img.onerror = () => resolve(origUrl)
+      img.src = origUrl
     })
   } catch { return null }
 }
 
 function generateLocationMapDataUrl(img, pinX, pinY, snagNumber) {
   const canvas = document.createElement('canvas')
-  const size = 400
+  const size = 200
   canvas.width = size
   canvas.height = size
   const ctx = canvas.getContext('2d')
@@ -54,7 +75,7 @@ function generateLocationMapDataUrl(img, pinX, pinY, snagNumber) {
   ctx.arc(mx, my, 4, 0, Math.PI * 2)
   ctx.fill()
 
-  return canvas.toDataURL('image/png')
+  return canvas.toDataURL('image/jpeg', 0.5)
 }
 
 export async function generateSnagPDF({ drawing, project, snags, imageUrl }) {
@@ -77,21 +98,33 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl }) {
   doc.setFont('helvetica', 'normal')
   doc.text(`${drawing.name} | ${drawing.drawing_number || ''} Rev ${drawing.revision || ''} | ${new Date().toLocaleDateString()}`, pageW - margin, 13, { align: 'right' })
 
-  // Draw the image
+  // Draw the image (compressed for PDF)
   let drawingH = contentH - 15
   if (imageUrl) {
     try {
+      // Fetch and compress drawing for page 1
       const response = await fetch(imageUrl)
       const blob = await response.blob()
-      const dataUrl = await new Promise((resolve) => {
+      const rawUrl = await new Promise((resolve) => {
         const reader = new FileReader()
         reader.onload = () => resolve(reader.result)
         reader.readAsDataURL(blob)
       })
-
-      // Calculate aspect ratio
       const img = new Image()
-      await new Promise((resolve) => { img.onload = resolve; img.src = dataUrl })
+      await new Promise((resolve) => { img.onload = resolve; img.src = rawUrl })
+
+      // Downscale to max 1600px for page 1
+      const maxP1 = 1600
+      let cw = img.width, ch = img.height
+      if (cw > maxP1 || ch > maxP1) {
+        const r = Math.min(maxP1 / cw, maxP1 / ch)
+        cw = Math.round(cw * r); ch = Math.round(ch * r)
+      }
+      const compCanvas = document.createElement('canvas')
+      compCanvas.width = cw; compCanvas.height = ch
+      compCanvas.getContext('2d').drawImage(img, 0, 0, cw, ch)
+      const dataUrl = compCanvas.toDataURL('image/jpeg', 0.65)
+
       const ratio = img.width / img.height
       let imgW = contentW
       let imgH = imgW / ratio
@@ -102,7 +135,7 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl }) {
       const imgX = margin + (contentW - imgW) / 2
       const imgY = 24
 
-      doc.addImage(dataUrl, 'PNG', imgX, imgY, imgW, imgH)
+      doc.addImage(dataUrl, 'JPEG', imgX, imgY, imgW, imgH)
 
       // Draw pins on top
       for (const snag of snags) {
@@ -240,7 +273,7 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl }) {
       const locY = photoLoaded ? y + 52 : y + 2
       const locSize = photoLoaded ? 40 : 50
       try {
-        doc.addImage(locMapDataUrl, 'PNG', imgX, locY, locSize, locSize)
+        doc.addImage(locMapDataUrl, 'JPEG', imgX, locY, locSize, locSize)
         // Border around location map
         doc.setDrawColor(200, 200, 200)
         doc.setLineWidth(0.3)
