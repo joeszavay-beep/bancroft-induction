@@ -168,7 +168,7 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl }) {
     legendX += 25
   }
   doc.setTextColor(180, 180, 180)
-  doc.text('SiteCore — Site Compliance Platform', pageW - margin, legendY + 0.5, { align: 'right' })
+  doc.text('CoreSite — Site Compliance Platform', pageW - margin, legendY + 0.5, { align: 'right' })
 
   // === Load drawing image for location maps ===
   let drawingImg = null
@@ -310,7 +310,7 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl }) {
     if (i % 2 === 1 || i === snags.length - 1) {
       doc.setTextColor(180, 180, 180)
       doc.setFontSize(6)
-      doc.text('SiteCore — Site Compliance Platform', 10, 290)
+      doc.text('CoreSite — Site Compliance Platform', 10, 290)
       doc.text(`Page ${doc.getNumberOfPages()}`, 200, 290, { align: 'right' })
     }
   }

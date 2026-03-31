@@ -15,7 +15,7 @@ export default function LandingPage() {
       <div className="relative z-10 flex-1 flex flex-col">
         {/* Nav */}
         <header className="px-6 py-5 flex items-center justify-between">
-          <img src="/sitecore-logo.svg" alt="SiteCore" className="h-10 brightness-0 invert" />
+          <img src="/coresite-logo.svg" alt="CoreSite" className="h-10 brightness-0 invert" />
           <button onClick={() => navigate('/login')} className="text-white/70 text-sm hover:text-white transition-colors">
             Sign In
           </button>
@@ -24,7 +24,7 @@ export default function LandingPage() {
         {/* Hero */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
           <div className="max-w-2xl">
-            <img src="/sitecore-logo.svg" alt="SiteCore" className="h-16 mx-auto mb-8 brightness-0 invert" />
+            <img src="/coresite-logo.svg" alt="CoreSite" className="h-16 mx-auto mb-8 brightness-0 invert" />
             <h1 className="text-3xl sm:text-5xl font-light text-white leading-tight mb-4">
               The Smart Site Compliance<br />
               <span className="font-semibold">Platform for M&E Contractors</span>
@@ -50,7 +50,7 @@ export default function LandingPage() {
 
         {/* Footer */}
         <footer className="px-6 py-4 flex items-center justify-between">
-          <p className="text-white/30 text-xs">Powered by SiteCore</p>
+          <p className="text-white/30 text-xs">Powered by CoreSite</p>
           <p className="text-white/30 text-xs">&copy; {new Date().getFullYear()}</p>
         </footer>
       </div>

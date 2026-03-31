@@ -53,7 +53,7 @@ export default function PMLogin() {
     <div className="min-h-dvh bg-[#0D1526] flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <img src="/sitecore-logo.svg" alt="SiteCore" className="h-12 mx-auto mb-6 brightness-0 invert" />
+          <img src="/coresite-logo.svg" alt="CoreSite" className="h-12 mx-auto mb-6 brightness-0 invert" />
         </div>
 
         <div className="bg-white rounded-xl p-6 shadow-xl">
@@ -99,7 +99,7 @@ export default function PMLogin() {
         </div>
 
         <p className="text-center text-xs text-white/30 mt-6">
-          Powered by SiteCore &mdash; Site Compliance Platform
+          Powered by CoreSite &mdash; Site Compliance Platform
         </p>
       </div>
     </div>

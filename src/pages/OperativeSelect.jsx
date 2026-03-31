@@ -32,7 +32,7 @@ export default function OperativeSelect() {
         <button onClick={() => navigate('/')} className="p-1 text-slate-400 hover:text-slate-700 transition-colors">
           <ArrowLeft size={22} />
         </button>
-        <img src="/sitecore-logo.svg" alt="SiteCore" className="h-7" />
+        <img src="/coresite-logo.svg" alt="CoreSite" className="h-7" />
         <div className="flex-1">
           <h1 className="text-base font-semibold text-slate-900">Select Your Name</h1>
           <p className="text-[11px] text-slate-400">Tap your name to begin</p>

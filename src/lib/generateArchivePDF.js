@@ -26,7 +26,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
   function addFooter() {
     doc.setTextColor(180, 180, 180)
     doc.setFontSize(7)
-    doc.text('SiteCore — Project H&S Archive', margin, 290)
+    doc.text('CoreSite — Project H&S Archive', margin, 290)
     doc.text(`${project.name} | Page ${pageNum}`, pageW - margin, 290, { align: 'right' })
     pageNum++
   }
@@ -98,7 +98,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
   doc.setTextColor(120, 140, 170)
   doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 260)
   doc.text('This document contains the complete H&S records for the above project.', margin, 267)
-  doc.text('SiteCore — Site Compliance Platform', margin, 280)
+  doc.text('CoreSite — Site Compliance Platform', margin, 280)
 
   // === SECTION 1: OPERATIVES ===
   addFooter()
@@ -427,7 +427,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
     '',
     'All digital signatures include timestamp and IP address verification.',
     '',
-    `Archive generated on ${new Date().toLocaleString()} via the SiteCore Site Compliance Platform.`,
+    `Archive generated on ${new Date().toLocaleString()} via the CoreSite Site Compliance Platform.`,
   ]
   declaration.forEach(line => {
     doc.text(line, margin, y)

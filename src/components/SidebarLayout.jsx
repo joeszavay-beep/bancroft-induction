@@ -225,7 +225,7 @@ export default function SidebarLayout({ children }) {
 
         {/* Footer */}
         <footer className="px-4 py-2 text-[10px] text-[#6B7A99] border-t border-[#E2E6EA]">
-          &copy; {new Date().getFullYear()} SiteCore — Site Compliance Platform
+          &copy; {new Date().getFullYear()} CoreSite — Site Compliance Platform
         </footer>
       </div>
     </div>

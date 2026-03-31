@@ -147,7 +147,7 @@ export default function AdminDashboard() {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-slate-100 px-4 py-3 flex items-center justify-between shrink-0 sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <img src="/sitecore-logo.svg" alt="SiteCore" className="h-8" />
+          <img src="/coresite-logo.svg" alt="CoreSite" className="h-8" />
           <div className="hidden sm:block">
             <p className="text-xs text-slate-400">Admin Panel</p>
           </div>
