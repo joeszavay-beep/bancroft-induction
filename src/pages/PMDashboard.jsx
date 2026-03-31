@@ -13,6 +13,7 @@ import {
 import { generateSignOffSheet } from '../lib/generateSignOffSheet'
 import { generateAuditReport } from '../lib/generateAuditReport'
 import { generateArchivePDF } from '../lib/generateArchivePDF'
+import SnagDetail from '../components/SnagDetail'
 import { generateToolboxPDF } from '../lib/generateToolboxPDF'
 
 const TABS = [
@@ -963,10 +964,13 @@ function SettingsTab() {
 function SnagsTab({ projects, navigate }) {
   const [drawings, setDrawings] = useState([])
   const [allSnags, setAllSnags] = useState([])
+  const [allOperatives, setAllOperatives] = useState([])
   const [loading, setLoading] = useState(true)
   const [showUpload, setShowUpload] = useState(false)
   const [saving, setSaving] = useState(false)
   const [expandedDrawing, setExpandedDrawing] = useState(null)
+  const [selectedSnag, setSelectedSnag] = useState(null)
+  const [selectedDrawing, setSelectedDrawing] = useState(null)
 
   // Filters
   const [filterStatus, setFilterStatus] = useState('all')
@@ -985,12 +989,14 @@ function SnagsTab({ projects, navigate }) {
 
   async function loadAll() {
     setLoading(true)
-    const [d, s] = await Promise.all([
+    const [d, s, o] = await Promise.all([
       supabase.from('drawings').select('*').order('uploaded_at', { ascending: false }),
       supabase.from('snags').select('*').order('snag_number'),
+      supabase.from('operatives').select('*').order('name'),
     ])
     setDrawings(d.data || [])
     setAllSnags(s.data || [])
+    setAllOperatives(o.data || [])
     setLoading(false)
   }
 
@@ -1280,11 +1286,11 @@ function SnagsTab({ projects, navigate }) {
                         {dSnags.map(snag => {
                           const isOverdue = snag.due_date && new Date(snag.due_date) < new Date() && snag.status === 'open'
                           return (
-                            <tr key={snag.id} className="border-t border-slate-100 hover:bg-blue-50/30">
+                            <tr key={snag.id} className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer" onClick={() => { setSelectedSnag(snag); setSelectedDrawing(d) }}>
                               <td className="px-3 py-2.5 font-bold text-slate-700">{snag.snag_number}</td>
                               <td className="px-3 py-2.5">
                                 {snag.photo_url ? (
-                                  <img src={snag.photo_url} alt="" className="w-14 h-10 object-cover rounded" />
+                                  <img src={snag.photo_url} alt="" className="w-14 h-10 object-cover rounded hover:ring-2 hover:ring-[#1B6FC8] transition-all" />
                                 ) : <span className="text-slate-300">—</span>}
                               </td>
                               <td className="px-3 py-2.5 max-w-[200px]">
@@ -1358,6 +1364,18 @@ function SnagsTab({ projects, navigate }) {
           </LoadingButton>
         </form>
       </Modal>
+
+      {/* Snag detail modal */}
+      {selectedSnag && (
+        <SnagDetail
+          snag={selectedSnag}
+          onClose={() => setSelectedSnag(null)}
+          onUpdated={() => { setSelectedSnag(null); loadAll() }}
+          isPM={true}
+          operatives={allOperatives}
+          drawing={selectedDrawing}
+        />
+      )}
     </div>
   )
 }
