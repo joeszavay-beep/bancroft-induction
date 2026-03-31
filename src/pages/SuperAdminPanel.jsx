@@ -6,12 +6,13 @@ import Modal from '../components/Modal'
 import LoadingButton from '../components/LoadingButton'
 import {
   Building2, Plus, Edit3, Trash2, Users, FolderOpen, MapPin, FileText,
-  CheckCircle2, XCircle, LogOut, Shield, Eye
+  CheckCircle2, XCircle, LogOut, Shield, Eye, ChevronDown, ArrowLeft, Key, UserPlus
 } from 'lucide-react'
 
 export default function SuperAdminPanel() {
   const navigate = useNavigate()
   const [companies, setCompanies] = useState([])
+  const [selectedCompany, setSelectedCompany] = useState(null)
   const [stats, setStats] = useState({})
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -191,59 +192,64 @@ export default function SuperAdminPanel() {
       </header>
 
       <div className="max-w-5xl mx-auto p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-[#1A1A2E]">Companies ({companies.length})</h2>
-          <button onClick={() => { setShowCreate(true); resetForm() }} className="flex items-center gap-1.5 px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-md transition-colors">
-            <Plus size={14} /> New Company
-          </button>
-        </div>
+        {selectedCompany ? (
+          <CompanyDetailView company={selectedCompany} onBack={() => { setSelectedCompany(null); loadData() }} />
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-[#1A1A2E]">Companies ({companies.length})</h2>
+              <button onClick={() => { setShowCreate(true); resetForm() }} className="flex items-center gap-1.5 px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-md transition-colors">
+                <Plus size={14} /> New Company
+              </button>
+            </div>
 
-        {/* Companies list */}
-        <div className="space-y-3">
-          {companies.map(co => {
-            const s = stats[co.id] || {}
-            return (
-              <div key={co.id} className={`bg-white border rounded-lg shadow-sm p-5 ${co.is_active ? 'border-[#E2E6EA]' : 'border-red-200 bg-red-50/20'}`}>
-                <div className="flex items-start gap-4">
-                  {co.logo_url ? (
-                    <img src={co.logo_url} alt="" className="w-12 h-12 rounded-lg object-contain border border-[#E2E6EA]" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg" style={{ backgroundColor: co.primary_colour || '#1B6FC8' }}>
-                      {co.name.charAt(0)}
-                    </div>
-                  )}
+            <div className="space-y-3">
+              {companies.map(co => {
+                const s = stats[co.id] || {}
+                return (
+                  <div key={co.id} onClick={() => setSelectedCompany(co)} className={`bg-white border rounded-lg shadow-sm p-5 cursor-pointer hover:shadow-md transition-all ${co.is_active ? 'border-[#E2E6EA]' : 'border-red-200 bg-red-50/20'}`}>
+                    <div className="flex items-start gap-4">
+                      {co.logo_url ? (
+                        <img src={co.logo_url} alt="" className="w-12 h-12 rounded-lg object-contain border border-[#E2E6EA]" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg" style={{ backgroundColor: co.primary_colour || '#1B6FC8' }}>
+                          {co.name.charAt(0)}
+                        </div>
+                      )}
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-base font-bold text-[#1A1A2E]">{co.name}</h3>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${planBadge[co.subscription_plan] || planBadge.trial}`}>
-                        {co.subscription_plan?.toUpperCase()}
-                      </span>
-                      {!co.is_active && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-600">SUSPENDED</span>}
-                    </div>
-                    <p className="text-xs text-[#6B7A99] mb-2">/{co.slug} · {co.contact_email || 'No email'}</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-base font-bold text-[#1A1A2E]">{co.name}</h3>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${planBadge[co.subscription_plan] || planBadge.trial}`}>
+                            {co.subscription_plan?.toUpperCase()}
+                          </span>
+                          {!co.is_active && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-600">SUSPENDED</span>}
+                        </div>
+                        <p className="text-xs text-[#6B7A99] mb-2">/{co.slug} · {co.contact_email || 'No email'}</p>
 
-                    <div className="flex flex-wrap gap-4 text-xs text-[#6B7A99]">
-                      <span className="flex items-center gap-1"><Users size={12} /> {s.operatives || 0} workers</span>
-                      <span className="flex items-center gap-1"><FolderOpen size={12} /> {s.projects || 0} projects</span>
-                      <span className="flex items-center gap-1"><FileText size={12} /> {s.signatures || 0} signatures</span>
-                      <span className="flex items-center gap-1"><MapPin size={12} /> {s.snags || 0} snags</span>
+                        <div className="flex flex-wrap gap-4 text-xs text-[#6B7A99]">
+                          <span className="flex items-center gap-1"><Users size={12} /> {s.operatives || 0} workers</span>
+                          <span className="flex items-center gap-1"><FolderOpen size={12} /> {s.projects || 0} projects</span>
+                          <span className="flex items-center gap-1"><FileText size={12} /> {s.signatures || 0} signatures</span>
+                          <span className="flex items-center gap-1"><MapPin size={12} /> {s.snags || 0} snags</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => toggleActive(co)} className={`p-2 rounded-md transition-colors ${co.is_active ? 'text-[#6B7A99] hover:text-amber-600 hover:bg-amber-50' : 'text-[#2EA043] hover:bg-green-50'}`} title={co.is_active ? 'Suspend' : 'Reactivate'}>
+                          {co.is_active ? <XCircle size={16} /> : <CheckCircle2 size={16} />}
+                        </button>
+                        <button onClick={() => deleteCompany(co)} className="p-2 text-[#6B7A99] hover:text-[#DA3633] hover:bg-red-50 rounded-md transition-colors" title="Delete">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => toggleActive(co)} className={`p-2 rounded-md transition-colors ${co.is_active ? 'text-[#6B7A99] hover:text-amber-600 hover:bg-amber-50' : 'text-[#2EA043] hover:bg-green-50'}`} title={co.is_active ? 'Suspend' : 'Reactivate'}>
-                      {co.is_active ? <XCircle size={16} /> : <CheckCircle2 size={16} />}
-                    </button>
-                    <button onClick={() => deleteCompany(co)} className="p-2 text-[#6B7A99] hover:text-[#DA3633] hover:bg-red-50 rounded-md transition-colors" title="Delete">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+                )
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Create Company Modal */}
@@ -309,6 +315,222 @@ export default function SuperAdminPanel() {
           </LoadingButton>
         </form>
       </Modal>
+    </div>
+  )
+}
+
+/* ==================== COMPANY DETAIL VIEW ==================== */
+function CompanyDetailView({ company, onBack }) {
+  const [tab, setTab] = useState('users')
+  const [users, setUsers] = useState([])
+  const [workers, setWorkers] = useState([])
+  const [projects, setProjects] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [resetting, setResetting] = useState(null)
+
+  useEffect(() => { loadAll() }, [company.id])
+
+  async function loadAll() {
+    setLoading(true)
+    const [u, w, p] = await Promise.all([
+      supabase.from('managers').select('*').eq('company_id', company.id).order('name'),
+      supabase.from('operatives').select('*, projects(name)').eq('company_id', company.id).order('name'),
+      supabase.from('projects').select('*').eq('company_id', company.id).order('name'),
+    ])
+    setUsers(u.data || [])
+    setWorkers(w.data || [])
+    setProjects(p.data || [])
+    setLoading(false)
+  }
+
+  async function resetPassword(user) {
+    const newPw = `Reset${Math.random().toString(36).slice(2, 8)}`
+    setResetting(user.id)
+    await supabase.from('managers').update({ password: newPw, must_change_password: true }).eq('id', user.id)
+    setResetting(null)
+    toast.success(`Password reset for ${user.name}: ${newPw}`)
+  }
+
+  async function toggleUserActive(user) {
+    await supabase.from('managers').update({ is_active: !user.is_active }).eq('id', user.id)
+    toast.success(user.is_active ? `${user.name} deactivated` : `${user.name} activated`)
+    loadAll()
+  }
+
+  const tabs = [
+    { id: 'users', label: 'User Accounts', count: users.length },
+    { id: 'workers', label: 'Workers', count: workers.length },
+    { id: 'projects', label: 'Projects', count: projects.length },
+  ]
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-6">
+        <button onClick={onBack} className="p-2 text-[#6B7A99] hover:text-[#1A1A2E] hover:bg-[#E2E6EA] rounded-lg transition-colors">
+          <ArrowLeft size={20} />
+        </button>
+        {company.logo_url ? (
+          <img src={company.logo_url} alt="" className="w-10 h-10 rounded-lg object-contain border border-[#E2E6EA]" />
+        ) : (
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold" style={{ backgroundColor: company.primary_colour || '#1B6FC8' }}>
+            {company.name.charAt(0)}
+          </div>
+        )}
+        <div>
+          <h2 className="text-xl font-bold text-[#1A1A2E]">{company.name}</h2>
+          <p className="text-xs text-[#6B7A99]">/{company.slug} · {company.contact_email} · {company.subscription_plan?.toUpperCase()}</p>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-4 border-b border-[#E2E6EA]">
+        {tabs.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              tab === t.id ? 'border-[#1B6FC8] text-[#1B6FC8]' : 'border-transparent text-[#6B7A99] hover:text-[#1A1A2E]'
+            }`}
+          >
+            {t.label} ({t.count})
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="animate-spin w-6 h-6 border-2 border-[#1B6FC8] border-t-transparent rounded-full" />
+        </div>
+      ) : (
+        <>
+          {/* Users tab */}
+          {tab === 'users' && (
+            <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[#F5F6F8] text-left">
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Name</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Email</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Role</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Status</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.length === 0 ? (
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-[#6B7A99]">No users</td></tr>
+                  ) : users.map(u => (
+                    <tr key={u.id} className="border-t border-[#E2E6EA] hover:bg-[#F5F6F8]/50">
+                      <td className="px-4 py-3 font-medium text-[#1A1A2E]">{u.name}</td>
+                      <td className="px-4 py-3 text-[#6B7A99]">{u.email}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#F5F6F8] text-[#6B7A99]">{u.role}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${u.is_active ? 'bg-green-50 text-[#2EA043]' : 'bg-red-50 text-[#DA3633]'}`}>
+                          {u.is_active ? 'Active' : 'Disabled'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => resetPassword(u)}
+                            disabled={resetting === u.id}
+                            className="flex items-center gap-1 px-2 py-1 text-[10px] text-[#1B6FC8] hover:bg-blue-50 rounded transition-colors font-medium"
+                            title="Reset password"
+                          >
+                            <Key size={11} /> {resetting === u.id ? 'Resetting...' : 'Reset PW'}
+                          </button>
+                          <button
+                            onClick={() => toggleUserActive(u)}
+                            className={`px-2 py-1 text-[10px] rounded transition-colors font-medium ${u.is_active ? 'text-[#DA3633] hover:bg-red-50' : 'text-[#2EA043] hover:bg-green-50'}`}
+                          >
+                            {u.is_active ? 'Disable' : 'Enable'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Workers tab */}
+          {tab === 'workers' && (
+            <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[#F5F6F8] text-left">
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Name</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Role</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Email</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Mobile</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Project</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">DOB</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">NI</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Next of Kin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {workers.length === 0 ? (
+                    <tr><td colSpan={8} className="px-4 py-8 text-center text-[#6B7A99]">No workers</td></tr>
+                  ) : workers.map(w => (
+                    <tr key={w.id} className="border-t border-[#E2E6EA] hover:bg-[#F5F6F8]/50">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {w.photo_url ? (
+                            <img src={w.photo_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-[#1B6FC8]/10 flex items-center justify-center text-[#1B6FC8] text-[10px] font-bold">
+                              {w.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="font-medium text-[#1A1A2E]">{w.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-[#6B7A99]">{w.role || '—'}</td>
+                      <td className="px-4 py-3 text-[#6B7A99]">{w.email || '—'}</td>
+                      <td className="px-4 py-3 text-[#6B7A99]">{w.mobile || '—'}</td>
+                      <td className="px-4 py-3 text-[#6B7A99]">{w.projects?.name || '—'}</td>
+                      <td className="px-4 py-3 text-[#6B7A99]">{w.date_of_birth || '—'}</td>
+                      <td className="px-4 py-3 text-[#6B7A99] font-mono text-xs">{w.ni_number || '—'}</td>
+                      <td className="px-4 py-3 text-[#6B7A99]">{w.next_of_kin ? `${w.next_of_kin} (${w.next_of_kin_phone || ''})` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Projects tab */}
+          {tab === 'projects' && (
+            <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[#F5F6F8] text-left">
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Project Name</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Location</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projects.length === 0 ? (
+                    <tr><td colSpan={3} className="px-4 py-8 text-center text-[#6B7A99]">No projects</td></tr>
+                  ) : projects.map(p => (
+                    <tr key={p.id} className="border-t border-[#E2E6EA] hover:bg-[#F5F6F8]/50">
+                      <td className="px-4 py-3 font-medium text-[#1A1A2E]">{p.name}</td>
+                      <td className="px-4 py-3 text-[#6B7A99]">{p.location || '—'}</td>
+                      <td className="px-4 py-3 text-[#6B7A99]">{new Date(p.created_at).toLocaleDateString('en-GB')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
