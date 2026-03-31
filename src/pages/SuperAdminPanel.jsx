@@ -112,15 +112,15 @@ export default function SuperAdminPanel() {
       must_change_password: true,
     })
 
-    // Send welcome email
-    await fetch('/api/invite', {
+    // Send welcome email with login credentials
+    await fetch('/api/welcome', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        operativeId: 'welcome',
-        operativeName: contactName.trim() || 'Admin',
+        companyName: name.trim(),
+        contactName: contactName.trim() || 'Admin',
         email: contactEmail.trim(),
-        projectName: `${name.trim()} on CoreSite`,
+        tempPassword,
       }),
     }).catch(() => {})
 
