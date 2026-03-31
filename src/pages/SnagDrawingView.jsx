@@ -59,11 +59,12 @@ export default function SnagDrawingView() {
     setLoading(false)
   }
 
-  function handleImageClick(e) {
+  function handleOverlayClick(e) {
     if (!placingPin || !imageRef.current) return
     const rect = imageRef.current.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
+    console.log('Pin placed at:', x.toFixed(1), y.toFixed(1))
     setPendingPin({ x, y })
     setPlacingPin(false)
     setShowForm(true)
@@ -203,7 +204,16 @@ export default function SnagDrawingView() {
           )}
         </div>
       ) : (
-        <div className="flex-1 overflow-hidden bg-slate-200" style={{ cursor: placingPin ? 'crosshair' : 'grab' }}>
+        <div className="flex-1 overflow-hidden bg-slate-200 relative">
+          {/* Click overlay for pin placement - sits on top of everything */}
+          {placingPin && (
+            <div
+              className="absolute inset-0 z-30"
+              style={{ cursor: 'crosshair' }}
+              onClick={handleOverlayClick}
+            />
+          )}
+
           <TransformWrapper
             ref={transformRef}
             initialScale={0.8}
@@ -211,22 +221,25 @@ export default function SnagDrawingView() {
             maxScale={8}
             disabled={placingPin}
             panning={{ disabled: placingPin }}
-            wheel={{ step: 0.1 }}
+            pinch={{ disabled: placingPin }}
+            wheel={{ disabled: placingPin, step: 0.1 }}
           >
-            {({ zoomIn, zoomOut, resetTransform }) => (
+            {({ zoomIn, zoomOut }) => (
               <>
                 {/* Zoom controls */}
-                <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-1">
-                  <button onClick={() => zoomIn()} className="w-9 h-9 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50">
-                    <ZoomIn size={16} />
-                  </button>
-                  <button onClick={() => zoomOut()} className="w-9 h-9 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50">
-                    <ZoomOut size={16} />
-                  </button>
-                </div>
+                {!placingPin && (
+                  <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-1">
+                    <button onClick={() => zoomIn()} className="w-9 h-9 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50">
+                      <ZoomIn size={16} />
+                    </button>
+                    <button onClick={() => zoomOut()} className="w-9 h-9 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50">
+                      <ZoomOut size={16} />
+                    </button>
+                  </div>
+                )}
 
                 <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%' }}>
-                  <div className="relative inline-block" style={{ touchAction: placingPin ? 'none' : 'auto' }}>
+                  <div className="relative inline-block">
                     {imgError ? (
                       <div className="w-[800px] h-[600px] bg-white flex items-center justify-center">
                         <p className="text-slate-400 text-sm">Failed to load drawing image</p>
@@ -240,7 +253,6 @@ export default function SnagDrawingView() {
                         style={{ width: '100%', minWidth: '800px' }}
                         onLoad={() => { setImageLoaded(true); console.log('Image loaded successfully') }}
                         onError={(e) => { console.error('Image load error:', e); setImgError(true) }}
-                        onClick={handleImageClick}
                         draggable={false}
                       />
                     )}
@@ -251,12 +263,11 @@ export default function SnagDrawingView() {
                       return (
                         <button
                           key={snag.id}
-                          onClick={(e) => { e.stopPropagation(); setSelectedSnag(snag) }}
+                          onClick={(e) => { e.stopPropagation(); if (!placingPin) setSelectedSnag(snag) }}
                           className="absolute -translate-x-1/2 -translate-y-full z-10 group"
-                          style={{ left: `${snag.pin_x}%`, top: `${snag.pin_y}%` }}
+                          style={{ left: `${snag.pin_x}%`, top: `${snag.pin_y}%`, pointerEvents: placingPin ? 'none' : 'auto' }}
                           title={`#${snag.snag_number}: ${snag.description?.slice(0, 40)}`}
                         >
-                          {/* Teardrop pin shape */}
                           <svg width="28" height="36" viewBox="0 0 28 36" className="drop-shadow-md group-hover:scale-110 transition-transform">
                             <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.268 21.732 0 14 0z" fill={color.bg} />
                             <circle cx="14" cy="13" r="8" fill="white" fillOpacity="0.3" />
