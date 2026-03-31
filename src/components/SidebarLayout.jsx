@@ -91,9 +91,13 @@ export default function SidebarLayout({ children }) {
   const sidebar = (
     <aside className="w-[220px] bg-[#0D1526] flex flex-col h-full shrink-0 overflow-y-auto">
       {/* Logo */}
-      <button onClick={() => { navigate('/app'); setMobileOpen(false) }} className="px-4 pt-5 pb-3 border-b border-white/10 w-full text-left">
-        <img src="/bancroft-logo.png" alt="Bancroft" className="h-8" />
-      </button>
+      <div
+        onClick={() => { navigate('/app'); setMobileOpen(false) }}
+        style={{ cursor: 'pointer' }}
+        className="px-4 pt-5 pb-3 border-b border-white/10 hover:bg-white/5 transition-colors"
+      >
+        <img src="/bancroft-logo.png" alt="Bancroft" className="h-8" style={{ cursor: 'pointer' }} />
+      </div>
 
       {/* User */}
       <div className="px-4 py-3 border-b border-white/10 flex items-center gap-3">
