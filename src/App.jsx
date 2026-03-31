@@ -17,6 +17,11 @@ import PMDashboard from './pages/PMDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import ToolboxTalkLive from './pages/ToolboxTalkLive'
 import SnagDrawingView from './pages/SnagDrawingView'
+import InviteNewWorkers from './pages/InviteNewWorkers'
+import InviteExistingWorkers from './pages/InviteExistingWorkers'
+import InvitationsPipeline from './pages/InvitationsPipeline'
+import AllWorkers from './pages/AllWorkers'
+import AddNewWorker from './pages/AddNewWorker'
 
 function AppLayout() {
   // Redirect if not logged in
@@ -30,11 +35,11 @@ function AppLayout() {
         <Route path="/dashboard" element={<PMDashboard key="home" />} />
         <Route path="/admin/*" element={<AdminDashboard />} />
         <Route path="/projects" element={<PMDashboard key="projects" initialTab="projects" />} />
-        <Route path="/workers" element={<PMDashboard key="team" initialTab="team" />} />
-        <Route path="/workers/new" element={<PMDashboard key="team-new" initialTab="team" />} />
-        <Route path="/invite-workers" element={<PMDashboard key="invite" initialTab="team" />} />
-        <Route path="/invite-existing" element={<PMDashboard key="invite-ex" initialTab="team" />} />
-        <Route path="/pipeline" element={<PMDashboard key="pipeline" initialTab="team" />} />
+        <Route path="/workers" element={<AllWorkers />} />
+        <Route path="/workers/new" element={<AddNewWorker />} />
+        <Route path="/invite-workers" element={<InviteNewWorkers />} />
+        <Route path="/invite-existing" element={<InviteExistingWorkers />} />
+        <Route path="/pipeline" element={<InvitationsPipeline />} />
         <Route path="/snags" element={<PMDashboard key="snags" initialTab="snags" />} />
         <Route path="/drawings" element={<PMDashboard key="drawings" initialTab="snags" />} />
         <Route path="/toolbox" element={<PMDashboard key="toolbox" initialTab="toolbox" />} />
