@@ -1,5 +1,20 @@
 import { jsPDF } from 'jspdf'
 
+async function fetchImageAsDataUrl(url) {
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
 export async function generateArchivePDF({ project, operatives, documents, signatures, toolboxTalks, toolboxSignatures, snags, drawings }) {
   const doc = new jsPDF('p', 'mm', 'a4')
   const pageW = 210
@@ -125,7 +140,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
   // === SECTION 2: DOCUMENT SIGN-OFFS (RAMS/Inductions) ===
   sectionHeader('2. DOCUMENT SIGN-OFFS (RAMS & INDUCTIONS)')
 
-  documents.forEach(document => {
+  for (const document of documents) {
     checkPage(16)
     doc.setTextColor(21, 96, 170)
     doc.setFontSize(9)
@@ -142,36 +157,92 @@ export async function generateArchivePDF({ project, operatives, documents, signa
       doc.text('No signatures recorded', margin + 4, y + 3)
       y += 7
     } else {
-      // Mini table header
+      // Table header
       doc.setFillColor(245, 245, 250)
       doc.rect(margin, y, contentW, 6, 'F')
       doc.setTextColor(100, 100, 100)
       doc.setFontSize(6)
       doc.setFont('helvetica', 'bold')
       doc.text('Operative', margin + 2, y + 4)
-      doc.text('Typed Name / DOB', margin + 55, y + 4)
-      doc.text('IP Address', margin + 110, y + 4)
-      doc.text('Date & Time', margin + 145, y + 4)
-      doc.text('Valid', margin + 175, y + 4)
+      doc.text('Signature', margin + 45, y + 4)
+      doc.text('DOB / Confirmation', margin + 100, y + 4)
+      doc.text('IP Address', margin + 140, y + 4)
+      doc.text('Date & Time', margin + 165, y + 4)
       y += 8
 
-      docSigs.forEach(sig => {
-        checkPage(7)
+      for (const sig of docSigs) {
+        const rowH = 16
+        checkPage(rowH + 2)
+
+        // Alternating row bg
+        if (docSigs.indexOf(sig) % 2 === 0) {
+          doc.setFillColor(252, 252, 254)
+          doc.rect(margin, y - 1, contentW, rowH, 'F')
+        }
+
+        // Invalidated row
+        if (sig.invalidated) {
+          doc.setFillColor(255, 245, 245)
+          doc.rect(margin, y - 1, contentW, rowH, 'F')
+        }
+
+        // Name
         doc.setTextColor(30, 30, 30)
         doc.setFontSize(7)
-        doc.setFont('helvetica', 'normal')
-        doc.text(sig.operative_name || '', margin + 2, y + 3)
-        doc.text(sig.typed_name || '—', margin + 55, y + 3)
-        doc.text(sig.ip_address || '—', margin + 110, y + 3)
-        doc.text(sig.signed_at ? new Date(sig.signed_at).toLocaleString() : '', margin + 145, y + 3)
-        doc.setTextColor(sig.invalidated ? 239 : 34, sig.invalidated ? 68 : 197, sig.invalidated ? 68 : 94)
         doc.setFont('helvetica', 'bold')
-        doc.text(sig.invalidated ? 'NO' : 'YES', margin + 175, y + 3)
-        y += 6
-      })
+        doc.text(sig.operative_name || '', margin + 2, y + 5)
+
+        // Valid/invalid badge
+        doc.setFontSize(5)
+        if (sig.invalidated) {
+          doc.setFillColor(239, 68, 68)
+          doc.roundedRect(margin + 2, y + 8, 14, 4, 1, 1, 'F')
+          doc.setTextColor(255, 255, 255)
+          doc.text('INVALID', margin + 4, y + 11)
+        } else {
+          doc.setFillColor(34, 197, 94)
+          doc.roundedRect(margin + 2, y + 8, 10, 4, 1, 1, 'F')
+          doc.setTextColor(255, 255, 255)
+          doc.text('VALID', margin + 3.5, y + 11)
+        }
+
+        // Signature image
+        if (sig.signature_url) {
+          const sigDataUrl = await fetchImageAsDataUrl(sig.signature_url)
+          if (sigDataUrl) {
+            try {
+              doc.addImage(sigDataUrl, 'PNG', margin + 45, y, 48, 14)
+            } catch {}
+          } else {
+            doc.setTextColor(180, 180, 180)
+            doc.setFontSize(6)
+            doc.setFont('helvetica', 'italic')
+            doc.text('[signature unavailable]', margin + 45, y + 7)
+          }
+        }
+
+        // DOB / typed confirmation
+        doc.setTextColor(80, 80, 80)
+        doc.setFontSize(7)
+        doc.setFont('helvetica', 'normal')
+        doc.text(sig.typed_name || '—', margin + 100, y + 5)
+
+        // IP address
+        doc.text(sig.ip_address || '—', margin + 140, y + 5)
+
+        // Date & time
+        if (sig.signed_at) {
+          const d = new Date(sig.signed_at)
+          doc.text(d.toLocaleDateString(), margin + 165, y + 4)
+          doc.setFontSize(6)
+          doc.text(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), margin + 165, y + 9)
+        }
+
+        y += rowH + 1
+      }
     }
     y += 4
-  })
+  }
 
   // === SECTION 3: TOOLBOX TALKS ===
   sectionHeader('3. TOOLBOX TALKS')
@@ -183,7 +254,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
     y += 10
   }
 
-  toolboxTalks.forEach(talk => {
+  for (const talk of toolboxTalks) {
     checkPage(20)
     doc.setTextColor(21, 96, 170)
     doc.setFontSize(9)
@@ -192,7 +263,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
     doc.setTextColor(100, 100, 100)
     doc.setFontSize(7)
     doc.setFont('helvetica', 'normal')
-    doc.text(`${new Date(talk.created_at).toLocaleDateString()} | ${talk.is_open ? 'Open' : 'Closed'}`, margin + 2, y + 10)
+    doc.text(`${new Date(talk.created_at).toLocaleDateString()} | ${talk.is_open ? 'Open' : 'Closed'}${talk.closed_at ? ` | Closed: ${new Date(talk.closed_at).toLocaleDateString()}` : ''}`, margin + 2, y + 10)
     y += 14
 
     if (talk.description) {
@@ -212,18 +283,39 @@ export async function generateArchivePDF({ project, operatives, documents, signa
       doc.setFontSize(6)
       doc.setFont('helvetica', 'bold')
       doc.text('Attendee', margin + 2, y + 4)
-      doc.text('Signed At', margin + 100, y + 4)
+      doc.text('Signature', margin + 50, y + 4)
+      doc.text('Signed At', margin + 130, y + 4)
       y += 8
 
-      talkSigs.forEach(sig => {
-        checkPage(6)
+      for (const sig of talkSigs) {
+        const rowH = 14
+        checkPage(rowH + 1)
+
+        if (talkSigs.indexOf(sig) % 2 === 0) {
+          doc.setFillColor(252, 252, 254)
+          doc.rect(margin, y - 1, contentW, rowH, 'F')
+        }
+
         doc.setTextColor(30, 30, 30)
         doc.setFontSize(7)
+        doc.setFont('helvetica', 'bold')
+        doc.text(sig.operative_name, margin + 2, y + 5)
+
+        // Signature image
+        if (sig.signature_url) {
+          const sigDataUrl = await fetchImageAsDataUrl(sig.signature_url)
+          if (sigDataUrl) {
+            try {
+              doc.addImage(sigDataUrl, 'PNG', margin + 50, y, 45, 12)
+            } catch {}
+          }
+        }
+
+        doc.setTextColor(80, 80, 80)
         doc.setFont('helvetica', 'normal')
-        doc.text(sig.operative_name, margin + 2, y + 3)
-        doc.text(new Date(sig.signed_at).toLocaleString(), margin + 100, y + 3)
-        y += 6
-      })
+        doc.text(new Date(sig.signed_at).toLocaleString(), margin + 130, y + 5)
+        y += rowH
+      }
     } else {
       doc.setTextColor(150, 150, 150)
       doc.setFontSize(7)
@@ -231,7 +323,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
       y += 7
     }
     y += 6
-  })
+  }
 
   // === SECTION 4: SNAG SUMMARY ===
   sectionHeader('4. SNAGGING SUMMARY')
