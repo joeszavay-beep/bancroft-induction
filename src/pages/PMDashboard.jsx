@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { generateSignOffSheet } from '../lib/generateSignOffSheet'
 import { generateAuditReport } from '../lib/generateAuditReport'
+import { generateArchivePDF } from '../lib/generateArchivePDF'
 import { generateToolboxPDF } from '../lib/generateToolboxPDF'
 
 const TABS = [
@@ -296,6 +297,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
   const [saving, setSaving] = useState(false)
   const [downloading, setDownloading] = useState(null)
   const [exportingAudit, setExportingAudit] = useState(null)
+  const [archivingProject, setArchivingProject] = useState(null)
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
   const [uploadFile, setUploadFile] = useState(null)
@@ -427,6 +429,44 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
     setExportingAudit(null)
   }
 
+  async function handleArchive(project) {
+    setArchivingProject(project.id)
+    try {
+      const projOps = operatives.filter(o => o.project_id === project.id)
+      const projDocs = documents.filter(d => d.project_id === project.id)
+      const projSigs = signatures.filter(s => s.project_id === project.id)
+
+      // Fetch toolbox talks and signatures for this project
+      const { data: talks } = await supabase.from('toolbox_talks').select('*').eq('project_id', project.id).order('created_at')
+      const talkIds = (talks || []).map(t => t.id)
+      let talkSigs = []
+      if (talkIds.length > 0) {
+        const { data: ts } = await supabase.from('toolbox_signatures').select('*').in('talk_id', talkIds).order('signed_at')
+        talkSigs = ts || []
+      }
+
+      // Fetch snags and drawings for this project
+      const { data: drws } = await supabase.from('drawings').select('*').eq('project_id', project.id)
+      const { data: sngs } = await supabase.from('snags').select('*').eq('project_id', project.id).order('snag_number')
+
+      await generateArchivePDF({
+        project,
+        operatives: projOps,
+        documents: projDocs,
+        signatures: projSigs,
+        toolboxTalks: talks || [],
+        toolboxSignatures: talkSigs,
+        snags: sngs || [],
+        drawings: drws || [],
+      })
+      toast.success('H&S Archive downloaded')
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to generate archive')
+    }
+    setArchivingProject(null)
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -544,6 +584,18 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                         <ShieldCheck size={14} />
                       )}
                       Download Audit Trail
+                    </button>
+                    <button
+                      disabled={archivingProject === p.id}
+                      onClick={() => handleArchive(p)}
+                      className="w-full py-2 text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
+                    >
+                      {archivingProject === p.id ? (
+                        <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Download size={14} />
+                      )}
+                      Archive Full H&S Pack
                     </button>
                     <button onClick={() => deleteProject(p.id)} className="w-full py-2 text-sm text-danger hover:bg-danger/10 rounded-lg transition-colors">
                       Delete Project
