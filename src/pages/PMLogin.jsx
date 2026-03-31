@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useCompany } from '../lib/CompanyContext'
 import { Eye, EyeOff } from 'lucide-react'
 import LoadingButton from '../components/LoadingButton'
 
 export default function PMLogin() {
   const navigate = useNavigate()
+  const { login } = useCompany()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -18,35 +20,61 @@ export default function PMLogin() {
     setLoading(true)
     setError('')
 
-    const { data, error: dbErr } = await supabase
+    const { data: manager, error: dbErr } = await supabase
       .from('managers')
       .select('*')
       .ilike('email', email.trim())
       .eq('password', password.trim())
       .single()
 
-    setLoading(false)
-
-    if (dbErr || !data) {
+    if (dbErr || !manager) {
+      setLoading(false)
       setError('Invalid email or password')
       return
     }
 
-    if (!data.is_active) {
+    if (!manager.is_active) {
+      setLoading(false)
       setError('This account has been disabled. Contact your admin.')
       return
     }
 
-    sessionStorage.setItem('pm_auth', 'true')
-    sessionStorage.setItem('manager_data', JSON.stringify({
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      role: data.role,
-      project_ids: data.project_ids || [],
-    }))
+    // Fetch company
+    let companyData = null
+    if (manager.company_id) {
+      const { data: co } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', manager.company_id)
+        .single()
+      companyData = co
 
-    navigate('/app')
+      if (companyData && !companyData.is_active) {
+        setLoading(false)
+        setError('Your account has been suspended. Please contact CoreSite support.')
+        return
+      }
+    }
+
+    const userData = {
+      id: manager.id,
+      name: manager.name,
+      email: manager.email,
+      role: manager.role,
+      company_id: manager.company_id,
+      project_ids: manager.project_ids || [],
+    }
+
+    login(userData, companyData)
+    setLoading(false)
+
+    if (manager.must_change_password) {
+      navigate('/app/change-password')
+    } else if (manager.role === 'super_admin') {
+      navigate('/superadmin')
+    } else {
+      navigate('/app')
+    }
   }
 
   return (
@@ -88,9 +116,7 @@ export default function PMLogin() {
               </div>
             </div>
 
-            {error && (
-              <p className="text-sm text-[#DA3633]">{error}</p>
-            )}
+            {error && <p className="text-sm text-[#DA3633]">{error}</p>}
 
             <LoadingButton loading={loading} type="submit" className="w-full bg-[#1B6FC8] hover:bg-[#1558A0] text-white rounded-lg text-sm font-semibold">
               Sign In

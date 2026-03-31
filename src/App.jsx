@@ -17,6 +17,7 @@ import PMDashboard from './pages/PMDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import ToolboxTalkLive from './pages/ToolboxTalkLive'
 import SnagDrawingView from './pages/SnagDrawingView'
+import SuperAdminPanel from './pages/SuperAdminPanel'
 import InviteNewWorkers from './pages/InviteNewWorkers'
 import InviteExistingWorkers from './pages/InviteExistingWorkers'
 import InvitationsPipeline from './pages/InvitationsPipeline'
@@ -74,6 +75,9 @@ export default function App() {
 
       {/* Snag drawing viewer (full screen, no sidebar) */}
       <Route path="/snags/:drawingId" element={<SnagDrawingView />} />
+
+      {/* Super admin (no sidebar) */}
+      <Route path="/superadmin" element={<SuperAdminPanel />} />
 
       {/* App routes (with sidebar) */}
       <Route path="/app/*" element={<AppLayout />} />

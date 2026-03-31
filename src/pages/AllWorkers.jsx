@@ -6,6 +6,7 @@ import { Users, Search, Plus, Trash2, ChevronRight } from 'lucide-react'
 
 export default function AllWorkers() {
   const navigate = useNavigate()
+  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
   const [operatives, setOperatives] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -14,7 +15,9 @@ export default function AllWorkers() {
 
   async function loadData() {
     setLoading(true)
-    const { data } = await supabase.from('operatives').select('*, projects(name)').order('name')
+    const { data } = cid
+      ? await supabase.from('operatives').select('*, projects(name)').eq('company_id', cid).order('name')
+      : await supabase.from('operatives').select('*, projects(name)').order('name')
     setOperatives(data || [])
     setLoading(false)
   }

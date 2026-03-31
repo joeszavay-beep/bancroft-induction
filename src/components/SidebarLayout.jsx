@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useCompany } from '../lib/CompanyContext'
 import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList,
@@ -65,10 +66,16 @@ export default function SidebarLayout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Snags', 'H&S', 'Portal'])
 
-  const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
-  const isAdmin = managerData.role === 'admin'
+  const { company, user, logout: ctxLogout } = useCompany()
+  const managerData = user || JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+  const isAdmin = managerData.role === 'admin' || managerData.role === 'super_admin'
+  const isSuperAdmin = managerData.role === 'super_admin'
   const userName = managerData.name || 'User'
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  const companyName = company?.name || 'Company'
+  const companyLogo = company?.logo_url || '/bancroft-logo.png'
+  const primaryColor = company?.primary_colour || '#1B6FC8'
+  const sidebarColor = company?.secondary_colour || '#0D1526'
 
   function toggleSection(title) {
     setExpandedSections(prev =>
@@ -77,8 +84,7 @@ export default function SidebarLayout({ children }) {
   }
 
   function handleLogout() {
-    sessionStorage.removeItem('pm_auth')
-    sessionStorage.removeItem('manager_data')
+    ctxLogout()
     navigate('/')
   }
 
@@ -89,19 +95,20 @@ export default function SidebarLayout({ children }) {
   const allSections = isAdmin ? [...NAV_SECTIONS, ADMIN_SECTION] : NAV_SECTIONS
 
   const sidebar = (
-    <aside className="w-[220px] bg-[#0D1526] flex flex-col h-full shrink-0 overflow-y-auto">
+    <aside className="w-[220px] flex flex-col h-full shrink-0 overflow-y-auto" style={{ backgroundColor: sidebarColor }}>
       {/* Logo */}
       <div
         onClick={() => { navigate('/app'); setMobileOpen(false) }}
         style={{ cursor: 'pointer' }}
         className="px-4 pt-5 pb-3 border-b border-white/10 hover:bg-white/5 transition-colors"
       >
-        <img src="/bancroft-logo.png" alt="Bancroft" className="h-8" style={{ cursor: 'pointer' }} />
+        <img src={companyLogo} alt={companyName} className="h-8" style={{ cursor: 'pointer' }} onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block' }} />
+        <span className="text-white font-bold text-sm hidden">{companyName}</span>
       </div>
 
       {/* User */}
       <div className="px-4 py-3 border-b border-white/10 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-[#1B6FC8] flex items-center justify-center text-white text-xs font-bold shrink-0">
+        <div className="w-9 h-9 rounded-full bg-[var(--primary-color)] flex items-center justify-center text-white text-xs font-bold shrink-0">
           {userInitials}
         </div>
         <div className="min-w-0">
@@ -164,6 +171,15 @@ export default function SidebarLayout({ children }) {
 
       {/* Bottom */}
       <div className="px-2 py-3 border-t border-white/10 space-y-1">
+        {(isAdmin || isSuperAdmin) && (
+          <button
+            onClick={() => { navigate('/superadmin'); setMobileOpen(false) }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[12.5px] text-amber-400/70 hover:text-amber-400 hover:bg-white/5 transition-colors"
+          >
+            <Shield size={14} />
+            <span>Super Admin</span>
+          </button>
+        )}
         <button
           onClick={() => { navigate('/app/account'); setMobileOpen(false) }}
           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[12.5px] transition-colors ${
@@ -197,22 +213,22 @@ export default function SidebarLayout({ children }) {
       {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="bg-[#0D1526] h-12 flex items-center justify-between px-4 shrink-0 lg:hidden">
+        <header className="h-12 flex items-center justify-between px-4 shrink-0 lg:hidden" style={{ backgroundColor: sidebarColor }}>
           <button onClick={() => setMobileOpen(true)} className="p-1 text-white">
             <Menu size={22} />
           </button>
-          <button onClick={() => navigate('/app')} className="text-white text-sm font-semibold">BANCROFT LTD</button>
-          <div className="w-7 h-7 rounded-full bg-[#1B6FC8] flex items-center justify-center text-white text-[10px] font-bold">
+          <button onClick={() => navigate('/app')} className="text-white text-sm font-semibold">{companyName.toUpperCase()}</button>
+          <div className="w-7 h-7 rounded-full bg-[var(--primary-color)] flex items-center justify-center text-white text-[10px] font-bold">
             {userInitials}
           </div>
         </header>
 
         {/* Desktop top bar */}
-        <header className="hidden lg:flex bg-[#0D1526] h-11 items-center justify-between px-6 shrink-0">
-          <button onClick={() => navigate('/app')} className="text-white/70 text-xs font-medium tracking-wider hover:text-white transition-colors">BANCROFT LTD</button>
+        <header className="hidden lg:flex h-11 items-center justify-between px-6 shrink-0" style={{ backgroundColor: sidebarColor }}>
+          <button onClick={() => navigate('/app')} className="text-white/70 text-xs font-medium tracking-wider hover:text-white transition-colors">{companyName.toUpperCase()}</button>
           <div className="flex items-center gap-3">
             <span className="text-white/50 text-xs">{userName}</span>
-            <div className="w-7 h-7 rounded-full bg-[#1B6FC8] flex items-center justify-center text-white text-[10px] font-bold">
+            <div className="w-7 h-7 rounded-full bg-[var(--primary-color)] flex items-center justify-center text-white text-[10px] font-bold">
               {userInitials}
             </div>
           </div>

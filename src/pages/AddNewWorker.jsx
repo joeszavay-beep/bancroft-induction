@@ -10,6 +10,7 @@ const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwo
 
 export default function AddNewWorker() {
   const navigate = useNavigate()
+  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
   const [saving, setSaving] = useState(false)
   const [photo, setPhoto] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
@@ -36,7 +37,8 @@ export default function AddNewWorker() {
   const [projects, setProjects] = useState([])
 
   useState(() => {
-    supabase.from('projects').select('*').order('name').then(({ data }) => setProjects(data || []))
+    const q = cid ? supabase.from('projects').select('*').eq('company_id', cid).order('name') : supabase.from('projects').select('*').order('name')
+    q.then(({ data }) => setProjects(data || []))
   })
 
   function handlePhotoChange(e) {
@@ -79,6 +81,7 @@ export default function AddNewWorker() {
       next_of_kin_phone: nokPhone.trim() || null,
       project_id: projectId || null,
       photo_url: photoUrl,
+      company_id: cid,
     }).select().single()
 
     if (error) {

@@ -47,11 +47,12 @@ export default function PMDashboard({ initialTab }) {
 
   async function loadData() {
     setLoading(true)
+    const cid = managerData.company_id
     const [p, o, d, s] = await Promise.all([
-      supabase.from('projects').select('*').order('created_at', { ascending: false }),
-      supabase.from('operatives').select('*').order('name'),
-      supabase.from('documents').select('*').order('created_at', { ascending: false }),
-      supabase.from('signatures').select('*').order('signed_at', { ascending: false }),
+      cid ? supabase.from('projects').select('*').eq('company_id', cid).order('created_at', { ascending: false }) : supabase.from('projects').select('*').order('created_at', { ascending: false }),
+      cid ? supabase.from('operatives').select('*').eq('company_id', cid).order('name') : supabase.from('operatives').select('*').order('name'),
+      cid ? supabase.from('documents').select('*').eq('company_id', cid).order('created_at', { ascending: false }) : supabase.from('documents').select('*').order('created_at', { ascending: false }),
+      cid ? supabase.from('signatures').select('*').eq('company_id', cid).order('signed_at', { ascending: false }) : supabase.from('signatures').select('*').order('signed_at', { ascending: false }),
     ])
 
     let filteredProjects = p.data || []
@@ -242,6 +243,7 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
 
 /* ==================== PROJECTS TAB ==================== */
 function ProjectsTab({ projects, documents, operatives, signatures, onRefresh }) {
+  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
   const [showAdd, setShowAdd] = useState(false)
   const [showUpload, setShowUpload] = useState(null) // project id
   const [showUpdateDoc, setShowUpdateDoc] = useState(null) // document to update
@@ -259,7 +261,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
     e.preventDefault()
     if (!name.trim()) return
     setSaving(true)
-    const { error } = await supabase.from('projects').insert({ name: name.trim(), location: location.trim() })
+    const { error } = await supabase.from('projects').insert({ name: name.trim(), location: location.trim(), company_id: cid })
     setSaving(false)
     if (error) {
       console.error('Add project error:', error)
@@ -291,6 +293,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
       title: docTitle.trim(),
       file_url: urlData.publicUrl,
       file_name: uploadFile.name,
+      company_id: cid,
     })
     setSaving(false)
     if (dbErr) {
@@ -636,6 +639,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
 
 /* ==================== TEAM TAB ==================== */
 function TeamTab({ operatives, projects, onRefresh }) {
+  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(null)
@@ -653,6 +657,7 @@ function TeamTab({ operatives, projects, onRefresh }) {
       project_id: projectId,
       mobile: mobile.trim() || null,
       email: email.trim() || null,
+      company_id: cid,
     }).select().single()
     if (error) {
       setSaving(false)
@@ -963,6 +968,7 @@ function SettingsTab() {
 
 /* ==================== SNAGS TAB ==================== */
 function SnagsTab({ projects, navigate }) {
+  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
   const [drawings, setDrawings] = useState([])
   const [allSnags, setAllSnags] = useState([])
   const [allOperatives, setAllOperatives] = useState([])
@@ -992,9 +998,9 @@ function SnagsTab({ projects, navigate }) {
   async function loadAll() {
     setLoading(true)
     const [d, s, o] = await Promise.all([
-      supabase.from('drawings').select('*').order('uploaded_at', { ascending: false }),
-      supabase.from('snags').select('*').order('snag_number'),
-      supabase.from('operatives').select('*').order('name'),
+      cid ? supabase.from('drawings').select('*').eq('company_id', cid).order('uploaded_at', { ascending: false }) : supabase.from('drawings').select('*').order('uploaded_at', { ascending: false }),
+      cid ? supabase.from('snags').select('*').eq('company_id', cid).order('snag_number') : supabase.from('snags').select('*').order('snag_number'),
+      cid ? supabase.from('operatives').select('*').eq('company_id', cid).order('name') : supabase.from('operatives').select('*').order('name'),
     ])
     setDrawings(d.data || [])
     setAllSnags(s.data || [])
@@ -1076,6 +1082,7 @@ function SnagsTab({ projects, navigate }) {
       revision: revision.trim() || null,
       file_url: urlData.publicUrl,
       uploaded_by: managerData.name || 'PM',
+      company_id: cid,
     })
     setSaving(false)
     if (dbErr) {
@@ -1411,6 +1418,7 @@ function SnagsTab({ projects, navigate }) {
 /* ==================== H&S REPORT TAB ==================== */
 /* ==================== TOOLBOX TAB ==================== */
 function ToolboxTab({ projects, navigate }) {
+  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
   const [talks, setTalks] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -1427,10 +1435,9 @@ function ToolboxTab({ projects, navigate }) {
 
   async function loadTalks() {
     setLoading(true)
-    const { data: t } = await supabase
-      .from('toolbox_talks')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const { data: t } = cid
+      ? await supabase.from('toolbox_talks').select('*').eq('company_id', cid).order('created_at', { ascending: false })
+      : await supabase.from('toolbox_talks').select('*').order('created_at', { ascending: false })
 
     const allTalks = t || []
     setTalks(allTalks)
@@ -1460,6 +1467,7 @@ function ToolboxTab({ projects, navigate }) {
       description: description.trim() || null,
       project_id: projectId,
       created_by: managerData.id || null,
+      company_id: cid,
     }).select().single()
     setSaving(false)
     if (error) {

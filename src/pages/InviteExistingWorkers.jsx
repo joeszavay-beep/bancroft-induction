@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { UserPlus, Search, Check } from 'lucide-react'
 
 export default function InviteExistingWorkers() {
+  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
   const [operatives, setOperatives] = useState([])
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
@@ -17,8 +18,8 @@ export default function InviteExistingWorkers() {
 
   async function loadData() {
     const [o, p] = await Promise.all([
-      supabase.from('operatives').select('*, projects(name)').order('name'),
-      supabase.from('projects').select('*').order('name'),
+      cid ? supabase.from('operatives').select('*, projects(name)').eq('company_id', cid).order('name') : supabase.from('operatives').select('*, projects(name)').order('name'),
+      cid ? supabase.from('projects').select('*').eq('company_id', cid).order('name') : supabase.from('projects').select('*').order('name'),
     ])
     setOperatives(o.data || [])
     setProjects(p.data || [])

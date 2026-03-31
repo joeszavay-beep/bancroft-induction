@@ -5,6 +5,7 @@ import LoadingButton from '../components/LoadingButton'
 import { Mail, Plus, Minus } from 'lucide-react'
 
 export default function InviteNewWorkers() {
+  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -25,6 +26,7 @@ export default function InviteNewWorkers() {
       name: fullName,
       email: email.trim(),
       mobile: mobile.trim() || null,
+      company_id: cid,
     }).select().single()
 
     if (error) {
