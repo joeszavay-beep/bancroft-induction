@@ -7,6 +7,56 @@ const STATUS_COLORS = {
   reassigned: [245, 158, 11],
 }
 
+async function fetchImageAsDataUrl(url) {
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch { return null }
+}
+
+function generateLocationMapDataUrl(img, pinX, pinY, snagNumber) {
+  const canvas = document.createElement('canvas')
+  const size = 400
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+
+  const cropW = img.width * 0.2
+  const cropH = img.height * 0.2
+  let sx = (pinX / 100) * img.width - cropW / 2
+  let sy = (pinY / 100) * img.height - cropH / 2
+  sx = Math.max(0, Math.min(sx, img.width - cropW))
+  sy = Math.max(0, Math.min(sy, img.height - cropH))
+
+  ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, size, size)
+
+  const mx = ((pinX / 100) * img.width - sx) / cropW * size
+  const my = ((pinY / 100) * img.height - sy) / cropH * size
+
+  // Red crosshair
+  ctx.strokeStyle = '#ef4444'
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.arc(mx, my, 16, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(mx - 24, my); ctx.lineTo(mx + 24, my)
+  ctx.moveTo(mx, my - 24); ctx.lineTo(mx, my + 24)
+  ctx.stroke()
+  ctx.fillStyle = '#ef4444'
+  ctx.beginPath()
+  ctx.arc(mx, my, 4, 0, Math.PI * 2)
+  ctx.fill()
+
+  return canvas.toDataURL('image/png')
+}
+
 export async function generateSnagPDF({ drawing, project, snags, imageUrl }) {
   const doc = new jsPDF('l', 'mm', 'a4') // landscape for drawing
   const pageW = 297
@@ -87,16 +137,30 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl }) {
   doc.setTextColor(180, 180, 180)
   doc.text('SiteCore — Site Compliance Platform', pageW - margin, legendY + 0.5, { align: 'right' })
 
-  // === SUBSEQUENT PAGES: Snag details ===
+  // === Load drawing image for location maps ===
+  let drawingImg = null
+  if (imageUrl) {
+    try {
+      const drawingDataUrl = await fetchImageAsDataUrl(imageUrl)
+      if (drawingDataUrl) {
+        drawingImg = new Image()
+        await new Promise((resolve, reject) => {
+          drawingImg.onload = resolve
+          drawingImg.onerror = reject
+          drawingImg.src = drawingDataUrl
+        })
+      }
+    } catch { drawingImg = null }
+  }
+
+  // === SUBSEQUENT PAGES: Snag details (2 per page) ===
   doc.setFont('helvetica', 'normal')
 
-  // Switch to portrait for snag listings
   for (let i = 0; i < snags.length; i++) {
     const snag = snags[i]
 
-    if (i % 3 === 0) {
+    if (i % 2 === 0) {
       doc.addPage('a4', 'p')
-      // Page header
       doc.setFillColor(10, 53, 96)
       doc.rect(0, 0, 210, 16, 'F')
       doc.setTextColor(255, 255, 255)
@@ -108,88 +172,109 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl }) {
       doc.text(`${drawing.drawing_number || ''} Rev ${drawing.revision || ''} | ${new Date().toLocaleDateString()}`, 200, 10, { align: 'right' })
     }
 
-    const yOffset = 22 + (i % 3) * 88
+    const yOffset = 22 + (i % 2) * 130
     const cardW = 190
     let y = yOffset
+    const cardH = 124
 
-    // Card border
+    // Card border with status colour
     const color = STATUS_COLORS[snag.status] || STATUS_COLORS.open
     doc.setDrawColor(...color)
     doc.setLineWidth(0.8)
-    doc.rect(10, y - 2, cardW, 84, 'D')
-
-    // Status bar
+    doc.rect(10, y - 2, cardW, cardH, 'D')
     doc.setFillColor(...color)
-    doc.rect(10, y - 2, 3, 84, 'F')
+    doc.rect(10, y - 2, 3, cardH, 'F')
 
-    // Snag number and status
-    doc.setFontSize(12)
+    // Snag number and status badges
+    doc.setFontSize(14)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(30, 30, 30)
-    doc.text(`#${snag.snag_number}`, 16, y + 6)
+    doc.text(`#${snag.snag_number}`, 16, y + 7)
 
     doc.setFillColor(...color)
-    doc.roundedRect(35, y + 1, 22, 6, 1, 1, 'F')
+    doc.roundedRect(38, y + 1.5, 22, 6, 1, 1, 'F')
     doc.setTextColor(255, 255, 255)
     doc.setFontSize(6)
-    doc.text(snag.status.toUpperCase(), 46, y + 5.5, { align: 'center' })
+    doc.text(snag.status.toUpperCase(), 49, y + 5.5, { align: 'center' })
 
-    // Priority
     if (snag.priority) {
       const priColor = snag.priority === 'high' ? [239, 68, 68] : snag.priority === 'medium' ? [245, 158, 11] : [59, 130, 246]
       doc.setFillColor(...priColor)
-      doc.roundedRect(60, y + 1, 16, 6, 1, 1, 'F')
+      doc.roundedRect(63, y + 1.5, 16, 6, 1, 1, 'F')
       doc.setTextColor(255, 255, 255)
-      doc.text(snag.priority.toUpperCase(), 68, y + 5.5, { align: 'center' })
+      doc.text(snag.priority.toUpperCase(), 71, y + 5.5, { align: 'center' })
     }
 
     // Trade and type
     doc.setTextColor(100, 100, 100)
     doc.setFontSize(8)
     doc.setFont('helvetica', 'normal')
-    doc.text(`${snag.trade || ''} ${snag.type ? '· ' + snag.type : ''}`, 16, y + 14)
+    doc.text(`${snag.trade || ''} ${snag.type ? '· ' + snag.type : ''}`, 16, y + 15)
 
     // Description
     doc.setTextColor(50, 50, 50)
     doc.setFontSize(9)
-    const descLines = doc.splitTextToSize(snag.description || 'No description', snag.photo_url ? 110 : cardW - 10)
-    doc.text(descLines.slice(0, 4), 16, y + 22)
+    const maxDescW = 100
+    const descLines = doc.splitTextToSize(snag.description || 'No description', maxDescW)
+    doc.text(descLines.slice(0, 5), 16, y + 23)
 
-    // Photo
+    // Photo (right side, top)
+    const imgX = 130
+    let photoLoaded = false
     if (snag.photo_url) {
+      const photoDataUrl = await fetchImageAsDataUrl(snag.photo_url)
+      if (photoDataUrl) {
+        try {
+          doc.addImage(photoDataUrl, 'JPEG', imgX, y + 2, 66, 44)
+          doc.setTextColor(150, 150, 150)
+          doc.setFontSize(5)
+          doc.text('Photo', imgX, y + 48)
+          photoLoaded = true
+        } catch {}
+      }
+    }
+
+    // Location map (right side, below photo or at photo position if no photo)
+    if (drawingImg) {
+      const locMapDataUrl = generateLocationMapDataUrl(drawingImg, snag.pin_x, snag.pin_y, snag.snag_number)
+      const locY = photoLoaded ? y + 52 : y + 2
+      const locSize = photoLoaded ? 40 : 50
       try {
-        const response = await fetch(snag.photo_url)
-        const blob = await response.blob()
-        const dataUrl = await new Promise((resolve) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result)
-          reader.readAsDataURL(blob)
-        })
-        doc.addImage(dataUrl, 'JPEG', 140, y + 2, 56, 42)
+        doc.addImage(locMapDataUrl, 'PNG', imgX, locY, locSize, locSize)
+        // Border around location map
+        doc.setDrawColor(200, 200, 200)
+        doc.setLineWidth(0.3)
+        doc.rect(imgX, locY, locSize, locSize, 'D')
+        doc.setTextColor(150, 150, 150)
+        doc.setFontSize(5)
+        doc.text(`Location — Pin #${snag.snag_number}`, imgX, locY + locSize + 3)
       } catch {}
     }
 
     // Meta info
-    const metaY = y + 55
+    const metaY = y + 70
     doc.setFontSize(7)
     doc.setTextColor(120, 120, 120)
     doc.setFont('helvetica', 'bold')
     doc.text('Assigned To:', 16, metaY)
     doc.text('Raised By:', 16, metaY + 6)
-    doc.text('Due Date:', 100, metaY)
-    doc.text('Created:', 100, metaY + 6)
-    doc.text('Location:', 16, metaY + 12)
+    doc.text('Due Date:', 16, metaY + 12)
+    doc.text('Created:', 16, metaY + 18)
+    doc.text('Location:', 16, metaY + 24)
 
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(50, 50, 50)
-    doc.text(snag.assigned_to || 'Unassigned', 42, metaY)
-    doc.text(snag.raised_by || 'Unknown', 42, metaY + 6)
-    doc.text(snag.due_date ? new Date(snag.due_date).toLocaleDateString() : 'Not set', 122, metaY)
-    doc.text(new Date(snag.created_at).toLocaleDateString(), 122, metaY + 6)
-    doc.text(drawing.level_ref || drawing.name, 42, metaY + 12)
+    doc.text(snag.assigned_to || 'Unassigned', 46, metaY)
+    doc.text(snag.raised_by || 'Unknown', 46, metaY + 6)
+    const isOverdue = snag.due_date && new Date(snag.due_date) < new Date() && snag.status === 'open'
+    if (isOverdue) doc.setTextColor(239, 68, 68)
+    doc.text((snag.due_date ? new Date(snag.due_date).toLocaleDateString() : 'Not set') + (isOverdue ? ' — OVERDUE' : ''), 46, metaY + 12)
+    doc.setTextColor(50, 50, 50)
+    doc.text(new Date(snag.created_at).toLocaleDateString(), 46, metaY + 18)
+    doc.text(drawing.level_ref || drawing.name, 46, metaY + 24)
 
-    // Footer on each page
-    if (i % 3 === 2 || i === snags.length - 1) {
+    // Footer
+    if (i % 2 === 1 || i === snags.length - 1) {
       doc.setTextColor(180, 180, 180)
       doc.setFontSize(6)
       doc.text('SiteCore — Site Compliance Platform', 10, 290)
