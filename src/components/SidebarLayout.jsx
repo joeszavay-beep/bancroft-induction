@@ -197,7 +197,7 @@ export default function SidebarLayout({ children }) {
           <button onClick={() => setMobileOpen(true)} className="p-1 text-white">
             <Menu size={22} />
           </button>
-          <span className="text-white text-sm font-semibold">BANCROFT LTD</span>
+          <button onClick={() => navigate('/app')} className="text-white text-sm font-semibold">BANCROFT LTD</button>
           <div className="w-7 h-7 rounded-full bg-[#1B6FC8] flex items-center justify-center text-white text-[10px] font-bold">
             {userInitials}
           </div>
@@ -205,7 +205,7 @@ export default function SidebarLayout({ children }) {
 
         {/* Desktop top bar */}
         <header className="hidden lg:flex bg-[#0D1526] h-11 items-center justify-between px-6 shrink-0">
-          <span className="text-white/70 text-xs font-medium tracking-wider">BANCROFT LTD</span>
+          <button onClick={() => navigate('/app')} className="text-white/70 text-xs font-medium tracking-wider hover:text-white transition-colors">BANCROFT LTD</button>
           <div className="flex items-center gap-3">
             <span className="text-white/50 text-xs">{userName}</span>
             <div className="w-7 h-7 rounded-full bg-[#1B6FC8] flex items-center justify-center text-white text-[10px] font-bold">
