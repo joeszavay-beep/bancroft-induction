@@ -27,21 +27,21 @@ function AppLayout() {
     <SidebarLayout>
       <Routes>
         <Route path="/" element={<AppHome />} />
-        <Route path="/dashboard" element={<PMDashboard />} />
+        <Route path="/dashboard" element={<PMDashboard key="home" />} />
         <Route path="/admin/*" element={<AdminDashboard />} />
-        <Route path="/projects" element={<PMDashboard initialTab="projects" />} />
-        <Route path="/workers" element={<PMDashboard initialTab="team" />} />
-        <Route path="/workers/new" element={<PMDashboard initialTab="team" />} />
-        <Route path="/invite-workers" element={<PMDashboard initialTab="team" />} />
-        <Route path="/invite-existing" element={<PMDashboard initialTab="team" />} />
-        <Route path="/pipeline" element={<PMDashboard initialTab="team" />} />
-        <Route path="/snags" element={<PMDashboard initialTab="snags" />} />
-        <Route path="/drawings" element={<PMDashboard initialTab="snags" />} />
-        <Route path="/toolbox" element={<PMDashboard initialTab="toolbox" />} />
-        <Route path="/documents" element={<PMDashboard initialTab="projects" />} />
-        <Route path="/hs-reports" element={<PMDashboard initialTab="hsreport" />} />
-        <Route path="/portal" element={<PMDashboard initialTab="portal" />} />
-        <Route path="/account" element={<PMDashboard initialTab="settings" />} />
+        <Route path="/projects" element={<PMDashboard key="projects" initialTab="projects" />} />
+        <Route path="/workers" element={<PMDashboard key="team" initialTab="team" />} />
+        <Route path="/workers/new" element={<PMDashboard key="team-new" initialTab="team" />} />
+        <Route path="/invite-workers" element={<PMDashboard key="invite" initialTab="team" />} />
+        <Route path="/invite-existing" element={<PMDashboard key="invite-ex" initialTab="team" />} />
+        <Route path="/pipeline" element={<PMDashboard key="pipeline" initialTab="team" />} />
+        <Route path="/snags" element={<PMDashboard key="snags" initialTab="snags" />} />
+        <Route path="/drawings" element={<PMDashboard key="drawings" initialTab="snags" />} />
+        <Route path="/toolbox" element={<PMDashboard key="toolbox" initialTab="toolbox" />} />
+        <Route path="/documents" element={<PMDashboard key="docs" initialTab="projects" />} />
+        <Route path="/hs-reports" element={<PMDashboard key="hs" initialTab="hsreport" />} />
+        <Route path="/portal" element={<PMDashboard key="portal" initialTab="portal" />} />
+        <Route path="/account" element={<PMDashboard key="settings" initialTab="settings" />} />
         <Route path="/toolbox-live/:talkId" element={<ToolboxTalkLive />} />
       </Routes>
     </SidebarLayout>
