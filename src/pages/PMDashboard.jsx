@@ -14,6 +14,7 @@ import { generateSignOffSheet } from '../lib/generateSignOffSheet'
 import { generateAuditReport } from '../lib/generateAuditReport'
 import { generateArchivePDF } from '../lib/generateArchivePDF'
 import SnagDetail from '../components/SnagDetail'
+import { generateSnagPDF } from '../lib/generateSnagPDF'
 import { generateToolboxPDF } from '../lib/generateToolboxPDF'
 
 const TABS = [
@@ -971,6 +972,7 @@ function SnagsTab({ projects, navigate }) {
   const [expandedDrawing, setExpandedDrawing] = useState(null)
   const [selectedSnag, setSelectedSnag] = useState(null)
   const [selectedDrawing, setSelectedDrawing] = useState(null)
+  const [exportingDrawing, setExportingDrawing] = useState(null)
 
   // Filters
   const [filterStatus, setFilterStatus] = useState('all')
@@ -1014,6 +1016,20 @@ function SnagsTab({ projects, navigate }) {
     }
     toast.success('Drawing deleted')
     loadAll()
+  }
+
+  async function exportDrawingPDF(d) {
+    setExportingDrawing(d.id)
+    try {
+      const proj = projects.find(p => p.id === d.project_id)
+      const dSnags = allSnags.filter(s => s.drawing_id === d.id)
+      await generateSnagPDF({ drawing: d, project: proj, snags: dSnags, imageUrl: d.file_url })
+      toast.success('Snag report downloaded')
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to export report')
+    }
+    setExportingDrawing(null)
   }
 
   async function uploadDrawing(e) {
@@ -1262,6 +1278,18 @@ function SnagsTab({ projects, navigate }) {
                     <span className="bg-slate-700 text-white text-[9px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{dAllSnags.length}</span>
                   </div>
                   <button onClick={() => navigate(`/snags/${d.id}`)} className="text-[10px] text-blue-500 hover:underline shrink-0 px-1">View</button>
+                  <button
+                    disabled={exportingDrawing === d.id}
+                    onClick={() => exportDrawingPDF(d)}
+                    className="p-1 text-slate-400 hover:text-[#1B6FC8] transition-colors shrink-0"
+                    title="Download snag report"
+                  >
+                    {exportingDrawing === d.id ? (
+                      <div className="w-3 h-3 border-2 border-[#1B6FC8] border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Download size={12} />
+                    )}
+                  </button>
                   <button onClick={() => deleteDrawing(d.id, d.name)} className="p-1 text-slate-400 hover:text-[#DA3633] transition-colors shrink-0" title="Delete drawing">
                     <Trash2 size={12} />
                   </button>
