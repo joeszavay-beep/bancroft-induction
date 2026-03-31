@@ -31,6 +31,7 @@ const NAV_SECTIONS = [
   },
   {
     title: 'Snags',
+    feature: 'snagging',
     items: [
       { label: 'Snag Overview', path: '/app/snags', icon: MapPin },
       { label: 'All Drawings', path: '/app/drawings', icon: Image },
@@ -39,13 +40,14 @@ const NAV_SECTIONS = [
   {
     title: 'H&S',
     items: [
-      { label: 'Toolbox Talks', path: '/app/toolbox', icon: MessageSquare },
+      { label: 'Toolbox Talks', path: '/app/toolbox', icon: MessageSquare, feature: 'toolbox_talks' },
       { label: 'Documents', path: '/app/documents', icon: FileText },
-      { label: 'H&S Reports', path: '/app/hs-reports', icon: ClipboardList },
+      { label: 'H&S Reports', path: '/app/hs-reports', icon: ClipboardList, feature: 'hs_reports' },
     ],
   },
   {
     title: 'Portal',
+    feature: 'portal',
     items: [
       { label: 'Sign-off Portal', path: '/app/portal', icon: Globe },
     ],
@@ -93,7 +95,16 @@ export default function SidebarLayout({ children }) {
     return location.pathname === path || location.pathname.startsWith(path + '/')
   }
 
-  const allSections = isAdmin ? [...NAV_SECTIONS, ADMIN_SECTION] : NAV_SECTIONS
+  const companyFeatures = company?.features || {}
+  // Filter sections and items by enabled features
+  const filteredSections = (isAdmin ? [...NAV_SECTIONS, ADMIN_SECTION] : NAV_SECTIONS)
+    .filter(section => !section.feature || companyFeatures[section.feature] !== false)
+    .map(section => ({
+      ...section,
+      items: section.items.filter(item => !item.feature || companyFeatures[item.feature] !== false),
+    }))
+    .filter(section => section.items.length > 0)
+  const allSections = filteredSections
 
   const sidebar = (
     <aside className="w-[220px] flex flex-col h-full shrink-0 overflow-y-auto" style={{ backgroundColor: sidebarColor }}>

@@ -320,13 +320,15 @@ export default function SuperAdminPanel() {
 }
 
 /* ==================== COMPANY DETAIL VIEW ==================== */
-function CompanyDetailView({ company, onBack }) {
+function CompanyDetailView({ company: initialCompany, onBack }) {
+  const [company, setCompany] = useState(initialCompany)
   const [tab, setTab] = useState('users')
   const [users, setUsers] = useState([])
   const [workers, setWorkers] = useState([])
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [resetting, setResetting] = useState(null)
+  const features = company.features || {}
 
   useEffect(() => { loadAll() }, [company.id])
 
@@ -357,10 +359,19 @@ function CompanyDetailView({ company, onBack }) {
     loadAll()
   }
 
+  async function toggleFeature(key) {
+    const updated = { ...features, [key]: !features[key] }
+    const { error } = await supabase.from('companies').update({ features: updated }).eq('id', company.id)
+    if (error) { toast.error('Failed to update'); return }
+    setCompany({ ...company, features: updated })
+    toast.success(`${key.replace(/_/g, ' ')} ${updated[key] ? 'enabled' : 'disabled'}`)
+  }
+
   const tabs = [
     { id: 'users', label: 'User Accounts', count: users.length },
     { id: 'workers', label: 'Workers', count: workers.length },
     { id: 'projects', label: 'Projects', count: projects.length },
+    { id: 'features', label: 'Features' },
   ]
 
   return (
@@ -527,6 +538,32 @@ function CompanyDetailView({ company, onBack }) {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {/* Features tab */}
+          {tab === 'features' && (
+            <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm p-5 space-y-4">
+              <p className="text-sm text-[#6B7A99] mb-2">Toggle features on or off for this company. Disabled features will be hidden from their sidebar.</p>
+
+              {[
+                { key: 'hs_reports', label: 'H&S Report Generator', desc: 'Embedded H&S report builder tool' },
+                { key: 'toolbox_talks', label: 'Toolbox Talks', desc: 'QR code based toolbox talk sign-off' },
+                { key: 'snagging', label: 'Snagging Module', desc: 'Drawing viewer with snag pin placement' },
+                { key: 'portal', label: 'Sign-off Portal', desc: 'Public portal showing signature records' },
+              ].map(f => (
+                <div key={f.key} className="flex items-center justify-between py-3 border-b border-[#E2E6EA] last:border-0">
+                  <div>
+                    <p className="text-sm font-medium text-[#1A1A2E]">{f.label}</p>
+                    <p className="text-xs text-[#6B7A99]">{f.desc}</p>
+                  </div>
+                  <button
+                    onClick={() => toggleFeature(f.key)}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${features[f.key] ? 'bg-[#2EA043]' : 'bg-[#E2E6EA]'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${features[f.key] ? 'translate-x-5' : ''}`} />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </>
