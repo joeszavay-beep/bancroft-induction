@@ -74,7 +74,7 @@ export default function SidebarLayout({ children }) {
   const userName = managerData.name || 'User'
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   const companyName = company?.name || 'Company'
-  const companyLogo = company?.logo_url || '/bancroft-logo.png'
+  const companyLogo = company?.logo_url || null
   const primaryColor = company?.primary_colour || '#1B6FC8'
   const sidebarColor = company?.secondary_colour || '#0D1526'
 
@@ -103,8 +103,12 @@ export default function SidebarLayout({ children }) {
         style={{ cursor: 'pointer' }}
         className="px-4 pt-5 pb-3 border-b border-white/10 hover:bg-white/5 transition-colors"
       >
-        <img src={companyLogo} alt={companyName} className="h-8" style={{ cursor: 'pointer' }} onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block' }} />
-        <span className="text-white font-bold text-sm hidden">{companyName}</span>
+        {companyLogo ? (
+          <img src={companyLogo} alt={companyName} className="h-8" style={{ cursor: 'pointer' }} onError={e => { e.target.style.display = 'none'; e.target.parentElement.querySelector('.fallback-name').style.display = 'block' }} />
+        ) : null}
+        <span className={`text-white font-bold text-base tracking-wide ${companyLogo ? 'fallback-name hidden' : ''}`} style={{ cursor: 'pointer' }}>
+          {companyName}
+        </span>
       </div>
 
       {/* User */}
