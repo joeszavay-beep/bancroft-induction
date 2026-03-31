@@ -1,20 +1,20 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
+import LoadingButton from './LoadingButton'
 import {
   X, MapPin, Calendar, User, MessageSquare, Send,
-  CheckCircle2, XCircle, RefreshCw, Trash2, ZoomIn, Edit3, Save
+  CheckCircle2, Trash2, ZoomIn, Camera
 } from 'lucide-react'
 
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Other']
 const TYPES = ['General', 'Installation', 'Commissioning', 'Design', 'Other']
-const PRIORITIES = ['high', 'medium', 'low']
-
-const STATUS_BADGE = {
-  open: 'bg-red-100 text-red-700',
-  completed: 'bg-green-100 text-green-700',
-  closed: 'bg-gray-100 text-gray-600',
-  reassigned: 'bg-amber-100 text-amber-700',
+const STATUSES = ['open', 'completed', 'closed', 'reassigned']
+const STATUS_COLORS = {
+  open: 'bg-red-100 text-red-700 border-red-200',
+  completed: 'bg-green-100 text-green-700 border-green-200',
+  closed: 'bg-gray-100 text-gray-600 border-gray-200',
+  reassigned: 'bg-amber-100 text-amber-700 border-amber-200',
 }
 
 function LocationMap({ drawing, pinX, pinY }) {
@@ -28,70 +28,40 @@ function LocationMap({ drawing, pinX, pinY }) {
     img.onload = () => {
       const canvas = canvasRef.current
       if (!canvas) return
-      const size = 300
+      const size = 200
       canvas.width = size
       canvas.height = size
       const ctx = canvas.getContext('2d')
-
-      // Calculate crop area: 20% of image centred on pin
       const cropW = img.width * 0.2
       const cropH = img.height * 0.2
       let sx = (pinX / 100) * img.width - cropW / 2
       let sy = (pinY / 100) * img.height - cropH / 2
-      // Clamp to image bounds
       sx = Math.max(0, Math.min(sx, img.width - cropW))
       sy = Math.max(0, Math.min(sy, img.height - cropH))
-
       ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, size, size)
-
-      // Draw pin marker
-      const markerX = ((pinX / 100) * img.width - sx) / cropW * size
-      const markerY = ((pinY / 100) * img.height - sy) / cropH * size
-
-      // Crosshair
+      const mx = ((pinX / 100) * img.width - sx) / cropW * size
+      const my = ((pinY / 100) * img.height - sy) / cropH * size
       ctx.strokeStyle = '#ef4444'
       ctx.lineWidth = 2
       ctx.beginPath()
-      ctx.arc(markerX, markerY, 12, 0, Math.PI * 2)
+      ctx.arc(mx, my, 10, 0, Math.PI * 2)
       ctx.stroke()
-      ctx.beginPath()
-      ctx.moveTo(markerX - 18, markerY)
-      ctx.lineTo(markerX + 18, markerY)
-      ctx.moveTo(markerX, markerY - 18)
-      ctx.lineTo(markerX, markerY + 18)
-      ctx.stroke()
-
-      // Red dot centre
       ctx.fillStyle = '#ef4444'
       ctx.beginPath()
-      ctx.arc(markerX, markerY, 3, 0, Math.PI * 2)
+      ctx.arc(mx, my, 3, 0, Math.PI * 2)
       ctx.fill()
-
       setReady(true)
     }
-    img.onerror = () => console.error('Failed to load drawing for location map')
     img.src = drawing.file_url
   }, [drawing, pinX, pinY])
 
   if (!drawing?.file_url) return null
-
   return (
-    <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-200">
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-slate-200">
-        <MapPin size={12} className="text-blue-500" />
-        <p className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">Location on Drawing</p>
-      </div>
-      <canvas
-        ref={canvasRef}
-        className="w-full"
-        style={{ display: ready ? 'block' : 'none', aspectRatio: '1' }}
-      />
-      {!ready && (
-        <div className="w-full aspect-square bg-slate-100 flex items-center justify-center">
-          <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full" />
-        </div>
-      )}
-      <p className="text-[10px] text-slate-400 text-center py-1.5">{drawing.name}{drawing.level_ref ? ` — ${drawing.level_ref}` : ''}</p>
+    <div>
+      <p className="text-[10px] text-[#6B7A99] uppercase font-semibold tracking-wider mb-1.5 flex items-center gap-1"><MapPin size={10} /> Location on Drawing</p>
+      <canvas ref={canvasRef} className="w-full max-w-[180px] rounded-lg border border-[#E2E6EA]" style={{ display: ready ? 'block' : 'none', aspectRatio: '1' }} />
+      {!ready && <div className="w-[180px] h-[180px] bg-[#F5F6F8] rounded-lg border border-[#E2E6EA] flex items-center justify-center"><div className="animate-spin w-4 h-4 border-2 border-[#1B6FC8] border-t-transparent rounded-full" /></div>}
+      <p className="text-[9px] text-[#6B7A99] mt-1">{drawing.name}{drawing.level_ref ? ` — ${drawing.level_ref}` : ''}</p>
     </div>
   )
 }
@@ -100,28 +70,35 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
   const [comments, setComments] = useState([])
   const [newComment, setNewComment] = useState('')
   const [sending, setSending] = useState(false)
-  const [updating, setUpdating] = useState(false)
-  const [reassignTo, setReassignTo] = useState('')
-  const [showReassign, setShowReassign] = useState(false)
-  const [photoZoom, setPhotoZoom] = useState(false)
-  const [editing, setEditing] = useState(false)
-  const [editTrade, setEditTrade] = useState(snag.trade || '')
-  const [editType, setEditType] = useState(snag.type || '')
-  const [editDesc, setEditDesc] = useState(snag.description || '')
-  const [editPriority, setEditPriority] = useState(snag.priority || 'medium')
-  const [editDueDate, setEditDueDate] = useState(snag.due_date || '')
-  const [editAssigned, setEditAssigned] = useState(snag.assigned_to || '')
+  const [saving, setSaving] = useState(false)
+  const [lightbox, setLightbox] = useState(false)
 
+  // Editable fields
+  const [status, setStatus] = useState(snag.status || 'open')
+  const [trade, setTrade] = useState(snag.trade || '')
+  const [type, setType] = useState(snag.type || '')
+  const [description, setDescription] = useState(snag.description || '')
+  const [priority, setPriority] = useState(snag.priority || 'medium')
+  const [dueDate, setDueDate] = useState(snag.due_date || '')
+  const [assignedTo, setAssignedTo] = useState(snag.assigned_to || '')
+  const [reassignTo, setReassignTo] = useState('')
+
+  useEffect(() => { loadComments() }, [snag.id])
+
+  // Escape key handler
   useEffect(() => {
-    loadComments()
-  }, [snag.id])
+    function handleKey(e) {
+      if (e.key === 'Escape') {
+        if (lightbox) setLightbox(false)
+        else onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [lightbox, onClose])
 
   async function loadComments() {
-    const { data } = await supabase
-      .from('snag_comments')
-      .select('*')
-      .eq('snag_id', snag.id)
-      .order('created_at')
+    const { data } = await supabase.from('snag_comments').select('*').eq('snag_id', snag.id).order('created_at')
     setComments(data || [])
   }
 
@@ -142,270 +119,225 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
     loadComments()
   }
 
-  async function updateStatus(status) {
-    setUpdating(true)
-    const updates = { status, updated_at: new Date().toISOString() }
-    if (status === 'reassigned' && reassignTo) {
-      updates.assigned_to = reassignTo
+  async function handleSave() {
+    setSaving(true)
+    const updates = {
+      trade: trade || null,
+      type: type || null,
+      description: description.trim(),
+      priority,
+      due_date: dueDate || null,
+      status,
+      assigned_to: status === 'reassigned' && reassignTo ? reassignTo : (assignedTo || null),
+      updated_at: new Date().toISOString(),
     }
     const { error } = await supabase.from('snags').update(updates).eq('id', snag.id)
-    setUpdating(false)
-    if (error) { toast.error('Failed to update snag'); return }
-    toast.success(`Snag #${snag.snag_number} ${status}`)
-    setShowReassign(false)
+    setSaving(false)
+    if (error) {
+      toast.error('Failed to save changes')
+      return
+    }
+    toast.success('Snag updated')
     onUpdated()
   }
 
-  async function deleteSnag() {
+  async function handleDelete() {
     if (!confirm(`Delete snag #${snag.snag_number}? This cannot be undone.`)) return
+    await supabase.from('snag_comments').delete().eq('snag_id', snag.id)
     const { error } = await supabase.from('snags').delete().eq('id', snag.id)
     if (error) { toast.error('Failed to delete'); return }
     toast.success('Snag deleted')
     onUpdated()
   }
 
-  async function saveEdit() {
-    setUpdating(true)
-    const { error } = await supabase.from('snags').update({
-      trade: editTrade || null,
-      type: editType || null,
-      description: editDesc.trim(),
-      priority: editPriority,
-      due_date: editDueDate || null,
-      assigned_to: editAssigned || null,
-      updated_at: new Date().toISOString(),
-    }).eq('id', snag.id)
-    setUpdating(false)
-    if (error) { toast.error('Failed to save changes'); return }
-    toast.success('Snag updated')
-    setEditing(false)
+  async function markComplete() {
+    setSaving(true)
+    const { error } = await supabase.from('snags').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', snag.id)
+    setSaving(false)
+    if (error) { toast.error('Failed to update'); return }
+    toast.success(`Snag #${snag.snag_number} marked complete`)
     onUpdated()
   }
 
   const isOverdue = snag.due_date && new Date(snag.due_date) < new Date() && snag.status === 'open'
-  const inputCls = "w-full px-3 py-2 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]"
+  const selectCls = "w-full px-2.5 py-2 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8] bg-white"
+  const labelCls = "text-[10px] text-[#6B7A99] uppercase font-semibold tracking-wider mb-1 block"
 
   return (
     <>
-      {/* Photo zoom overlay */}
-      {photoZoom && snag.photo_url && (
-        <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4" onClick={() => setPhotoZoom(false)}>
-          <img src={snag.photo_url} alt="Snag" className="max-w-full max-h-full object-contain rounded-lg" />
-          <button onClick={() => setPhotoZoom(false)} className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20">
+      {/* Lightbox */}
+      {lightbox && snag.photo_url && (
+        <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4" onClick={() => setLightbox(false)}>
+          <img src={snag.photo_url} alt="Snag" className="max-w-full max-h-full object-contain rounded-lg" onClick={e => e.stopPropagation()} />
+          <button onClick={() => setLightbox(false)} className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20">
             <X size={24} />
           </button>
         </div>
       )}
 
-      {/* Main modal */}
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-        <div className="bg-white w-full sm:max-w-xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
+      {/* Modal backdrop */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4" onClick={onClose}>
+        <div
+          className="bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-[700px] sm:rounded-2xl shadow-2xl overflow-y-auto flex flex-col"
+          onClick={e => e.stopPropagation()}
+        >
           {/* Header */}
-          <div className="sticky top-0 bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between z-10">
+          <div className="sticky top-0 bg-white border-b border-[#E2E6EA] px-5 py-3 flex items-center justify-between z-10 shrink-0">
             <div className="flex items-center gap-2.5">
-              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg ${STATUS_BADGE[snag.status]}`}>
+              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${STATUS_COLORS[snag.status]}`}>
                 {snag.status.toUpperCase()}
               </span>
-              <h3 className="text-lg font-bold text-slate-900">Snag #{snag.snag_number}</h3>
+              <h3 className="text-lg font-bold text-[#1A1A2E]">Snag #{snag.snag_number}</h3>
+              {isOverdue && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold">OVERDUE</span>}
             </div>
-            <div className="flex items-center gap-1">
-              {isPM && !editing && (
-                <button onClick={() => setEditing(true)} className="p-1.5 text-slate-400 hover:text-[#1B6FC8] hover:bg-blue-50 rounded-lg transition-colors" title="Edit snag">
-                  <Edit3 size={18} />
-                </button>
-              )}
-              {editing && (
-                <button onClick={() => setEditing(false)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" title="Cancel editing">
-                  <X size={18} />
-                </button>
-              )}
-              <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-                <X size={20} />
-              </button>
-            </div>
+            <button onClick={onClose} className="p-1.5 text-[#6B7A99] hover:text-[#1A1A2E] hover:bg-[#F5F6F8] rounded-lg transition-colors">
+              <X size={20} />
+            </button>
           </div>
 
-          <div className="p-4 space-y-4">
-            {/* Photo - full width, tappable */}
-            {snag.photo_url && (
-              <button onClick={() => setPhotoZoom(true)} className="relative w-full group">
-                <img src={snag.photo_url} alt="Snag photo" className="w-full h-56 object-cover rounded-xl" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded-xl transition-colors flex items-center justify-center">
-                  <ZoomIn size={24} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </button>
-            )}
-
-            {editing ? (
-              /* ===== EDIT MODE ===== */
-              <div className="space-y-3 bg-blue-50/50 border border-blue-200 rounded-xl p-4">
-                <p className="text-xs font-semibold text-[#1B6FC8] uppercase tracking-wider">Editing Snag #{snag.snag_number}</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] text-slate-500 mb-0.5 block">Trade</label>
-                    <select value={editTrade} onChange={e => setEditTrade(e.target.value)} className={inputCls}>
-                      <option value="">None</option>
-                      {TRADES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-slate-500 mb-0.5 block">Type</label>
-                    <select value={editType} onChange={e => setEditType(e.target.value)} className={inputCls}>
-                      <option value="">None</option>
-                      {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-slate-500 mb-0.5 block">Priority</label>
-                    <select value={editPriority} onChange={e => setEditPriority(e.target.value)} className={inputCls}>
-                      {PRIORITIES.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-slate-500 mb-0.5 block">Due Date</label>
-                    <input type="date" value={editDueDate} onChange={e => setEditDueDate(e.target.value)} className={inputCls} />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-500 mb-0.5 block">Assigned To</label>
-                  <select value={editAssigned} onChange={e => setEditAssigned(e.target.value)} className={inputCls}>
-                    <option value="">Unassigned</option>
-                    {operatives.map(op => <option key={op.id} value={op.name}>{op.name}{op.role ? ` — ${op.role}` : ''}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-500 mb-0.5 block">Description</label>
-                  <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={3}
-                    className={`${inputCls} resize-none`} />
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <button onClick={() => setEditing(false)} className="px-4 py-2 text-xs text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
-                    Cancel
-                  </button>
-                  <button onClick={saveEdit} disabled={updating}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
-                    <Save size={14} /> Save Changes
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* ===== VIEW MODE ===== */
-              <>
-                {/* Info cards */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  {snag.trade && (
-                    <div className="bg-slate-50 rounded-lg p-2.5">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wider">Trade</p>
-                      <p className="text-sm text-slate-900 font-semibold mt-0.5">{snag.trade}</p>
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Two column layout */}
+            <div className="flex flex-col sm:flex-row">
+              {/* Left — Photo */}
+              <div className="sm:w-[280px] shrink-0 p-5 border-b sm:border-b-0 sm:border-r border-[#E2E6EA]">
+                {snag.photo_url ? (
+                  <button onClick={() => setLightbox(true)} className="relative w-full group rounded-xl overflow-hidden">
+                    <img src={snag.photo_url} alt="Snag" className="w-full h-52 sm:h-64 object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                      <ZoomIn size={24} className="text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
                     </div>
-                  )}
-                  {snag.type && (
-                    <div className="bg-slate-50 rounded-lg p-2.5">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wider">Type</p>
-                      <p className="text-sm text-slate-900 font-semibold mt-0.5">{snag.type}</p>
-                    </div>
-                  )}
-                  <div className="bg-slate-50 rounded-lg p-2.5">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Priority</p>
-                    <p className={`text-sm font-semibold mt-0.5 ${
-                      snag.priority === 'high' ? 'text-red-600' : snag.priority === 'medium' ? 'text-amber-600' : 'text-blue-600'
-                    }`}>{snag.priority}{snag.priority === 'high' ? ' (2 day)' : snag.priority === 'medium' ? ' (5 day)' : ' (10 day)'}</p>
-                  </div>
-                  <div className={`rounded-lg p-2.5 ${isOverdue ? 'bg-red-50 border border-red-200' : 'bg-slate-50'}`}>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Due Date</p>
-                    <p className={`text-sm font-semibold mt-0.5 ${isOverdue ? 'text-red-600' : 'text-slate-900'}`}>
-                      {snag.due_date ? new Date(snag.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Not set'}
-                    </p>
-                    {isOverdue && <p className="text-[10px] text-red-500 font-bold mt-0.5">OVERDUE</p>}
-                  </div>
-                  <div className="bg-slate-50 rounded-lg p-2.5">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Created</p>
-                    <p className="text-sm text-slate-900 font-medium mt-0.5">{new Date(snag.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                  </div>
-                  <div className="bg-slate-50 rounded-lg p-2.5">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Assigned To</p>
-                    <p className="text-sm text-slate-900 font-medium mt-0.5">{snag.assigned_to || 'Unassigned'}</p>
-                  </div>
-                </div>
-
-                {/* Description */}
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Description</p>
-                  <p className="text-sm text-slate-700 leading-relaxed">{snag.description || 'No description'}</p>
-                </div>
-
-                {/* Raised by */}
-                {snag.raised_by && (
-                  <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                    <User size={11} />
-                    <span>Raised by <span className="text-slate-600 font-medium">{snag.raised_by}</span></span>
+                  </button>
+                ) : (
+                  <div className="w-full h-52 sm:h-64 bg-[#F5F6F8] rounded-xl flex flex-col items-center justify-center">
+                    <Camera size={32} className="text-[#B0B8C9] mb-2" />
+                    <p className="text-xs text-[#B0B8C9]">No photo</p>
                   </div>
                 )}
-              </>
-            )}
 
-            {/* Location map */}
-            <LocationMap drawing={drawing} pinX={snag.pin_x} pinY={snag.pin_y} />
+                {/* Location map below photo */}
+                <div className="mt-4">
+                  <LocationMap drawing={drawing} pinX={snag.pin_x} pinY={snag.pin_y} />
+                </div>
+              </div>
 
-            {/* Action buttons */}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {(snag.status === 'open' || snag.status === 'reassigned') && (
-                <button onClick={() => updateStatus('completed')} disabled={updating}
-                  className="flex items-center gap-1.5 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded-lg transition-colors">
-                  <CheckCircle2 size={14} /> Mark Complete
-                </button>
-              )}
-              {isPM && snag.status !== 'closed' && (
-                <>
-                  <button onClick={() => updateStatus('closed')} disabled={updating}
-                    className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-500 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg transition-colors">
-                    <XCircle size={14} /> Close
-                  </button>
-                  <button onClick={() => setShowReassign(!showReassign)} disabled={updating}
-                    className="flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors">
-                    <RefreshCw size={14} /> Reassign
-                  </button>
-                  <button onClick={deleteSnag}
-                    className="flex items-center gap-1.5 px-3 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium rounded-lg transition-colors ml-auto">
-                    <Trash2 size={14} />
-                  </button>
-                </>
-              )}
+              {/* Right — Details */}
+              <div className="flex-1 p-5 space-y-3">
+                {isPM ? (
+                  <>
+                    {/* Editable fields for PM */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelCls}>Status</label>
+                        <select value={status} onChange={e => setStatus(e.target.value)} className={selectCls}>
+                          {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                        </select>
+                      </div>
+                      {status === 'reassigned' && (
+                        <div>
+                          <label className={labelCls}>Reassign To</label>
+                          <select value={reassignTo} onChange={e => setReassignTo(e.target.value)} className={selectCls}>
+                            <option value="">Select...</option>
+                            {operatives.map(op => <option key={op.id} value={op.name}>{op.name}{op.role ? ` — ${op.role}` : ''}</option>)}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelCls}>Trade</label>
+                        <select value={trade} onChange={e => setTrade(e.target.value)} className={selectCls}>
+                          <option value="">None</option>
+                          {TRADES.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Type</label>
+                        <select value={type} onChange={e => setType(e.target.value)} className={selectCls}>
+                          <option value="">None</option>
+                          {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={labelCls}>Description</label>
+                      <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
+                        className={`${selectCls} resize-none`} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelCls}>Priority</label>
+                        <select value={priority} onChange={e => setPriority(e.target.value)} className={selectCls}>
+                          <option value="high">High (2 day fix)</option>
+                          <option value="medium">Medium (5 day fix)</option>
+                          <option value="low">Low (10 day fix)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Due Date</label>
+                        <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={selectCls} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={labelCls}>Assigned To</label>
+                      <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} className={selectCls}>
+                        <option value="">Unassigned</option>
+                        {operatives.map(op => <option key={op.id} value={op.name}>{op.name}{op.role ? ` — ${op.role}` : ''}</option>)}
+                      </select>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Read-only fields for operatives */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {snag.trade && <div className="bg-[#F5F6F8] rounded-lg p-2.5"><p className="text-[10px] text-[#6B7A99] uppercase">Trade</p><p className="text-sm text-[#1A1A2E] font-semibold mt-0.5">{snag.trade}</p></div>}
+                      {snag.type && <div className="bg-[#F5F6F8] rounded-lg p-2.5"><p className="text-[10px] text-[#6B7A99] uppercase">Type</p><p className="text-sm text-[#1A1A2E] font-semibold mt-0.5">{snag.type}</p></div>}
+                      <div className="bg-[#F5F6F8] rounded-lg p-2.5"><p className="text-[10px] text-[#6B7A99] uppercase">Priority</p><p className={`text-sm font-semibold mt-0.5 ${priority === 'high' ? 'text-red-600' : priority === 'medium' ? 'text-amber-600' : 'text-blue-600'}`}>{snag.priority}</p></div>
+                      <div className={`rounded-lg p-2.5 ${isOverdue ? 'bg-red-50' : 'bg-[#F5F6F8]'}`}><p className="text-[10px] text-[#6B7A99] uppercase">Due Date</p><p className={`text-sm font-semibold mt-0.5 ${isOverdue ? 'text-red-600' : 'text-[#1A1A2E]'}`}>{snag.due_date ? new Date(snag.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Not set'}</p></div>
+                    </div>
+                    <div className="bg-[#F5F6F8] rounded-lg p-3">
+                      <p className="text-[10px] text-[#6B7A99] uppercase mb-1">Description</p>
+                      <p className="text-sm text-[#1A1A2E]">{snag.description || 'No description'}</p>
+                    </div>
+                    {snag.assigned_to && <div className="bg-[#F5F6F8] rounded-lg p-2.5"><p className="text-[10px] text-[#6B7A99] uppercase">Assigned To</p><p className="text-sm text-[#1A1A2E] font-medium mt-0.5">{snag.assigned_to}</p></div>}
+                  </>
+                )}
+
+                {/* Read-only meta */}
+                <div className="flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-[#6B7A99] pt-1 border-t border-[#E2E6EA]">
+                  {snag.raised_by && <span className="flex items-center gap-1"><User size={10} /> Raised by {snag.raised_by}</span>}
+                  <span className="flex items-center gap-1"><Calendar size={10} /> {new Date(snag.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                  {drawing && <span className="flex items-center gap-1"><MapPin size={10} /> {drawing.drawing_number || drawing.name}</span>}
+                </div>
+              </div>
             </div>
 
-            {/* Reassign */}
-            {showReassign && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
-                <select value={reassignTo} onChange={e => setReassignTo(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-blue-400">
-                  <option value="">Select person/company</option>
-                  {operatives.map(op => <option key={op.id} value={op.name}>{op.name}{op.role ? ` — ${op.role}` : ''}</option>)}
-                </select>
-                <button onClick={() => updateStatus('reassigned')} disabled={!reassignTo || updating}
-                  className="w-full px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded-lg disabled:opacity-50">
-                  Confirm Reassign
-                </button>
-              </div>
-            )}
-
-            {/* Comments */}
-            <div className="pt-2">
+            {/* Comments section — full width */}
+            <div className="border-t border-[#E2E6EA] px-5 py-4">
               <div className="flex items-center gap-1.5 mb-3">
-                <MessageSquare size={14} className="text-blue-500" />
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Comments ({comments.length})</p>
+                <MessageSquare size={14} className="text-[#1B6FC8]" />
+                <p className="text-xs font-semibold text-[#1A1A2E] uppercase tracking-wider">Comments ({comments.length})</p>
               </div>
 
               {comments.length > 0 && (
-                <div className="space-y-2 mb-3">
+                <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
                   {comments.map(c => (
-                    <div key={c.id} className="bg-slate-50 rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs font-semibold text-slate-700">
-                          {c.author_name} <span className="text-slate-400 font-normal">({c.author_role})</span>
-                        </p>
-                        <p className="text-[10px] text-slate-400">{new Date(c.created_at).toLocaleString()}</p>
+                    <div key={c.id} className="flex gap-2.5">
+                      <div className="w-7 h-7 rounded-full bg-[#1B6FC8]/10 flex items-center justify-center text-[#1B6FC8] text-[10px] font-bold shrink-0 mt-0.5">
+                        {(c.author_name || '?').charAt(0).toUpperCase()}
                       </div>
-                      <p className="text-sm text-slate-600">{c.comment}</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-semibold text-[#1A1A2E]">{c.author_name}</p>
+                          <span className="text-[10px] text-[#6B7A99]">{c.author_role}</span>
+                          <span className="text-[10px] text-[#B0B8C9] ml-auto">{new Date(c.created_at).toLocaleString()}</span>
+                        </div>
+                        <p className="text-sm text-[#3D4F6F] mt-0.5">{c.comment}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -416,14 +348,36 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
                   value={newComment}
                   onChange={e => setNewComment(e.target.value)}
                   placeholder="Add a comment..."
-                  className="flex-1 px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400"
+                  className="flex-1 px-3 py-2 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] placeholder-[#B0B8C9] focus:outline-none focus:border-[#1B6FC8]"
                 />
                 <button type="submit" disabled={sending || !newComment.trim()}
-                  className="px-3 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg disabled:opacity-50 transition-colors">
+                  className="px-3 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white rounded-md disabled:opacity-40 transition-colors">
                   <Send size={16} />
                 </button>
               </form>
             </div>
+          </div>
+
+          {/* Bottom action bar */}
+          <div className="sticky bottom-0 bg-white border-t border-[#E2E6EA] px-5 py-3 flex items-center gap-2 shrink-0">
+            {isPM ? (
+              <>
+                <LoadingButton loading={saving} onClick={handleSave} className="px-5 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-semibold rounded-md">
+                  Save Changes
+                </LoadingButton>
+                <button onClick={handleDelete} className="flex items-center gap-1.5 px-4 py-3 text-[#DA3633] hover:bg-red-50 text-sm font-medium rounded-md transition-colors ml-auto">
+                  <Trash2 size={14} /> Delete
+                </button>
+              </>
+            ) : (
+              <>
+                {(snag.status === 'open' || snag.status === 'reassigned') && (
+                  <LoadingButton loading={saving} onClick={markComplete} className="px-5 bg-[#2EA043] hover:bg-[#27903A] text-white text-sm font-semibold rounded-md">
+                    <CheckCircle2 size={14} className="mr-1.5" /> Mark as Complete
+                  </LoadingButton>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
