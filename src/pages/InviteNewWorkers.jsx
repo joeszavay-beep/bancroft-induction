@@ -45,7 +45,7 @@ export default function InviteNewWorkers() {
           operativeName: fullName,
           email: email.trim(),
           mobile: mobile.trim() || null,
-          projectName: 'Bancroft Ltd',
+          projectName: 'CoreSite',
         }),
       }).catch(() => {})
     }

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useCompany } from '../lib/CompanyContext'
 import { BarChart3, Search, Check, X, Clock, RotateCcw } from 'lucide-react'
 
 export default function InvitationsPipeline() {
+  const { company } = useCompany()
   const [operatives, setOperatives] = useState([])
   const [documents, setDocuments] = useState([])
   const [signatures, setSignatures] = useState([])
@@ -172,7 +174,7 @@ export default function InvitationsPipeline() {
 
                   return (
                     <tr key={op.id} className="border-t border-[#E2E6EA] hover:bg-[#F5F6F8]/50">
-                      <td className="px-4 py-3 text-[#6B7A99]">Bancroft Ltd</td>
+                      <td className="px-4 py-3 text-[#6B7A99]">{company?.name || '—'}</td>
                       <td className="px-4 py-3 font-medium text-[#1A1A2E]">{op.name}</td>
                       <td className="px-4 py-3 text-[#6B7A99]">{op.projects?.name || '—'}</td>
                       <td className="px-4 py-3">

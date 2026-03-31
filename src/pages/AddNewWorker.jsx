@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useCompany } from '../lib/CompanyContext'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import { UserPlus, Upload } from 'lucide-react'
@@ -10,6 +11,7 @@ const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwo
 
 export default function AddNewWorker() {
   const navigate = useNavigate()
+  const { company } = useCompany()
   const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
   const [saving, setSaving] = useState(false)
   const [photo, setPhoto] = useState(null)
@@ -99,7 +101,7 @@ export default function AddNewWorker() {
           operativeId: data.id,
           operativeName: fullName,
           email: email.trim(),
-          projectName: proj?.name || 'Bancroft Ltd',
+          projectName: proj?.name || company?.name || 'CoreSite',
         }),
       }).catch(() => {})
     }
@@ -142,7 +144,7 @@ export default function AddNewWorker() {
                 </div>
                 <div>
                   <label className={labelCls}>Contractor</label>
-                  <input value="BANCROFT LTD" readOnly className={`${inputCls} bg-[#F5F6F8]`} />
+                  <input value={company?.name || 'Company'} readOnly className={`${inputCls} bg-[#F5F6F8]`} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
