@@ -26,9 +26,9 @@ const TABS = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
-export default function PMDashboard() {
+export default function PMDashboard({ initialTab }) {
   const navigate = useNavigate()
-  const [tab, setTab] = useState('home')
+  const [tab, setTab] = useState(initialTab || 'home')
   const [projects, setProjects] = useState([])
   const [operatives, setOperatives] = useState([])
   const [documents, setDocuments] = useState([])
@@ -40,10 +40,6 @@ export default function PMDashboard() {
   const isAdmin = managerData.role === 'admin'
 
   useEffect(() => {
-    if (sessionStorage.getItem('pm_auth') !== 'true') {
-      navigate('/pm-login')
-      return
-    }
     loadData()
   }, [])
 
@@ -78,69 +74,22 @@ export default function PMDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin w-8 h-8 border-2 border-[#1B6FC8] border-t-transparent rounded-full" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          {tab !== 'home' && (
-            <button onClick={() => setTab('home')} className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
-              <ArrowLeft size={22} />
-            </button>
-          )}
-          <button onClick={() => setTab('home')}>
-            <img src="/bancroft-logo.png" alt="Bancroft" className="h-8" />
-          </button>
-          <div>
-            <p className="text-xs text-slate-900 font-medium">{managerData.name || 'Manager'}</p>
-            <p className="text-[10px] text-slate-400">{isAdmin ? 'Admin' : 'Project Manager'}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          {isAdmin && (
-            <button onClick={() => navigate('/admin')} className="px-2.5 py-1.5 text-[11px] text-blue-500 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors font-medium">
-              Admin
-            </button>
-          )}
-          <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
-            <LogOut size={20} />
-          </button>
-        </div>
-      </header>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 pb-24">
-        {tab === 'home' && <HomeTab projects={projects} operatives={operatives} documents={documents} signatures={signatures} onNavigate={setTab} />}
-        {tab === 'projects' && <ProjectsTab projects={projects} documents={documents} operatives={operatives} signatures={signatures} onRefresh={loadData} />}
-        {tab === 'team' && <TeamTab operatives={operatives} projects={projects} onRefresh={loadData} />}
-        {tab === 'snags' && <SnagsTab projects={projects} navigate={navigate} />}
-        {tab === 'toolbox' && <ToolboxTab projects={projects} navigate={navigate} />}
-        {tab === 'portal' && <PortalTab projects={projects} navigate={navigate} />}
-        {tab === 'hsreport' && <HSReportTab />}
-        {tab === 'settings' && <SettingsTab />}
-      </div>
-
-      {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex z-40">
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex-1 flex flex-col items-center py-3 text-xs transition-colors ${
-              tab === t.id ? 'text-blue-600' : 'text-slate-400 hover:text-slate-500'
-            }`}
-          >
-            <t.icon size={20} />
-            <span className="mt-1">{t.label}</span>
-          </button>
-        ))}
-      </nav>
+    <div>
+      {tab === 'home' && <HomeTab projects={projects} operatives={operatives} documents={documents} signatures={signatures} onNavigate={setTab} />}
+      {tab === 'projects' && <ProjectsTab projects={projects} documents={documents} operatives={operatives} signatures={signatures} onRefresh={loadData} />}
+      {tab === 'team' && <TeamTab operatives={operatives} projects={projects} onRefresh={loadData} />}
+      {tab === 'snags' && <SnagsTab projects={projects} navigate={navigate} />}
+      {tab === 'toolbox' && <ToolboxTab projects={projects} navigate={navigate} />}
+      {tab === 'portal' && <PortalTab projects={projects} navigate={navigate} />}
+      {tab === 'hsreport' && <HSReportTab />}
+      {tab === 'settings' && <SettingsTab />}
     </div>
   )
 }
