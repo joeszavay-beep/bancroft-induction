@@ -8,7 +8,7 @@ import {
   Home, FolderOpen, Users, Globe, LogOut, Plus, Trash2, Upload,
   FileText, UserPlus, ChevronRight, CheckCircle2, Clock, AlertCircle, Download,
   RefreshCw, Mail, Settings, Bell, ShieldCheck, FileWarning, ClipboardList, ArrowLeft,
-  MessageSquare
+  MessageSquare, MapPin
 } from 'lucide-react'
 import { generateSignOffSheet } from '../lib/generateSignOffSheet'
 import { generateAuditReport } from '../lib/generateAuditReport'
@@ -18,6 +18,7 @@ const TABS = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'projects', label: 'Projects', icon: FolderOpen },
   { id: 'team', label: 'Team', icon: Users },
+  { id: 'snags', label: 'Snags', icon: MapPin },
   { id: 'toolbox', label: 'Toolbox', icon: MessageSquare },
   { id: 'portal', label: 'Portal', icon: Globe },
   { id: 'hsreport', label: 'H&S', icon: ClipboardList },
@@ -117,6 +118,7 @@ export default function PMDashboard() {
         {tab === 'home' && <HomeTab projects={projects} operatives={operatives} documents={documents} signatures={signatures} onNavigate={setTab} />}
         {tab === 'projects' && <ProjectsTab projects={projects} documents={documents} operatives={operatives} signatures={signatures} onRefresh={loadData} />}
         {tab === 'team' && <TeamTab operatives={operatives} projects={projects} onRefresh={loadData} />}
+        {tab === 'snags' && <SnagsTab projects={projects} navigate={navigate} />}
         {tab === 'toolbox' && <ToolboxTab projects={projects} navigate={navigate} />}
         {tab === 'portal' && <PortalTab projects={projects} navigate={navigate} />}
         {tab === 'hsreport' && <HSReportTab />}
@@ -952,6 +954,169 @@ function SettingsTab() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ==================== SNAGS TAB ==================== */
+function SnagsTab({ projects, navigate }) {
+  const [drawings, setDrawings] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showUpload, setShowUpload] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [snagCounts, setSnagCounts] = useState({})
+
+  // Upload form
+  const [drawingName, setDrawingName] = useState('')
+  const [levelRef, setLevelRef] = useState('')
+  const [drawingNumber, setDrawingNumber] = useState('')
+  const [revision, setRevision] = useState('')
+  const [drawingProjectId, setDrawingProjectId] = useState('')
+  const [drawingFile, setDrawingFile] = useState(null)
+
+  useEffect(() => { loadDrawings() }, [])
+
+  async function loadDrawings() {
+    setLoading(true)
+    const { data: d } = await supabase.from('drawings').select('*').order('uploaded_at', { ascending: false })
+    setDrawings(d || [])
+    // Get snag counts per drawing
+    if (d && d.length > 0) {
+      const { data: snags } = await supabase.from('snags').select('drawing_id, status')
+      const counts = {}
+      ;(snags || []).forEach(s => {
+        if (!counts[s.drawing_id]) counts[s.drawing_id] = { total: 0, open: 0, completed: 0, closed: 0 }
+        counts[s.drawing_id].total++
+        counts[s.drawing_id][s.status] = (counts[s.drawing_id][s.status] || 0) + 1
+      })
+      setSnagCounts(counts)
+    }
+    setLoading(false)
+  }
+
+  async function uploadDrawing(e) {
+    e.preventDefault()
+    if (!drawingName.trim() || !drawingProjectId || !drawingFile) return
+    setSaving(true)
+
+    const fileExt = drawingFile.name.split('.').pop()
+    const filePath = `${drawingProjectId}/${Date.now()}.${fileExt}`
+    const { error: upErr } = await supabase.storage.from('drawings').upload(filePath, drawingFile)
+    if (upErr) {
+      setSaving(false)
+      toast.error('Failed to upload drawing')
+      return
+    }
+    const { data: urlData } = supabase.storage.from('drawings').getPublicUrl(filePath)
+    const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+
+    const { error: dbErr } = await supabase.from('drawings').insert({
+      project_id: drawingProjectId,
+      name: drawingName.trim(),
+      level_ref: levelRef.trim() || null,
+      drawing_number: drawingNumber.trim() || null,
+      revision: revision.trim() || null,
+      file_url: urlData.publicUrl,
+      uploaded_by: managerData.name || 'PM',
+    })
+    setSaving(false)
+    if (dbErr) {
+      toast.error('Failed to save drawing')
+      return
+    }
+    toast.success('Drawing uploaded')
+    setShowUpload(false)
+    setDrawingName(''); setLevelRef(''); setDrawingNumber(''); setRevision(''); setDrawingProjectId(''); setDrawingFile(null)
+    loadDrawings()
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-slate-900">Snagging</h2>
+        <button onClick={() => setShowUpload(true)} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors">
+          <Upload size={16} /> Upload Drawing
+        </button>
+      </div>
+
+      {drawings.length === 0 ? (
+        <div className="text-center py-12">
+          <MapPin size={40} className="mx-auto mb-3 text-slate-200" />
+          <p className="text-slate-400">No drawings uploaded yet</p>
+          <p className="text-xs text-slate-300 mt-1">Upload a drawing to start raising snags</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {drawings.map(d => {
+            const counts = snagCounts[d.id] || { total: 0, open: 0, completed: 0, closed: 0 }
+            const proj = projects.find(p => p.id === d.project_id)
+            return (
+              <button
+                key={d.id}
+                onClick={() => navigate(`/snags/${d.id}`)}
+                className="w-full bg-white border border-slate-200 rounded-xl p-4 text-left hover:shadow-md hover:border-blue-300 transition-all active:scale-[0.99]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+                    <MapPin size={22} className="text-blue-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-slate-900 font-semibold truncate">{d.name}</p>
+                    <p className="text-xs text-slate-400 truncate">
+                      {d.drawing_number && `${d.drawing_number} `}{d.revision && `Rev ${d.revision} · `}{proj?.name || ''}{d.level_ref && ` · ${d.level_ref}`}
+                    </p>
+                    {counts.total > 0 && (
+                      <div className="flex items-center gap-2 mt-1.5">
+                        {counts.open > 0 && <span className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium">{counts.open} open</span>}
+                        {counts.completed > 0 && <span className="text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-medium">{counts.completed} done</span>}
+                        {counts.closed > 0 && <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">{counts.closed} closed</span>}
+                      </div>
+                    )}
+                  </div>
+                  <ChevronRight size={16} className="text-slate-300" />
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Upload Drawing Modal */}
+      <Modal open={showUpload} onClose={() => setShowUpload(false)} title="Upload Drawing">
+        <form onSubmit={uploadDrawing} className="space-y-3">
+          <input value={drawingName} onChange={e => setDrawingName(e.target.value)} placeholder="Drawing name *"
+            className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm placeholder-slate-300 focus:outline-none focus:border-blue-400" autoFocus />
+          <select value={drawingProjectId} onChange={e => setDrawingProjectId(e.target.value)}
+            className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-blue-400">
+            <option value="">Select project *</option>
+            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <div className="grid grid-cols-2 gap-3">
+            <input value={levelRef} onChange={e => setLevelRef(e.target.value)} placeholder="Level / Area ref"
+              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm placeholder-slate-300 focus:outline-none focus:border-blue-400" />
+            <input value={revision} onChange={e => setRevision(e.target.value)} placeholder="Revision (e.g. C01)"
+              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm placeholder-slate-300 focus:outline-none focus:border-blue-400" />
+          </div>
+          <input value={drawingNumber} onChange={e => setDrawingNumber(e.target.value)} placeholder="Drawing number (e.g. ML-BAN-08-DR-E-640080)"
+            className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm placeholder-slate-300 focus:outline-none focus:border-blue-400" />
+          <label className="flex items-center justify-center gap-2 w-full px-3 py-3 bg-slate-50 border border-slate-200 border-dashed rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
+            <Upload size={16} className="text-slate-400" />
+            <span className="text-sm text-slate-400">{drawingFile ? drawingFile.name : 'Select drawing file (PDF or image)'}</span>
+            <input type="file" accept=".pdf,.png,.jpg,.jpeg,.tiff,.bmp" onChange={e => setDrawingFile(e.target.files[0])} className="hidden" />
+          </label>
+          <LoadingButton loading={saving} type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-xl">
+            Upload Drawing
+          </LoadingButton>
+        </form>
+      </Modal>
     </div>
   )
 }
