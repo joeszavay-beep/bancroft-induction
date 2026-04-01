@@ -1071,18 +1071,11 @@ function SnagsTab({ projects, navigate }) {
     const drawing = drawings.find(d => d.id === drawingId)
     const proj = projects.find(p => p.id === drawing?.project_id)
 
-    // Generate PDF of selected snags and upload to Supabase storage
+    // Generate PDF of selected snags and upload to Supabase storage (no local download)
     let pdfUrl = null
     try {
-      // Import dynamically to avoid loading jsPDF on every page load
-      const { generateSnagPDF } = await import('../lib/generateSnagPDF')
-      // Temporarily override doc.save to capture the blob instead of downloading
-      const { jsPDF } = await import('jspdf')
-      const origSave = jsPDF.prototype.save
-      let pdfBlob = null
-      jsPDF.prototype.save = function() { pdfBlob = this.output('blob') }
-      await generateSnagPDF({ drawing, project: proj, snags: selectedSnagData, imageUrl: drawing?.file_url })
-      jsPDF.prototype.save = origSave
+      const { generateSnagPDFBlob } = await import('../lib/generateSnagPDF')
+      const pdfBlob = await generateSnagPDFBlob({ drawing, project: proj, snags: selectedSnagData, imageUrl: drawing?.file_url })
 
       if (pdfBlob) {
         const pdfPath = `snag-reports/${cid}/${Date.now()}.pdf`

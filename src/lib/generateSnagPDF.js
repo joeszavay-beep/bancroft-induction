@@ -78,7 +78,7 @@ function generateLocationMapDataUrl(img, pinX, pinY, snagNumber) {
   return canvas.toDataURL('image/jpeg', 0.5)
 }
 
-export async function generateSnagPDF({ drawing, project, snags, imageUrl }) {
+export async function generateSnagPDF({ drawing, project, snags, imageUrl, options }) {
   const doc = new jsPDF('l', 'mm', 'a4') // landscape for drawing
   const pageW = 297
   const pageH = 210
@@ -316,5 +316,12 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl }) {
   }
 
   const fileName = `Snag Report - ${drawing.name} - ${new Date().toISOString().slice(0, 10)}.pdf`.replace(/[^a-zA-Z0-9 \-_.]/g, '')
+  if (options?.returnBlob) {
+    return doc.output('blob')
+  }
   doc.save(fileName)
+}
+
+export async function generateSnagPDFBlob(params) {
+  return generateSnagPDF({ ...params, options: { returnBlob: true } })
 }
