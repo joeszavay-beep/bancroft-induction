@@ -1506,7 +1506,11 @@ function SnagsTab({ projects, navigate }) {
           <p className="text-sm text-[#6B7A99]">Assign the selected snags to an operative and send them an email with the details.</p>
           <div>
             <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Assign To *</label>
-            <select value={assignTo} onChange={e => setAssignTo(e.target.value)}
+            <select value={assignTo} onChange={e => {
+              setAssignTo(e.target.value)
+              const op = allOperatives.find(o => o.name === e.target.value)
+              if (op?.email) setAssignEmail(op.email)
+            }}
               className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]">
               <option value="">Select person</option>
               {allOperatives.map(op => <option key={op.id} value={op.name}>{op.name}{op.role ? ` — ${op.role}` : ''}</option>)}
