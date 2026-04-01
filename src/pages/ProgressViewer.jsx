@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard } from 'lucide-react'
+import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
 import { useCompany } from '../lib/CompanyContext'
 
@@ -411,11 +411,14 @@ export default function ProgressViewer() {
           <button onClick={handleExport} disabled={exporting} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors" title="Export PDF">
             {exporting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download size={16} />}
           </button>
-          {isMarking && (
-            <button onClick={() => { setActiveColour(null); setDrawMode('dot'); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setClipboard(null) }} className="p-2 bg-red-500 rounded-lg" title="Exit mark mode">
+          {isMarking && <>
+            <button onClick={() => { setActiveColour(null); setDrawMode('dot'); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setClipboard(null) }} className="p-2 bg-green-500 rounded-lg" title="Done">
+              <Check size={16} />
+            </button>
+            <button onClick={() => { setActiveColour(null); setDrawMode('dot'); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setClipboard(null) }} className="p-2 bg-red-500/60 rounded-lg" title="Cancel">
               <X size={16} />
             </button>
-          )}
+          </>}
         </div>
       </header>
 
