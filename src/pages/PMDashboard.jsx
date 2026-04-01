@@ -1543,15 +1543,33 @@ function SnagsTab({ projects, navigate }) {
           <p className="text-sm text-[#6B7A99]">Assign the selected snags to an operative and send them an email with the details.</p>
           <div>
             <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Assign To *</label>
-            <select value={assignTo} onChange={e => {
-              setAssignTo(e.target.value)
-              const op = allOperatives.find(o => o.name === e.target.value)
-              if (op?.email) setAssignEmail(op.email)
-            }}
-              className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]">
-              <option value="">Select person</option>
-              {allOperatives.map(op => <option key={op.id} value={op.name}>{op.name}{op.role ? ` — ${op.role}` : ''}</option>)}
-            </select>
+            <input
+              type="text"
+              value={assignTo}
+              onChange={e => {
+                setAssignTo(e.target.value)
+                // Auto-fill email if exact match
+                const op = allOperatives.find(o => o.name.toLowerCase() === e.target.value.toLowerCase())
+                if (op?.email) setAssignEmail(op.email)
+              }}
+              placeholder="Search by name..."
+              className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] placeholder-[#B0B8C9] focus:outline-none focus:border-[#1B6FC8]"
+            />
+            {assignTo && allOperatives.filter(op => op.name.toLowerCase().includes(assignTo.toLowerCase()) && op.name !== assignTo).length > 0 && (
+              <div className="mt-1 border border-[#E2E6EA] rounded-md max-h-32 overflow-y-auto" style={{ backgroundColor: 'var(--bg-card)' }}>
+                {allOperatives
+                  .filter(op => op.name.toLowerCase().includes(assignTo.toLowerCase()) && op.name !== assignTo)
+                  .map(op => (
+                    <button key={op.id} type="button" onClick={() => {
+                      setAssignTo(op.name)
+                      if (op.email) setAssignEmail(op.email)
+                    }} className="w-full text-left px-3 py-2 text-sm hover:bg-[#F5F6F8] transition-colors flex items-center justify-between" style={{ color: 'var(--text-primary)' }}>
+                      <span>{op.name}{op.role ? <span style={{ color: 'var(--text-muted)' }}> — {op.role}</span> : ''}</span>
+                      {op.email && <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{op.email}</span>}
+                    </button>
+                  ))}
+              </div>
+            )}
           </div>
           <div>
             <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Email Address (to receive snag details)</label>
