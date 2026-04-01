@@ -110,7 +110,7 @@ export default function ProgressViewer() {
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
     const midX = polyPoints.reduce((s, p) => s + p.x, 0) / polyPoints.length
     const midY = polyPoints.reduce((s, p) => s + p.y, 0) / polyPoints.length
-    const polyData = JSON.stringify({ points: polyPoints })
+    const polyData = JSON.stringify({ points: polyPoints, width: dotSize })
 
     const { data, error } = await supabase.from('progress_items').insert({
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
@@ -223,13 +223,14 @@ export default function ProgressViewer() {
 
   async function placeDotItem(x, y) {
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
-    const tempItem = { id: `temp-${Date.now()}`, item_number: nextNum, pin_x: x, pin_y: y, status: activeColour, item_type: 'dot', created_by: mgr.name }
+    const sizeNotes = JSON.stringify({ size: dotSize })
+    const tempItem = { id: `temp-${Date.now()}`, item_number: nextNum, pin_x: x, pin_y: y, status: activeColour, label: 'dot', notes: sizeNotes, created_by: mgr.name }
     setItems(prev => [...prev, tempItem])
 
     const { data, error } = await supabase.from('progress_items').insert({
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
       pin_x: x, pin_y: y, status: activeColour,
-      label: 'dot',
+      label: 'dot', notes: sizeNotes,
       created_by: mgr.name, updated_by: mgr.name,
     }).select().single()
 
@@ -254,7 +255,7 @@ export default function ProgressViewer() {
     // Store line as: pin_x/pin_y = midpoint, notes = JSON of start/end coords
     const midX = (x1 + x2) / 2
     const midY = (y1 + y2) / 2
-    const lineData = JSON.stringify({ x1, y1, x2, y2 })
+    const lineData = JSON.stringify({ x1, y1, x2, y2, width: dotSize })
 
     const tempItem = { id: `temp-${Date.now()}`, item_number: nextNum, pin_x: midX, pin_y: midY, status: activeColour, label: 'line', notes: lineData, created_by: mgr.name }
     setItems(prev => [...prev, tempItem])
@@ -412,7 +413,7 @@ export default function ProgressViewer() {
             {exporting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download size={16} />}
           </button>
           {isMarking && <>
-            <button onClick={() => { setActiveColour(null); setDrawMode('dot'); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setClipboard(null) }} className="p-2 bg-green-500 rounded-lg" title="Done">
+            <button onClick={() => { setActiveColour(null); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setClipboard(null) }} className="p-2 bg-green-500 rounded-lg" title="Done">
               <Check size={16} />
             </button>
             <button onClick={() => { setActiveColour(null); setDrawMode('dot'); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setClipboard(null) }} className="p-2 bg-red-500/60 rounded-lg" title="Cancel">
@@ -552,6 +553,16 @@ export default function ProgressViewer() {
                   {imageLoaded && items.map(item => {
                     const color = STATUS_COLORS[item.status] || '#B0B8C9'
                     const clickHandler = (e) => { e.stopPropagation(); if (!isMarking) { setSelectedItem(item); loadItemHistory(item.id) } }
+                    // Parse stored size from notes
+                    let itemSize = dotSize // fallback to current slider for old items
+                    let itemWidth = 4
+                    try {
+                      if (item.notes) {
+                        const parsed = JSON.parse(item.notes)
+                        if (parsed.size) itemSize = parsed.size
+                        if (parsed.width) itemWidth = parsed.width
+                      }
+                    } catch {}
 
                     // Line
                     if (item.label === 'line' && item.notes) {
@@ -560,7 +571,7 @@ export default function ProgressViewer() {
                         return (
                           <svg key={item.id} className="absolute top-0 left-0 w-full h-full z-10 pointer-events-none">
                             <line x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`}
-                              stroke={color} strokeWidth={dotSize > 12 ? 4 : dotSize} strokeLinecap="round" strokeOpacity="0.6"
+                              stroke={color} strokeWidth={itemWidth} strokeLinecap="round" strokeOpacity="0.6"
                               style={{ cursor: 'pointer', pointerEvents: isMarking ? 'none' : 'stroke' }} onClick={clickHandler} />
                           </svg>
                         )
@@ -577,7 +588,7 @@ export default function ProgressViewer() {
                               if (idx === 0) return null
                               const prev = points[idx - 1]
                               return <line key={idx} x1={`${prev.x}%`} y1={`${prev.y}%`} x2={`${p.x}%`} y2={`${p.y}%`}
-                                stroke={color} strokeWidth={dotSize > 12 ? 4 : dotSize} strokeLinecap="round" strokeOpacity="0.6"
+                                stroke={color} strokeWidth={itemWidth} strokeLinecap="round" strokeOpacity="0.6"
                                 style={{ cursor: 'pointer', pointerEvents: isMarking ? 'none' : 'stroke' }} onClick={clickHandler} />
                             })}
                           </svg>
@@ -606,7 +617,7 @@ export default function ProgressViewer() {
                         className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-150"
                         style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto' }}>
                         <div className="rounded-full border border-white/60"
-                          style={{ width: `${dotSize}px`, height: `${dotSize}px`, backgroundColor: `${color}99` }} />
+                          style={{ width: `${itemSize}px`, height: `${itemSize}px`, backgroundColor: `${color}99` }} />
                       </button>
                     )
                   })}
