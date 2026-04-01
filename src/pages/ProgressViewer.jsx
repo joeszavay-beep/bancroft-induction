@@ -55,7 +55,10 @@ export default function ProgressViewer() {
     const rect = imageRef.current.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
-    setPendingPin({ x, y })
+    console.log('Progress pin placed at:', x.toFixed(1), y.toFixed(1))
+    if (x >= 0 && x <= 100 && y >= 0 && y <= 100) {
+      setPendingPin({ x, y })
+    }
   }
 
   async function placeItem(status) {
