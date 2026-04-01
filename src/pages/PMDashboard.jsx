@@ -1387,7 +1387,10 @@ function SnagsTab({ projects, navigate }) {
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="bg-slate-50 text-slate-500 text-left">
-                          <th className="px-2 py-2 w-8"></th>
+                          <th className="px-3 py-2 w-10 text-center"><input type="checkbox" className="w-4 h-4 rounded accent-[#1B6FC8] cursor-pointer" onChange={e => {
+                            if (e.target.checked) setCheckedSnags(new Set(dSnags.map(s => s.id)))
+                            else setCheckedSnags(new Set())
+                          }} /></th>
                           <th className="px-3 py-2 font-semibold">No.</th>
                           <th className="px-3 py-2 font-semibold">Photo</th>
                           <th className="px-3 py-2 font-semibold">Details</th>
@@ -1402,7 +1405,7 @@ function SnagsTab({ projects, navigate }) {
                           const isOverdue = snag.due_date && new Date(snag.due_date) < new Date() && snag.status === 'open'
                           return (
                             <tr key={snag.id} className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer" onClick={() => { setSelectedSnag(snag); setSelectedDrawing(d) }}>
-                              <td className="px-2 py-2.5" onClick={e => e.stopPropagation()}>
+                              <td className="px-3 py-2.5 text-center" onClick={e => e.stopPropagation()}>
                                 <input type="checkbox" checked={checkedSnags.has(snag.id)} onChange={() => toggleSnagCheck(snag.id)}
                                   className="w-4 h-4 rounded accent-[#1B6FC8] cursor-pointer" />
                               </td>
