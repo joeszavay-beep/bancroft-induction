@@ -1033,9 +1033,13 @@ function SnagsTab({ projects, navigate }) {
     setExportingDrawing(d.id)
     try {
       const proj = projects.find(p => p.id === d.project_id)
-      const dSnags = allSnags.filter(s => s.drawing_id === d.id)
-      await generateSnagPDF({ drawing: d, project: proj, snags: dSnags, imageUrl: d.file_url })
-      toast.success('Snag report downloaded')
+      const allDrawingSnags = allSnags.filter(s => s.drawing_id === d.id)
+      // If some snags on this drawing are checked, only export those. Otherwise export all.
+      const checkedOnThisDrawing = allDrawingSnags.filter(s => checkedSnags.has(s.id))
+      const snagsToExport = checkedOnThisDrawing.length > 0 ? checkedOnThisDrawing : allDrawingSnags
+      await generateSnagPDF({ drawing: d, project: proj, snags: snagsToExport, imageUrl: d.file_url })
+      const label = checkedOnThisDrawing.length > 0 ? `${checkedOnThisDrawing.length} selected snag${checkedOnThisDrawing.length > 1 ? 's' : ''}` : 'full report'
+      toast.success(`Downloaded ${label}`)
     } catch (err) {
       console.error(err)
       toast.error('Failed to export report')
