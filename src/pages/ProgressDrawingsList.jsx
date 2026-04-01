@@ -5,7 +5,8 @@ import { useCompany } from '../lib/CompanyContext'
 import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
 import LoadingButton from '../components/LoadingButton'
-import { Upload, Trash2, ChevronRight, Layers, BarChart3 } from 'lucide-react'
+import { Upload, Trash2, ChevronRight, Layers, BarChart3, Download } from 'lucide-react'
+import { generateProgressPDF } from '../lib/generateProgressPDF'
 
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Lighting', 'Other']
 const STATUS_COLORS = { green: '#2EA043', yellow: '#D29922', red: '#DA3633' }
@@ -17,6 +18,7 @@ export default function ProgressDrawingsList() {
   const [drawings, setDrawings] = useState([])
   const [itemCounts, setItemCounts] = useState({})
   const [projects, setProjects] = useState([])
+  const [exportingId, setExportingId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showUpload, setShowUpload] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -119,6 +121,23 @@ export default function ProgressDrawingsList() {
     loadAll()
   }
 
+  async function exportDrawing(d) {
+    setExportingId(d.id)
+    try {
+      const { data: drawingItems } = await supabase.from('progress_items').select('*').eq('drawing_id', d.id).order('item_number')
+      const proj = projects.find(p => p.id === d.project_id)
+      await generateProgressPDF({
+        drawing: d, project: proj, items: drawingItems || [],
+        companyName: company?.name || 'Company',
+      })
+      toast.success('PDF exported')
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to export')
+    }
+    setExportingId(null)
+  }
+
   const levels = [...new Set(drawings.map(d => d.floor_level).filter(Boolean))]
   let filtered = drawings
   if (filterTrade !== 'all') filtered = filtered.filter(d => d.trade === filterTrade)
@@ -204,7 +223,11 @@ export default function ProgressDrawingsList() {
                     <button onClick={() => navigate(`/progress/${d.id}`)} className="p-2 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors">
                       <ChevronRight size={16} />
                     </button>
-                    <button onClick={() => deleteDrawing(d.id, d.name)} className="p-2 text-[#6B7A99] hover:text-[#DA3633] transition-colors">
+                    <button onClick={(e) => { e.stopPropagation(); exportDrawing(d) }} disabled={exportingId === d.id}
+                      className="p-2 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors" title="Download PDF">
+                      {exportingId === d.id ? <div className="w-3.5 h-3.5 border-2 border-[#1B6FC8] border-t-transparent rounded-full animate-spin" /> : <Download size={14} />}
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); deleteDrawing(d.id, d.name) }} className="p-2 text-[#6B7A99] hover:text-[#DA3633] transition-colors">
                       <Trash2 size={14} />
                     </button>
                   </div>
