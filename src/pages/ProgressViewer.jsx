@@ -448,7 +448,7 @@ export default function ProgressViewer() {
             { id: 'polyline', label: 'Poly' },
             { id: 'photo', label: '📷' },
           ].map(m => (
-            <button key={m.id} onClick={() => { setDrawMode(m.id); setLineStart(null); setPolyPoints([]); setPendingPhoto(null) }}
+            <button key={m.id} onClick={() => { setDrawMode(m.id); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setClipboard(null) }}
               className={`px-2.5 py-1 text-[10px] font-medium rounded transition-colors ${drawMode === m.id ? 'bg-white shadow-sm text-[#1A1A2E]' : 'text-[#6B7A99]'}`}>
               {m.label}
             </button>
@@ -457,7 +457,7 @@ export default function ProgressViewer() {
 
         {/* Colour buttons */}
         {Object.entries(STATUS_COLORS).map(([status, color]) => (
-          <button key={status} onClick={() => { setActiveColour(activeColour === status ? null : status); setLineStart(null) }}
+          <button key={status} onClick={() => { setActiveColour(activeColour === status ? null : status); setLineStart(null); setClipboard(null) }}
             className={`w-8 h-8 rounded-full border-2 transition-all ${activeColour === status ? 'border-[#1A1A2E] scale-110 shadow-md' : 'border-[#E2E6EA] hover:border-[#1A1A2E]'}`}
             style={{ backgroundColor: color }}
             title={STATUS_LABELS[status]} />
