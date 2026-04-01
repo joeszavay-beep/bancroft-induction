@@ -548,6 +548,7 @@ function CompanyDetailView({ company: initialCompany, onBack }) {
               {[
                 { key: 'hs_reports', label: 'H&S Report Generator', desc: 'Embedded H&S report builder tool' },
                 { key: 'toolbox_talks', label: 'Toolbox Talks', desc: 'QR code based toolbox talk sign-off' },
+                { key: 'progress_drawings', label: 'Progress Drawings', desc: 'Traffic light marking system for M&E installation progress' },
                 { key: 'snagging', label: 'Snagging Module', desc: 'Drawing viewer with snag pin placement' },
                 { key: 'portal', label: 'Sign-off Portal', desc: 'Public portal showing signature records' },
               ].map(f => (

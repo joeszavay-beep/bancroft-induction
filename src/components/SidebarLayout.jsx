@@ -4,7 +4,7 @@ import { useCompany } from '../lib/CompanyContext'
 import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList,
-  Globe, Settings, User, Shield, Image
+  Globe, Settings, User, Shield, Image, Layers
 } from 'lucide-react'
 
 const NAV_SECTIONS = [
@@ -30,11 +30,18 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    title: 'Progress',
+    feature: 'progress_drawings',
+    items: [
+      { label: 'All Drawings', path: '/app/progress', icon: Layers },
+    ],
+  },
+  {
     title: 'Snags',
     feature: 'snagging',
     items: [
       { label: 'Snag Overview', path: '/app/snags', icon: MapPin },
-      { label: 'All Drawings', path: '/app/drawings', icon: Image },
+      { label: 'Snag Drawings', path: '/app/drawings', icon: Image },
     ],
   },
   {

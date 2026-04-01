@@ -18,6 +18,8 @@ import AdminDashboard from './pages/AdminDashboard'
 import ToolboxTalkLive from './pages/ToolboxTalkLive'
 import SnagDrawingView from './pages/SnagDrawingView'
 import SuperAdminPanel from './pages/SuperAdminPanel'
+import ProgressDrawingsList from './pages/ProgressDrawingsList'
+import ProgressViewer from './pages/ProgressViewer'
 import InviteNewWorkers from './pages/InviteNewWorkers'
 import InviteExistingWorkers from './pages/InviteExistingWorkers'
 import InvitationsPipeline from './pages/InvitationsPipeline'
@@ -41,6 +43,7 @@ function AppLayout() {
         <Route path="/invite-workers" element={<InviteNewWorkers />} />
         <Route path="/invite-existing" element={<InviteExistingWorkers />} />
         <Route path="/pipeline" element={<InvitationsPipeline />} />
+        <Route path="/progress" element={<ProgressDrawingsList />} />
         <Route path="/snags" element={<PMDashboard key="snags" initialTab="snags" />} />
         <Route path="/drawings" element={<PMDashboard key="drawings" initialTab="snags" />} />
         <Route path="/toolbox" element={<PMDashboard key="toolbox" initialTab="toolbox" />} />
@@ -75,6 +78,7 @@ export default function App() {
 
       {/* Snag drawing viewer (full screen, no sidebar) */}
       <Route path="/snags/:drawingId" element={<SnagDrawingView />} />
+      <Route path="/progress/:drawingId" element={<ProgressViewer />} />
 
       {/* Super admin (no sidebar) */}
       <Route path="/superadmin" element={<SuperAdminPanel />} />
