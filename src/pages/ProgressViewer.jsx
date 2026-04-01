@@ -21,6 +21,7 @@ export default function ProgressViewer() {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [activeColour, setActiveColour] = useState(null) // null = view mode, 'green'/'yellow'/'red' = mark mode
   const [drawMode, setDrawMode] = useState('dot') // 'dot' or 'line'
+  const [dotSize, setDotSize] = useState(16) // px diameter
   const [lineStart, setLineStart] = useState(null) // first tap for line mode
   const [selectedItem, setSelectedItem] = useState(null)
   const [history, setHistory] = useState([])
@@ -232,12 +233,31 @@ export default function ProgressViewer() {
             title={STATUS_LABELS[status]} />
         ))}
 
+        {/* Size slider - dot mode only */}
+        {drawMode === 'dot' && (
+          <div className="flex items-center gap-1.5 ml-auto">
+            <span className="text-[9px] text-[#B0B8C9]">Size</span>
+            <input type="range" min="6" max="40" value={dotSize} onChange={e => setDotSize(Number(e.target.value))}
+              className="w-16 h-1 accent-[#1B6FC8]" />
+            <span className="text-[9px] text-[#6B7A99] w-5 text-right">{dotSize}</span>
+          </div>
+        )}
+
+        {/* Line width slider - line mode only */}
+        {drawMode === 'line' && (
+          <div className="flex items-center gap-1.5 ml-auto">
+            <span className="text-[9px] text-[#B0B8C9]">Width</span>
+            <input type="range" min="2" max="12" value={dotSize > 12 ? 4 : dotSize} onChange={e => setDotSize(Number(e.target.value))}
+              className="w-16 h-1 accent-[#1B6FC8]" />
+          </div>
+        )}
+
         {/* Help text */}
         {isMarking && (
-          <span className="text-[10px] text-[#1B6FC8] ml-1">
+          <span className="text-[10px] text-[#1B6FC8]">
             {drawMode === 'line'
-              ? (lineStart ? 'Now tap the end point' : 'Tap start of line')
-              : 'Tap to place dots'}
+              ? (lineStart ? 'Tap end point' : 'Tap start of line')
+              : 'Tap to place'}
           </span>
         )}
       </div>
@@ -289,7 +309,7 @@ export default function ProgressViewer() {
                             <line
                               x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`}
                               stroke={`${STATUS_COLORS[item.status] || '#B0B8C9'}`}
-                              strokeWidth="4" strokeLinecap="round" strokeOpacity="0.6"
+                              strokeWidth={dotSize > 12 ? 4 : dotSize} strokeLinecap="round" strokeOpacity="0.6"
                               style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
                               onClick={(e) => { e.stopPropagation(); if (!isMarking) { setSelectedItem(item); loadItemHistory(item.id) } }}
                             />
@@ -302,8 +322,8 @@ export default function ProgressViewer() {
                         onClick={(e) => { e.stopPropagation(); if (!isMarking) { setSelectedItem(item); loadItemHistory(item.id) } }}
                         className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-150"
                         style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto' }}>
-                        <div className="w-4 h-4 rounded-full border border-white/60"
-                          style={{ backgroundColor: `${STATUS_COLORS[item.status] || '#B0B8C9'}99` }} />
+                        <div className="rounded-full border border-white/60"
+                          style={{ width: `${dotSize}px`, height: `${dotSize}px`, backgroundColor: `${STATUS_COLORS[item.status] || '#B0B8C9'}99` }} />
                       </button>
                     )
                   })}
