@@ -69,21 +69,42 @@ export async function generateProgressPDF({ drawing, project, items, companyName
     if (rW > 0) { doc.setFillColor(...STATUS_COLORS_RGB.red); doc.rect(margin + gW + yW, barY, rW, barH, 'F') }
   }
 
-  // Stats text next to progress bar
-  const statsY = barY + barH + 4
-  doc.setFontSize(6)
+  // Stats text positioned under each bar segment
+  const statsY = barY + barH + 3
+  doc.setFontSize(5.5)
   doc.setFont('helvetica', 'normal')
-  let sx = margin
-  Object.entries(STATUS_COLORS_RGB).forEach(([status, rgb]) => {
-    const count = status === 'green' ? greenCount : status === 'yellow' ? yellowCount : redCount
-    const pct = status === 'green' ? pctGreen : status === 'yellow' ? pctYellow : pctRed
-    doc.setFillColor(...rgb)
-    doc.circle(sx + 1.5, statsY - 0.5, 1.5, 'F')
-    doc.setTextColor(80, 80, 80)
-    doc.text(`${STATUS_LABELS[status]}: ${count} (${pct}%)`, sx + 5, statsY)
-    sx += 65
-  })
+  if (total > 0) {
+    const gW = (greenCount / total) * barW
+    const yW = (yellowCount / total) * barW
+    const rW = (redCount / total) * barW
+
+    // Green label — centred under green segment
+    if (greenCount > 0) {
+      const gMid = margin + gW / 2
+      doc.setTextColor(...STATUS_COLORS_RGB.green)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`${STATUS_LABELS.green}: ${greenCount} (${pctGreen}%)`, gMid, statsY, { align: 'center' })
+    }
+
+    // Yellow label — centred under yellow segment
+    if (yellowCount > 0) {
+      const yMid = margin + gW + yW / 2
+      doc.setTextColor(...STATUS_COLORS_RGB.yellow)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`${STATUS_LABELS.yellow}: ${yellowCount} (${pctYellow}%)`, yMid, statsY, { align: 'center' })
+    }
+
+    // Red label — centred under red segment
+    if (redCount > 0) {
+      const rMid = margin + gW + yW + rW / 2
+      doc.setTextColor(...STATUS_COLORS_RGB.red)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`${STATUS_LABELS.red}: ${redCount} (${pctRed}%)`, rMid, statsY, { align: 'center' })
+    }
+  }
+  // Total on far right
   doc.setTextColor(26, 26, 46)
+  doc.setFontSize(6)
   doc.setFont('helvetica', 'bold')
   doc.text(`Total: ${total} items | ${pctGreen}% Complete`, pageW - margin, statsY, { align: 'right' })
 
