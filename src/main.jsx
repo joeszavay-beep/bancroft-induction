@@ -3,12 +3,14 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { CompanyProvider } from './lib/CompanyContext'
+import { ThemeProvider } from './lib/ThemeContext'
 import './index.css'
 import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
+      <ThemeProvider>
       <CompanyProvider>
         <App />
         <Toaster
@@ -31,6 +33,7 @@ createRoot(document.getElementById('root')).render(
           }}
         />
       </CompanyProvider>
+      </ThemeProvider>
     </BrowserRouter>
   </StrictMode>,
 )

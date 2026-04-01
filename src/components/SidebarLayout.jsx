@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useCompany } from '../lib/CompanyContext'
+import { useTheme } from '../lib/ThemeContext'
 import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
-  BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList,
+  BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
   Globe, Settings, User, Shield, Image, Layers
 } from 'lucide-react'
 
@@ -76,6 +77,7 @@ export default function SidebarLayout({ children }) {
   const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Progress', 'Snags', 'H&S', 'Portal', 'Admin'])
 
   const { company, user, logout: ctxLogout } = useCompany()
+  const { isDark, toggleTheme } = useTheme()
   const managerData = user || JSON.parse(sessionStorage.getItem('manager_data') || '{}')
   const isAdmin = managerData.role === 'admin' || managerData.role === 'super_admin'
   // Only show super admin for the Bancroft admin (first company) or super_admin role
@@ -203,6 +205,11 @@ export default function SidebarLayout({ children }) {
             <span>Super Admin</span>
           </button>
         )}
+        <button onClick={toggleTheme}
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[12.5px] text-white/50 hover:text-white hover:bg-white/5 transition-colors">
+          {isDark ? <Sun size={14} /> : <Moon size={14} />}
+          <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
+        </button>
         <button
           onClick={() => { navigate('/app/account'); setMobileOpen(false) }}
           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[12.5px] transition-colors ${
@@ -221,7 +228,7 @@ export default function SidebarLayout({ children }) {
   )
 
   return (
-    <div className="min-h-dvh flex bg-[#F5F6F8]">
+    <div className="min-h-dvh flex" style={{ backgroundColor: 'var(--bg-main)' }}>
       {/* Desktop sidebar */}
       <div className="hidden lg:flex">{sidebar}</div>
 
@@ -263,7 +270,7 @@ export default function SidebarLayout({ children }) {
         </main>
 
         {/* Footer */}
-        <footer className="px-4 py-2 text-[10px] text-[#6B7A99] border-t border-[#E2E6EA]">
+        <footer className="px-4 py-2 text-[10px]" style={{ color: 'var(--text-secondary)', borderTop: '1px solid var(--border-color)' }}>
           &copy; {new Date().getFullYear()} CoreSite — Site Compliance Platform
         </footer>
       </div>
