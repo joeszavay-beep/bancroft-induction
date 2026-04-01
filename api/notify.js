@@ -25,7 +25,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Bancroft Induction <notifications@resend.dev>',
+        from: 'CoreSite <noreply@coresite.io>',
         to: [to],
         subject: `${operativeName} has completed all documents — ${projectName}`,
         html: `

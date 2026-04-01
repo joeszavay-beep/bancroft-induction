@@ -25,7 +25,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'CoreSite <notifications@resend.dev>',
+        from: 'CoreSite <noreply@coresite.io>',
         to: [email],
         subject: `Welcome to CoreSite — ${companyName} account created`,
         html: `
