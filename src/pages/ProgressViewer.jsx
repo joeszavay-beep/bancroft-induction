@@ -3,7 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2 } from 'lucide-react'
+import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2, Download } from 'lucide-react'
+import { generateProgressPDF } from '../lib/generateProgressPDF'
+import { useCompany } from '../lib/CompanyContext'
 
 const STATUS_COLORS = { green: '#2EA043', yellow: '#D29922', red: '#DA3633' }
 const STATUS_LABELS = { green: 'Installed', yellow: 'Available', red: 'Blocked' }
@@ -11,6 +13,7 @@ const STATUS_LABELS = { green: 'Installed', yellow: 'Available', red: 'Blocked' 
 export default function ProgressViewer() {
   const { drawingId } = useParams()
   const navigate = useNavigate()
+  const { company } = useCompany()
   const imageRef = useRef(null)
   const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
   const mgr = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
@@ -30,6 +33,8 @@ export default function ProgressViewer() {
   const [undoStack, setUndoStack] = useState([]) // array of item ids that were placed
   const [redoStack, setRedoStack] = useState([]) // array of items that were undone
   const [photoLightbox, setPhotoLightbox] = useState(null) // url for enlarged photo
+  const [exporting, setExporting] = useState(false)
+  const [project, setProject] = useState(null)
   const [isLive, setIsLive] = useState(false)
 
   useEffect(() => {
@@ -47,6 +52,8 @@ export default function ProgressViewer() {
     const { data: d } = await supabase.from('progress_drawings').select('*').eq('id', drawingId).single()
     if (!d) { navigate('/app/progress'); return }
     setDrawing(d)
+    const { data: proj } = await supabase.from('projects').select('*').eq('id', d.project_id).single()
+    setProject(proj)
     await loadItems()
     setLoading(false)
   }
@@ -277,6 +284,22 @@ export default function ProgressViewer() {
     loadItems()
   }
 
+  async function handleExport() {
+    setExporting(true)
+    try {
+      await generateProgressPDF({
+        drawing, project, items,
+        companyName: company?.name || 'Company',
+        companyLogo: company?.logo_url,
+      })
+      toast.success('PDF exported')
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to export PDF')
+    }
+    setExporting(false)
+  }
+
   async function loadItemHistory(itemId) {
     const { data } = await supabase.from('progress_item_history').select('*').eq('item_id', itemId).order('changed_at', { ascending: false })
     setHistory(data || [])
@@ -321,6 +344,9 @@ export default function ProgressViewer() {
           <button onClick={handleRedo} disabled={redoStack.length === 0}
             className={`p-2 rounded-lg transition-colors ${redoStack.length > 0 ? 'hover:bg-white/10 text-white' : 'text-white/20'}`} title="Redo">
             <Redo2 size={16} />
+          </button>
+          <button onClick={handleExport} disabled={exporting} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors" title="Export PDF">
+            {exporting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download size={16} />}
           </button>
           {isMarking && (
             <button onClick={() => { setActiveColour(null); setDrawMode('dot'); setLineStart(null); setPolyPoints([]); setPendingPhoto(null) }} className="p-2 bg-red-500 rounded-lg" title="Exit mark mode">
