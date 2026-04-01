@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2, Download } from 'lucide-react'
+import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
 import { useCompany } from '../lib/CompanyContext'
 
@@ -27,6 +27,7 @@ export default function ProgressViewer() {
   const [dotSize, setDotSize] = useState(16) // px diameter
   const [lineStart, setLineStart] = useState(null) // first tap for line mode
   const [polyPoints, setPolyPoints] = useState([]) // points for polyline
+  const [clipboard, setClipboard] = useState(null) // copied item template for paste mode
   const [pendingPhoto, setPendingPhoto] = useState(null) // { x, y } waiting for photo upload
   const [selectedItem, setSelectedItem] = useState(null)
   const [history, setHistory] = useState([])
@@ -70,6 +71,12 @@ export default function ProgressViewer() {
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
     if (x < 0 || x > 100 || y < 0 || y > 100) return
+
+    // Paste mode — place a copy of the clipboard item at this location
+    if (clipboard) {
+      await pasteItem(x, y)
+      return
+    }
 
     // Photo pin mode — doesn't need a colour selected
     if (drawMode === 'photo') {
@@ -155,6 +162,62 @@ export default function ProgressViewer() {
     toast.success('Photo pinned')
     setUndoStack(prev => [...prev, data.id])
     setRedoStack([])
+    loadItems()
+  }
+
+  async function pasteItem(x, y) {
+    if (!clipboard) return
+    const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
+
+    if (clipboard.label === 'line' && clipboard.notes) {
+      // For lines, shift the line so its midpoint is at the tap position
+      try {
+        const { x1, y1, x2, y2 } = JSON.parse(clipboard.notes)
+        const origMidX = (x1 + x2) / 2, origMidY = (y1 + y2) / 2
+        const dx = x - origMidX, dy = y - origMidY
+        const newNotes = JSON.stringify({ x1: x1 + dx, y1: y1 + dy, x2: x2 + dx, y2: y2 + dy })
+        const { data, error } = await supabase.from('progress_items').insert({
+          company_id: cid, drawing_id: drawingId, item_number: nextNum,
+          pin_x: x, pin_y: y, status: clipboard.status,
+          label: 'line', notes: newNotes,
+          created_by: mgr.name, updated_by: mgr.name,
+        }).select().single()
+        if (!error) { setUndoStack(prev => [...prev, data.id]); setRedoStack([]) }
+      } catch {}
+    } else if (clipboard.label === 'polyline' && clipboard.notes) {
+      // For polylines, shift all points so centroid is at tap position
+      try {
+        const { points } = JSON.parse(clipboard.notes)
+        const cx = points.reduce((s, p) => s + p.x, 0) / points.length
+        const cy = points.reduce((s, p) => s + p.y, 0) / points.length
+        const dx = x - cx, dy = y - cy
+        const newPoints = points.map(p => ({ x: p.x + dx, y: p.y + dy }))
+        const { data, error } = await supabase.from('progress_items').insert({
+          company_id: cid, drawing_id: drawingId, item_number: nextNum,
+          pin_x: x, pin_y: y, status: clipboard.status,
+          label: 'polyline', notes: JSON.stringify({ points: newPoints }),
+          created_by: mgr.name, updated_by: mgr.name,
+        }).select().single()
+        if (!error) { setUndoStack(prev => [...prev, data.id]); setRedoStack([]) }
+      } catch {}
+    } else {
+      // Dot — just place at tap position
+      const { data, error } = await supabase.from('progress_items').insert({
+        company_id: cid, drawing_id: drawingId, item_number: nextNum,
+        pin_x: x, pin_y: y, status: clipboard.status,
+        label: clipboard.label || 'dot',
+        created_by: mgr.name, updated_by: mgr.name,
+      }).select().single()
+      if (!error) { setUndoStack(prev => [...prev, data.id]); setRedoStack([]) }
+    }
+
+    await supabase.from('progress_item_history').insert({
+      item_id: (await supabase.from('progress_items').select('id').eq('drawing_id', drawingId).order('created_at', { ascending: false }).limit(1).single()).data?.id,
+      company_id: cid, drawing_id: drawingId,
+      previous_status: null, new_status: clipboard.status,
+      changed_by: mgr.id, changed_by_name: mgr.name, notes: 'Pasted copy',
+    }).catch(() => {})
+
     loadItems()
   }
 
@@ -311,7 +374,7 @@ export default function ProgressViewer() {
 
   if (loading) return <div className="min-h-dvh flex items-center justify-center bg-slate-100"><div className="animate-spin w-8 h-8 border-2 border-[#1B6FC8] border-t-transparent rounded-full" /></div>
 
-  const isMarking = activeColour !== null || drawMode === 'photo'
+  const isMarking = activeColour !== null || drawMode === 'photo' || clipboard !== null
 
   return (
     <>
@@ -349,7 +412,7 @@ export default function ProgressViewer() {
             {exporting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download size={16} />}
           </button>
           {isMarking && (
-            <button onClick={() => { setActiveColour(null); setDrawMode('dot'); setLineStart(null); setPolyPoints([]); setPendingPhoto(null) }} className="p-2 bg-red-500 rounded-lg" title="Exit mark mode">
+            <button onClick={() => { setActiveColour(null); setDrawMode('dot'); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setClipboard(null) }} className="p-2 bg-red-500 rounded-lg" title="Exit mark mode">
               <X size={16} />
             </button>
           )}
@@ -426,8 +489,17 @@ export default function ProgressViewer() {
           </button>
         )}
 
+        {/* Clipboard indicator */}
+        {clipboard && (
+          <div className="flex items-center gap-1.5 ml-1 px-2 py-1 bg-purple-50 border border-purple-200 rounded-md">
+            <Clipboard size={10} className="text-purple-500" />
+            <span className="text-[10px] text-purple-600 font-medium">Paste mode — tap to place copies</span>
+            <button onClick={() => setClipboard(null)} className="text-purple-400 hover:text-purple-600 ml-1"><X size={10} /></button>
+          </div>
+        )}
+
         {/* Help text */}
-        {(isMarking || drawMode === 'photo') && (
+        {!clipboard && (isMarking || drawMode === 'photo') && (
           <span className="text-[10px] text-[#1B6FC8]">
             {drawMode === 'photo' ? 'Tap to drop a photo pin'
               : drawMode === 'polyline' ? `Tap points then Finish (${polyPoints.length} pts)`
@@ -666,9 +738,19 @@ export default function ProgressViewer() {
                 </div>
               )}
 
-              <button onClick={() => deleteItem(selectedItem)} className="flex items-center gap-1.5 px-3 py-2 text-xs text-[#DA3633] hover:bg-red-50 rounded-md transition-colors">
-                <Trash2 size={12} /> Delete Item
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => {
+                  setClipboard({ label: selectedItem.label, notes: selectedItem.notes, status: selectedItem.status, pin_x: selectedItem.pin_x, pin_y: selectedItem.pin_y })
+                  setSelectedItem(null)
+                  setActiveColour(null)
+                  toast.success('Copied — tap on drawing to paste')
+                }} className="flex items-center gap-1.5 px-3 py-2 text-xs text-purple-600 hover:bg-purple-50 rounded-md transition-colors">
+                  <Copy size={12} /> Copy
+                </button>
+                <button onClick={() => deleteItem(selectedItem)} className="flex items-center gap-1.5 px-3 py-2 text-xs text-[#DA3633] hover:bg-red-50 rounded-md transition-colors">
+                  <Trash2 size={12} /> Delete
+                </button>
+              </div>
             </div>
           </div>
         </div>
