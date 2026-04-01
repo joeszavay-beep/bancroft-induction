@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 export default function LandingPage() {
   const navigate = useNavigate()
@@ -49,9 +49,16 @@ export default function LandingPage() {
         </div>
 
         {/* Footer */}
-        <footer className="px-6 py-4 flex items-center justify-between">
-          <p className="text-white/30 text-xs">Powered by CoreSite</p>
-          <p className="text-white/30 text-xs">&copy; {new Date().getFullYear()}</p>
+        <footer className="px-6 py-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p className="text-white/30 text-xs">&copy; {new Date().getFullYear()} CoreSite — Site Compliance Platform</p>
+            <div className="flex items-center gap-3 text-[11px]">
+              <Link to="/policies/privacy" className="text-white/30 hover:text-white/60 transition-colors">Privacy Policy</Link>
+              <Link to="/policies/terms" className="text-white/30 hover:text-white/60 transition-colors">Terms of Service</Link>
+              <Link to="/policies/cookies" className="text-white/30 hover:text-white/60 transition-colors">Cookies</Link>
+              <Link to="/policies/acceptable" className="text-white/30 hover:text-white/60 transition-colors">Acceptable Use</Link>
+            </div>
+          </div>
         </footer>
       </div>
     </div>

@@ -10,6 +10,7 @@ import SignDocument from './pages/SignDocument'
 import OperativeProfile from './pages/OperativeProfile'
 import Portal from './pages/Portal'
 import ToolboxSign from './pages/ToolboxSign'
+import Policies from './pages/Policies'
 
 // App pages (inside sidebar layout)
 import AppHome from './pages/AppHome'
@@ -75,6 +76,7 @@ export default function App() {
       <Route path="/toolbox/:talkId" element={<ToolboxSign />} />
       <Route path="/portal" element={<Portal />} />
       <Route path="/portal/:projectId" element={<Portal />} />
+      <Route path="/policies/:policyId" element={<Policies />} />
 
       {/* Snag drawing viewer (full screen, no sidebar) */}
       <Route path="/snags/:drawingId" element={<SnagDrawingView />} />

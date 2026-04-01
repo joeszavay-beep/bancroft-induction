@@ -124,9 +124,14 @@ export default function PMLogin() {
           </form>
         </div>
 
-        <p className="text-center text-xs text-white/30 mt-6">
-          Powered by CoreSite &mdash; Site Compliance Platform
-        </p>
+        <div className="text-center mt-6 space-y-2">
+          <p className="text-xs text-white/30">Powered by CoreSite &mdash; Site Compliance Platform</p>
+          <div className="flex items-center justify-center gap-3 text-[10px]">
+            <a href="/policies/privacy" className="text-white/20 hover:text-white/50 transition-colors">Privacy</a>
+            <a href="/policies/terms" className="text-white/20 hover:text-white/50 transition-colors">Terms</a>
+            <a href="/policies/cookies" className="text-white/20 hover:text-white/50 transition-colors">Cookies</a>
+          </div>
+        </div>
       </div>
     </div>
   )

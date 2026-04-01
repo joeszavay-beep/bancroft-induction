@@ -274,8 +274,13 @@ export default function SidebarLayout({ children }) {
         </main>
 
         {/* Footer */}
-        <footer className="px-4 py-2 text-[10px]" style={{ color: 'var(--text-secondary)', borderTop: '1px solid var(--border-color)' }}>
-          &copy; {new Date().getFullYear()} CoreSite — Site Compliance Platform
+        <footer className="px-4 py-2 text-[10px] flex flex-wrap items-center justify-between gap-1" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)' }}>
+          <span>&copy; {new Date().getFullYear()} CoreSite</span>
+          <div className="flex items-center gap-2">
+            <a href="/policies/privacy" target="_blank" className="hover:underline" style={{ color: 'var(--text-muted)' }}>Privacy</a>
+            <a href="/policies/terms" target="_blank" className="hover:underline" style={{ color: 'var(--text-muted)' }}>Terms</a>
+            <a href="/policies/cookies" target="_blank" className="hover:underline" style={{ color: 'var(--text-muted)' }}>Cookies</a>
+          </div>
         </footer>
       </div>
     </div>
