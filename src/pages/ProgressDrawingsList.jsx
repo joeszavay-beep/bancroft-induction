@@ -5,7 +5,7 @@ import { useCompany } from '../lib/CompanyContext'
 import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
 import LoadingButton from '../components/LoadingButton'
-import { Upload, Trash2, ChevronRight, Layers, BarChart3, Download } from 'lucide-react'
+import { Upload, Trash2, ChevronRight, Layers, BarChart3, Download, Edit3, Plus } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
 
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Lighting', 'Other']
@@ -21,9 +21,22 @@ export default function ProgressDrawingsList() {
   const [exportingId, setExportingId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showUpload, setShowUpload] = useState(false)
+  const [showEdit, setShowEdit] = useState(null) // drawing being edited
+  const [showNewRevision, setShowNewRevision] = useState(null) // drawing getting new revision
   const [saving, setSaving] = useState(false)
   const [filterTrade, setFilterTrade] = useState('all')
   const [filterLevel, setFilterLevel] = useState('all')
+
+  // Edit form
+  const [editName, setEditName] = useState('')
+  const [editNumber, setEditNumber] = useState('')
+  const [editRevision, setEditRevision] = useState('')
+  const [editTrade, setEditTrade] = useState('')
+  const [editLevel, setEditLevel] = useState('')
+
+  // New revision form
+  const [revFile, setRevFile] = useState(null)
+  const [revRevision, setRevRevision] = useState('')
 
   // Upload form
   const [dName, setDName] = useState('')
@@ -138,6 +151,79 @@ export default function ProgressDrawingsList() {
     setExportingId(null)
   }
 
+  function openEdit(d) {
+    setEditName(d.name)
+    setEditNumber(d.drawing_number || '')
+    setEditRevision(d.revision || '')
+    setEditTrade(d.trade || '')
+    setEditLevel(d.floor_level || '')
+    setShowEdit(d)
+  }
+
+  async function saveEdit(e) {
+    e.preventDefault()
+    if (!showEdit) return
+    setSaving(true)
+    const { error } = await supabase.from('progress_drawings').update({
+      name: editName.trim(),
+      drawing_number: editNumber.trim() || null,
+      revision: editRevision.trim() || null,
+      trade: editTrade || null,
+      floor_level: editLevel.trim() || null,
+    }).eq('id', showEdit.id)
+    setSaving(false)
+    if (error) { toast.error('Failed to save'); return }
+    toast.success('Drawing updated')
+    setShowEdit(null)
+    loadAll()
+  }
+
+  function openNewRevision(d) {
+    setRevRevision('')
+    setRevFile(null)
+    setShowNewRevision(d)
+  }
+
+  async function uploadNewRevision(e) {
+    e.preventDefault()
+    if (!showNewRevision || !revFile || !revRevision.trim()) return
+    setSaving(true)
+
+    let fileToUpload = revFile
+    let fileExt = revFile.name.split('.').pop().toLowerCase()
+    if (fileExt === 'pdf') {
+      try {
+        const { pdfToImage } = await import('../lib/pdfToImage')
+        fileToUpload = await pdfToImage(revFile)
+        fileExt = 'png'
+      } catch {
+        setSaving(false)
+        toast.error('Failed to convert PDF')
+        return
+      }
+    }
+
+    const filePath = `${cid || 'default'}/${Date.now()}.${fileExt}`
+    const { error: upErr } = await supabase.storage.from('progress-drawings').upload(filePath, fileToUpload, {
+      contentType: fileExt === 'png' ? 'image/png' : fileToUpload.type || 'image/jpeg',
+    })
+    if (upErr) { setSaving(false); toast.error('Upload failed'); return }
+    const { data: urlData } = supabase.storage.from('progress-drawings').getPublicUrl(filePath)
+
+    // Update the existing drawing with new image and revision
+    const { error } = await supabase.from('progress_drawings').update({
+      image_url: urlData.publicUrl,
+      revision: revRevision.trim(),
+      uploaded_at: new Date().toISOString(),
+    }).eq('id', showNewRevision.id)
+
+    setSaving(false)
+    if (error) { toast.error('Failed to update revision'); return }
+    toast.success(`Updated to Rev ${revRevision.trim()}`)
+    setShowNewRevision(null)
+    loadAll()
+  }
+
   const levels = [...new Set(drawings.map(d => d.floor_level).filter(Boolean))]
   let filtered = drawings
   if (filterTrade !== 'all') filtered = filtered.filter(d => d.trade === filterTrade)
@@ -219,16 +305,22 @@ export default function ProgressDrawingsList() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => navigate(`/progress/${d.id}`)} className="p-2 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors">
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <button onClick={() => navigate(`/progress/${d.id}`)} className="p-1.5 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors" title="Open">
                       <ChevronRight size={16} />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); exportDrawing(d) }} disabled={exportingId === d.id}
-                      className="p-2 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors" title="Download PDF">
-                      {exportingId === d.id ? <div className="w-3.5 h-3.5 border-2 border-[#1B6FC8] border-t-transparent rounded-full animate-spin" /> : <Download size={14} />}
+                    <button onClick={(e) => { e.stopPropagation(); openEdit(d) }} className="p-1.5 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors" title="Edit details">
+                      <Edit3 size={13} />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); deleteDrawing(d.id, d.name) }} className="p-2 text-[#6B7A99] hover:text-[#DA3633] transition-colors">
-                      <Trash2 size={14} />
+                    <button onClick={(e) => { e.stopPropagation(); openNewRevision(d) }} className="p-1.5 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors" title="Upload new revision">
+                      <Plus size={14} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); exportDrawing(d) }} disabled={exportingId === d.id}
+                      className="p-1.5 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors" title="Download PDF">
+                      {exportingId === d.id ? <div className="w-3.5 h-3.5 border-2 border-[#1B6FC8] border-t-transparent rounded-full animate-spin" /> : <Download size={13} />}
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); deleteDrawing(d.id, d.name) }} className="p-1.5 text-[#6B7A99] hover:text-[#DA3633] transition-colors" title="Delete">
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
@@ -288,6 +380,75 @@ export default function ProgressDrawingsList() {
           </label>
           <LoadingButton loading={saving} type="submit" className="w-full bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-semibold rounded-md">
             Upload & Open
+          </LoadingButton>
+        </form>
+      </Modal>
+
+      {/* Edit Drawing Modal */}
+      <Modal open={!!showEdit} onClose={() => setShowEdit(null)} title="Edit Drawing Details">
+        <form onSubmit={saveEdit} className="space-y-3">
+          <div>
+            <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Drawing Name *</label>
+            <input value={editName} onChange={e => setEditName(e.target.value)}
+              className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Drawing Number</label>
+              <input value={editNumber} onChange={e => setEditNumber(e.target.value)}
+                className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]" />
+            </div>
+            <div>
+              <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Revision</label>
+              <input value={editRevision} onChange={e => setEditRevision(e.target.value)}
+                className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Trade</label>
+              <select value={editTrade} onChange={e => setEditTrade(e.target.value)}
+                className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]">
+                <option value="">None</option>
+                {TRADES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Floor Level</label>
+              <input value={editLevel} onChange={e => setEditLevel(e.target.value)}
+                className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]" />
+            </div>
+          </div>
+          <LoadingButton loading={saving} type="submit" className="w-full bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-semibold rounded-md">
+            Save Changes
+          </LoadingButton>
+        </form>
+      </Modal>
+
+      {/* New Revision Modal */}
+      <Modal open={!!showNewRevision} onClose={() => setShowNewRevision(null)} title={`New Revision — ${showNewRevision?.name}`}>
+        <form onSubmit={uploadNewRevision} className="space-y-3">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-xs text-[#1B6FC8]">
+              This will replace the drawing image for <strong>{showNewRevision?.name}</strong> with a new revision.
+              All existing dots, lines and polylines will remain in place on the new drawing.
+            </p>
+            <p className="text-[10px] text-[#6B7A99] mt-1">
+              Current revision: <strong>{showNewRevision?.revision || 'None'}</strong>
+            </p>
+          </div>
+          <div>
+            <label className="text-xs text-[#6B7A99] font-medium mb-1 block">New Revision Number *</label>
+            <input value={revRevision} onChange={e => setRevRevision(e.target.value)} placeholder="e.g. C01"
+              className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]" />
+          </div>
+          <label className="flex items-center justify-center gap-2 w-full px-3 py-4 border-2 border-dashed border-[#E2E6EA] rounded-lg cursor-pointer hover:border-[#1B6FC8] transition-colors">
+            <Upload size={16} className="text-[#6B7A99]" />
+            <span className="text-sm text-[#6B7A99]">{revFile ? revFile.name : 'Select new drawing file'}</span>
+            <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={e => setRevFile(e.target.files[0])} className="hidden" />
+          </label>
+          <LoadingButton loading={saving} type="submit" className="w-full bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-semibold rounded-md">
+            Upload New Revision
           </LoadingButton>
         </form>
       </Modal>
