@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
@@ -20,6 +20,7 @@ const STATUS_COLORS = {
 
 export default function SnagDrawingView() {
   const { drawingId } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const imageRef = useRef(null)
   const transformRef = useRef(null)
@@ -39,7 +40,10 @@ export default function SnagDrawingView() {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imgError, setImgError] = useState(false)
 
-  useEffect(() => { loadData() }, [drawingId])
+  useEffect(() => {
+    loadData()
+    if (searchParams.get('add') === 'true') setPlacingPin(true)
+  }, [drawingId])
 
   async function loadData() {
     setLoading(true)

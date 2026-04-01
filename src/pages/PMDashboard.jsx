@@ -1284,21 +1284,26 @@ function SnagsTab({ projects, navigate }) {
                     {dReassigned > 0 && <span className="bg-amber-500 text-white text-[9px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{dReassigned}</span>}
                     <span className="bg-slate-700 text-white text-[9px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{dAllSnags.length}</span>
                   </div>
-                  <button onClick={() => navigate(`/snags/${d.id}`)} className="text-[10px] text-blue-500 hover:underline shrink-0 px-1">View</button>
+                  <button onClick={() => navigate(`/snags/${d.id}`)} className="px-2.5 py-1 text-[11px] text-white bg-[#1B6FC8] hover:bg-[#1558A0] rounded-md font-medium shrink-0 transition-colors">
+                    View
+                  </button>
+                  <button onClick={() => navigate(`/snags/${d.id}?add=true`)} className="p-1.5 text-[#1B6FC8] hover:bg-blue-50 rounded-md transition-colors shrink-0" title="Add snag">
+                    <Plus size={14} />
+                  </button>
                   <button
                     disabled={exportingDrawing === d.id}
                     onClick={() => exportDrawingPDF(d)}
-                    className="p-1 text-slate-400 hover:text-[#1B6FC8] transition-colors shrink-0"
+                    className="p-1.5 text-slate-400 hover:text-[#1B6FC8] hover:bg-blue-50 rounded-md transition-colors shrink-0"
                     title="Download snag report"
                   >
                     {exportingDrawing === d.id ? (
-                      <div className="w-3 h-3 border-2 border-[#1B6FC8] border-t-transparent rounded-full animate-spin" />
+                      <div className="w-3.5 h-3.5 border-2 border-[#1B6FC8] border-t-transparent rounded-full animate-spin" />
                     ) : (
-                      <Download size={12} />
+                      <Download size={14} />
                     )}
                   </button>
-                  <button onClick={() => deleteDrawing(d.id, d.name)} className="p-1 text-slate-400 hover:text-[#DA3633] transition-colors shrink-0" title="Delete drawing">
-                    <Trash2 size={12} />
+                  <button onClick={() => deleteDrawing(d.id, d.name)} className="p-1.5 text-slate-400 hover:text-[#DA3633] hover:bg-red-50 rounded-md transition-colors shrink-0" title="Delete drawing">
+                    <Trash2 size={14} />
                   </button>
                 </div>
 
