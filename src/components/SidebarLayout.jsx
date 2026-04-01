@@ -73,7 +73,7 @@ export default function SidebarLayout({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Snags', 'H&S', 'Portal'])
+  const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Progress', 'Snags', 'H&S', 'Portal', 'Admin'])
 
   const { company, user, logout: ctxLogout } = useCompany()
   const managerData = user || JSON.parse(sessionStorage.getItem('manager_data') || '{}')
