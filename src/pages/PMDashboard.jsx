@@ -979,6 +979,11 @@ function SnagsTab({ projects, navigate }) {
   const [selectedSnag, setSelectedSnag] = useState(null)
   const [selectedDrawing, setSelectedDrawing] = useState(null)
   const [exportingDrawing, setExportingDrawing] = useState(null)
+  const [checkedSnags, setCheckedSnags] = useState(new Set())
+  const [showAssignModal, setShowAssignModal] = useState(false)
+  const [assignTo, setAssignTo] = useState('')
+  const [assignEmail, setAssignEmail] = useState('')
+  const [assigning, setAssigning] = useState(false)
 
   // Filters
   const [filterStatus, setFilterStatus] = useState('all')
@@ -1036,6 +1041,75 @@ function SnagsTab({ projects, navigate }) {
       toast.error('Failed to export report')
     }
     setExportingDrawing(null)
+  }
+
+  function toggleSnagCheck(snagId) {
+    setCheckedSnags(prev => {
+      const next = new Set(prev)
+      if (next.has(snagId)) next.delete(snagId)
+      else next.add(snagId)
+      return next
+    })
+  }
+
+  async function assignCheckedSnags() {
+    if (!assignTo || checkedSnags.size === 0) return
+    setAssigning(true)
+
+    const snagIds = [...checkedSnags]
+    // Update assigned_to on all checked snags
+    for (const id of snagIds) {
+      await supabase.from('snags').update({ assigned_to: assignTo, updated_at: new Date().toISOString() }).eq('id', id)
+    }
+
+    // Generate PDF of just these snags and upload to storage
+    const selectedSnagData = allSnags.filter(s => checkedSnags.has(s.id))
+    const drawingId = selectedSnagData[0]?.drawing_id
+    const drawing = drawings.find(d => d.id === drawingId)
+    const proj = projects.find(p => p.id === drawing?.project_id)
+
+    // Send email with snag details
+    if (assignEmail) {
+      const snagList = selectedSnagData.map(s => `#${s.snag_number}: ${s.description || 'No description'} (${s.trade || ''} - ${s.priority || ''})`).join('\n')
+      await fetch('/api/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          operativeId: 'snag-assign',
+          operativeName: assignTo,
+          email: assignEmail,
+          projectName: `Snag Assignment — ${proj?.name || 'Project'}`,
+          customHtml: `
+            <div style="font-family:system-ui,sans-serif;max-width:540px;margin:0 auto;">
+              <div style="background:#0D1526;padding:20px 24px;border-radius:12px 12px 0 0;">
+                <h1 style="color:white;margin:0;font-size:20px;">CoreSite</h1>
+                <p style="color:#6B7A99;margin:4px 0 0;font-size:12px;">Snag Assignment</p>
+              </div>
+              <div style="background:#fff;padding:24px;border:1px solid #E2E6EA;border-top:none;border-radius:0 0 12px 12px;">
+                <p style="color:#1A1A2E;font-size:15px;margin:0 0 8px;">Hi ${assignTo},</p>
+                <p style="color:#6B7A99;font-size:14px;margin:0 0 16px;">You have been assigned <strong>${snagIds.length} snag${snagIds.length > 1 ? 's' : ''}</strong> on <strong>${drawing?.name || 'a drawing'}</strong> (${proj?.name || ''}).</p>
+                ${selectedSnagData.map(s => `
+                  <div style="background:#F5F6F8;border:1px solid #E2E6EA;border-left:4px solid ${s.status === 'open' ? '#DA3633' : s.status === 'completed' ? '#2EA043' : '#D29922'};border-radius:6px;padding:12px;margin-bottom:8px;">
+                    <p style="margin:0;color:#1A1A2E;font-weight:600;font-size:13px;">Snag #${s.snag_number} — ${s.trade || 'General'}</p>
+                    <p style="margin:4px 0 0;color:#6B7A99;font-size:12px;">${s.description || 'No description'}</p>
+                    <p style="margin:4px 0 0;color:#6B7A99;font-size:11px;">Priority: ${s.priority || 'N/A'} | Due: ${s.due_date ? new Date(s.due_date).toLocaleDateString('en-GB') : 'Not set'}</p>
+                  </div>
+                `).join('')}
+                <p style="color:#6B7A99;font-size:12px;margin-top:16px;">Please review and action these snags as soon as possible.</p>
+              </div>
+            </div>
+          `,
+        }),
+      }).catch(() => {})
+    }
+
+    setAssigning(false)
+    toast.success(`${snagIds.length} snag${snagIds.length > 1 ? 's' : ''} assigned to ${assignTo}${assignEmail ? ' — email sent' : ''}`)
+    setShowAssignModal(false)
+    setCheckedSnags(new Set())
+    setAssignTo('')
+    setAssignEmail('')
+    loadAll()
   }
 
   async function uploadDrawing(e) {
@@ -1313,6 +1387,7 @@ function SnagsTab({ projects, navigate }) {
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="bg-slate-50 text-slate-500 text-left">
+                          <th className="px-2 py-2 w-8"></th>
                           <th className="px-3 py-2 font-semibold">No.</th>
                           <th className="px-3 py-2 font-semibold">Photo</th>
                           <th className="px-3 py-2 font-semibold">Details</th>
@@ -1327,6 +1402,10 @@ function SnagsTab({ projects, navigate }) {
                           const isOverdue = snag.due_date && new Date(snag.due_date) < new Date() && snag.status === 'open'
                           return (
                             <tr key={snag.id} className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer" onClick={() => { setSelectedSnag(snag); setSelectedDrawing(d) }}>
+                              <td className="px-2 py-2.5" onClick={e => e.stopPropagation()}>
+                                <input type="checkbox" checked={checkedSnags.has(snag.id)} onChange={() => toggleSnagCheck(snag.id)}
+                                  className="w-4 h-4 rounded accent-[#1B6FC8] cursor-pointer" />
+                              </td>
                               <td className="px-3 py-2.5 font-bold text-slate-700">{snag.snag_number}</td>
                               <td className="px-3 py-2.5">
                                 {snag.photo_url ? (
@@ -1403,6 +1482,55 @@ function SnagsTab({ projects, navigate }) {
             Upload Drawing
           </LoadingButton>
         </form>
+      </Modal>
+
+      {/* Floating action bar when snags are checked */}
+      {checkedSnags.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#0D1526] text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+          <span className="text-sm font-semibold">{checkedSnags.size} snag{checkedSnags.size > 1 ? 's' : ''} selected</span>
+          <button onClick={() => setShowAssignModal(true)} className="px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-lg transition-colors">
+            Assign & Email
+          </button>
+          <button onClick={() => setCheckedSnags(new Set())} className="px-3 py-2 text-white/50 hover:text-white text-sm transition-colors">
+            Clear
+          </button>
+        </div>
+      )}
+
+      {/* Assign modal */}
+      <Modal open={showAssignModal} onClose={() => setShowAssignModal(false)} title={`Assign ${checkedSnags.size} Snag${checkedSnags.size > 1 ? 's' : ''}`}>
+        <div className="space-y-4">
+          <p className="text-sm text-[#6B7A99]">Assign the selected snags to an operative and send them an email with the details.</p>
+          <div>
+            <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Assign To *</label>
+            <select value={assignTo} onChange={e => setAssignTo(e.target.value)}
+              className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]">
+              <option value="">Select person</option>
+              {allOperatives.map(op => <option key={op.id} value={op.name}>{op.name}{op.role ? ` — ${op.role}` : ''}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Email Address (to receive snag details)</label>
+            <input type="email" value={assignEmail} onChange={e => setAssignEmail(e.target.value)} placeholder="their@email.com"
+              className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] placeholder-[#B0B8C9] focus:outline-none focus:border-[#1B6FC8]" />
+          </div>
+          <div className="bg-[#F5F6F8] rounded-lg p-3">
+            <p className="text-xs text-[#6B7A99] font-medium mb-2">Selected snags:</p>
+            <div className="space-y-1 max-h-32 overflow-y-auto">
+              {allSnags.filter(s => checkedSnags.has(s.id)).map(s => (
+                <div key={s.id} className="flex items-center gap-2 text-xs text-[#1A1A2E]">
+                  <span className={`w-2 h-2 rounded-full ${s.status === 'open' ? 'bg-red-500' : s.status === 'completed' ? 'bg-green-500' : 'bg-amber-500'}`} />
+                  <span className="font-semibold">#{s.snag_number}</span>
+                  <span className="text-[#6B7A99] truncate">{s.description || s.trade || 'No description'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <LoadingButton loading={assigning} onClick={assignCheckedSnags} disabled={!assignTo}
+            className="w-full bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-semibold rounded-md">
+            Assign & Send Email
+          </LoadingButton>
+        </div>
       </Modal>
 
       {/* Snag detail modal */}

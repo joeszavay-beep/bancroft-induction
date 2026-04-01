@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { operativeId, operativeName, email, mobile, projectName } = req.body
+  const { operativeId, operativeName, email, mobile, projectName, customHtml } = req.body
 
   if (!operativeId || !operativeName) {
     return res.status(400).json({ error: 'Missing required fields' })
@@ -32,8 +32,8 @@ export default async function handler(req, res) {
           body: JSON.stringify({
             from: 'CoreSite <noreply@coresite.io>',
             to: [email],
-            subject: `Bancroft Ltd — You've been added to ${projectName}`,
-            html: `
+            subject: customHtml ? `CoreSite — ${projectName}` : `CoreSite — You've been added to ${projectName}`,
+            html: customHtml || `
               <div style="font-family: system-ui, sans-serif; max-width: 520px; margin: 0 auto;">
                 <div style="background: #0a0e1a; border-radius: 12px 12px 0 0; padding: 24px;">
                   <h1 style="color: white; margin: 0; font-size: 22px;">Bancroft Ltd</h1>
