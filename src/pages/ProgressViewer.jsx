@@ -20,9 +20,11 @@ export default function ProgressViewer() {
   const [loading, setLoading] = useState(true)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [activeColour, setActiveColour] = useState(null) // null = view mode, 'green'/'yellow'/'red' = mark mode
-  const [drawMode, setDrawMode] = useState('dot') // 'dot' or 'line'
+  const [drawMode, setDrawMode] = useState('dot') // 'dot', 'line', 'polyline', 'photo'
   const [dotSize, setDotSize] = useState(16) // px diameter
   const [lineStart, setLineStart] = useState(null) // first tap for line mode
+  const [polyPoints, setPolyPoints] = useState([]) // points for polyline
+  const [pendingPhoto, setPendingPhoto] = useState(null) // { x, y } waiting for photo upload
   const [selectedItem, setSelectedItem] = useState(null)
   const [history, setHistory] = useState([])
   const [isLive, setIsLive] = useState(false)
@@ -53,26 +55,93 @@ export default function ProgressViewer() {
 
   // Place item on tap
   async function handleDrawingTap(e) {
-    if (!activeColour || !imageRef.current) return
+    if (!imageRef.current) return
     const rect = imageRef.current.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
     if (x < 0 || x > 100 || y < 0 || y > 100) return
 
+    // Photo pin mode — doesn't need a colour selected
+    if (drawMode === 'photo') {
+      setPendingPhoto({ x, y })
+      return
+    }
+
+    if (!activeColour) return
+
     if (drawMode === 'line') {
       if (!lineStart) {
-        // First tap — set start point
         setLineStart({ x, y })
         return
       }
-      // Second tap — save line from lineStart to this point
       await placeLineItem(lineStart.x, lineStart.y, x, y)
       setLineStart(null)
       return
     }
 
+    if (drawMode === 'polyline') {
+      setPolyPoints(prev => [...prev, { x, y }])
+      return
+    }
+
     // Dot mode
     await placeDotItem(x, y)
+  }
+
+  async function finishPolyline() {
+    if (polyPoints.length < 2) { setPolyPoints([]); return }
+    const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
+    const midX = polyPoints.reduce((s, p) => s + p.x, 0) / polyPoints.length
+    const midY = polyPoints.reduce((s, p) => s + p.y, 0) / polyPoints.length
+    const polyData = JSON.stringify({ points: polyPoints })
+
+    const { data, error } = await supabase.from('progress_items').insert({
+      company_id: cid, drawing_id: drawingId, item_number: nextNum,
+      pin_x: midX, pin_y: midY, status: activeColour,
+      label: 'polyline', notes: polyData,
+      created_by: mgr.name, updated_by: mgr.name,
+    }).select().single()
+
+    if (error) { toast.error('Failed to save polyline'); setPolyPoints([]); return }
+
+    await supabase.from('progress_item_history').insert({
+      item_id: data.id, company_id: cid, drawing_id: drawingId,
+      previous_status: null, new_status: activeColour,
+      changed_by: mgr.id, changed_by_name: mgr.name,
+    })
+    setPolyPoints([])
+    loadItems()
+  }
+
+  async function handlePhotoUpload(file) {
+    if (!pendingPhoto || !file) return
+    const filePath = `${cid || 'default'}/${drawingId}/${Date.now()}.jpg`
+    const { error: upErr } = await supabase.storage.from('progress-photos').upload(filePath, file, { contentType: file.type })
+    if (upErr) { toast.error('Failed to upload photo'); return }
+    const { data: urlData } = supabase.storage.from('progress-photos').getPublicUrl(filePath)
+
+    const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
+    const now = new Date()
+    const timestamp = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+    const { data, error } = await supabase.from('progress_items').insert({
+      company_id: cid, drawing_id: drawingId, item_number: nextNum,
+      pin_x: pendingPhoto.x, pin_y: pendingPhoto.y, status: 'green',
+      label: 'photo', notes: timestamp, photo_url: urlData.publicUrl,
+      created_by: mgr.name, updated_by: mgr.name,
+    }).select().single()
+
+    if (error) { toast.error('Failed to save photo pin'); setPendingPhoto(null); return }
+
+    await supabase.from('progress_item_history').insert({
+      item_id: data.id, company_id: cid, drawing_id: drawingId,
+      previous_status: null, new_status: 'green',
+      changed_by: mgr.id, changed_by_name: mgr.name,
+      notes: 'Photo added', photo_url: urlData.publicUrl,
+    })
+    setPendingPhoto(null)
+    toast.success('Photo pinned')
+    loadItems()
   }
 
   async function placeDotItem(x, y) {
@@ -169,7 +238,7 @@ export default function ProgressViewer() {
 
   if (loading) return <div className="min-h-dvh flex items-center justify-center bg-slate-100"><div className="animate-spin w-8 h-8 border-2 border-[#1B6FC8] border-t-transparent rounded-full" /></div>
 
-  const isMarking = activeColour !== null
+  const isMarking = activeColour !== null || drawMode === 'photo'
 
   return (
     <div className="min-h-dvh bg-slate-100 flex flex-col">
@@ -215,14 +284,17 @@ export default function ProgressViewer() {
       <div className="bg-white border-b border-[#E2E6EA] px-3 py-2 flex items-center gap-2 shrink-0 flex-wrap">
         {/* Mode toggle */}
         <div className="flex bg-[#F5F6F8] rounded-md p-0.5 mr-1">
-          <button onClick={() => { setDrawMode('dot'); setLineStart(null) }}
-            className={`px-2.5 py-1 text-[10px] font-medium rounded transition-colors ${drawMode === 'dot' ? 'bg-white shadow-sm text-[#1A1A2E]' : 'text-[#6B7A99]'}`}>
-            Dot
-          </button>
-          <button onClick={() => { setDrawMode('line'); setLineStart(null) }}
-            className={`px-2.5 py-1 text-[10px] font-medium rounded transition-colors ${drawMode === 'line' ? 'bg-white shadow-sm text-[#1A1A2E]' : 'text-[#6B7A99]'}`}>
-            Line
-          </button>
+          {[
+            { id: 'dot', label: 'Dot' },
+            { id: 'line', label: 'Line' },
+            { id: 'polyline', label: 'Poly' },
+            { id: 'photo', label: '📷' },
+          ].map(m => (
+            <button key={m.id} onClick={() => { setDrawMode(m.id); setLineStart(null); setPolyPoints([]); setPendingPhoto(null) }}
+              className={`px-2.5 py-1 text-[10px] font-medium rounded transition-colors ${drawMode === m.id ? 'bg-white shadow-sm text-[#1A1A2E]' : 'text-[#6B7A99]'}`}>
+              {m.label}
+            </button>
+          ))}
         </div>
 
         {/* Colour buttons */}
@@ -252,11 +324,19 @@ export default function ProgressViewer() {
           </div>
         )}
 
+        {/* Finish polyline button */}
+        {drawMode === 'polyline' && polyPoints.length >= 2 && (
+          <button onClick={finishPolyline} className="px-3 py-1 bg-[#1B6FC8] text-white text-[10px] font-semibold rounded-md hover:bg-[#1558A0] transition-colors">
+            Finish ({polyPoints.length} pts)
+          </button>
+        )}
+
         {/* Help text */}
-        {isMarking && (
+        {(isMarking || drawMode === 'photo') && (
           <span className="text-[10px] text-[#1B6FC8]">
-            {drawMode === 'line'
-              ? (lineStart ? 'Tap end point' : 'Tap start of line')
+            {drawMode === 'photo' ? 'Tap to drop a photo pin'
+              : drawMode === 'polyline' ? `Tap points then Finish (${polyPoints.length} pts)`
+              : drawMode === 'line' ? (lineStart ? 'Tap end point' : 'Tap start of line')
               : 'Tap to place'}
           </span>
         )}
@@ -298,32 +378,62 @@ export default function ProgressViewer() {
                     className="max-w-none select-none" style={{ width: '100%', minWidth: '800px' }}
                     onLoad={() => setImageLoaded(true)} draggable={false} />
 
-                  {/* Items: dots and lines */}
+                  {/* Items: dots, lines, polylines, photos */}
                   {imageLoaded && items.map(item => {
-                    const isLine = item.label === 'line' && item.notes
-                    if (isLine) {
+                    const color = STATUS_COLORS[item.status] || '#B0B8C9'
+                    const clickHandler = (e) => { e.stopPropagation(); if (!isMarking) { setSelectedItem(item); loadItemHistory(item.id) } }
+
+                    // Line
+                    if (item.label === 'line' && item.notes) {
                       try {
                         const { x1, y1, x2, y2 } = JSON.parse(item.notes)
                         return (
-                          <svg key={item.id} className="absolute top-0 left-0 w-full h-full z-10 pointer-events-none" style={{ pointerEvents: isMarking ? 'none' : 'auto' }}>
-                            <line
-                              x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`}
-                              stroke={`${STATUS_COLORS[item.status] || '#B0B8C9'}`}
-                              strokeWidth={dotSize > 12 ? 4 : dotSize} strokeLinecap="round" strokeOpacity="0.6"
-                              style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
-                              onClick={(e) => { e.stopPropagation(); if (!isMarking) { setSelectedItem(item); loadItemHistory(item.id) } }}
-                            />
+                          <svg key={item.id} className="absolute top-0 left-0 w-full h-full z-10 pointer-events-none">
+                            <line x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`}
+                              stroke={color} strokeWidth={dotSize > 12 ? 4 : dotSize} strokeLinecap="round" strokeOpacity="0.6"
+                              style={{ cursor: 'pointer', pointerEvents: isMarking ? 'none' : 'stroke' }} onClick={clickHandler} />
                           </svg>
                         )
                       } catch { return null }
                     }
+
+                    // Polyline
+                    if (item.label === 'polyline' && item.notes) {
+                      try {
+                        const { points } = JSON.parse(item.notes)
+                        const pointsStr = points.map(p => `${p.x}%,${p.y}%`).join(' ')
+                        return (
+                          <svg key={item.id} className="absolute top-0 left-0 w-full h-full z-10 pointer-events-none">
+                            <polyline points={pointsStr} fill="none" stroke={color}
+                              strokeWidth={dotSize > 12 ? 4 : dotSize} strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.6"
+                              style={{ cursor: 'pointer', pointerEvents: isMarking ? 'none' : 'stroke' }} onClick={clickHandler} />
+                          </svg>
+                        )
+                      } catch { return null }
+                    }
+
+                    // Photo pin
+                    if (item.label === 'photo') {
+                      return (
+                        <button key={item.id} onClick={clickHandler}
+                          className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-125"
+                          style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto' }}>
+                          {item.photo_url ? (
+                            <img src={item.photo_url} alt="" className="w-6 h-6 rounded-full object-cover border-2 border-white shadow-md" />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-[#1B6FC8] border-2 border-white shadow-md flex items-center justify-center text-white text-[8px]">📷</div>
+                          )}
+                        </button>
+                      )
+                    }
+
+                    // Default: dot
                     return (
-                      <button key={item.id}
-                        onClick={(e) => { e.stopPropagation(); if (!isMarking) { setSelectedItem(item); loadItemHistory(item.id) } }}
+                      <button key={item.id} onClick={clickHandler}
                         className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-150"
                         style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto' }}>
                         <div className="rounded-full border border-white/60"
-                          style={{ width: `${dotSize}px`, height: `${dotSize}px`, backgroundColor: `${STATUS_COLORS[item.status] || '#B0B8C9'}99` }} />
+                          style={{ width: `${dotSize}px`, height: `${dotSize}px`, backgroundColor: `${color}99` }} />
                       </button>
                     )
                   })}
@@ -335,12 +445,54 @@ export default function ProgressViewer() {
                       <div className="w-3 h-3 rounded-full border-2 border-white shadow-lg" style={{ backgroundColor: STATUS_COLORS[activeColour] }} />
                     </div>
                   )}
+
+                  {/* Polyline preview */}
+                  {polyPoints.length > 0 && (
+                    <svg className="absolute top-0 left-0 w-full h-full z-15 pointer-events-none">
+                      <polyline
+                        points={polyPoints.map(p => `${p.x}%,${p.y}%`).join(' ')}
+                        fill="none" stroke={STATUS_COLORS[activeColour] || '#1B6FC8'}
+                        strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.8" strokeDasharray="6 3"
+                      />
+                      {polyPoints.map((p, i) => (
+                        <circle key={i} cx={`${p.x}%`} cy={`${p.y}%`} r="4" fill="white" stroke={STATUS_COLORS[activeColour] || '#1B6FC8'} strokeWidth="2" />
+                      ))}
+                    </svg>
+                  )}
+
+                  {/* Pending photo pin */}
+                  {pendingPhoto && (
+                    <div className="absolute -translate-x-1/2 -translate-y-1/2 z-20 animate-bounce"
+                      style={{ left: `${pendingPhoto.x}%`, top: `${pendingPhoto.y}%` }}>
+                      <div className="w-8 h-8 rounded-full bg-[#1B6FC8] border-2 border-white shadow-lg flex items-center justify-center text-white text-xs">📷</div>
+                    </div>
+                  )}
                 </div>
               </TransformComponent>
             </>
           )}
         </TransformWrapper>
       </div>
+
+      {/* Photo upload popup */}
+      {pendingPhoto && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#E2E6EA] shadow-xl p-4">
+          <p className="text-xs text-[#6B7A99] text-center mb-3">Take a photo or choose from gallery</p>
+          <div className="flex gap-2 justify-center">
+            <label className="flex items-center gap-2 px-5 py-3 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-lg cursor-pointer transition-colors">
+              📷 Take Photo
+              <input type="file" accept="image/*" capture="environment" className="hidden"
+                onChange={e => { if (e.target.files[0]) handlePhotoUpload(e.target.files[0]) }} />
+            </label>
+            <label className="flex items-center gap-2 px-5 py-3 bg-[#F5F6F8] hover:bg-[#E2E6EA] text-[#1A1A2E] text-sm font-medium rounded-lg cursor-pointer transition-colors border border-[#E2E6EA]">
+              Upload Image
+              <input type="file" accept="image/*" className="hidden"
+                onChange={e => { if (e.target.files[0]) handlePhotoUpload(e.target.files[0]) }} />
+            </label>
+          </div>
+          <button onClick={() => setPendingPhoto(null)} className="w-full mt-2 py-2 text-xs text-[#6B7A99] hover:bg-[#F5F6F8] rounded-md">Cancel</button>
+        </div>
+      )}
 
       {/* Item detail panel */}
       {selectedItem && (
@@ -359,6 +511,14 @@ export default function ProgressViewer() {
             </div>
 
             <div className="p-4 space-y-4">
+              {/* Photo */}
+              {selectedItem.photo_url && (
+                <img src={selectedItem.photo_url} alt="Photo" className="w-full h-40 object-cover rounded-lg" />
+              )}
+              {selectedItem.label === 'photo' && selectedItem.notes && (
+                <p className="text-[10px] text-[#6B7A99]">📷 Taken: {selectedItem.notes}</p>
+              )}
+
               {/* Change status */}
               <div>
                 <p className="text-[10px] text-[#6B7A99] uppercase font-semibold mb-2">Change Status</p>
