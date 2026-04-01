@@ -233,26 +233,26 @@ export default function ProgressDrawingsList() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-[#1B6FC8]/10 flex items-center justify-center">
             <Layers size={20} className="text-[#1B6FC8]" />
           </div>
           <h1 className="text-2xl font-bold text-[#1A1A2E]">Progress Drawings</h1>
         </div>
-        <button onClick={() => setShowUpload(true)} className="flex items-center gap-1.5 px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-md transition-colors">
+        <button onClick={() => setShowUpload(true)} className="flex items-center gap-1.5 px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-md transition-colors w-full sm:w-auto justify-center sm:justify-start">
           <Upload size={14} /> Upload Drawing
         </button>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <select value={filterTrade} onChange={e => setFilterTrade(e.target.value)} className="px-3 py-1.5 text-xs border border-[#E2E6EA] rounded-md text-[#1A1A2E]">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-2 mb-4">
+        <select value={filterTrade} onChange={e => setFilterTrade(e.target.value)} className="w-full sm:w-auto px-3 py-1.5 text-xs border border-[#E2E6EA] rounded-md text-[#1A1A2E]">
           <option value="all">All Trades</option>
           {TRADES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
         {levels.length > 0 && (
-          <select value={filterLevel} onChange={e => setFilterLevel(e.target.value)} className="px-3 py-1.5 text-xs border border-[#E2E6EA] rounded-md text-[#1A1A2E]">
+          <select value={filterLevel} onChange={e => setFilterLevel(e.target.value)} className="w-full sm:w-auto px-3 py-1.5 text-xs border border-[#E2E6EA] rounded-md text-[#1A1A2E]">
             <option value="all">All Levels</option>
             {levels.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
@@ -305,7 +305,7 @@ export default function ProgressDrawingsList() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-0.5 shrink-0">
+                  <div className="flex items-center gap-0.5 shrink-0 flex-wrap justify-end">
                     <button onClick={() => navigate(`/progress/${d.id}`)} className="p-1.5 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors" title="Open">
                       <ChevronRight size={16} />
                     </button>
@@ -346,7 +346,7 @@ export default function ProgressDrawingsList() {
               {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Drawing Number</label>
               <input value={dNumber} onChange={e => setDNumber(e.target.value)}
@@ -358,7 +358,7 @@ export default function ProgressDrawingsList() {
                 className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Trade</label>
               <select value={dTrade} onChange={e => setDTrade(e.target.value)}
@@ -392,7 +392,7 @@ export default function ProgressDrawingsList() {
             <input value={editName} onChange={e => setEditName(e.target.value)}
               className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Drawing Number</label>
               <input value={editNumber} onChange={e => setEditNumber(e.target.value)}
@@ -404,7 +404,7 @@ export default function ProgressDrawingsList() {
                 className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Trade</label>
               <select value={editTrade} onChange={e => setEditTrade(e.target.value)}

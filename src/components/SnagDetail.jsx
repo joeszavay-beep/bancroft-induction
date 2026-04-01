@@ -226,7 +226,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
                 {isPM ? (
                   <>
                     {/* Editable fields for PM */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className={labelCls}>Status</label>
                         <select value={status} onChange={e => setStatus(e.target.value)} className={selectCls}>
@@ -244,7 +244,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className={labelCls}>Trade</label>
                         <select value={trade} onChange={e => setTrade(e.target.value)} className={selectCls}>
@@ -267,7 +267,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
                         className={`${selectCls} resize-none`} />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className={labelCls}>Priority</label>
                         <select value={priority} onChange={e => setPriority(e.target.value)} className={selectCls}>
@@ -359,20 +359,20 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
           </div>
 
           {/* Bottom action bar */}
-          <div className="sticky bottom-0 bg-white border-t border-[#E2E6EA] px-5 py-3 flex items-center gap-2 shrink-0">
+          <div className="sticky bottom-0 bg-white border-t border-[#E2E6EA] px-3 sm:px-5 py-3 flex flex-wrap items-center gap-2 shrink-0 pb-6 sm:pb-3">
             {isPM ? (
               <>
-                <LoadingButton loading={saving} onClick={handleSave} className="px-5 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-semibold rounded-md">
+                <LoadingButton loading={saving} onClick={handleSave} className="px-4 sm:px-5 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-xs sm:text-sm font-semibold rounded-md flex-1 sm:flex-none min-h-[44px]">
                   Save Changes
                 </LoadingButton>
-                <button onClick={handleDelete} className="flex items-center gap-1.5 px-4 py-3 text-[#DA3633] hover:bg-red-50 text-sm font-medium rounded-md transition-colors ml-auto">
+                <button onClick={handleDelete} className="flex items-center gap-1.5 px-3 sm:px-4 py-3 text-[#DA3633] hover:bg-red-50 text-xs sm:text-sm font-medium rounded-md transition-colors ml-auto min-h-[44px]">
                   <Trash2 size={14} /> Delete
                 </button>
               </>
             ) : (
               <>
                 {(snag.status === 'open' || snag.status === 'reassigned') && (
-                  <LoadingButton loading={saving} onClick={markComplete} className="px-5 bg-[#2EA043] hover:bg-[#27903A] text-white text-sm font-semibold rounded-md">
+                  <LoadingButton loading={saving} onClick={markComplete} className="px-4 sm:px-5 bg-[#2EA043] hover:bg-[#27903A] text-white text-xs sm:text-sm font-semibold rounded-md w-full sm:w-auto min-h-[44px]">
                     <CheckCircle2 size={14} className="mr-1.5" /> Mark as Complete
                   </LoadingButton>
                 )}

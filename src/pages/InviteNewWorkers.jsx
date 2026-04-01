@@ -93,7 +93,7 @@ export default function InviteNewWorkers() {
             </div>
           </div>
           <div className="flex justify-end">
-            <LoadingButton loading={saving} type="submit" className="px-6 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm rounded-md">
+            <LoadingButton loading={saving} type="submit" className="px-6 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm rounded-md w-full sm:w-auto">
               Send
             </LoadingButton>
           </div>

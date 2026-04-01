@@ -72,7 +72,7 @@ export default function InviteExistingWorkers() {
       <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm p-4 mb-4">
         <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Select Project to Invite To *</label>
         <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)}
-          className="w-full sm:w-80 px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]">
+          className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]">
           <option value="">Choose a project...</option>
           {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>

@@ -37,7 +37,7 @@ export default function AllWorkers() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-[#1B6FC8]/10 flex items-center justify-center">
             <Users size={20} className="text-[#1B6FC8]" />
@@ -45,7 +45,7 @@ export default function AllWorkers() {
           <h1 className="text-2xl font-bold text-[#1A1A2E]">All Workers</h1>
           <span className="text-sm text-[#6B7A99]">({operatives.length})</span>
         </div>
-        <button onClick={() => navigate('/app/workers/new')} className="flex items-center gap-1.5 px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-md transition-colors">
+        <button onClick={() => navigate('/app/workers/new')} className="flex items-center gap-1.5 px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-md transition-colors w-full sm:w-auto justify-center sm:justify-start">
           <Plus size={14} /> Add New Worker
         </button>
       </div>
@@ -71,8 +71,8 @@ export default function AllWorkers() {
               <tr className="bg-[#F5F6F8] text-left">
                 <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Name</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Role / Trade</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Email</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Mobile</th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99] hidden sm:table-cell">Email</th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99] hidden sm:table-cell">Mobile</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Project</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Profile</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Actions</th>
@@ -99,8 +99,8 @@ export default function AllWorkers() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-[#6B7A99]">{op.role || '—'}</td>
-                      <td className="px-4 py-3 text-[#6B7A99]">{op.email || '—'}</td>
-                      <td className="px-4 py-3 text-[#6B7A99]">{op.mobile || '—'}</td>
+                      <td className="px-4 py-3 text-[#6B7A99] hidden sm:table-cell">{op.email || '—'}</td>
+                      <td className="px-4 py-3 text-[#6B7A99] hidden sm:table-cell">{op.mobile || '—'}</td>
                       <td className="px-4 py-3 text-[#6B7A99]">{op.projects?.name || '—'}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${profileComplete ? 'bg-[#2EA043]/10 text-[#2EA043]' : 'bg-[#D29922]/10 text-[#D29922]'}`}>

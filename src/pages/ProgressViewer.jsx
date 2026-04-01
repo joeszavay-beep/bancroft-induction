@@ -447,7 +447,7 @@ export default function ProgressViewer() {
       )}
 
       {/* Colour selector bar - always visible */}
-      <div className="bg-white border-b border-[#E2E6EA] px-3 py-2 flex items-center gap-2 shrink-0 flex-wrap">
+      <div className="bg-white border-b border-[#E2E6EA] px-2 sm:px-3 py-2 flex items-center gap-1.5 sm:gap-2 shrink-0 flex-wrap">
         {/* Mode toggle */}
         <div className="flex bg-[#F5F6F8] rounded-md p-0.5 mr-1">
           {[
@@ -466,7 +466,7 @@ export default function ProgressViewer() {
         {/* Colour buttons */}
         {Object.entries(STATUS_COLORS).map(([status, color]) => (
           <button key={status} onClick={() => { setActiveColour(activeColour === status ? null : status); setLineStart(null); setClipboard(null) }}
-            className={`w-8 h-8 rounded-full border-2 transition-all ${activeColour === status ? 'border-[#1A1A2E] scale-110 shadow-md' : 'border-[#E2E6EA] hover:border-[#1A1A2E]'}`}
+            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-all ${activeColour === status ? 'border-[#1A1A2E] scale-110 shadow-md' : 'border-[#E2E6EA] hover:border-[#1A1A2E]'}`}
             style={{ backgroundColor: color }}
             title={STATUS_LABELS[status]} />
         ))}
@@ -672,28 +672,28 @@ export default function ProgressViewer() {
 
       {/* Photo upload popup */}
       {pendingPhoto && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#E2E6EA] shadow-xl p-4">
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#E2E6EA] shadow-xl p-4 pb-6 rounded-t-2xl sm:rounded-t-none">
           <p className="text-xs text-[#6B7A99] text-center mb-3">Take a photo or choose from gallery</p>
-          <div className="flex gap-2 justify-center">
-            <label className="flex items-center gap-2 px-5 py-3 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-lg cursor-pointer transition-colors">
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <label className="flex items-center justify-center gap-2 px-5 py-3 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-lg cursor-pointer transition-colors min-h-[44px]">
               📷 Take Photo
               <input type="file" accept="image/*" capture="environment" className="hidden"
                 onChange={e => { if (e.target.files[0]) handlePhotoUpload(e.target.files[0]) }} />
             </label>
-            <label className="flex items-center gap-2 px-5 py-3 bg-[#F5F6F8] hover:bg-[#E2E6EA] text-[#1A1A2E] text-sm font-medium rounded-lg cursor-pointer transition-colors border border-[#E2E6EA]">
+            <label className="flex items-center justify-center gap-2 px-5 py-3 bg-[#F5F6F8] hover:bg-[#E2E6EA] text-[#1A1A2E] text-sm font-medium rounded-lg cursor-pointer transition-colors border border-[#E2E6EA] min-h-[44px]">
               Upload Image
               <input type="file" accept="image/*" className="hidden"
                 onChange={e => { if (e.target.files[0]) handlePhotoUpload(e.target.files[0]) }} />
             </label>
           </div>
-          <button onClick={() => setPendingPhoto(null)} className="w-full mt-2 py-2 text-xs text-[#6B7A99] hover:bg-[#F5F6F8] rounded-md">Cancel</button>
+          <button onClick={() => setPendingPhoto(null)} className="w-full mt-2 py-2 text-xs text-[#6B7A99] hover:bg-[#F5F6F8] rounded-md min-h-[44px]">Cancel</button>
         </div>
       )}
 
       {/* Item detail panel */}
       {selectedItem && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelectedItem(null)}>
-          <div className="bg-white w-full sm:max-w-md max-h-[70vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-white w-full sm:max-w-md max-h-[70vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-2xl pb-6" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-white border-b border-[#E2E6EA] px-4 py-3 flex items-center justify-between z-10">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded-full" style={{ backgroundColor: STATUS_COLORS[selectedItem.status] }} />

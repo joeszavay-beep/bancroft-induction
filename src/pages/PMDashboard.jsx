@@ -145,7 +145,7 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold text-slate-900 mb-4">Dashboard</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {stats.map(s => (
             <button
               key={s.label}
@@ -1330,11 +1330,11 @@ function SnagsTab({ projects, navigate }) {
       )}
 
       {/* Filters */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-center gap-2">
+      <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
         <div className="flex items-center gap-1">
-          <label className="text-[10px] text-slate-400">Status:</label>
+          <label className="text-[10px] text-slate-400 shrink-0">Status:</label>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-            className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-400">
+            className="flex-1 sm:flex-none px-2 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-400">
             <option value="all">All Active</option>
             <option value="open">Open</option>
             <option value="completed">Completed</option>
@@ -1343,20 +1343,20 @@ function SnagsTab({ projects, navigate }) {
           </select>
         </div>
         <div className="flex items-center gap-1">
-          <label className="text-[10px] text-slate-400">Drawing:</label>
+          <label className="text-[10px] text-slate-400 shrink-0">Drawing:</label>
           <select value={filterDrawing} onChange={e => setFilterDrawing(e.target.value)}
-            className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-400 max-w-[160px]">
+            className="flex-1 sm:flex-none px-2 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-400 sm:max-w-[160px]">
             <option value="all">All Drawings</option>
             {drawings.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </div>
         <div className="flex items-center gap-1">
-          <label className="text-[10px] text-slate-400">Snag No:</label>
+          <label className="text-[10px] text-slate-400 shrink-0">Snag No:</label>
           <input value={filterSnagNo} onChange={e => setFilterSnagNo(e.target.value)} placeholder="#"
             className="w-14 px-2 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-400" />
         </div>
         <button onClick={() => { setFilterStatus('all'); setFilterDrawing('all'); setFilterSnagNo('') }}
-          className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-600">Reset</button>
+          className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-600 min-h-[44px] sm:min-h-0">Reset</button>
       </div>
 
       {/* Drawings list with snags */}
@@ -1504,7 +1504,7 @@ function SnagsTab({ projects, navigate }) {
             <option value="">Select project *</option>
             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input value={levelRef} onChange={e => setLevelRef(e.target.value)} placeholder="Level / Area ref"
               className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm placeholder-slate-300 focus:outline-none focus:border-blue-400" />
             <input value={revision} onChange={e => setRevision(e.target.value)} placeholder="Revision (e.g. C01)"
@@ -1526,12 +1526,12 @@ function SnagsTab({ projects, navigate }) {
 
       {/* Floating action bar when snags are checked */}
       {checkedSnags.size > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#0D1526] text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3">
-          <span className="text-sm font-semibold">{checkedSnags.size} snag{checkedSnags.size > 1 ? 's' : ''} selected</span>
-          <button onClick={() => setShowAssignModal(true)} className="px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-lg transition-colors">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#0D1526] text-white px-3 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-2xl flex items-center gap-2 sm:gap-3 max-w-[95vw]">
+          <span className="text-xs sm:text-sm font-semibold whitespace-nowrap">{checkedSnags.size} snag{checkedSnags.size > 1 ? 's' : ''}</span>
+          <button onClick={() => setShowAssignModal(true)} className="px-3 sm:px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-xs sm:text-sm font-medium rounded-lg transition-colors min-h-[44px]">
             Assign & Email
           </button>
-          <button onClick={() => setCheckedSnags(new Set())} className="px-3 py-2 text-white/50 hover:text-white text-sm transition-colors">
+          <button onClick={() => setCheckedSnags(new Set())} className="px-2 sm:px-3 py-2 text-white/50 hover:text-white text-xs sm:text-sm transition-colors min-h-[44px]">
             Clear
           </button>
         </div>

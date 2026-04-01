@@ -29,14 +29,14 @@ export default function AppHome() {
           <button
             key={action.path}
             onClick={() => navigate(action.path)}
-            className="rounded-xl p-8 text-center transition-all group hover:scale-[1.02] active:scale-[0.98]"
+            className="rounded-xl p-5 sm:p-8 text-center transition-all group hover:scale-[1.02] active:scale-[0.98]"
             style={{
               backgroundColor: 'var(--bg-card)',
               border: '1px solid var(--border-color)',
               boxShadow: 'var(--shadow-card)',
             }}
           >
-            <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5 transition-colors"
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-5 transition-colors"
               style={{ backgroundColor: 'var(--bg-hover)', border: '2px solid var(--border-color)' }}>
               <action.icon size={32} className="transition-colors" style={{ color: 'var(--text-secondary)' }} />
             </div>

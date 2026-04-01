@@ -82,7 +82,7 @@ export default function InvitationsPipeline() {
 
         {/* Stacked bar */}
         <div className="mb-3">
-          <div className="flex h-10 rounded-md overflow-hidden">
+          <div className="flex h-14 sm:h-10 rounded-md overflow-hidden">
             {invited > 0 && (
               <div className="bg-[#93C5FD] flex items-center justify-center text-xs font-bold text-white" style={{ width: `${(invited / maxBar) * 100}%`, minWidth: invited > 0 ? '30px' : 0 }}>
                 {invited}

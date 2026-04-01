@@ -130,7 +130,7 @@ export default function AddNewWorker() {
             <p className="text-sm font-semibold text-[#1A1A2E]">Personal Details</p>
           </div>
           <div className="p-5">
-            <div className="flex flex-col sm:flex-row gap-6">
+            <div className="flex flex-col-reverse sm:flex-row gap-6">
               <div className="flex-1 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -249,14 +249,14 @@ export default function AddNewWorker() {
         </div>
 
         {/* Save buttons */}
-        <div className="flex items-center gap-3 justify-end">
-          <button type="button" onClick={() => navigate('/app/workers')} className="px-5 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#6B7A99] hover:bg-[#F5F6F8]">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:justify-end">
+          <button type="button" onClick={() => navigate('/app/workers')} className="px-5 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#6B7A99] hover:bg-[#F5F6F8] w-full sm:w-auto">
             Cancel
           </button>
-          <LoadingButton loading={saving} type="submit" className="px-5 bg-[#6B7A99] hover:bg-[#5A6978] text-white text-sm rounded-md">
+          <LoadingButton loading={saving} type="submit" className="px-5 bg-[#6B7A99] hover:bg-[#5A6978] text-white text-sm rounded-md w-full sm:w-auto">
             Save Don't Send
           </LoadingButton>
-          <LoadingButton loading={saving} type="button" onClick={e => handleSave(e, true)} className="px-5 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm rounded-md">
+          <LoadingButton loading={saving} type="button" onClick={e => handleSave(e, true)} className="px-5 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm rounded-md w-full sm:w-auto">
             Save & Send
           </LoadingButton>
         </div>

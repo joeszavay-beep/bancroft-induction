@@ -116,7 +116,7 @@ export default function SidebarLayout({ children }) {
   const allSections = filteredSections
 
   const sidebar = (
-    <aside className="w-[220px] flex flex-col h-full shrink-0 overflow-y-auto" style={{ backgroundColor: sidebarColor }}>
+    <aside className="w-[280px] sm:w-[280px] lg:w-[220px] flex flex-col h-full shrink-0 overflow-y-auto" style={{ backgroundColor: sidebarColor }}>
       {/* Logo */}
       <div
         onClick={() => { navigate('/app'); setMobileOpen(false) }}
@@ -244,10 +244,14 @@ export default function SidebarLayout({ children }) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <header className="h-12 flex items-center justify-between px-4 shrink-0 lg:hidden" style={{ backgroundColor: sidebarColor }}>
-          <button onClick={() => setMobileOpen(true)} className="p-1 text-white">
+          <button onClick={() => setMobileOpen(true)} className="p-2 -ml-1 text-white min-w-[44px] min-h-[44px] flex items-center justify-center">
             <Menu size={22} />
           </button>
-          <button onClick={() => navigate('/app')} className="text-white text-sm font-semibold">{companyName.toUpperCase()}</button>
+          {companyLogo ? (
+            <img src={companyLogo} alt={companyName} className="h-6 sm:h-7" onClick={() => navigate('/app')} style={{ cursor: 'pointer' }} />
+          ) : (
+            <button onClick={() => navigate('/app')} className="text-white text-xs sm:text-sm font-semibold">{companyName.toUpperCase()}</button>
+          )}
           <div className="w-7 h-7 rounded-full bg-[var(--primary-color)] flex items-center justify-center text-white text-[10px] font-bold">
             {userInitials}
           </div>
@@ -265,7 +269,7 @@ export default function SidebarLayout({ children }) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-6">
           {children}
         </main>
 
