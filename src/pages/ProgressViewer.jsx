@@ -20,6 +20,8 @@ export default function ProgressViewer() {
   const [loading, setLoading] = useState(true)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [activeColour, setActiveColour] = useState(null) // null = view mode, 'green'/'yellow'/'red' = mark mode
+  const [drawMode, setDrawMode] = useState('dot') // 'dot' or 'line'
+  const [lineStart, setLineStart] = useState(null) // first tap for line mode
   const [selectedItem, setSelectedItem] = useState(null)
   const [history, setHistory] = useState([])
   const [isLive, setIsLive] = useState(false)
@@ -48,7 +50,7 @@ export default function ProgressViewer() {
     setItems(data || [])
   }
 
-  // Place item immediately on tap when a colour is selected
+  // Place item on tap
   async function handleDrawingTap(e) {
     if (!activeColour || !imageRef.current) return
     const rect = imageRef.current.getBoundingClientRect()
@@ -56,15 +58,31 @@ export default function ProgressViewer() {
     const y = ((e.clientY - rect.top) / rect.height) * 100
     if (x < 0 || x > 100 || y < 0 || y > 100) return
 
-    const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
+    if (drawMode === 'line') {
+      if (!lineStart) {
+        // First tap — set start point
+        setLineStart({ x, y })
+        return
+      }
+      // Second tap — save line from lineStart to this point
+      await placeLineItem(lineStart.x, lineStart.y, x, y)
+      setLineStart(null)
+      return
+    }
 
-    // Optimistic update
-    const tempItem = { id: `temp-${Date.now()}`, item_number: nextNum, pin_x: x, pin_y: y, status: activeColour, created_by: mgr.name }
+    // Dot mode
+    await placeDotItem(x, y)
+  }
+
+  async function placeDotItem(x, y) {
+    const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
+    const tempItem = { id: `temp-${Date.now()}`, item_number: nextNum, pin_x: x, pin_y: y, status: activeColour, item_type: 'dot', created_by: mgr.name }
     setItems(prev => [...prev, tempItem])
 
     const { data, error } = await supabase.from('progress_items').insert({
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
       pin_x: x, pin_y: y, status: activeColour,
+      label: 'dot',
       created_by: mgr.name, updated_by: mgr.name,
     }).select().single()
 
@@ -79,8 +97,37 @@ export default function ProgressViewer() {
       previous_status: null, new_status: activeColour,
       changed_by: mgr.id, changed_by_name: mgr.name,
     })
+    setItems(prev => prev.map(i => i.id === tempItem.id ? data : i))
+  }
 
-    // Replace temp with real
+  async function placeLineItem(x1, y1, x2, y2) {
+    const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
+    // Store line as: pin_x/pin_y = midpoint, notes = JSON of start/end coords
+    const midX = (x1 + x2) / 2
+    const midY = (y1 + y2) / 2
+    const lineData = JSON.stringify({ x1, y1, x2, y2 })
+
+    const tempItem = { id: `temp-${Date.now()}`, item_number: nextNum, pin_x: midX, pin_y: midY, status: activeColour, label: 'line', notes: lineData, created_by: mgr.name }
+    setItems(prev => [...prev, tempItem])
+
+    const { data, error } = await supabase.from('progress_items').insert({
+      company_id: cid, drawing_id: drawingId, item_number: nextNum,
+      pin_x: midX, pin_y: midY, status: activeColour,
+      label: 'line', notes: lineData,
+      created_by: mgr.name, updated_by: mgr.name,
+    }).select().single()
+
+    if (error) {
+      toast.error('Failed to place line')
+      setItems(prev => prev.filter(i => i.id !== tempItem.id))
+      return
+    }
+
+    await supabase.from('progress_item_history').insert({
+      item_id: data.id, company_id: cid, drawing_id: drawingId,
+      previous_status: null, new_status: activeColour,
+      changed_by: mgr.id, changed_by_name: mgr.name,
+    })
     setItems(prev => prev.map(i => i.id === tempItem.id ? data : i))
   }
 
@@ -164,15 +211,35 @@ export default function ProgressViewer() {
       )}
 
       {/* Colour selector bar - always visible */}
-      <div className="bg-white border-b border-[#E2E6EA] px-3 py-2 flex items-center gap-2 shrink-0">
-        <span className="text-[10px] text-[#6B7A99] mr-1">{isMarking ? `Placing: ${STATUS_LABELS[activeColour]}` : 'Select colour to start marking:'}</span>
+      <div className="bg-white border-b border-[#E2E6EA] px-3 py-2 flex items-center gap-2 shrink-0 flex-wrap">
+        {/* Mode toggle */}
+        <div className="flex bg-[#F5F6F8] rounded-md p-0.5 mr-1">
+          <button onClick={() => { setDrawMode('dot'); setLineStart(null) }}
+            className={`px-2.5 py-1 text-[10px] font-medium rounded transition-colors ${drawMode === 'dot' ? 'bg-white shadow-sm text-[#1A1A2E]' : 'text-[#6B7A99]'}`}>
+            Dot
+          </button>
+          <button onClick={() => { setDrawMode('line'); setLineStart(null) }}
+            className={`px-2.5 py-1 text-[10px] font-medium rounded transition-colors ${drawMode === 'line' ? 'bg-white shadow-sm text-[#1A1A2E]' : 'text-[#6B7A99]'}`}>
+            Line
+          </button>
+        </div>
+
+        {/* Colour buttons */}
         {Object.entries(STATUS_COLORS).map(([status, color]) => (
-          <button key={status} onClick={() => setActiveColour(activeColour === status ? null : status)}
+          <button key={status} onClick={() => { setActiveColour(activeColour === status ? null : status); setLineStart(null) }}
             className={`w-8 h-8 rounded-full border-2 transition-all ${activeColour === status ? 'border-[#1A1A2E] scale-110 shadow-md' : 'border-[#E2E6EA] hover:border-[#1A1A2E]'}`}
             style={{ backgroundColor: color }}
             title={STATUS_LABELS[status]} />
         ))}
-        {isMarking && <span className="text-[10px] text-[#1B6FC8] ml-2">Tap drawing to place dots</span>}
+
+        {/* Help text */}
+        {isMarking && (
+          <span className="text-[10px] text-[#1B6FC8] ml-1">
+            {drawMode === 'line'
+              ? (lineStart ? 'Now tap the end point' : 'Tap start of line')
+              : 'Tap to place dots'}
+          </span>
+        )}
       </div>
 
       {/* Drawing viewer */}
@@ -211,16 +278,43 @@ export default function ProgressViewer() {
                     className="max-w-none select-none" style={{ width: '100%', minWidth: '800px' }}
                     onLoad={() => setImageLoaded(true)} draggable={false} />
 
-                  {/* Transparent coloured dots */}
-                  {imageLoaded && items.map(item => (
-                    <button key={item.id}
-                      onClick={(e) => { e.stopPropagation(); if (!isMarking) { setSelectedItem(item); loadItemHistory(item.id) } }}
-                      className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-150"
-                      style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto' }}>
-                      <div className="w-4 h-4 rounded-full border border-white/60"
-                        style={{ backgroundColor: `${STATUS_COLORS[item.status] || '#B0B8C9'}99` }} />
-                    </button>
-                  ))}
+                  {/* Items: dots and lines */}
+                  {imageLoaded && items.map(item => {
+                    const isLine = item.label === 'line' && item.notes
+                    if (isLine) {
+                      try {
+                        const { x1, y1, x2, y2 } = JSON.parse(item.notes)
+                        return (
+                          <svg key={item.id} className="absolute top-0 left-0 w-full h-full z-10 pointer-events-none" style={{ pointerEvents: isMarking ? 'none' : 'auto' }}>
+                            <line
+                              x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`}
+                              stroke={`${STATUS_COLORS[item.status] || '#B0B8C9'}`}
+                              strokeWidth="4" strokeLinecap="round" strokeOpacity="0.6"
+                              style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
+                              onClick={(e) => { e.stopPropagation(); if (!isMarking) { setSelectedItem(item); loadItemHistory(item.id) } }}
+                            />
+                          </svg>
+                        )
+                      } catch { return null }
+                    }
+                    return (
+                      <button key={item.id}
+                        onClick={(e) => { e.stopPropagation(); if (!isMarking) { setSelectedItem(item); loadItemHistory(item.id) } }}
+                        className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-150"
+                        style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto' }}>
+                        <div className="w-4 h-4 rounded-full border border-white/60"
+                          style={{ backgroundColor: `${STATUS_COLORS[item.status] || '#B0B8C9'}99` }} />
+                      </button>
+                    )
+                  })}
+
+                  {/* Line start indicator */}
+                  {lineStart && (
+                    <div className="absolute -translate-x-1/2 -translate-y-1/2 z-20 animate-pulse"
+                      style={{ left: `${lineStart.x}%`, top: `${lineStart.y}%` }}>
+                      <div className="w-3 h-3 rounded-full border-2 border-white shadow-lg" style={{ backgroundColor: STATUS_COLORS[activeColour] }} />
+                    </div>
+                  )}
                 </div>
               </TransformComponent>
             </>
