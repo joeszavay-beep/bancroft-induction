@@ -170,12 +170,13 @@ export default function ProgressViewer() {
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
 
     if (clipboard.label === 'line' && clipboard.notes) {
-      // For lines, shift the line so its midpoint is at the tap position
+      // For lines, shift the line so its midpoint is at the tap position, keep original width
       try {
-        const { x1, y1, x2, y2 } = JSON.parse(clipboard.notes)
+        const parsed = JSON.parse(clipboard.notes)
+        const { x1, y1, x2, y2 } = parsed
         const origMidX = (x1 + x2) / 2, origMidY = (y1 + y2) / 2
         const dx = x - origMidX, dy = y - origMidY
-        const newNotes = JSON.stringify({ x1: x1 + dx, y1: y1 + dy, x2: x2 + dx, y2: y2 + dy })
+        const newNotes = JSON.stringify({ x1: x1 + dx, y1: y1 + dy, x2: x2 + dx, y2: y2 + dy, width: parsed.width || 4 })
         const { data, error } = await supabase.from('progress_items').insert({
           company_id: cid, drawing_id: drawingId, item_number: nextNum,
           pin_x: x, pin_y: y, status: clipboard.status,
@@ -185,9 +186,10 @@ export default function ProgressViewer() {
         if (!error) { setUndoStack(prev => [...prev, data.id]); setRedoStack([]) }
       } catch {}
     } else if (clipboard.label === 'polyline' && clipboard.notes) {
-      // For polylines, shift all points so centroid is at tap position
+      // For polylines, shift all points so centroid is at tap position, keep original width
       try {
-        const { points } = JSON.parse(clipboard.notes)
+        const parsed = JSON.parse(clipboard.notes)
+        const { points } = parsed
         const cx = points.reduce((s, p) => s + p.x, 0) / points.length
         const cy = points.reduce((s, p) => s + p.y, 0) / points.length
         const dx = x - cx, dy = y - cy
@@ -195,17 +197,19 @@ export default function ProgressViewer() {
         const { data, error } = await supabase.from('progress_items').insert({
           company_id: cid, drawing_id: drawingId, item_number: nextNum,
           pin_x: x, pin_y: y, status: clipboard.status,
-          label: 'polyline', notes: JSON.stringify({ points: newPoints }),
+          label: 'polyline', notes: JSON.stringify({ points: newPoints, width: parsed.width || 4 }),
           created_by: mgr.name, updated_by: mgr.name,
         }).select().single()
         if (!error) { setUndoStack(prev => [...prev, data.id]); setRedoStack([]) }
       } catch {}
     } else {
-      // Dot — just place at tap position
+      // Dot — just place at tap position, keep original size
+      let pasteSize = dotSize
+      try { const p = JSON.parse(clipboard.notes || '{}'); if (p.size) pasteSize = p.size } catch {}
       const { data, error } = await supabase.from('progress_items').insert({
         company_id: cid, drawing_id: drawingId, item_number: nextNum,
         pin_x: x, pin_y: y, status: clipboard.status,
-        label: clipboard.label || 'dot',
+        label: clipboard.label || 'dot', notes: JSON.stringify({ size: pasteSize }),
         created_by: mgr.name, updated_by: mgr.name,
       }).select().single()
       if (!error) { setUndoStack(prev => [...prev, data.id]); setRedoStack([]) }
@@ -471,7 +475,7 @@ export default function ProgressViewer() {
         {drawMode === 'dot' && (
           <div className="flex items-center gap-1.5 ml-auto">
             <span className="text-[9px] text-[#B0B8C9]">Size</span>
-            <input type="range" min="6" max="40" value={dotSize} onChange={e => setDotSize(Number(e.target.value))}
+            <input type="range" min="1" max="40" value={dotSize} onChange={e => setDotSize(Number(e.target.value))}
               className="w-16 h-1 accent-[#1B6FC8]" />
             <span className="text-[9px] text-[#6B7A99] w-5 text-right">{dotSize}</span>
           </div>
@@ -616,8 +620,8 @@ export default function ProgressViewer() {
                       <button key={item.id} onClick={clickHandler}
                         className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-150"
                         style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto' }}>
-                        <div className="rounded-full border border-white/60"
-                          style={{ width: `${itemSize}px`, height: `${itemSize}px`, backgroundColor: `${color}99` }} />
+                        <div className="rounded-full"
+                          style={{ width: `${itemSize}px`, height: `${itemSize}px`, backgroundColor: `${color}70` }} />
                       </button>
                     )
                   })}
