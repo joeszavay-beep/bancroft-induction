@@ -1066,15 +1066,36 @@ function SnagsTab({ projects, navigate }) {
       await supabase.from('snags').update({ assigned_to: assignTo, updated_at: new Date().toISOString() }).eq('id', id)
     }
 
-    // Generate PDF of just these snags and upload to storage
     const selectedSnagData = allSnags.filter(s => checkedSnags.has(s.id))
     const drawingId = selectedSnagData[0]?.drawing_id
     const drawing = drawings.find(d => d.id === drawingId)
     const proj = projects.find(p => p.id === drawing?.project_id)
 
-    // Send email with snag details
+    // Generate PDF of selected snags and upload to Supabase storage
+    let pdfUrl = null
+    try {
+      // Import dynamically to avoid loading jsPDF on every page load
+      const { generateSnagPDF } = await import('../lib/generateSnagPDF')
+      // Temporarily override doc.save to capture the blob instead of downloading
+      const { jsPDF } = await import('jspdf')
+      const origSave = jsPDF.prototype.save
+      let pdfBlob = null
+      jsPDF.prototype.save = function() { pdfBlob = this.output('blob') }
+      await generateSnagPDF({ drawing, project: proj, snags: selectedSnagData, imageUrl: drawing?.file_url })
+      jsPDF.prototype.save = origSave
+
+      if (pdfBlob) {
+        const pdfPath = `snag-reports/${cid}/${Date.now()}.pdf`
+        const { error: upErr } = await supabase.storage.from('documents').upload(pdfPath, pdfBlob, { contentType: 'application/pdf' })
+        if (!upErr) {
+          const { data: urlData } = supabase.storage.from('documents').getPublicUrl(pdfPath)
+          pdfUrl = urlData.publicUrl
+        }
+      }
+    } catch (err) { console.error('PDF generation for email failed:', err) }
+
+    // Send email with snag details and PDF link
     if (assignEmail) {
-      const snagList = selectedSnagData.map(s => `#${s.snag_number}: ${s.description || 'No description'} (${s.trade || ''} - ${s.priority || ''})`).join('\n')
       await fetch('/api/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1084,22 +1105,41 @@ function SnagsTab({ projects, navigate }) {
           email: assignEmail,
           projectName: `Snag Assignment — ${proj?.name || 'Project'}`,
           customHtml: `
-            <div style="font-family:system-ui,sans-serif;max-width:540px;margin:0 auto;">
+            <div style="font-family:system-ui,sans-serif;max-width:580px;margin:0 auto;">
               <div style="background:#0D1526;padding:20px 24px;border-radius:12px 12px 0 0;">
                 <h1 style="color:white;margin:0;font-size:20px;">CoreSite</h1>
-                <p style="color:#6B7A99;margin:4px 0 0;font-size:12px;">Snag Assignment</p>
+                <p style="color:#6B7A99;margin:4px 0 0;font-size:12px;">Snag Assignment — ${drawing?.name || 'Drawing'}</p>
               </div>
-              <div style="background:#fff;padding:24px;border:1px solid #E2E6EA;border-top:none;border-radius:0 0 12px 12px;">
+              <div style="background:#fff;padding:24px;border:1px solid #E2E6EA;border-top:none;">
                 <p style="color:#1A1A2E;font-size:15px;margin:0 0 8px;">Hi ${assignTo},</p>
-                <p style="color:#6B7A99;font-size:14px;margin:0 0 16px;">You have been assigned <strong>${snagIds.length} snag${snagIds.length > 1 ? 's' : ''}</strong> on <strong>${drawing?.name || 'a drawing'}</strong> (${proj?.name || ''}).</p>
+                <p style="color:#6B7A99;font-size:14px;margin:0 0 20px;">You have been assigned <strong>${snagIds.length} snag${snagIds.length > 1 ? 's' : ''}</strong> on <strong>${drawing?.name || 'a drawing'}</strong> — ${proj?.name || ''}.</p>
                 ${selectedSnagData.map(s => `
-                  <div style="background:#F5F6F8;border:1px solid #E2E6EA;border-left:4px solid ${s.status === 'open' ? '#DA3633' : s.status === 'completed' ? '#2EA043' : '#D29922'};border-radius:6px;padding:12px;margin-bottom:8px;">
-                    <p style="margin:0;color:#1A1A2E;font-weight:600;font-size:13px;">Snag #${s.snag_number} — ${s.trade || 'General'}</p>
-                    <p style="margin:4px 0 0;color:#6B7A99;font-size:12px;">${s.description || 'No description'}</p>
-                    <p style="margin:4px 0 0;color:#6B7A99;font-size:11px;">Priority: ${s.priority || 'N/A'} | Due: ${s.due_date ? new Date(s.due_date).toLocaleDateString('en-GB') : 'Not set'}</p>
+                  <div style="background:#F5F6F8;border:1px solid #E2E6EA;border-left:4px solid ${s.status === 'open' ? '#DA3633' : s.status === 'completed' ? '#2EA043' : '#D29922'};border-radius:6px;padding:14px;margin-bottom:10px;">
+                    <table style="width:100%;border-collapse:collapse;">
+                      <tr>
+                        <td style="vertical-align:top;${s.photo_url ? 'width:90px;padding-right:12px;' : ''}">
+                          ${s.photo_url ? `<img src="${s.photo_url}" alt="Snag photo" style="width:80px;height:60px;object-fit:cover;border-radius:4px;" />` : ''}
+                        </td>
+                        <td style="vertical-align:top;">
+                          <p style="margin:0;color:#1A1A2E;font-weight:700;font-size:14px;">Snag #${s.snag_number}</p>
+                          <p style="margin:2px 0 0;color:#6B7A99;font-size:12px;font-weight:600;">${s.trade || 'General'}${s.type ? ' — ' + s.type : ''}</p>
+                          <p style="margin:6px 0 0;color:#1A1A2E;font-size:13px;">${s.description || 'No description'}</p>
+                          <p style="margin:6px 0 0;color:#6B7A99;font-size:11px;">Priority: <strong>${s.priority || 'N/A'}</strong> | Due: <strong>${s.due_date ? new Date(s.due_date).toLocaleDateString('en-GB') : 'Not set'}</strong></p>
+                          <p style="margin:2px 0 0;color:#6B7A99;font-size:11px;">Location: ${drawing?.name || ''}${drawing?.level_ref ? ' — ' + drawing.level_ref : ''}</p>
+                        </td>
+                      </tr>
+                    </table>
                   </div>
                 `).join('')}
+                ${pdfUrl ? `
+                  <div style="margin-top:16px;text-align:center;">
+                    <a href="${pdfUrl}" style="display:inline-block;background:#1B6FC8;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Download Snag Report (PDF)</a>
+                  </div>
+                ` : ''}
                 <p style="color:#6B7A99;font-size:12px;margin-top:16px;">Please review and action these snags as soon as possible.</p>
+              </div>
+              <div style="background:#F5F6F8;padding:12px 24px;border-radius:0 0 12px 12px;border:1px solid #E2E6EA;border-top:none;">
+                <p style="color:#B0B8C9;font-size:10px;margin:0;text-align:center;">CoreSite — Site Compliance Platform</p>
               </div>
             </div>
           `,
