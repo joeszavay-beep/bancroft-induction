@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2 } from 'lucide-react'
+import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2 } from 'lucide-react'
 
 const STATUS_COLORS = { green: '#2EA043', yellow: '#D29922', red: '#DA3633' }
 const STATUS_LABELS = { green: 'Installed', yellow: 'Available', red: 'Blocked' }
@@ -27,6 +27,9 @@ export default function ProgressViewer() {
   const [pendingPhoto, setPendingPhoto] = useState(null) // { x, y } waiting for photo upload
   const [selectedItem, setSelectedItem] = useState(null)
   const [history, setHistory] = useState([])
+  const [undoStack, setUndoStack] = useState([]) // array of item ids that were placed
+  const [redoStack, setRedoStack] = useState([]) // array of items that were undone
+  const [photoLightbox, setPhotoLightbox] = useState(null) // url for enlarged photo
   const [isLive, setIsLive] = useState(false)
 
   useEffect(() => {
@@ -110,6 +113,8 @@ export default function ProgressViewer() {
       changed_by: mgr.id, changed_by_name: mgr.name,
     })
     setPolyPoints([])
+    setUndoStack(prev => [...prev, data.id])
+    setRedoStack([])
     loadItems()
   }
 
@@ -141,6 +146,8 @@ export default function ProgressViewer() {
     })
     setPendingPhoto(null)
     toast.success('Photo pinned')
+    setUndoStack(prev => [...prev, data.id])
+    setRedoStack([])
     loadItems()
   }
 
@@ -168,6 +175,8 @@ export default function ProgressViewer() {
       changed_by: mgr.id, changed_by_name: mgr.name,
     })
     setItems(prev => prev.map(i => i.id === tempItem.id ? data : i))
+    setUndoStack(prev => [...prev, data.id])
+    setRedoStack([])
   }
 
   async function placeLineItem(x1, y1, x2, y2) {
@@ -227,6 +236,47 @@ export default function ProgressViewer() {
     loadItems()
   }
 
+  async function handleUndo() {
+    if (undoStack.length === 0) return
+    const lastId = undoStack[undoStack.length - 1]
+    const item = items.find(i => i.id === lastId)
+    if (!item) return
+
+    // Delete from DB
+    await supabase.from('progress_item_history').delete().eq('item_id', lastId)
+    await supabase.from('progress_items').delete().eq('id', lastId)
+
+    // Move to redo stack
+    setRedoStack(prev => [...prev, item])
+    setUndoStack(prev => prev.slice(0, -1))
+    setItems(prev => prev.filter(i => i.id !== lastId))
+  }
+
+  async function handleRedo() {
+    if (redoStack.length === 0) return
+    const item = redoStack[redoStack.length - 1]
+    const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
+
+    const { data, error } = await supabase.from('progress_items').insert({
+      company_id: cid, drawing_id: drawingId, item_number: nextNum,
+      pin_x: item.pin_x, pin_y: item.pin_y, status: item.status,
+      label: item.label, notes: item.notes, photo_url: item.photo_url,
+      created_by: mgr.name, updated_by: mgr.name,
+    }).select().single()
+
+    if (error) { toast.error('Redo failed'); return }
+
+    await supabase.from('progress_item_history').insert({
+      item_id: data.id, company_id: cid, drawing_id: drawingId,
+      previous_status: null, new_status: item.status,
+      changed_by: mgr.id, changed_by_name: mgr.name, notes: 'Redo',
+    })
+
+    setRedoStack(prev => prev.slice(0, -1))
+    setUndoStack(prev => [...prev, data.id])
+    loadItems()
+  }
+
   async function loadItemHistory(itemId) {
     const { data } = await supabase.from('progress_item_history').select('*').eq('item_id', itemId).order('changed_at', { ascending: false })
     setHistory(data || [])
@@ -241,6 +291,17 @@ export default function ProgressViewer() {
   const isMarking = activeColour !== null || drawMode === 'photo'
 
   return (
+    <>
+    {/* Photo lightbox */}
+    {photoLightbox && (
+      <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4" onClick={() => setPhotoLightbox(null)}>
+        <img src={photoLightbox} alt="Enlarged" className="max-w-full max-h-full object-contain rounded-lg" onClick={e => e.stopPropagation()} />
+        <button onClick={() => setPhotoLightbox(null)} className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20">
+          <X size={24} />
+        </button>
+      </div>
+    )}
+
     <div className="min-h-dvh bg-slate-100 flex flex-col">
       {/* Header */}
       <header className="bg-[#0D1526] text-white px-3 py-2 flex items-center justify-between shrink-0 sticky top-0 z-20">
@@ -253,8 +314,16 @@ export default function ProgressViewer() {
         </div>
         <div className="flex items-center gap-1">
           {isLive && <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-1" title="Live" />}
+          <button onClick={handleUndo} disabled={undoStack.length === 0}
+            className={`p-2 rounded-lg transition-colors ${undoStack.length > 0 ? 'hover:bg-white/10 text-white' : 'text-white/20'}`} title="Undo">
+            <Undo2 size={16} />
+          </button>
+          <button onClick={handleRedo} disabled={redoStack.length === 0}
+            className={`p-2 rounded-lg transition-colors ${redoStack.length > 0 ? 'hover:bg-white/10 text-white' : 'text-white/20'}`} title="Redo">
+            <Redo2 size={16} />
+          </button>
           {isMarking && (
-            <button onClick={() => setActiveColour(null)} className="p-2 bg-red-500 rounded-lg" title="Exit mark mode">
+            <button onClick={() => { setActiveColour(null); setDrawMode('dot'); setLineStart(null); setPolyPoints([]); setPendingPhoto(null) }} className="p-2 bg-red-500 rounded-lg" title="Exit mark mode">
               <X size={16} />
             </button>
           )}
@@ -513,7 +582,8 @@ export default function ProgressViewer() {
             <div className="p-4 space-y-4">
               {/* Photo */}
               {selectedItem.photo_url && (
-                <img src={selectedItem.photo_url} alt="Photo" className="w-full h-40 object-cover rounded-lg" />
+                <img src={selectedItem.photo_url} alt="Photo" className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => setPhotoLightbox(selectedItem.photo_url)} />
               )}
               {selectedItem.label === 'photo' && selectedItem.notes && (
                 <p className="text-[10px] text-[#6B7A99]">📷 Taken: {selectedItem.notes}</p>
@@ -574,5 +644,6 @@ export default function ProgressViewer() {
         </div>
       )}
     </div>
+    </>
   )
 }
