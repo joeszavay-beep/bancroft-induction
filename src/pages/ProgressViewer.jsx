@@ -708,8 +708,6 @@ export default function ProgressViewer() {
 
               {/* Meta */}
               <div className="text-xs text-[#6B7A99] space-y-1">
-                {selectedItem.label && <p><span className="font-medium text-[#1A1A2E]">Label:</span> {selectedItem.label}</p>}
-                {selectedItem.notes && <p><span className="font-medium text-[#1A1A2E]">Notes:</span> {selectedItem.notes}</p>}
                 {selectedItem.stl_date && (
                   <p>
                     <span className="font-medium text-[#1A1A2E]">STL Date:</span> {new Date(selectedItem.stl_date).toLocaleDateString('en-GB')}
