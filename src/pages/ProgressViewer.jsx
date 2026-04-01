@@ -466,16 +466,19 @@ export default function ProgressViewer() {
                       } catch { return null }
                     }
 
-                    // Polyline
+                    // Polyline — render as connected line segments
                     if (item.label === 'polyline' && item.notes) {
                       try {
                         const { points } = JSON.parse(item.notes)
-                        const pointsStr = points.map(p => `${p.x}%,${p.y}%`).join(' ')
                         return (
                           <svg key={item.id} className="absolute top-0 left-0 w-full h-full z-10 pointer-events-none">
-                            <polyline points={pointsStr} fill="none" stroke={color}
-                              strokeWidth={dotSize > 12 ? 4 : dotSize} strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.6"
-                              style={{ cursor: 'pointer', pointerEvents: isMarking ? 'none' : 'stroke' }} onClick={clickHandler} />
+                            {points.map((p, idx) => {
+                              if (idx === 0) return null
+                              const prev = points[idx - 1]
+                              return <line key={idx} x1={`${prev.x}%`} y1={`${prev.y}%`} x2={`${p.x}%`} y2={`${p.y}%`}
+                                stroke={color} strokeWidth={dotSize > 12 ? 4 : dotSize} strokeLinecap="round" strokeOpacity="0.6"
+                                style={{ cursor: 'pointer', pointerEvents: isMarking ? 'none' : 'stroke' }} onClick={clickHandler} />
+                            })}
                           </svg>
                         )
                       } catch { return null }
@@ -518,13 +521,14 @@ export default function ProgressViewer() {
                   {/* Polyline preview */}
                   {polyPoints.length > 0 && (
                     <svg className="absolute top-0 left-0 w-full h-full z-15 pointer-events-none">
-                      <polyline
-                        points={polyPoints.map(p => `${p.x}%,${p.y}%`).join(' ')}
-                        fill="none" stroke={STATUS_COLORS[activeColour] || '#1B6FC8'}
-                        strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.8" strokeDasharray="6 3"
-                      />
+                      {polyPoints.map((p, i) => {
+                        if (i === 0) return null
+                        const prev = polyPoints[i - 1]
+                        return <line key={i} x1={`${prev.x}%`} y1={`${prev.y}%`} x2={`${p.x}%`} y2={`${p.y}%`}
+                          stroke={STATUS_COLORS[activeColour] || '#1B6FC8'} strokeWidth="3" strokeLinecap="round" strokeOpacity="0.8" strokeDasharray="6 3" />
+                      })}
                       {polyPoints.map((p, i) => (
-                        <circle key={i} cx={`${p.x}%`} cy={`${p.y}%`} r="4" fill="white" stroke={STATUS_COLORS[activeColour] || '#1B6FC8'} strokeWidth="2" />
+                        <circle key={`c${i}`} cx={`${p.x}%`} cy={`${p.y}%`} r="4" fill="white" stroke={STATUS_COLORS[activeColour] || '#1B6FC8'} strokeWidth="2" />
                       ))}
                     </svg>
                   )}
