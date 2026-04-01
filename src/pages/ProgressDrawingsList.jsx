@@ -8,7 +8,7 @@ import LoadingButton from '../components/LoadingButton'
 import { Upload, Trash2, ChevronRight, Layers, BarChart3 } from 'lucide-react'
 
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Lighting', 'Other']
-const STATUS_COLORS = { green: '#2EA043', yellow: '#D29922', red: '#DA3633', pink: '#DB61A2', grey: '#B0B8C9' }
+const STATUS_COLORS = { green: '#2EA043', yellow: '#D29922', red: '#DA3633' }
 
 export default function ProgressDrawingsList() {
   const navigate = useNavigate()
@@ -50,7 +50,7 @@ export default function ProgressDrawingsList() {
       const { data: items } = await supabase.from('progress_items').select('drawing_id, status')
       const counts = {}
       ;(items || []).forEach(item => {
-        if (!counts[item.drawing_id]) counts[item.drawing_id] = { total: 0, green: 0, yellow: 0, red: 0, pink: 0, grey: 0 }
+        if (!counts[item.drawing_id]) counts[item.drawing_id] = { total: 0, green: 0, yellow: 0, red: 0 }
         counts[item.drawing_id].total++
         counts[item.drawing_id][item.status] = (counts[item.drawing_id][item.status] || 0) + 1
       })
@@ -164,12 +164,11 @@ export default function ProgressDrawingsList() {
       ) : (
         <div className="space-y-3">
           {filtered.map(d => {
-            const c = itemCounts[d.id] || { total: 0, green: 0, yellow: 0, red: 0, pink: 0, grey: 0 }
+            const c = itemCounts[d.id] || { total: 0, green: 0, yellow: 0, red: 0 }
             const proj = projects.find(p => p.id === d.project_id)
             const pctGreen = c.total > 0 ? Math.round((c.green / c.total) * 100) : 0
             const pctYellow = c.total > 0 ? Math.round((c.yellow / c.total) * 100) : 0
             const pctRed = c.total > 0 ? Math.round((c.red / c.total) * 100) : 0
-            const pctPink = c.total > 0 ? Math.round((c.pink / c.total) * 100) : 0
 
             return (
               <div key={d.id} className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm p-4 hover:shadow-md transition-all">
@@ -190,7 +189,6 @@ export default function ProgressDrawingsList() {
                           {c.green > 0 && <div style={{ width: `${pctGreen}%`, backgroundColor: STATUS_COLORS.green }} />}
                           {c.yellow > 0 && <div style={{ width: `${pctYellow}%`, backgroundColor: STATUS_COLORS.yellow }} />}
                           {c.red > 0 && <div style={{ width: `${pctRed}%`, backgroundColor: STATUS_COLORS.red }} />}
-                          {c.pink > 0 && <div style={{ width: `${pctPink}%`, backgroundColor: STATUS_COLORS.pink }} />}
                         </div>
                         <div className="flex gap-3 mt-1.5 text-[10px] text-[#6B7A99]">
                           <span><span className="inline-block w-2 h-2 rounded-full mr-0.5" style={{ backgroundColor: STATUS_COLORS.green }} /> {pctGreen}% ({c.green})</span>

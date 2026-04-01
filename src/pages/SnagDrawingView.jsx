@@ -216,13 +216,15 @@ export default function SnagDrawingView() {
 
           <TransformWrapper
             ref={transformRef}
-            initialScale={0.8}
-            minScale={0.2}
-            maxScale={8}
+            initialScale={1}
+            minScale={0.3}
+            maxScale={10}
             disabled={placingPin}
-            panning={{ disabled: placingPin }}
+            panning={{ disabled: placingPin, velocityDisabled: false }}
             pinch={{ disabled: placingPin }}
-            wheel={{ disabled: placingPin, step: 0.1 }}
+            wheel={{ disabled: placingPin, step: 0.08, smoothStep: 0.004 }}
+            doubleClick={{ disabled: true }}
+            velocityAnimation={{ sensitivity: 1, animationTime: 200 }}
           >
             {({ zoomIn, zoomOut }) => (
               <>
@@ -238,7 +240,7 @@ export default function SnagDrawingView() {
                   </div>
                 )}
 
-                <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%' }}>
+                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', touchAction: 'none' }} contentStyle={{ width: '100%', touchAction: 'none' }}>
                   <div className="relative inline-block">
                     {imgError ? (
                       <div className="w-[800px] h-[600px] bg-white flex items-center justify-center">

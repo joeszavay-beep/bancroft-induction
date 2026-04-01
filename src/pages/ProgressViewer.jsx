@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Crosshair, Eye, ZoomIn, ZoomOut, Download, Clock, Wifi, X, Camera, Trash2 } from 'lucide-react'
+import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2 } from 'lucide-react'
 
-const STATUS_COLORS = { green: '#2EA043', yellow: '#D29922', red: '#DA3633', pink: '#DB61A2', grey: '#B0B8C9' }
-const STATUS_LABELS = { green: 'Complete', yellow: 'Available', red: 'Blocked', pink: 'Query', grey: 'Unmarked' }
+const STATUS_COLORS = { green: '#2EA043', yellow: '#D29922', red: '#DA3633' }
+const STATUS_LABELS = { green: 'Installed', yellow: 'Available', red: 'Blocked' }
 
 export default function ProgressViewer() {
   const { drawingId } = useParams()
@@ -19,15 +19,13 @@ export default function ProgressViewer() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [imageLoaded, setImageLoaded] = useState(false)
-  const [markMode, setMarkMode] = useState(false)
-  const [pendingPin, setPendingPin] = useState(null)
+  const [activeColour, setActiveColour] = useState(null) // null = view mode, 'green'/'yellow'/'red' = mark mode
   const [selectedItem, setSelectedItem] = useState(null)
   const [history, setHistory] = useState([])
   const [isLive, setIsLive] = useState(false)
 
   useEffect(() => {
     loadData()
-    // Realtime subscription
     const channel = supabase
       .channel(`progress-${drawingId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'progress_items', filter: `drawing_id=eq.${drawingId}` },
@@ -50,45 +48,40 @@ export default function ProgressViewer() {
     setItems(data || [])
   }
 
-  function handleDrawingClick(e) {
-    if (!markMode || !imageRef.current) return
+  // Place item immediately on tap when a colour is selected
+  async function handleDrawingTap(e) {
+    if (!activeColour || !imageRef.current) return
     const rect = imageRef.current.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
-    console.log('Progress pin placed at:', x.toFixed(1), y.toFixed(1))
-    if (x >= 0 && x <= 100 && y >= 0 && y <= 100) {
-      setPendingPin({ x, y })
-    }
-  }
+    if (x < 0 || x > 100 || y < 0 || y > 100) return
 
-  async function placeItem(status) {
-    if (!pendingPin) return
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
+
+    // Optimistic update
+    const tempItem = { id: `temp-${Date.now()}`, item_number: nextNum, pin_x: x, pin_y: y, status: activeColour, created_by: mgr.name }
+    setItems(prev => [...prev, tempItem])
+
     const { data, error } = await supabase.from('progress_items').insert({
-      company_id: cid,
-      drawing_id: drawingId,
-      item_number: nextNum,
-      pin_x: pendingPin.x,
-      pin_y: pendingPin.y,
-      status,
-      created_by: mgr.name,
-      updated_by: mgr.name,
+      company_id: cid, drawing_id: drawingId, item_number: nextNum,
+      pin_x: x, pin_y: y, status: activeColour,
+      created_by: mgr.name, updated_by: mgr.name,
     }).select().single()
 
-    if (error) { toast.error('Failed to place item'); return }
+    if (error) {
+      toast.error('Failed to place item')
+      setItems(prev => prev.filter(i => i.id !== tempItem.id))
+      return
+    }
 
-    // Log history
     await supabase.from('progress_item_history').insert({
       item_id: data.id, company_id: cid, drawing_id: drawingId,
-      previous_status: null, new_status: status,
+      previous_status: null, new_status: activeColour,
       changed_by: mgr.id, changed_by_name: mgr.name,
     })
 
-    // Update total
-    await supabase.from('progress_drawings').update({ total_items: (items.length + 1) }).eq('id', drawingId)
-
-    setPendingPin(null)
-    loadItems()
+    // Replace temp with real
+    setItems(prev => prev.map(i => i.id === tempItem.id ? data : i))
   }
 
   async function updateItemStatus(item, newStatus) {
@@ -122,12 +115,13 @@ export default function ProgressViewer() {
     setHistory(data || [])
   }
 
-  // Stats
   const total = items.length
-  const counts = { green: 0, yellow: 0, red: 0, pink: 0, grey: 0 }
-  items.forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1 })
+  const counts = { green: 0, yellow: 0, red: 0 }
+  items.forEach(i => { if (counts[i.status] !== undefined) counts[i.status]++ })
 
   if (loading) return <div className="min-h-dvh flex items-center justify-center bg-slate-100"><div className="animate-spin w-8 h-8 border-2 border-[#1B6FC8] border-t-transparent rounded-full" /></div>
+
+  const isMarking = activeColour !== null
 
   return (
     <div className="min-h-dvh bg-slate-100 flex flex-col">
@@ -142,79 +136,91 @@ export default function ProgressViewer() {
         </div>
         <div className="flex items-center gap-1">
           {isLive && <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-1" title="Live" />}
-          <button onClick={() => { setMarkMode(!markMode); setPendingPin(null); setSelectedItem(null) }}
-            className={`p-2 rounded-lg transition-colors ${markMode ? 'bg-red-500' : 'hover:bg-white/10'}`}
-            title={markMode ? 'Exit mark mode' : 'Mark mode'}>
-            {markMode ? <X size={16} /> : <Crosshair size={16} />}
-          </button>
+          {isMarking && (
+            <button onClick={() => setActiveColour(null)} className="p-2 bg-red-500 rounded-lg" title="Exit mark mode">
+              <X size={16} />
+            </button>
+          )}
         </div>
       </header>
 
       {/* Stats bar */}
       {total > 0 && (
-        <div className="bg-white border-b border-[#E2E6EA] px-3 py-2 flex items-center gap-3 overflow-x-auto shrink-0">
-          <div className="flex h-2 flex-1 rounded-full overflow-hidden bg-[#F5F6F8] min-w-[100px]">
+        <div className="bg-white border-b border-[#E2E6EA] px-3 py-2 flex items-center gap-3 shrink-0">
+          <div className="flex h-2.5 flex-1 rounded-full overflow-hidden bg-[#F5F6F8] min-w-[80px]">
             {Object.entries(counts).filter(([,v]) => v > 0).map(([status, count]) => (
               <div key={status} style={{ width: `${(count / total) * 100}%`, backgroundColor: STATUS_COLORS[status] }} />
             ))}
           </div>
           <div className="flex gap-2 text-[10px] text-[#6B7A99] shrink-0">
-            {Object.entries(counts).filter(([,v]) => v > 0).map(([status, count]) => (
+            {Object.entries(counts).map(([status, count]) => (
               <span key={status} className="flex items-center gap-1 whitespace-nowrap">
                 <span className="w-2 h-2 rounded-full" style={{ backgroundColor: STATUS_COLORS[status] }} />
-                {Math.round((count / total) * 100)}% ({count})
+                {count > 0 ? `${Math.round((count / total) * 100)}%` : '0%'} ({count})
               </span>
             ))}
           </div>
         </div>
       )}
 
-      {markMode && (
-        <div className="bg-[#1B6FC8] text-white px-4 py-1.5 text-center text-xs font-medium shrink-0">
-          <Crosshair size={12} className="inline mr-1" /> Tap on the drawing to place an item
-        </div>
-      )}
+      {/* Colour selector bar - always visible */}
+      <div className="bg-white border-b border-[#E2E6EA] px-3 py-2 flex items-center gap-2 shrink-0">
+        <span className="text-[10px] text-[#6B7A99] mr-1">{isMarking ? `Placing: ${STATUS_LABELS[activeColour]}` : 'Select colour to start marking:'}</span>
+        {Object.entries(STATUS_COLORS).map(([status, color]) => (
+          <button key={status} onClick={() => setActiveColour(activeColour === status ? null : status)}
+            className={`w-8 h-8 rounded-full border-2 transition-all ${activeColour === status ? 'border-[#1A1A2E] scale-110 shadow-md' : 'border-[#E2E6EA] hover:border-[#1A1A2E]'}`}
+            style={{ backgroundColor: color }}
+            title={STATUS_LABELS[status]} />
+        ))}
+        {isMarking && <span className="text-[10px] text-[#1B6FC8] ml-2">Tap drawing to place dots</span>}
+      </div>
 
       {/* Drawing viewer */}
       <div className="flex-1 overflow-hidden bg-slate-200 relative">
-        {/* Click overlay for mark mode */}
-        {markMode && !pendingPin && (
-          <div className="absolute inset-0 z-30" style={{ cursor: 'crosshair' }} onClick={handleDrawingClick} />
+        {/* Click overlay for marking */}
+        {isMarking && (
+          <div className="absolute inset-0 z-30" style={{ cursor: 'crosshair' }} onClick={handleDrawingTap} />
         )}
 
-        <TransformWrapper initialScale={0.8} minScale={0.2} maxScale={8} disabled={markMode} panning={{ disabled: markMode }} pinch={{ disabled: markMode }} wheel={{ disabled: markMode, step: 0.1 }}>
+        <TransformWrapper
+          initialScale={1}
+          minScale={0.3}
+          maxScale={10}
+          disabled={isMarking}
+          panning={{ disabled: isMarking, velocityDisabled: false }}
+          pinch={{ disabled: isMarking }}
+          wheel={{ disabled: isMarking, step: 0.08, smoothStep: 0.004 }}
+          doubleClick={{ disabled: true }}
+          velocityAnimation={{ sensitivity: 1, animationTime: 200 }}
+        >
           {({ zoomIn, zoomOut }) => (
             <>
-              {!markMode && (
+              {!isMarking && (
                 <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-1">
-                  <button onClick={() => zoomIn()} className="w-9 h-9 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600"><ZoomIn size={16} /></button>
-                  <button onClick={() => zoomOut()} className="w-9 h-9 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600"><ZoomOut size={16} /></button>
+                  <button onClick={() => zoomIn()} className="w-9 h-9 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 active:bg-slate-100"><ZoomIn size={16} /></button>
+                  <button onClick={() => zoomOut()} className="w-9 h-9 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 active:bg-slate-100"><ZoomOut size={16} /></button>
                 </div>
               )}
 
-              <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%' }}>
+              <TransformComponent
+                wrapperStyle={{ width: '100%', height: '100%', touchAction: 'none' }}
+                contentStyle={{ width: '100%', touchAction: 'none' }}
+              >
                 <div className="relative inline-block">
                   <img ref={imageRef} src={drawing?.image_url} alt={drawing?.name}
                     className="max-w-none select-none" style={{ width: '100%', minWidth: '800px' }}
                     onLoad={() => setImageLoaded(true)} draggable={false} />
 
-                  {/* Items */}
+                  {/* Transparent coloured dots */}
                   {imageLoaded && items.map(item => (
                     <button key={item.id}
-                      onClick={(e) => { e.stopPropagation(); if (!markMode) { setSelectedItem(item); loadItemHistory(item.id) } }}
-                      className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-125"
-                      style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: markMode ? 'none' : 'auto' }}>
-                      <div className="w-3.5 h-3.5 rounded-full border-2 border-white shadow-md" style={{ backgroundColor: STATUS_COLORS[item.status] || STATUS_COLORS.grey }} />
+                      onClick={(e) => { e.stopPropagation(); if (!isMarking) { setSelectedItem(item); loadItemHistory(item.id) } }}
+                      className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-150"
+                      style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto' }}>
+                      <div className="w-4 h-4 rounded-full border border-white/60"
+                        style={{ backgroundColor: `${STATUS_COLORS[item.status] || '#B0B8C9'}99` }} />
                     </button>
                   ))}
-
-                  {/* Pending pin */}
-                  {pendingPin && (
-                    <div className="absolute -translate-x-1/2 -translate-y-1/2 z-20 animate-pulse"
-                      style={{ left: `${pendingPin.x}%`, top: `${pendingPin.y}%` }}>
-                      <div className="w-5 h-5 rounded-full border-3 border-white shadow-lg bg-white" />
-                    </div>
-                  )}
                 </div>
               </TransformComponent>
             </>
@@ -222,32 +228,16 @@ export default function ProgressViewer() {
         </TransformWrapper>
       </div>
 
-      {/* Colour picker popup */}
-      {pendingPin && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#E2E6EA] shadow-xl p-4 safe-area-pb">
-          <p className="text-xs text-[#6B7A99] text-center mb-3">Select status colour</p>
-          <div className="flex justify-center gap-3">
-            {Object.entries(STATUS_COLORS).map(([status, color]) => (
-              <button key={status} onClick={() => placeItem(status)}
-                className="flex flex-col items-center gap-1 group">
-                <div className="w-12 h-12 rounded-full border-3 border-[#E2E6EA] group-hover:border-[#1A1A2E] transition-colors shadow-sm" style={{ backgroundColor: color }} />
-                <span className="text-[10px] text-[#6B7A99] capitalize">{STATUS_LABELS[status]}</span>
-              </button>
-            ))}
-          </div>
-          <button onClick={() => setPendingPin(null)} className="w-full mt-3 py-2 text-xs text-[#6B7A99] hover:bg-[#F5F6F8] rounded-md">Cancel</button>
-        </div>
-      )}
-
       {/* Item detail panel */}
       {selectedItem && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelectedItem(null)}>
-          <div className="bg-white w-full sm:max-w-md max-h-[80vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-white w-full sm:max-w-md max-h-[70vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-white border-b border-[#E2E6EA] px-4 py-3 flex items-center justify-between z-10">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded-full" style={{ backgroundColor: STATUS_COLORS[selectedItem.status] }} />
                 <h3 className="text-base font-bold text-[#1A1A2E]">Item #{selectedItem.item_number}</h3>
-                <span className="text-[10px] px-2 py-0.5 rounded font-semibold capitalize" style={{ backgroundColor: STATUS_COLORS[selectedItem.status] + '20', color: STATUS_COLORS[selectedItem.status] }}>
+                <span className="text-[10px] px-2 py-0.5 rounded font-semibold capitalize"
+                  style={{ backgroundColor: `${STATUS_COLORS[selectedItem.status]}20`, color: STATUS_COLORS[selectedItem.status] }}>
                   {STATUS_LABELS[selectedItem.status]}
                 </span>
               </div>
@@ -258,11 +248,14 @@ export default function ProgressViewer() {
               {/* Change status */}
               <div>
                 <p className="text-[10px] text-[#6B7A99] uppercase font-semibold mb-2">Change Status</p>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   {Object.entries(STATUS_COLORS).map(([status, color]) => (
                     <button key={status} onClick={() => updateItemStatus(selectedItem, status)}
-                      className={`w-9 h-9 rounded-full border-2 transition-all ${selectedItem.status === status ? 'border-[#1A1A2E] scale-110' : 'border-[#E2E6EA] hover:border-[#1A1A2E]'}`}
-                      style={{ backgroundColor: color }} title={STATUS_LABELS[status]} />
+                      className="flex flex-col items-center gap-1 group">
+                      <div className={`w-10 h-10 rounded-full border-2 transition-all ${selectedItem.status === status ? 'border-[#1A1A2E] scale-110' : 'border-[#E2E6EA] group-hover:border-[#1A1A2E]'}`}
+                        style={{ backgroundColor: color }} />
+                      <span className="text-[9px] text-[#6B7A99] capitalize">{STATUS_LABELS[status]}</span>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -280,7 +273,6 @@ export default function ProgressViewer() {
                   </p>
                 )}
                 <p>Created by {selectedItem.created_by} · {new Date(selectedItem.created_at).toLocaleString()}</p>
-                {selectedItem.updated_by && <p>Last updated by {selectedItem.updated_by} · {new Date(selectedItem.updated_at).toLocaleString()}</p>}
               </div>
 
               {/* History */}
@@ -290,7 +282,7 @@ export default function ProgressViewer() {
                   <div className="space-y-1.5 max-h-32 overflow-y-auto">
                     {history.map(h => (
                       <div key={h.id} className="flex items-center gap-2 text-[11px] text-[#6B7A99]">
-                        {h.previous_status && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[h.previous_status] }} />}
+                        {h.previous_status && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[h.previous_status] || '#B0B8C9' }} />}
                         <span>→</span>
                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[h.new_status] }} />
                         <span className="flex-1">{h.changed_by_name} · {new Date(h.changed_at).toLocaleString()}</span>
@@ -300,7 +292,6 @@ export default function ProgressViewer() {
                 </div>
               )}
 
-              {/* Delete */}
               <button onClick={() => deleteItem(selectedItem)} className="flex items-center gap-1.5 px-3 py-2 text-xs text-[#DA3633] hover:bg-red-50 rounded-md transition-colors">
                 <Trash2 size={12} /> Delete Item
               </button>
