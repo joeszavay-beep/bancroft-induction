@@ -991,6 +991,13 @@ function SnagsTab({ projects, navigate }) {
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterDrawing, setFilterDrawing] = useState('all')
   const [filterSnagNo, setFilterSnagNo] = useState('')
+  const [sortCol, setSortCol] = useState('snag_number')
+  const [sortDir, setSortDir] = useState('asc')
+
+  function toggleSort(col) {
+    if (sortCol === col) setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
+    else { setSortCol(col); setSortDir('asc') }
+  }
 
   // Upload form
   const [drawingName, setDrawingName] = useState('')
@@ -1468,17 +1475,25 @@ function SnagsTab({ projects, navigate }) {
                             if (e.target.checked) setCheckedSnags(new Set(dSnags.map(s => s.id)))
                             else setCheckedSnags(new Set())
                           }} /></th>
-                          <th className="px-3 py-2 font-semibold">No.</th>
+                          <th onClick={() => toggleSort('snag_number')} className="px-3 py-2 font-semibold cursor-pointer hover:text-[#1B6FC8] select-none">No. {sortCol === 'snag_number' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
                           <th className="px-3 py-2 font-semibold">Photo</th>
-                          <th className="px-3 py-2 font-semibold">Details</th>
-                          <th className="px-3 py-2 font-semibold">Status</th>
-                          <th className="px-3 py-2 font-semibold">Priority</th>
-                          <th className="px-3 py-2 font-semibold">Due On</th>
-                          <th className="px-3 py-2 font-semibold">Created</th>
+                          <th onClick={() => toggleSort('trade')} className="px-3 py-2 font-semibold cursor-pointer hover:text-[#1B6FC8] select-none">Details {sortCol === 'trade' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
+                          <th onClick={() => toggleSort('status')} className="px-3 py-2 font-semibold cursor-pointer hover:text-[#1B6FC8] select-none">Status {sortCol === 'status' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
+                          <th onClick={() => toggleSort('priority')} className="px-3 py-2 font-semibold cursor-pointer hover:text-[#1B6FC8] select-none">Priority {sortCol === 'priority' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
+                          <th onClick={() => toggleSort('due_date')} className="px-3 py-2 font-semibold cursor-pointer hover:text-[#1B6FC8] select-none">Due On {sortCol === 'due_date' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
+                          <th onClick={() => toggleSort('created_at')} className="px-3 py-2 font-semibold cursor-pointer hover:text-[#1B6FC8] select-none">Created {sortCol === 'created_at' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {dSnags.map(snag => {
+                        {[...dSnags].sort((a, b) => {
+                          let av = a[sortCol], bv = b[sortCol]
+                          if (sortCol === 'due_date' || sortCol === 'created_at') { av = av ? new Date(av).getTime() : 0; bv = bv ? new Date(bv).getTime() : 0 }
+                          if (sortCol === 'snag_number') { av = av || 0; bv = bv || 0 }
+                          if (typeof av === 'string') { av = av.toLowerCase(); bv = (bv || '').toLowerCase() }
+                          if (av < bv) return sortDir === 'asc' ? -1 : 1
+                          if (av > bv) return sortDir === 'asc' ? 1 : -1
+                          return 0
+                        }).map(snag => {
                           const isOverdue = snag.due_date && new Date(snag.due_date) < new Date() && snag.status === 'open'
                           return (
                             <tr key={snag.id} className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer" onClick={() => { setSelectedSnag(snag); setSelectedDrawing(d) }}>
