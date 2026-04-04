@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Shield, FileCheck, MapPin, Layers, QrCode, Users, Clock, Download, CheckCircle2, ArrowRight, Zap, Lock, Globe, Smartphone } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { Shield, FileCheck, MapPin, Layers, QrCode, Users, Clock, Download, CheckCircle2, ArrowRight, Zap, Lock, Globe, Smartphone, X, Send } from 'lucide-react'
 
 function AnimatedCounter({ end, suffix = '', duration = 2000 }) {
   const [count, setCount] = useState(0)
@@ -94,6 +95,24 @@ const stats = [
 
 export default function WhyCoreSite() {
   const navigate = useNavigate()
+  const [showDemo, setShowDemo] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [dName, setDName] = useState('')
+  const [dEmail, setDEmail] = useState('')
+  const [dCompany, setDCompany] = useState('')
+  const [dPhone, setDPhone] = useState('')
+  const [dMessage, setDMessage] = useState('')
+
+  async function handleDemoSubmit(e) {
+    e.preventDefault()
+    if (!dName.trim() || !dEmail.trim()) return
+    setSending(true)
+    await supabase.from('demo_requests').insert({ name: dName.trim(), email: dEmail.trim(), company: dCompany.trim() || null, phone: dPhone.trim() || null, message: dMessage.trim() || null })
+    await fetch('/api/demo-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: dName.trim(), email: dEmail.trim(), company: dCompany.trim(), phone: dPhone.trim(), message: dMessage.trim() }) }).catch(() => {})
+    setSending(false)
+    setSubmitted(true)
+  }
 
   return (
     <div className="min-h-dvh bg-white">
@@ -140,9 +159,9 @@ export default function WhyCoreSite() {
               </FadeInSection>
               <FadeInSection delay={300}>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <Link to="/" className="w-full sm:w-auto px-8 py-3.5 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-lg transition-colors text-base flex items-center justify-center gap-2">
+                  <button onClick={() => setShowDemo(true)} className="w-full sm:w-auto px-8 py-3.5 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-lg transition-colors text-base flex items-center justify-center gap-2">
                     Request a Demo <ArrowRight size={16} />
-                  </Link>
+                  </button>
                   <button onClick={() => navigate('/login')} className="w-full sm:w-auto px-8 py-3.5 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg border border-white/20 transition-colors text-base">
                     Sign In
                   </button>
@@ -295,6 +314,64 @@ export default function WhyCoreSite() {
           </div>
         </div>
       </footer>
+
+      {/* Demo Request Modal */}
+      {showDemo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => !sending && setShowDemo(false)}>
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            {submitted ? (
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 bg-[#E8F4ED] rounded-full flex items-center justify-center mx-auto mb-5">
+                  <CheckCircle2 size={32} className="text-[#2D9D5F]" />
+                </div>
+                <h2 className="text-xl font-bold text-[#1A1A2E] mb-2">Thanks, {dName.split(' ')[0]}!</h2>
+                <p className="text-sm text-[#6B6B6B] mb-6">We've received your request and will be in touch within 24 hours to arrange your demo.</p>
+                <button onClick={() => setShowDemo(false)} className="px-6 py-2.5 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-medium rounded-lg text-sm transition-colors">Close</button>
+              </div>
+            ) : (
+              <>
+                <div className="bg-[#1B2A3D] px-6 py-4 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-white font-semibold text-base">Request a Demo</h2>
+                    <p className="text-white/50 text-xs mt-0.5">See CoreSite in action for your business</p>
+                  </div>
+                  <button onClick={() => setShowDemo(false)} className="p-1 text-white/40 hover:text-white transition-colors"><X size={20} /></button>
+                </div>
+                <form onSubmit={handleDemoSubmit} className="p-6 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-[#6B6B6B] font-medium mb-1 block">Full Name *</label>
+                      <input value={dName} onChange={e => setDName(e.target.value)} required className="w-full px-3.5 py-2.5 border border-[#E5E5E5] rounded-lg text-[#1A1A1A] placeholder-[#9A9A9A] focus:outline-none focus:border-[#3B7DD8] focus:ring-2 focus:ring-[#3B7DD8]/10 text-sm" placeholder="Your name" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#6B6B6B] font-medium mb-1 block">Email Address *</label>
+                      <input type="email" value={dEmail} onChange={e => setDEmail(e.target.value)} required className="w-full px-3.5 py-2.5 border border-[#E5E5E5] rounded-lg text-[#1A1A1A] placeholder-[#9A9A9A] focus:outline-none focus:border-[#3B7DD8] focus:ring-2 focus:ring-[#3B7DD8]/10 text-sm" placeholder="you@company.com" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-[#6B6B6B] font-medium mb-1 block">Company Name</label>
+                      <input value={dCompany} onChange={e => setDCompany(e.target.value)} className="w-full px-3.5 py-2.5 border border-[#E5E5E5] rounded-lg text-[#1A1A1A] placeholder-[#9A9A9A] focus:outline-none focus:border-[#3B7DD8] focus:ring-2 focus:ring-[#3B7DD8]/10 text-sm" placeholder="Your company" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#6B6B6B] font-medium mb-1 block">Phone Number</label>
+                      <input type="tel" value={dPhone} onChange={e => setDPhone(e.target.value)} className="w-full px-3.5 py-2.5 border border-[#E5E5E5] rounded-lg text-[#1A1A1A] placeholder-[#9A9A9A] focus:outline-none focus:border-[#3B7DD8] focus:ring-2 focus:ring-[#3B7DD8]/10 text-sm" placeholder="07..." />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#6B6B6B] font-medium mb-1 block">Tell us about your needs</label>
+                    <textarea value={dMessage} onChange={e => setDMessage(e.target.value)} rows={3} className="w-full px-3.5 py-2.5 border border-[#E5E5E5] rounded-lg text-[#1A1A1A] placeholder-[#9A9A9A] focus:outline-none focus:border-[#3B7DD8] focus:ring-2 focus:ring-[#3B7DD8]/10 text-sm resize-none" placeholder="How many sites? How many operatives?" />
+                  </div>
+                  <button type="submit" disabled={sending || !dName.trim() || !dEmail.trim()} className="w-full py-3 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-lg text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                    {sending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Send size={14} /> Request Demo</>}
+                  </button>
+                  <p className="text-[10px] text-[#9A9A9A] text-center">By submitting, you agree to our <Link to="/policies/privacy" className="text-[#3B7DD8] hover:underline">Privacy Policy</Link>.</p>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

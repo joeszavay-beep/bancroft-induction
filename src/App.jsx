@@ -67,9 +67,10 @@ export default function App() {
   return (
     <Routes>
       {/* Public routes */}
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={<WhyCoreSite />} />
       <Route path="/login" element={<PMLogin />} />
       <Route path="/why" element={<WhyCoreSite />} />
+      <Route path="/old-landing" element={<LandingPage />} />
       {/* Legacy redirect */}
       <Route path="/pm-login" element={<Navigate to="/login" replace />} />
       <Route path="/pm" element={<Navigate to="/app/dashboard" replace />} />
