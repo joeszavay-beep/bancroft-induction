@@ -8,7 +8,7 @@ import SnagDetail from '../components/SnagDetail'
 import SnagForm from '../components/SnagForm'
 import { generateSnagPDF } from '../lib/generateSnagPDF'
 import {
-  ArrowLeft, List, Map, Plus, Download, X, ZoomIn, ZoomOut, Crosshair
+  ArrowLeft, List, Map, Plus, Download, X, ZoomIn, ZoomOut, Crosshair, Upload
 } from 'lucide-react'
 
 const STATUS_COLORS = {
@@ -31,6 +31,7 @@ export default function SnagDrawingView() {
   const [snags, setSnags] = useState([])
   const [operatives, setOperatives] = useState([])
   const [loading, setLoading] = useState(true)
+  const [replacingDrawing, setReplacingDrawing] = useState(false)
   const [placingPin, setPlacingPin] = useState(false)
   const [pendingPin, setPendingPin] = useState(null)
   const [selectedSnag, setSelectedSnag] = useState(null)
@@ -98,6 +99,59 @@ export default function SnagDrawingView() {
     setExporting(false)
   }
 
+  async function handleReplaceDrawing(file) {
+    if (!file) return
+    setReplacingDrawing(true)
+    let fileToUpload = file
+    let fileExt = file.name.split('.').pop().toLowerCase()
+
+    if (fileExt === 'pdf') {
+      try {
+        const { pdfToImage } = await import('../lib/pdfToImage')
+        fileToUpload = await pdfToImage(file)
+        fileExt = 'png'
+      } catch { setReplacingDrawing(false); toast.error('Failed to convert PDF'); return }
+    }
+
+    if (fileExt === 'svg') {
+      try {
+        const svgText = await file.text()
+        const img = new Image()
+        const svgBlob = new Blob([svgText], { type: 'image/svg+xml' })
+        const svgUrl = URL.createObjectURL(svgBlob)
+        fileToUpload = await new Promise((resolve, reject) => {
+          img.onload = () => {
+            const canvas = document.createElement('canvas')
+            canvas.width = Math.max(img.width, 2000); canvas.height = Math.max(img.height, 1400)
+            const ctx = canvas.getContext('2d')
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height)
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+            URL.revokeObjectURL(svgUrl)
+            canvas.toBlob(blob => blob ? resolve(blob) : reject(), 'image/png')
+          }
+          img.onerror = () => { URL.revokeObjectURL(svgUrl); reject() }
+          img.src = svgUrl
+        })
+        fileExt = 'png'
+      } catch { setReplacingDrawing(false); toast.error('Failed to convert SVG'); return }
+    }
+
+    const filePath = `${drawing.project_id}/${Date.now()}.${fileExt}`
+    const { error: upErr } = await supabase.storage.from('drawings').upload(filePath, fileToUpload, {
+      contentType: fileExt === 'png' ? 'image/png' : fileToUpload.type || 'image/jpeg',
+    })
+    if (upErr) { setReplacingDrawing(false); toast.error('Upload failed'); return }
+
+    const { data: urlData } = supabase.storage.from('drawings').getPublicUrl(filePath)
+    await supabase.from('drawings').update({ file_url: urlData.publicUrl }).eq('id', drawingId)
+
+    setReplacingDrawing(false)
+    toast.success('Drawing updated — reloading')
+    setImageLoaded(false)
+    setImgError(false)
+    setDrawing(prev => ({ ...prev, file_url: urlData.publicUrl }))
+  }
+
   const filteredSnags = statusFilter === 'all' ? snags : snags.filter(s => s.status === statusFilter)
   const openCount = snags.filter(s => s.status === 'open').length
   const completedCount = snags.filter(s => s.status === 'completed').length
@@ -136,6 +190,10 @@ export default function SnagDrawingView() {
           <button onClick={() => setShowList(!showList)} className={`p-2 rounded-lg transition-colors ${showList ? 'bg-blue-500' : 'hover:bg-slate-700'}`}>
             {showList ? <Map size={16} /> : <List size={16} />}
           </button>
+          <label className="p-2 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer" title="Replace drawing image">
+            {replacingDrawing ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Upload size={16} />}
+            <input type="file" accept=".pdf,.png,.jpg,.jpeg,.svg" className="hidden" onChange={e => { if (e.target.files[0]) handleReplaceDrawing(e.target.files[0]) }} />
+          </label>
           <button onClick={handleExport} disabled={exporting} className="p-2 hover:bg-slate-700 rounded-lg transition-colors">
             {exporting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download size={16} />}
           </button>
