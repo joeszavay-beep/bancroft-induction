@@ -16,6 +16,7 @@ const STATUS_COLORS = {
   completed: { bg: '#22c55e', ring: '#86efac' },
   closed: { bg: '#9ca3af', ring: '#d1d5db' },
   reassigned: { bg: '#f59e0b', ring: '#fcd34d' },
+  pending_review: { bg: '#a855f7', ring: '#c4b5fd' },
 }
 
 export default function SnagDrawingView() {

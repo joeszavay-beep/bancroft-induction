@@ -75,17 +75,13 @@ export default function SnagReply() {
       })
     }
 
-    // Log history
-    await supabase.from('progress_item_history').insert({
-      item_id: snag.id,
+    // Add a comment logging the submission
+    await supabase.from('snag_comments').insert({
+      snag_id: snag.id,
+      comment: 'Completion photo submitted for review',
+      author_name: snag.assigned_to || 'Operative',
+      author_role: 'Operative',
       company_id: snag.company_id,
-      drawing_id: snag.drawing_id,
-      previous_status: snag.status,
-      new_status: 'pending_review',
-      changed_by_name: snag.assigned_to || 'Operative',
-      changed_at: new Date().toISOString(),
-      notes: 'Completion photo submitted for review',
-      photo_url: urlData.publicUrl,
     }).catch(() => {})
 
     setUploading(false)

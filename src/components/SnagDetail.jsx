@@ -72,7 +72,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
   const [newComment, setNewComment] = useState('')
   const [sending, setSending] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [lightbox, setLightbox] = useState(false)
+  const [lightbox, setLightbox] = useState(null)
 
   // Editable fields
   const [status, setStatus] = useState(snag.status || 'open')

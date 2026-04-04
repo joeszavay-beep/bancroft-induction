@@ -1467,6 +1467,7 @@ function SnagsTab({ projects, navigate }) {
                                   snag.status === 'open' ? 'bg-red-100 text-red-700' :
                                   snag.status === 'completed' ? 'bg-green-100 text-green-700' :
                                   snag.status === 'closed' ? 'bg-gray-100 text-gray-600' :
+                                  snag.status === 'pending_review' ? 'bg-purple-100 text-purple-700' :
                                   'bg-amber-100 text-amber-700'
                                 }`}>{snag.status}</span>
                               </td>
