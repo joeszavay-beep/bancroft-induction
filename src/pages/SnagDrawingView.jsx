@@ -8,6 +8,7 @@ import Modal from '../components/Modal'
 import SnagDetail from '../components/SnagDetail'
 import SnagForm from '../components/SnagForm'
 import { generateSnagPDF } from '../lib/generateSnagPDF'
+import PrefetchButton from '../components/PrefetchButton'
 import {
   ArrowLeft, List, Map, Plus, Download, X, ZoomIn, ZoomOut, Crosshair, Upload
 } from 'lucide-react'
@@ -203,6 +204,7 @@ export default function SnagDrawingView() {
             {replacingDrawing ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Upload size={16} />}
             <input type="file" accept=".pdf,.png,.jpg,.jpeg,.svg" className="hidden" onChange={e => { if (e.target.files[0]) handleReplaceDrawing(e.target.files[0]) }} />
           </label>
+          <PrefetchButton drawingId={drawingId} projectId={drawing?.project_id} className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-white" />
           <button onClick={handleExport} disabled={exporting} className="p-2 hover:bg-slate-700 rounded-lg transition-colors">
             {exporting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download size={16} />}
           </button>

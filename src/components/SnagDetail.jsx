@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { offlineUpdate, offlineInsert, offlineDelete } from '../lib/syncQueue'
 import { fetchAndCache } from '../hooks/useOfflineData'
+import { smartCompress } from '../lib/imageCompressor'
 import toast from 'react-hot-toast'
 import LoadingButton from './LoadingButton'
 import {
@@ -171,14 +172,50 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
   async function handlePhotoUpload(file) {
     if (!file) return
     setUploadingPhoto(true)
+
+    let compressed = file
+    try { compressed = await smartCompress(file) } catch {}
+
     const filePath = `snag-photos/${snag.id}/${Date.now()}.jpg`
-    const { error: upErr } = await supabase.storage.from('snag-photos').upload(filePath, file, { contentType: file.type })
-    if (upErr) { setUploadingPhoto(false); toast.error('Failed to upload photo'); return }
-    const { data: urlData } = supabase.storage.from('snag-photos').getPublicUrl(filePath)
-    await supabase.from('snags').update({ photo_url: urlData.publicUrl, updated_at: new Date().toISOString() }).eq('id', snag.id)
-    setSnagPhoto(urlData.publicUrl)
-    setUploadingPhoto(false)
-    toast.success('Photo added')
+
+    if (navigator.onLine) {
+      const { error: upErr } = await supabase.storage.from('snag-photos').upload(filePath, compressed, { contentType: 'image/jpeg' })
+      if (upErr) { setUploadingPhoto(false); toast.error('Failed to upload photo'); return }
+      const { data: urlData } = supabase.storage.from('snag-photos').getPublicUrl(filePath)
+      await offlineUpdate('snags', snag.id, { photo_url: urlData.publicUrl })
+      setSnagPhoto(urlData.publicUrl)
+      setUploadingPhoto(false)
+      toast.success('Photo added')
+    } else {
+      // Queue the photo upload for when we're back online
+      // Store blob in IDB and show local preview
+      const { cacheBlob } = await import('../lib/offlineDb')
+      const blobKey = `blob_photo_${snag.id}_${Date.now()}`
+      const arrayBuffer = await compressed.arrayBuffer()
+      await cacheBlob(blobKey, arrayBuffer, { contentType: 'image/jpeg' })
+
+      // Show local preview from blob
+      setSnagPhoto(URL.createObjectURL(compressed))
+      setUploadingPhoto(false)
+
+      // Queue the update with file upload reference
+      const { enqueueMutation } = await import('../lib/offlineDb')
+      await enqueueMutation({
+        table: 'snags',
+        operation: 'update',
+        payload: { id: snag.id, updated_at: new Date().toISOString() },
+        fileUpload: {
+          bucket: 'snag-photos',
+          path: filePath,
+          blobKey,
+          contentType: 'image/jpeg',
+          field: 'photo_url',
+        },
+        clientId: blobKey,
+      })
+
+      toast.success('Photo saved offline — will upload when connected')
+    }
   }
 
   async function updateStatus(newStatus) {

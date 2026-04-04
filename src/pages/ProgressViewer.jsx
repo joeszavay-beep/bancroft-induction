@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { fetchAndCache } from '../hooks/useOfflineData'
 import { offlineInsert, offlineDelete } from '../lib/syncQueue'
 import toast from 'react-hot-toast'
+import PrefetchButton from '../components/PrefetchButton'
 import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
 import { useCompany } from '../lib/CompanyContext'
@@ -399,6 +400,7 @@ export default function ProgressViewer() {
             className={`p-2 rounded-lg transition-colors ${redoStack.length > 0 ? 'hover:bg-white/10 text-white' : 'text-white/20'}`} title="Redo">
             <Redo2 size={16} />
           </button>
+          <PrefetchButton drawingId={drawingId} projectId={drawing?.project_id} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors" />
           <button onClick={handleExport} disabled={exporting} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors" title="Export PDF">
             {exporting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download size={16} />}
           </button>

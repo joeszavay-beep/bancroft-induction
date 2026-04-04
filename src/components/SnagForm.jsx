@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { offlineInsert } from '../lib/syncQueue'
+import { smartCompress } from '../lib/imageCompressor'
 import toast from 'react-hot-toast'
 import Modal from './Modal'
 import LoadingButton from './LoadingButton'
@@ -37,13 +38,20 @@ export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pi
     if (pObj) setDueDate(getDueDate(pObj.days))
   }
 
-  function handlePhotoChange(e) {
+  async function handlePhotoChange(e) {
     const file = e.target.files[0]
     if (!file) return
-    setPhoto(file)
-    const reader = new FileReader()
-    reader.onload = () => setPhotoPreview(reader.result)
-    reader.readAsDataURL(file)
+    try {
+      const compressed = await smartCompress(file)
+      setPhoto(compressed)
+      setPhotoPreview(URL.createObjectURL(compressed))
+    } catch {
+      // Fallback to original if compression fails
+      setPhoto(file)
+      const reader = new FileReader()
+      reader.onload = () => setPhotoPreview(reader.result)
+      reader.readAsDataURL(file)
+    }
   }
 
   async function handleSubmit(e) {
