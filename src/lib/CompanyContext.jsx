@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
 
 const CompanyContext = createContext(null)
@@ -8,74 +8,74 @@ export function CompanyProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  const profileLoaded = useRef(false)
 
   useEffect(() => {
-    // Check for existing session on mount
     checkSession()
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        await loadProfile(session.user)
-      } else if (event === 'SIGNED_OUT') {
-        clearState()
-      }
-    })
-
-    return () => subscription.unsubscribe()
   }, [])
 
   async function checkSession() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session?.user) {
-      await loadProfile(session.user)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        await loadProfile(session.user)
+      }
+    } catch (err) {
+      console.error('Session check failed:', err)
     }
     setIsLoading(false)
   }
 
   async function loadProfile(authUser) {
-    const { data: prof } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', authUser.id)
-      .single()
+    if (profileLoaded.current && user?.id === authUser.id) return
 
-    if (!prof) {
-      setIsLoading(false)
-      return
-    }
-
-    setProfile(prof)
-    setUser({
-      id: prof.id,
-      name: prof.name,
-      email: prof.email,
-      role: prof.role,
-      company_id: prof.company_id,
-    })
-
-    // Also store in sessionStorage for backward compatibility with existing components
-    sessionStorage.setItem('pm_auth', 'true')
-    sessionStorage.setItem('manager_data', JSON.stringify({
-      id: prof.id,
-      name: prof.name,
-      email: prof.email,
-      role: prof.role,
-      company_id: prof.company_id,
-      project_ids: [],
-    }))
-
-    // Load company
-    if (prof.company_id) {
-      const { data: co } = await supabase
-        .from('companies')
+    try {
+      const { data: prof, error } = await supabase
+        .from('profiles')
         .select('*')
-        .eq('id', prof.company_id)
+        .eq('id', authUser.id)
         .single()
-      if (co) {
-        setCompany(co)
-        applyBranding(co)
+
+      if (error || !prof) {
+        console.error('Profile load failed:', error)
+        return false
       }
+
+      profileLoaded.current = true
+      setProfile(prof)
+
+      const userData = {
+        id: prof.id,
+        name: prof.name,
+        email: prof.email,
+        role: prof.role,
+        company_id: prof.company_id,
+      }
+      setUser(userData)
+
+      // Store in sessionStorage for backward compatibility
+      sessionStorage.setItem('pm_auth', 'true')
+      sessionStorage.setItem('manager_data', JSON.stringify({
+        ...userData,
+        project_ids: [],
+      }))
+
+      // Load company
+      if (prof.company_id) {
+        const { data: co } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('id', prof.company_id)
+          .single()
+        if (co) {
+          setCompany(co)
+          applyBranding(co)
+        }
+      }
+      return true
+    } catch (err) {
+      console.error('loadProfile error:', err)
+      return false
     }
   }
 
@@ -88,6 +88,7 @@ export function CompanyProvider({ children }) {
   }
 
   function clearState() {
+    profileLoaded.current = false
     setUser(null)
     setProfile(null)
     setCompany(null)
@@ -102,7 +103,8 @@ export function CompanyProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
     if (data?.user) {
-      await loadProfile(data.user)
+      const success = await loadProfile(data.user)
+      if (!success) throw new Error('Failed to load profile')
     }
     return data
   }
