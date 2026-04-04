@@ -1177,6 +1177,37 @@ function SnagsTab({ projects, navigate }) {
       }
     }
 
+    // Convert SVG to PNG
+    if (fileExt === 'svg') {
+      try {
+        const svgText = await drawingFile.text()
+        const img = new Image()
+        const svgBlob = new Blob([svgText], { type: 'image/svg+xml' })
+        const svgUrl = URL.createObjectURL(svgBlob)
+        fileToUpload = await new Promise((resolve, reject) => {
+          img.onload = () => {
+            const canvas = document.createElement('canvas')
+            canvas.width = Math.max(img.width, 2000)
+            canvas.height = Math.max(img.height, 1400)
+            const ctx = canvas.getContext('2d')
+            ctx.fillStyle = '#ffffff'
+            ctx.fillRect(0, 0, canvas.width, canvas.height)
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+            URL.revokeObjectURL(svgUrl)
+            canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Canvas failed')), 'image/png')
+          }
+          img.onerror = () => { URL.revokeObjectURL(svgUrl); reject(new Error('SVG load failed')) }
+          img.src = svgUrl
+        })
+        fileExt = 'png'
+      } catch (err) {
+        console.error('SVG conversion failed:', err)
+        setSaving(false)
+        toast.error('Failed to convert SVG — try exporting as PNG instead')
+        return
+      }
+    }
+
     const filePath = `${drawingProjectId}/${Date.now()}.${fileExt}`
     const { error: upErr } = await supabase.storage.from('drawings').upload(filePath, fileToUpload, {
       contentType: fileExt === 'png' ? 'image/png' : fileToUpload.type || 'image/jpeg',
@@ -1525,7 +1556,7 @@ function SnagsTab({ projects, navigate }) {
           <label className="flex items-center justify-center gap-2 w-full px-3 py-4 bg-slate-50 border border-slate-200 border-dashed rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
             <Upload size={16} className="text-slate-400" />
             <span className="text-sm text-slate-400">{drawingFile ? drawingFile.name : 'Select PDF or image file'}</span>
-            <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={e => setDrawingFile(e.target.files[0])} className="hidden" />
+            <input type="file" accept=".pdf,.png,.jpg,.jpeg,.svg" onChange={e => setDrawingFile(e.target.files[0])} className="hidden" />
           </label>
           <p className="text-[11px] text-slate-400">PDFs will be automatically converted to high-res images</p>
           <LoadingButton loading={saving} type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-xl">
