@@ -4,6 +4,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
 import { fetchAndCache } from '../hooks/useOfflineData'
 import { offlineInsert, offlineDelete } from '../lib/syncQueue'
+import { toastOffline } from '../lib/offlineToast'
 import toast from 'react-hot-toast'
 import PrefetchButton from '../components/PrefetchButton'
 import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check } from 'lucide-react'
@@ -135,7 +136,7 @@ export default function ProgressViewer() {
     })
 
     if (!data) { toast.error('Failed to save polyline'); setPolyPoints([]); return }
-    if (offline) toast.success('Polyline saved offline')
+    if (offline) toastOffline('Polyline saved offline')
 
     setPolyPoints([])
     setUndoStack(prev => [...prev, data.id])
@@ -249,7 +250,7 @@ export default function ProgressViewer() {
     })
 
     if (!data) { toast.error('Failed to place item'); return }
-    if (offline) toast.success('Dot saved offline')
+    if (offline) toastOffline('Dot saved offline')
 
     setItems(prev => [...prev, data])
     setUndoStack(prev => [...prev, data.id])
@@ -271,7 +272,7 @@ export default function ProgressViewer() {
     })
 
     if (!data) { toast.error('Failed to place line'); return }
-    if (offline) toast.success('Line saved offline')
+    if (offline) toastOffline('Line saved offline')
 
     setItems(prev => [...prev, data])
   }

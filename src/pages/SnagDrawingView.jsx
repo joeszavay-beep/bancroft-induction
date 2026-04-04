@@ -336,16 +336,21 @@ export default function SnagDrawingView() {
                     {/* Snag pins */}
                     {imageLoaded && filteredSnags.map(snag => {
                       const color = STATUS_COLORS[snag.status] || STATUS_COLORS.open
+                      const isPending = snag._pending
                       return (
                         <button
                           key={snag.id}
                           onClick={(e) => { e.stopPropagation(); if (!placingPin) setSelectedSnag(snag) }}
-                          className="absolute -translate-x-1/2 -translate-y-full z-10 group"
+                          className={`absolute -translate-x-1/2 -translate-y-full z-10 group ${isPending ? 'opacity-75' : ''}`}
                           style={{ left: `${snag.pin_x}%`, top: `${snag.pin_y}%`, pointerEvents: placingPin ? 'none' : 'auto' }}
-                          title={`#${snag.snag_number}: ${snag.description?.slice(0, 40)}`}
+                          title={`#${snag.snag_number}: ${snag.description?.slice(0, 40)}${isPending ? ' (pending sync)' : ''}`}
                         >
                           <svg width="28" height="36" viewBox="0 0 28 36" className="drop-shadow-md group-hover:scale-110 transition-transform">
                             <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.268 21.732 0 14 0z" fill={color.bg} />
+                            {isPending && (
+                              <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.268 21.732 0 14 0z"
+                                fill="none" stroke="white" strokeWidth="2" strokeDasharray="4 3" />
+                            )}
                             <circle cx="14" cy="13" r="8" fill="white" fillOpacity="0.3" />
                             <text x="14" y="17" textAnchor="middle" fontSize="10" fontWeight="700" fill="white">{snag.snag_number}</text>
                           </svg>

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { offlineUpdate, offlineInsert, offlineDelete } from '../lib/syncQueue'
 import { fetchAndCache } from '../hooks/useOfflineData'
 import { smartCompress } from '../lib/imageCompressor'
+import { toastSmart, toastOffline } from '../lib/offlineToast'
 import toast from 'react-hot-toast'
 import LoadingButton from './LoadingButton'
 import {
@@ -125,7 +126,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
     })
     setSending(false)
     if (!data) { toast.error('Failed to add comment'); return }
-    if (offline) toast.success('Comment saved offline')
+    if (offline) toastOffline('Comment saved offline')
     setNewComment('')
     loadComments()
   }
@@ -147,7 +148,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
       toast.error('Failed to save changes')
       return
     }
-    toast.success(offline ? 'Changes saved offline' : 'Snag updated')
+    toastSmart('Snag updated', 'Changes saved offline', offline)
     onUpdated()
   }
 
@@ -165,7 +166,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
     const { data, offline } = await offlineUpdate('snags', snag.id, { status: 'completed' })
     setSaving(false)
     if (!data) { toast.error('Failed to update'); return }
-    toast.success(offline ? `Snag #${snag.snag_number} marked complete (offline)` : `Snag #${snag.snag_number} marked complete`)
+    toastSmart(`Snag #${snag.snag_number} marked complete`, `Snag #${snag.snag_number} marked complete (offline)`, offline)
     onUpdated()
   }
 
@@ -224,7 +225,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
     setSaving(false)
     if (!data) { toast.error('Failed to update'); return }
     const label = newStatus === 'completed' ? 'approved' : newStatus === 'open' ? 'rejected — reopened' : newStatus
-    toast.success(offline ? `Snag #${snag.snag_number} ${label} (offline)` : `Snag #${snag.snag_number} ${label}`)
+    toastSmart(`Snag #${snag.snag_number} ${label}`, `Snag #${snag.snag_number} ${label} (offline)`, offline)
     onUpdated()
   }
 

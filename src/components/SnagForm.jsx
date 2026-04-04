@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { offlineInsert } from '../lib/syncQueue'
 import { smartCompress } from '../lib/imageCompressor'
+import { toastSmart } from '../lib/offlineToast'
 import toast from 'react-hot-toast'
 import Modal from './Modal'
 import LoadingButton from './LoadingButton'
@@ -100,7 +101,7 @@ export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pi
       return
     }
 
-    toast.success(offline ? `Snag #${nextNumber} saved offline` : `Snag #${nextNumber} raised`)
+    toastSmart(`Snag #${nextNumber} raised`, `Snag #${nextNumber} saved offline`, offline)
     onCreated()
   }
 

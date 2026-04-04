@@ -129,6 +129,28 @@ async function processMutation(mutation) {
     delete updates._clientId
     delete updates._pending
 
+    // Handle file upload if present (e.g. photo added to snag while offline)
+    let fileUrl = null
+    if (fileUpload?.blobKey) {
+      const blobData = await getCachedBlob(fileUpload.blobKey)
+      if (blobData) {
+        const blob = new Blob([blobData], { type: fileUpload.contentType || 'application/octet-stream' })
+        const { error: upErr } = await supabase.storage
+          .from(fileUpload.bucket)
+          .upload(fileUpload.path, blob, { contentType: fileUpload.contentType })
+        if (upErr && !upErr.message?.includes('already exists')) throw upErr
+
+        const { data: urlData } = supabase.storage.from(fileUpload.bucket).getPublicUrl(fileUpload.path)
+        fileUrl = urlData.publicUrl
+        await deleteBlob(fileUpload.blobKey).catch(() => {})
+      }
+    }
+
+    // Apply file URL to updates
+    if (fileUrl && fileUpload?.field) {
+      updates[fileUpload.field] = fileUrl
+    }
+
     const { data, error } = await supabase.from(table).update(updates).eq('id', id).select().single()
     if (error) throw error
 
