@@ -103,8 +103,15 @@ export function CompanyProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
     if (data?.user) {
+      // Wait a moment for the session token to propagate in the client
+      await new Promise(r => setTimeout(r, 200))
       const success = await loadProfile(data.user)
-      if (!success) throw new Error('Failed to load profile')
+      if (!success) {
+        // Retry once more after a longer delay
+        await new Promise(r => setTimeout(r, 500))
+        const retry = await loadProfile(data.user)
+        if (!retry) throw new Error('Failed to load profile')
+      }
     }
     return data
   }
