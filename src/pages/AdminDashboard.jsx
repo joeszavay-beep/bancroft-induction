@@ -32,10 +32,12 @@ export default function AdminDashboard() {
   const [editProjects, setEditProjects] = useState([])
   const [editActive, setEditActive] = useState(true)
 
+  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
+
   useEffect(() => {
     const mgr = sessionStorage.getItem('manager_data')
     if (!mgr || JSON.parse(mgr).role !== 'admin') {
-      navigate('/pm-login')
+      navigate('/login')
       return
     }
     loadData()
@@ -44,8 +46,10 @@ export default function AdminDashboard() {
   async function loadData() {
     setLoading(true)
     const [m, p] = await Promise.all([
-      supabase.from('managers').select('*').order('created_at', { ascending: false }),
-      supabase.from('projects').select('*').order('name'),
+      cid ? supabase.from('managers').select('*').eq('company_id', cid).order('created_at', { ascending: false })
+           : supabase.from('managers').select('*').order('created_at', { ascending: false }),
+      cid ? supabase.from('projects').select('*').eq('company_id', cid).order('name')
+           : supabase.from('projects').select('*').order('name'),
     ])
     setManagers(m.data || [])
     setProjects(p.data || [])
@@ -62,6 +66,7 @@ export default function AdminDashboard() {
       password: password.trim(),
       role: 'manager',
       project_ids: selectedProjects,
+      company_id: cid,
     })
     setSaving(false)
     if (error) {
