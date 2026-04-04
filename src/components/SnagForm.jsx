@@ -66,6 +66,7 @@ export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pi
     const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
 
     const { error } = await supabase.from('snags').insert({
+      company_id: managerData.company_id || null,
       drawing_id: drawingId,
       project_id: projectId,
       snag_number: nextNumber,
