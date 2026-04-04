@@ -14,6 +14,7 @@ import ToolboxSign from './pages/ToolboxSign'
 import Policies from './pages/Policies'
 import SnagReply from './pages/SnagReply'
 import ResetPassword from './pages/ResetPassword'
+import WhyCoreSite from './pages/WhyCoreSite'
 
 // App pages (inside sidebar layout)
 import AppHome from './pages/AppHome'
@@ -68,6 +69,7 @@ export default function App() {
       {/* Public routes */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<PMLogin />} />
+      <Route path="/why" element={<WhyCoreSite />} />
       {/* Legacy redirect */}
       <Route path="/pm-login" element={<Navigate to="/login" replace />} />
       <Route path="/pm" element={<Navigate to="/app/dashboard" replace />} />
