@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useCompany } from '../lib/CompanyContext'
 import { useTheme } from '../lib/ThemeContext'
+import OfflineIndicator from './OfflineIndicator'
 import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
@@ -229,6 +230,7 @@ export default function SidebarLayout({ children }) {
 
   return (
     <div className="min-h-dvh flex" style={{ backgroundColor: 'var(--bg-main)' }}>
+      <OfflineIndicator />
       {/* Desktop sidebar */}
       <div className="hidden lg:flex">{sidebar}</div>
 

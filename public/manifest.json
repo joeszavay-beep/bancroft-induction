@@ -1,0 +1,17 @@
+{
+  "name": "CoreSite — Site Compliance Platform",
+  "short_name": "CoreSite",
+  "description": "Site inductions, snagging, progress tracking, and compliance for construction contractors",
+  "start_url": "/app",
+  "display": "standalone",
+  "theme_color": "#1B6FC8",
+  "background_color": "#0D1526",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

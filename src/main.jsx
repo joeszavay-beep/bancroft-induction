@@ -7,6 +7,21 @@ import { ThemeProvider } from './lib/ThemeContext'
 import './index.css'
 import App from './App.jsx'
 
+// Register service worker for offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register(
+        import.meta.env.DEV ? '/dev-sw.js?dev-sw' : '/service-worker.js',
+        { type: import.meta.env.DEV ? 'module' : 'classic' }
+      )
+      console.log('SW registered:', registration.scope)
+    } catch (err) {
+      console.log('SW registration failed:', err)
+    }
+  })
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
