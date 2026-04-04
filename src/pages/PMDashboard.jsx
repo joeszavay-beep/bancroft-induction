@@ -1223,6 +1223,7 @@ function SnagsTab({ projects, navigate }) {
   const completedCount = allSnags.filter(s => s.status === 'completed').length
   const closedCount = allSnags.filter(s => s.status === 'closed').length
   const reassignedCount = allSnags.filter(s => s.status === 'reassigned').length
+  const pendingReviewCount = allSnags.filter(s => s.status === 'pending_review').length
   const totalCount = allSnags.length
 
   // Donut chart data
@@ -1231,6 +1232,7 @@ function SnagsTab({ projects, navigate }) {
     { label: 'Completed', count: completedCount, color: '#22c55e' },
     { label: 'Closed', count: closedCount, color: '#9ca3af' },
     { label: 'Reassigned', count: reassignedCount, color: '#f59e0b' },
+    { label: 'Pending Review', count: pendingReviewCount, color: '#a855f7' },
   ]
 
   // Top 5 drawings by open snags
@@ -1271,7 +1273,7 @@ function SnagsTab({ projects, navigate }) {
           { count: openCount, color: 'bg-red-500' },
           { count: completedCount, color: 'bg-green-500' },
           { count: reassignedCount, color: 'bg-amber-500' },
-          { count: 0, color: 'bg-pink-400' },
+          { count: pendingReviewCount, color: 'bg-purple-500' },
         ].map((s, i) => (
           <span key={i} className={`${s.color} text-white text-[10px] font-bold w-7 h-7 rounded-full flex items-center justify-center`}>{s.count}</span>
         ))}
@@ -1344,6 +1346,7 @@ function SnagsTab({ projects, navigate }) {
             <option value="completed">Completed</option>
             <option value="closed">Closed</option>
             <option value="reassigned">Reassigned</option>
+            <option value="pending_review">Pending Review</option>
           </select>
         </div>
         <div className="flex items-center gap-1">
