@@ -30,14 +30,21 @@ export function CompanyProvider({ children }) {
     if (profileLoaded.current && user?.id === authUser.id) return
 
     try {
-      const { data: prof, error } = await supabase
+      // Use select + limit instead of .single() to avoid errors on empty results
+      const { data: profiles, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', authUser.id)
-        .single()
+        .limit(1)
 
-      if (error || !prof) {
-        console.error('Profile load failed:', error)
+      const prof = profiles?.[0]
+
+      if (error) {
+        console.error('Profile query error:', error)
+        return false
+      }
+      if (!prof) {
+        console.error('Profile not found for user:', authUser.id)
         return false
       }
 
@@ -103,8 +110,8 @@ export function CompanyProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
     if (data?.user) {
-      // Wait a moment for the session token to propagate in the client
-      await new Promise(r => setTimeout(r, 200))
+      // Wait for the session token to propagate in the client
+      await new Promise(r => setTimeout(r, 500))
       const success = await loadProfile(data.user)
       if (!success) {
         // Retry once more after a longer delay
