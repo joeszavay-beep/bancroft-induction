@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
 import { fetchAndCache } from '../hooks/useOfflineData'
+import { offlineInsert, offlineDelete } from '../lib/syncQueue'
 import toast from 'react-hot-toast'
 import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
@@ -124,20 +125,17 @@ export default function ProgressViewer() {
     const midY = polyPoints.reduce((s, p) => s + p.y, 0) / polyPoints.length
     const polyData = JSON.stringify({ points: polyPoints, width: dotSize })
 
-    const { data, error } = await supabase.from('progress_items').insert({
+    const { data, offline } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
       pin_x: midX, pin_y: midY, status: activeColour,
       label: 'polyline', notes: polyData,
       created_by: mgr.name, updated_by: mgr.name,
-    }).select().single()
-
-    if (error) { toast.error('Failed to save polyline'); setPolyPoints([]); return }
-
-    await supabase.from('progress_item_history').insert({
-      item_id: data.id, company_id: cid, drawing_id: drawingId,
-      previous_status: null, new_status: activeColour,
-      changed_by: mgr.id, changed_by_name: mgr.name,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     })
+
+    if (!data) { toast.error('Failed to save polyline'); setPolyPoints([]); return }
+    if (offline) toast.success('Polyline saved offline')
+
     setPolyPoints([])
     setUndoStack(prev => [...prev, data.id])
     setRedoStack([])
@@ -240,61 +238,41 @@ export default function ProgressViewer() {
   async function placeDotItem(x, y) {
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
     const sizeNotes = JSON.stringify({ size: dotSize })
-    const tempItem = { id: `temp-${Date.now()}`, item_number: nextNum, pin_x: x, pin_y: y, status: activeColour, label: 'dot', notes: sizeNotes, created_by: mgr.name }
-    setItems(prev => [...prev, tempItem])
 
-    const { data, error } = await supabase.from('progress_items').insert({
+    const { data, offline } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
       pin_x: x, pin_y: y, status: activeColour,
       label: 'dot', notes: sizeNotes,
       created_by: mgr.name, updated_by: mgr.name,
-    }).select().single()
-
-    if (error) {
-      toast.error('Failed to place item')
-      setItems(prev => prev.filter(i => i.id !== tempItem.id))
-      return
-    }
-
-    await supabase.from('progress_item_history').insert({
-      item_id: data.id, company_id: cid, drawing_id: drawingId,
-      previous_status: null, new_status: activeColour,
-      changed_by: mgr.id, changed_by_name: mgr.name,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     })
-    setItems(prev => prev.map(i => i.id === tempItem.id ? data : i))
+
+    if (!data) { toast.error('Failed to place item'); return }
+    if (offline) toast.success('Dot saved offline')
+
+    setItems(prev => [...prev, data])
     setUndoStack(prev => [...prev, data.id])
     setRedoStack([])
   }
 
   async function placeLineItem(x1, y1, x2, y2) {
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
-    // Store line as: pin_x/pin_y = midpoint, notes = JSON of start/end coords
     const midX = (x1 + x2) / 2
     const midY = (y1 + y2) / 2
     const lineData = JSON.stringify({ x1, y1, x2, y2, width: dotSize })
 
-    const tempItem = { id: `temp-${Date.now()}`, item_number: nextNum, pin_x: midX, pin_y: midY, status: activeColour, label: 'line', notes: lineData, created_by: mgr.name }
-    setItems(prev => [...prev, tempItem])
-
-    const { data, error } = await supabase.from('progress_items').insert({
+    const { data, offline } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
       pin_x: midX, pin_y: midY, status: activeColour,
       label: 'line', notes: lineData,
       created_by: mgr.name, updated_by: mgr.name,
-    }).select().single()
-
-    if (error) {
-      toast.error('Failed to place line')
-      setItems(prev => prev.filter(i => i.id !== tempItem.id))
-      return
-    }
-
-    await supabase.from('progress_item_history').insert({
-      item_id: data.id, company_id: cid, drawing_id: drawingId,
-      previous_status: null, new_status: activeColour,
-      changed_by: mgr.id, changed_by_name: mgr.name,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     })
-    setItems(prev => prev.map(i => i.id === tempItem.id ? data : i))
+
+    if (!data) { toast.error('Failed to place line'); return }
+    if (offline) toast.success('Line saved offline')
+
+    setItems(prev => [...prev, data])
   }
 
   async function updateItemStatus(item, newStatus) {
@@ -329,11 +307,12 @@ export default function ProgressViewer() {
     const item = items.find(i => i.id === lastId)
     if (!item) return
 
-    // Delete from DB
-    await supabase.from('progress_item_history').delete().eq('item_id', lastId)
-    await supabase.from('progress_items').delete().eq('id', lastId)
+    // Delete from DB (history table is online-only, not critical)
+    if (navigator.onLine) {
+      await supabase.from('progress_item_history').delete().eq('item_id', lastId).catch(() => {})
+    }
+    await offlineDelete('progress_items', lastId)
 
-    // Move to redo stack
     setRedoStack(prev => [...prev, item])
     setUndoStack(prev => prev.slice(0, -1))
     setItems(prev => prev.filter(i => i.id !== lastId))
@@ -344,20 +323,15 @@ export default function ProgressViewer() {
     const item = redoStack[redoStack.length - 1]
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
 
-    const { data, error } = await supabase.from('progress_items').insert({
+    const { data, offline } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
       pin_x: item.pin_x, pin_y: item.pin_y, status: item.status,
       label: item.label, notes: item.notes, photo_url: item.photo_url,
       created_by: mgr.name, updated_by: mgr.name,
-    }).select().single()
-
-    if (error) { toast.error('Redo failed'); return }
-
-    await supabase.from('progress_item_history').insert({
-      item_id: data.id, company_id: cid, drawing_id: drawingId,
-      previous_status: null, new_status: item.status,
-      changed_by: mgr.id, changed_by_name: mgr.name, notes: 'Redo',
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     })
+
+    if (!data) { toast.error('Redo failed'); return }
 
     setRedoStack(prev => prev.slice(0, -1))
     setUndoStack(prev => [...prev, data.id])

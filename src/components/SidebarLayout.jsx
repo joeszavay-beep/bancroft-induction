@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useCompany } from '../lib/CompanyContext'
 import { useTheme } from '../lib/ThemeContext'
 import OfflineIndicator from './OfflineIndicator'
+import SyncBadge from './SyncBadge'
 import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
@@ -194,6 +195,9 @@ export default function SidebarLayout({ children }) {
           )
         })}
       </nav>
+
+      {/* Sync status */}
+      <SyncBadge />
 
       {/* Bottom */}
       <div className="px-2 py-3 border-t border-white/10 space-y-1">

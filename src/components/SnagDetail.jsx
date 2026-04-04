@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { offlineUpdate, offlineInsert, offlineDelete } from '../lib/syncQueue'
+import { fetchAndCache } from '../hooks/useOfflineData'
 import toast from 'react-hot-toast'
 import LoadingButton from './LoadingButton'
 import {
@@ -101,8 +103,11 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
   }, [lightbox, onClose])
 
   async function loadComments() {
-    const { data } = await supabase.from('snag_comments').select('*').eq('snag_id', snag.id).order('created_at')
-    setComments(data || [])
+    const data = await fetchAndCache('snag_comments', (sb) =>
+      sb.from('snag_comments').select('*').eq('snag_id', snag.id).order('created_at')
+    )
+    const filtered = Array.isArray(data) ? data.filter(c => c.snag_id === snag.id) : (data || [])
+    setComments(filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)))
   }
 
   async function addComment(e) {
@@ -110,14 +115,16 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
     if (!newComment.trim()) return
     setSending(true)
     const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
-    const { error } = await supabase.from('snag_comments').insert({
+    const { data, offline } = await offlineInsert('snag_comments', {
       snag_id: snag.id,
       comment: newComment.trim(),
       author_name: managerData.name || 'User',
       author_role: isPM ? 'PM' : 'Operative',
+      created_at: new Date().toISOString(),
     })
     setSending(false)
-    if (error) { toast.error('Failed to add comment'); return }
+    if (!data) { toast.error('Failed to add comment'); return }
+    if (offline) toast.success('Comment saved offline')
     setNewComment('')
     loadComments()
   }
@@ -132,15 +139,14 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
       due_date: dueDate || null,
       status,
       assigned_to: status === 'reassigned' && reassignTo ? reassignTo : (assignedTo || null),
-      updated_at: new Date().toISOString(),
     }
-    const { error } = await supabase.from('snags').update(updates).eq('id', snag.id)
+    const { data, offline } = await offlineUpdate('snags', snag.id, updates)
     setSaving(false)
-    if (error) {
+    if (!data) {
       toast.error('Failed to save changes')
       return
     }
-    toast.success('Snag updated')
+    toast.success(offline ? 'Changes saved offline' : 'Snag updated')
     onUpdated()
   }
 
@@ -155,10 +161,10 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
 
   async function markComplete() {
     setSaving(true)
-    const { error } = await supabase.from('snags').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', snag.id)
+    const { data, offline } = await offlineUpdate('snags', snag.id, { status: 'completed' })
     setSaving(false)
-    if (error) { toast.error('Failed to update'); return }
-    toast.success(`Snag #${snag.snag_number} marked complete`)
+    if (!data) { toast.error('Failed to update'); return }
+    toast.success(offline ? `Snag #${snag.snag_number} marked complete (offline)` : `Snag #${snag.snag_number} marked complete`)
     onUpdated()
   }
 
@@ -177,10 +183,11 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
 
   async function updateStatus(newStatus) {
     setSaving(true)
-    const { error } = await supabase.from('snags').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', snag.id)
+    const { data, offline } = await offlineUpdate('snags', snag.id, { status: newStatus })
     setSaving(false)
-    if (error) { toast.error('Failed to update'); return }
-    toast.success(`Snag #${snag.snag_number} ${newStatus === 'completed' ? 'approved' : newStatus === 'open' ? 'rejected — reopened' : newStatus}`)
+    if (!data) { toast.error('Failed to update'); return }
+    const label = newStatus === 'completed' ? 'approved' : newStatus === 'open' ? 'rejected — reopened' : newStatus
+    toast.success(offline ? `Snag #${snag.snag_number} ${label} (offline)` : `Snag #${snag.snag_number} ${label}`)
     onUpdated()
   }
 

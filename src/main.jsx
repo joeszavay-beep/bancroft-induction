@@ -4,8 +4,12 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { CompanyProvider } from './lib/CompanyContext'
 import { ThemeProvider } from './lib/ThemeContext'
+import { startSyncListener } from './lib/syncEngine'
 import './index.css'
 import App from './App.jsx'
+
+// Start background sync listener
+startSyncListener()
 
 // Register service worker for offline support
 if ('serviceWorker' in navigator) {

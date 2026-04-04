@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { offlineInsert } from '../lib/syncQueue'
 import toast from 'react-hot-toast'
 import Modal from './Modal'
 import LoadingButton from './LoadingButton'
@@ -53,19 +54,9 @@ export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pi
     }
     setSaving(true)
 
-    let photoUrl = null
-    if (photo) {
-      const filePath = `${projectId}/${drawingId}/${Date.now()}.jpg`
-      const { error: upErr } = await supabase.storage.from('snag-photos').upload(filePath, photo, { contentType: photo.type })
-      if (!upErr) {
-        const { data: urlData } = supabase.storage.from('snag-photos').getPublicUrl(filePath)
-        photoUrl = urlData.publicUrl
-      }
-    }
-
     const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
 
-    const { error } = await supabase.from('snags').insert({
+    const snagRecord = {
       company_id: managerData.company_id || null,
       drawing_id: drawingId,
       project_id: projectId,
@@ -73,7 +64,7 @@ export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pi
       trade: trade || null,
       type: type || null,
       description: description.trim(),
-      photo_url: photoUrl,
+      photo_url: null,
       priority,
       due_date: dueDate,
       status: 'open',
@@ -81,14 +72,27 @@ export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pi
       raised_by: managerData.name || 'PM',
       pin_x: pinX,
       pin_y: pinY,
-    })
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
 
+    const fileUpload = photo ? {
+      bucket: 'snag-photos',
+      path: `${projectId}/${drawingId}/${Date.now()}.jpg`,
+      blob: photo,
+      contentType: photo.type,
+      field: 'photo_url',
+    } : undefined
+
+    const { data, offline } = await offlineInsert('snags', snagRecord, { fileUpload })
     setSaving(false)
-    if (error) {
+
+    if (!data) {
       toast.error('Failed to create snag')
       return
     }
-    toast.success(`Snag #${nextNumber} raised`)
+
+    toast.success(offline ? `Snag #${nextNumber} saved offline` : `Snag #${nextNumber} raised`)
     onCreated()
   }
 
