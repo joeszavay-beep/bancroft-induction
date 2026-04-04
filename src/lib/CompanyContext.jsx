@@ -6,33 +6,77 @@ const CompanyContext = createContext(null)
 export function CompanyProvider({ children }) {
   const [company, setCompany] = useState(null)
   const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    loadSession()
+    // Check for existing session on mount
+    checkSession()
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        await loadProfile(session.user)
+      } else if (event === 'SIGNED_OUT') {
+        clearState()
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  async function loadSession() {
-    const raw = sessionStorage.getItem('manager_data')
-    if (!raw) {
+  async function checkSession() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.user) {
+      await loadProfile(session.user)
+    }
+    setIsLoading(false)
+  }
+
+  async function loadProfile(authUser) {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .single()
+
+    if (!prof) {
       setIsLoading(false)
       return
     }
-    const userData = JSON.parse(raw)
-    setUser(userData)
 
-    if (userData.company_id) {
-      const { data } = await supabase
+    setProfile(prof)
+    setUser({
+      id: prof.id,
+      name: prof.name,
+      email: prof.email,
+      role: prof.role,
+      company_id: prof.company_id,
+    })
+
+    // Also store in sessionStorage for backward compatibility with existing components
+    sessionStorage.setItem('pm_auth', 'true')
+    sessionStorage.setItem('manager_data', JSON.stringify({
+      id: prof.id,
+      name: prof.name,
+      email: prof.email,
+      role: prof.role,
+      company_id: prof.company_id,
+      project_ids: [],
+    }))
+
+    // Load company
+    if (prof.company_id) {
+      const { data: co } = await supabase
         .from('companies')
         .select('*')
-        .eq('id', userData.company_id)
+        .eq('id', prof.company_id)
         .single()
-      if (data) {
-        setCompany(data)
-        applyBranding(data)
+      if (co) {
+        setCompany(co)
+        applyBranding(co)
       }
     }
-    setIsLoading(false)
   }
 
   function applyBranding(companyData) {
@@ -43,16 +87,9 @@ export function CompanyProvider({ children }) {
     document.title = `${companyData.name} | CoreSite`
   }
 
-  function login(userData, companyData) {
-    setUser(userData)
-    setCompany(companyData)
-    if (companyData) applyBranding(companyData)
-    sessionStorage.setItem('pm_auth', 'true')
-    sessionStorage.setItem('manager_data', JSON.stringify(userData))
-  }
-
-  function logout() {
+  function clearState() {
     setUser(null)
+    setProfile(null)
     setCompany(null)
     sessionStorage.removeItem('pm_auth')
     sessionStorage.removeItem('manager_data')
@@ -61,13 +98,38 @@ export function CompanyProvider({ children }) {
     document.documentElement.style.setProperty('--sidebar-color', '#0D1526')
   }
 
+  async function login(email, password) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw error
+    if (data?.user) {
+      await loadProfile(data.user)
+    }
+    return data
+  }
+
+  async function logout() {
+    await supabase.auth.signOut()
+    clearState()
+  }
+
+  async function resetPassword(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://coresite.io/reset-password',
+    })
+    if (error) throw error
+  }
+
   function refreshCompany(updatedCompany) {
     setCompany(updatedCompany)
     applyBranding(updatedCompany)
   }
 
   return (
-    <CompanyContext.Provider value={{ company, user, isLoading, login, logout, refreshCompany }}>
+    <CompanyContext.Provider value={{
+      company, user, profile, isLoading,
+      login, logout, resetPassword, refreshCompany,
+      isAuthenticated: !!user,
+    }}>
       {children}
     </CompanyContext.Provider>
   )
