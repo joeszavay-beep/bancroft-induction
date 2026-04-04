@@ -87,16 +87,34 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl, optio
   const contentH = pageH - margin * 2
 
   // === PAGE 1: Drawing with pins ===
-  // Header
-  doc.setFillColor(10, 53, 96)
-  doc.rect(0, 0, pageW, 20, 'F')
+  // Header — CoreSite design system
+  doc.setFillColor(27, 42, 61) // navy
+  doc.rect(0, 0, pageW, 18, 'F')
+  // Logo crosshair
+  doc.setDrawColor(255, 255, 255)
+  doc.setLineWidth(0.4)
+  doc.circle(14, 9, 5, 'D')
+  doc.setFillColor(255, 255, 255)
+  doc.circle(14, 9, 1.5, 'F')
+  doc.line(14, 3, 14, 6); doc.line(14, 12, 14, 15)
+  doc.line(8, 9, 11, 9); doc.line(17, 9, 20, 9)
+  // Wordmark
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(12)
-  doc.setFont('helvetica', 'bold')
-  doc.text(`${project?.name || 'Project'} — Snag Report`, margin, 13)
-  doc.setFontSize(8)
+  doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
-  doc.text(`${drawing.name} | ${drawing.drawing_number || ''} Rev ${drawing.revision || ''} | ${new Date().toLocaleDateString()}`, pageW - margin, 13, { align: 'right' })
+  doc.text('CORE', 22, 7.5)
+  doc.setFont('helvetica', 'bold')
+  doc.text('SITE', 22, 11.5)
+  // Centre text
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Snag report', pageW / 2, 8, { align: 'center' })
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`${drawing.name} | ${drawing.drawing_number || ''} Rev ${drawing.revision || ''}`, pageW / 2, 13, { align: 'center' })
+  // Right — project
+  doc.setFontSize(8)
+  doc.text(project?.name || '', pageW - margin, 10, { align: 'right' })
 
   // Draw the image (compressed for PDF)
   let drawingH = contentH - 15
@@ -194,7 +212,7 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl, optio
 
     if (i % 2 === 0) {
       doc.addPage('a4', 'p')
-      doc.setFillColor(10, 53, 96)
+      doc.setFillColor(27, 42, 61)
       doc.rect(0, 0, 210, 16, 'F')
       doc.setTextColor(255, 255, 255)
       doc.setFontSize(9)

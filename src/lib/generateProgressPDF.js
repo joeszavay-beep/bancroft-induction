@@ -43,9 +43,17 @@ export async function generateProgressPDF({ drawing, project, items, companyName
   const pctYellow = total > 0 ? Math.round((yellowCount / total) * 100) : 0
   const pctRed = total > 0 ? Math.round((redCount / total) * 100) : 0
 
-  // Header bar
-  doc.setFillColor(13, 21, 38)
+  // Header bar — CoreSite design system
+  doc.setFillColor(27, 42, 61)
   doc.rect(0, 0, pageW, 14, 'F')
+  // Logo crosshair
+  doc.setDrawColor(255, 255, 255)
+  doc.setLineWidth(0.3)
+  doc.circle(12, 7, 4, 'D')
+  doc.setFillColor(255, 255, 255)
+  doc.circle(12, 7, 1, 'F')
+  doc.line(12, 2.5, 12, 4.5); doc.line(12, 9.5, 12, 11.5)
+  doc.line(7.5, 7, 9.5, 7); doc.line(14.5, 7, 16.5, 7)
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(9)
   doc.setFont('helvetica', 'bold')
