@@ -5,6 +5,7 @@ import { BarChart3, Search, Check, X, Clock, RotateCcw } from 'lucide-react'
 
 export default function InvitationsPipeline() {
   const { company } = useCompany()
+  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
   const [operatives, setOperatives] = useState([])
   const [documents, setDocuments] = useState([])
   const [signatures, setSignatures] = useState([])
