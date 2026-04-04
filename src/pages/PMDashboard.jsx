@@ -1061,9 +1061,12 @@ function SnagsTab({ projects, navigate }) {
     setAssigning(true)
 
     const snagIds = [...checkedSnags]
-    // Update assigned_to on all checked snags
+    // Update assigned_to and generate reply tokens
+    const replyTokens = {}
     for (const id of snagIds) {
-      await supabase.from('snags').update({ assigned_to: assignTo, updated_at: new Date().toISOString() }).eq('id', id)
+      const token = crypto.randomUUID()
+      replyTokens[id] = token
+      await supabase.from('snags').update({ assigned_to: assignTo, reply_token: token, updated_at: new Date().toISOString() }).eq('id', id)
     }
 
     const selectedSnagData = allSnags.filter(s => checkedSnags.has(s.id))
@@ -1119,6 +1122,7 @@ function SnagsTab({ projects, navigate }) {
                           <p style="margin:6px 0 0;color:#1A1A2E;font-size:13px;">${s.description || 'No description'}</p>
                           <p style="margin:6px 0 0;color:#6B7A99;font-size:11px;">Priority: <strong>${s.priority || 'N/A'}</strong> | Due: <strong>${s.due_date ? new Date(s.due_date).toLocaleDateString('en-GB') : 'Not set'}</strong></p>
                           <p style="margin:2px 0 0;color:#6B7A99;font-size:11px;">Location: ${drawing?.name || ''}${drawing?.level_ref ? ' — ' + drawing.level_ref : ''}</p>
+                          <a href="https://coresite.io/snag-reply/${replyTokens[s.id]}" style="display:inline-block;margin-top:8px;background:#2EA043;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;font-weight:600;font-size:12px;">Submit Completion Photo</a>
                         </td>
                       </tr>
                     </table>

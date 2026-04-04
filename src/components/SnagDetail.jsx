@@ -9,8 +9,9 @@ import {
 
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Other']
 const TYPES = ['General', 'Installation', 'Commissioning', 'Design', 'Other']
-const STATUSES = ['open', 'completed', 'closed', 'reassigned']
+const STATUSES = ['open', 'completed', 'closed', 'reassigned', 'pending_review']
 const STATUS_COLORS = {
+  pending_review: 'bg-purple-100 text-purple-700 border-purple-200',
   open: 'bg-red-100 text-red-700 border-red-200',
   completed: 'bg-green-100 text-green-700 border-green-200',
   closed: 'bg-gray-100 text-gray-600 border-gray-200',
@@ -89,7 +90,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
   useEffect(() => {
     function handleKey(e) {
       if (e.key === 'Escape') {
-        if (lightbox) setLightbox(false)
+        if (lightbox) setLightbox(null)
         else onClose()
       }
     }
@@ -166,10 +167,10 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
   return (
     <>
       {/* Lightbox */}
-      {lightbox && snag.photo_url && (
-        <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4" onClick={() => setLightbox(false)}>
-          <img src={snag.photo_url} alt="Snag" className="max-w-full max-h-full object-contain rounded-lg" onClick={e => e.stopPropagation()} />
-          <button onClick={() => setLightbox(false)} className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20">
+      {lightbox && (
+        <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <img src={lightbox} alt="Snag" className="max-w-full max-h-full object-contain rounded-lg" onClick={e => e.stopPropagation()} />
+          <button onClick={() => setLightbox(null)} className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20">
             <X size={24} />
           </button>
         </div>
@@ -202,7 +203,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
               {/* Left — Photo */}
               <div className="sm:w-[280px] shrink-0 p-5 border-b sm:border-b-0 sm:border-r border-[#E2E6EA]">
                 {snag.photo_url ? (
-                  <button onClick={() => setLightbox(true)} className="relative w-full group rounded-xl overflow-hidden">
+                  <button onClick={() => setLightbox(snag.photo_url)} className="relative w-full group rounded-xl overflow-hidden">
                     <img src={snag.photo_url} alt="Snag" className="w-full h-52 sm:h-64 object-cover" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                       <ZoomIn size={24} className="text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
@@ -212,6 +213,34 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
                   <div className="w-full h-52 sm:h-64 bg-[#F5F6F8] rounded-xl flex flex-col items-center justify-center">
                     <Camera size={32} className="text-[#B0B8C9] mb-2" />
                     <p className="text-xs text-[#B0B8C9]">No photo</p>
+                  </div>
+                )}
+
+                {/* Review photo — submitted by operative */}
+                {snag.review_photo_url && (
+                  <div className="mt-4">
+                    <p className="text-[10px] text-purple-600 uppercase font-semibold tracking-wider mb-1.5">Completion Photo (Pending Review)</p>
+                    <button onClick={() => setLightbox(snag.review_photo_url)} className="relative w-full group rounded-xl overflow-hidden">
+                      <img src={snag.review_photo_url} alt="Review" className="w-full h-40 object-cover" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <ZoomIn size={20} className="text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                      </div>
+                    </button>
+                    {snag.review_submitted_by && (
+                      <p className="text-[10px] text-[#6B7A99] mt-1">Submitted by {snag.review_submitted_by}{snag.review_submitted_at ? ` · ${new Date(snag.review_submitted_at).toLocaleString()}` : ''}</p>
+                    )}
+                    {isPM && snag.status === 'pending_review' && (
+                      <div className="flex gap-2 mt-2">
+                        <button onClick={() => updateStatus('completed')} disabled={updating}
+                          className="flex-1 py-2 bg-[#2EA043] hover:bg-[#27903A] text-white text-xs font-semibold rounded-lg transition-colors">
+                          Approve
+                        </button>
+                        <button onClick={() => updateStatus('open')} disabled={updating}
+                          className="flex-1 py-2 bg-[#DA3633] hover:bg-[#c12f2c] text-white text-xs font-semibold rounded-lg transition-colors">
+                          Reject
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
