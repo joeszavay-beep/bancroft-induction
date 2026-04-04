@@ -62,7 +62,7 @@ const features = [
   {
     icon: Layers,
     title: 'Progress Drawings',
-    desc: 'Traffic-light marking system for M&E installation progress. Mark dots, lines and polylines on drawings in green, yellow and red. Export high-res PDFs.',
+    desc: 'Traffic-light marking system for installation progress. Mark dots, lines and polylines on drawings in green, yellow and red. Export high-res PDFs.',
     color: '#2D9D5F',
   },
   {
@@ -144,6 +144,22 @@ export default function WhyCoreSite() {
         </div>
       </section>
 
+      {/* Hero image */}
+      <section className="px-6 pb-16 -mt-4">
+        <FadeInSection delay={400}>
+          <div className="max-w-5xl mx-auto">
+            <div className="relative rounded-2xl overflow-hidden shadow-2xl">
+              <img src="/hero.jpg" alt="Modern office space" className="w-full h-64 sm:h-80 lg:h-96 object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#1B2A3D]/60 to-transparent" />
+              <div className="absolute bottom-6 left-6 right-6">
+                <p className="text-white font-semibold text-lg sm:text-xl">One platform. Every site. Complete compliance.</p>
+                <p className="text-white/60 text-sm mt-1">Used by contractors across the UK for inductions, RAMS, snagging and more.</p>
+              </div>
+            </div>
+          </div>
+        </FadeInSection>
+      </section>
+
       {/* Stats */}
       <section className="py-16 px-6 bg-[#1B2A3D]">
         <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-8">
@@ -165,8 +181,8 @@ export default function WhyCoreSite() {
         <div className="max-w-5xl mx-auto">
           <FadeInSection>
             <div className="text-center mb-16">
-              <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A1A] mb-4">Built for M&E contractors</h2>
-              <p className="text-[#6B6B6B] max-w-2xl mx-auto">Every feature designed around how electrical and mechanical teams actually work on site. No generic construction software — just the tools you need.</p>
+              <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A1A] mb-4">Built for contractors</h2>
+              <p className="text-[#6B6B6B] max-w-2xl mx-auto">Every feature designed around how contractors actually work on site. From M&E and fit-out to civil engineering and beyond — just the tools you need.</p>
             </div>
           </FadeInSection>
 
@@ -250,7 +266,7 @@ export default function WhyCoreSite() {
         <div className="max-w-3xl mx-auto text-center">
           <FadeInSection>
             <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A1A] mb-4">Ready to go digital?</h2>
-            <p className="text-[#6B6B6B] mb-8 max-w-lg mx-auto">Join the M&E contractors who are already saving hours every week with CoreSite. Book a free demo and see for yourself.</p>
+            <p className="text-[#6B6B6B] mb-8 max-w-lg mx-auto">Join the contractors who are already saving hours every week with CoreSite. Book a free demo and see for yourself.</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link to="/" className="w-full sm:w-auto px-8 py-3.5 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-lg transition-colors text-base flex items-center justify-center gap-2">
                 Request a Demo <ArrowRight size={16} />

@@ -69,7 +69,7 @@ export default function LandingPage() {
             <img src="/coresite-logo.svg" alt="CoreSite" className="h-16 mx-auto mb-8 brightness-0 invert" />
             <h1 className="text-3xl sm:text-5xl font-light text-white leading-tight mb-4">
               The Smart Site Compliance<br />
-              <span className="font-semibold">Platform for M&E Contractors</span>
+              <span className="font-semibold">Platform for Contractors</span>
             </h1>
             <p className="text-white/60 text-base sm:text-lg leading-relaxed mb-10 max-w-lg mx-auto">
               Digital inductions, RAMS sign-off, toolbox talks, snagging and full H&S compliance — all in one place.
