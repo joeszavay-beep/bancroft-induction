@@ -31,7 +31,7 @@ export default async function handler(req, res) {
         html: `
           <div style="font-family: system-ui, sans-serif; max-width: 540px; margin: 0 auto;">
             <div style="background: #0D1526; border-radius: 12px 12px 0 0; padding: 28px 24px;">
-              <h1 style="color: white; margin: 0; font-size: 22px;">CoreSite</h1>
+              <img src="https://coresite.io/email-logo.svg" alt="CoreSite" style="height: 36px; display: block;" />
               <p style="color: #6B7A99; margin: 4px 0 0; font-size: 12px;">Site Compliance Platform</p>
             </div>
             <div style="background: #ffffff; padding: 28px 24px; border: 1px solid #E2E6EA; border-top: none;">
