@@ -240,11 +240,11 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
                     )}
                     {isPM && snag.status === 'pending_review' && (
                       <div className="flex gap-2 mt-2">
-                        <button onClick={() => updateStatus('completed')} disabled={updating}
+                        <button onClick={() => updateStatus('completed')} disabled={saving}
                           className="flex-1 py-2 bg-[#2EA043] hover:bg-[#27903A] text-white text-xs font-semibold rounded-lg transition-colors">
                           Approve
                         </button>
-                        <button onClick={() => updateStatus('open')} disabled={updating}
+                        <button onClick={() => updateStatus('open')} disabled={saving}
                           className="flex-1 py-2 bg-[#DA3633] hover:bg-[#c12f2c] text-white text-xs font-semibold rounded-lg transition-colors">
                           Reject
                         </button>
