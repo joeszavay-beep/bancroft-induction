@@ -97,68 +97,62 @@ export default function WhyCoreSite() {
 
   return (
     <div className="min-h-dvh bg-white">
-      {/* Nav */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-[#E5E5E5]">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img src="/coresite-logo.svg" alt="CoreSite" className="h-8" />
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link to="/" className="text-sm text-[#6B6B6B] hover:text-[#1A1A1A] transition-colors hidden sm:block">Home</Link>
-            <button onClick={() => navigate('/login')} className="px-5 py-2 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white text-sm font-medium rounded-lg transition-colors">
-              Sign In
-            </button>
-          </div>
+      {/* Dark hero with background image — matching landing page */}
+      <div className="relative">
+        <div className="absolute inset-0">
+          <img src="/hero.jpg" alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0D1526]/90 via-[#0D1526]/75 to-[#0D1526]/95" />
         </div>
-      </header>
 
-      {/* Hero */}
-      <section className="pt-28 pb-20 px-6 bg-gradient-to-b from-[#F8FAFC] to-white">
-        <div className="max-w-4xl mx-auto text-center">
-          <FadeInSection>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#E8F4ED] text-[#1B6B42] text-xs font-medium rounded-full mb-6">
-              <Zap size={12} /> The future of site compliance
-            </div>
-          </FadeInSection>
-          <FadeInSection delay={100}>
-            <h1 className="text-4xl sm:text-6xl font-light text-[#1A1A1A] leading-tight mb-6">
-              Stop chasing paper.<br />
-              <span className="font-bold">Start running sites.</span>
-            </h1>
-          </FadeInSection>
-          <FadeInSection delay={200}>
-            <p className="text-lg text-[#6B6B6B] max-w-2xl mx-auto mb-10 leading-relaxed">
-              CoreSite replaces your paper inductions, printed RAMS, WhatsApp photo trails and Excel snagging lists with one platform that works on site, in the office, and everywhere in between.
-            </p>
-          </FadeInSection>
-          <FadeInSection delay={300}>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link to="/" className="w-full sm:w-auto px-8 py-3.5 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-lg transition-colors text-base flex items-center justify-center gap-2">
-                Request a Demo <ArrowRight size={16} />
-              </Link>
-              <button onClick={() => navigate('/login')} className="w-full sm:w-auto px-8 py-3.5 bg-[#1A1A1A] hover:bg-[#333] text-white font-medium rounded-lg transition-colors text-base">
+        <div className="relative z-10">
+          {/* Nav */}
+          <header className="px-6 py-5 flex items-center justify-between max-w-6xl mx-auto">
+            <Link to="/" className="flex items-center gap-2">
+              <img src="/coresite-logo.svg" alt="CoreSite" className="h-9 brightness-0 invert" />
+            </Link>
+            <div className="flex items-center gap-3">
+              <Link to="/" className="text-sm text-white/60 hover:text-white transition-colors hidden sm:block">Home</Link>
+              <Link to="/why" className="text-sm text-white/60 hover:text-white transition-colors hidden sm:block">Why CoreSite</Link>
+              <button onClick={() => navigate('/login')} className="px-5 py-2 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white text-sm font-medium rounded-lg transition-colors">
                 Sign In
               </button>
             </div>
-          </FadeInSection>
-        </div>
-      </section>
+          </header>
 
-      {/* Hero image */}
-      <section className="px-6 pb-16 -mt-4">
-        <FadeInSection delay={400}>
-          <div className="max-w-5xl mx-auto">
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl">
-              <img src="/hero.jpg" alt="Modern office space" className="w-full h-64 sm:h-80 lg:h-96 object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#1B2A3D]/60 to-transparent" />
-              <div className="absolute bottom-6 left-6 right-6">
-                <p className="text-white font-semibold text-lg sm:text-xl">One platform. Every site. Complete compliance.</p>
-                <p className="text-white/60 text-sm mt-1">Used by contractors across the UK for inductions, RAMS, snagging and more.</p>
-              </div>
+          {/* Hero content */}
+          <div className="px-6 pt-12 pb-24 sm:pt-20 sm:pb-32">
+            <div className="max-w-4xl mx-auto text-center">
+              <FadeInSection>
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 backdrop-blur-sm text-white/80 text-xs font-medium rounded-full mb-6 border border-white/10">
+                  <Zap size={12} /> The future of site compliance
+                </div>
+              </FadeInSection>
+              <FadeInSection delay={100}>
+                <h1 className="text-4xl sm:text-6xl font-light text-white leading-tight mb-6">
+                  Stop chasing paper.<br />
+                  <span className="font-bold">Start running sites.</span>
+                </h1>
+              </FadeInSection>
+              <FadeInSection delay={200}>
+                <p className="text-lg text-white/60 max-w-2xl mx-auto mb-10 leading-relaxed">
+                  CoreSite replaces your paper inductions, printed RAMS, WhatsApp photo trails and Excel snagging lists with one platform that works on site, in the office, and everywhere in between.
+                </p>
+              </FadeInSection>
+              <FadeInSection delay={300}>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <Link to="/" className="w-full sm:w-auto px-8 py-3.5 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-lg transition-colors text-base flex items-center justify-center gap-2">
+                    Request a Demo <ArrowRight size={16} />
+                  </Link>
+                  <button onClick={() => navigate('/login')} className="w-full sm:w-auto px-8 py-3.5 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg border border-white/20 transition-colors text-base">
+                    Sign In
+                  </button>
+                </div>
+              </FadeInSection>
             </div>
           </div>
-        </FadeInSection>
-      </section>
+        </div>
+      </div>
+
 
       {/* Stats */}
       <section className="py-16 px-6 bg-[#1B2A3D]">
