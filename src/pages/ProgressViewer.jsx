@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
+import { fetchAndCache } from '../hooks/useOfflineData'
 import toast from 'react-hot-toast'
 import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
@@ -50,18 +51,29 @@ export default function ProgressViewer() {
 
   async function loadData() {
     setLoading(true)
-    const { data: d } = await supabase.from('progress_drawings').select('*').eq('id', drawingId).single()
+
+    const drawingData = await fetchAndCache('progress_drawings', (sb) =>
+      sb.from('progress_drawings').select('*').eq('id', drawingId).single()
+    )
+    const d = Array.isArray(drawingData) ? drawingData.find(r => r.id === drawingId) : drawingData
     if (!d) { navigate('/app/progress'); return }
     setDrawing(d)
-    const { data: proj } = await supabase.from('projects').select('*').eq('id', d.project_id).single()
-    setProject(proj)
+
+    const projData = await fetchAndCache('projects', (sb) =>
+      sb.from('projects').select('*').eq('id', d.project_id).single()
+    )
+    setProject(Array.isArray(projData) ? projData.find(r => r.id === d.project_id) : projData)
+
     await loadItems()
     setLoading(false)
   }
 
   async function loadItems() {
-    const { data } = await supabase.from('progress_items').select('*').eq('drawing_id', drawingId).order('item_number')
-    setItems(data || [])
+    const itemsData = await fetchAndCache('progress_items', (sb) =>
+      sb.from('progress_items').select('*').eq('drawing_id', drawingId).order('item_number')
+    )
+    const filtered = Array.isArray(itemsData) ? itemsData.filter(i => i.drawing_id === drawingId) : (itemsData || [])
+    setItems(filtered.sort((a, b) => (a.item_number || 0) - (b.item_number || 0)))
   }
 
   // Place item on tap

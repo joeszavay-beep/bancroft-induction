@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
+import { fetchAndCache } from '../hooks/useOfflineData'
 import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
 import SnagDetail from '../components/SnagDetail'
@@ -49,19 +50,27 @@ export default function SnagDrawingView() {
 
   async function loadData() {
     setLoading(true)
-    const { data: d } = await supabase.from('drawings').select('*').eq('id', drawingId).single()
+
+    // Fetch drawing with offline cache
+    const drawings = await fetchAndCache('drawings', (sb) =>
+      sb.from('drawings').select('*').eq('id', drawingId).single()
+    )
+    const d = Array.isArray(drawings) ? drawings.find(r => r.id === drawingId) : drawings
     if (!d) { navigate('/pm'); return }
     setDrawing(d)
-    console.log('Drawing loaded, file_url:', d.file_url)
 
-    const [p, s, o] = await Promise.all([
-      supabase.from('projects').select('*').eq('id', d.project_id).single(),
-      supabase.from('snags').select('*').eq('drawing_id', drawingId).order('snag_number'),
-      supabase.from('operatives').select('*').eq('project_id', d.project_id).order('name'),
+    // Fetch project, snags, operatives in parallel — all cached
+    const [proj, snagsList, opsList] = await Promise.all([
+      fetchAndCache('projects', (sb) => sb.from('projects').select('*').eq('id', d.project_id).single()),
+      fetchAndCache('snags', (sb) => sb.from('snags').select('*').eq('drawing_id', drawingId).order('snag_number')),
+      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*').eq('project_id', d.project_id).order('name')),
     ])
-    setProject(p.data)
-    setSnags(s.data || [])
-    setOperatives(o.data || [])
+
+    setProject(Array.isArray(proj) ? proj.find(r => r.id === d.project_id) : proj)
+    const snags = Array.isArray(snagsList) ? snagsList.filter(s => s.drawing_id === drawingId) : (snagsList || [])
+    setSnags(snags.sort((a, b) => (a.snag_number || 0) - (b.snag_number || 0)))
+    const ops = Array.isArray(opsList) ? opsList.filter(o => o.project_id === d.project_id) : (opsList || [])
+    setOperatives(ops.sort((a, b) => (a.name || '').localeCompare(b.name || '')))
     setLoading(false)
   }
 

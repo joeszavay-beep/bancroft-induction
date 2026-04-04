@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { fetchAndCache } from '../hooks/useOfflineData'
 import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
 import LoadingButton from '../components/LoadingButton'
@@ -48,24 +49,41 @@ export default function PMDashboard({ initialTab }) {
   async function loadData() {
     setLoading(true)
     const cid = managerData.company_id
-    const [p, o, d, s] = await Promise.all([
-      cid ? supabase.from('projects').select('*').eq('company_id', cid).order('created_at', { ascending: false }) : supabase.from('projects').select('*').order('created_at', { ascending: false }),
-      cid ? supabase.from('operatives').select('*').eq('company_id', cid).order('name') : supabase.from('operatives').select('*').order('name'),
-      cid ? supabase.from('documents').select('*').eq('company_id', cid).order('created_at', { ascending: false }) : supabase.from('documents').select('*').order('created_at', { ascending: false }),
-      cid ? supabase.from('signatures').select('*').eq('company_id', cid).order('signed_at', { ascending: false }) : supabase.from('signatures').select('*').order('signed_at', { ascending: false }),
+
+    const [pData, oData, dData, sData] = await Promise.all([
+      fetchAndCache('projects', (sb) => {
+        let q = sb.from('projects').select('*')
+        if (cid) q = q.eq('company_id', cid)
+        return q.order('created_at', { ascending: false })
+      }),
+      fetchAndCache('operatives', (sb) => {
+        let q = sb.from('operatives').select('*')
+        if (cid) q = q.eq('company_id', cid)
+        return q.order('name')
+      }),
+      fetchAndCache('documents', (sb) => {
+        let q = sb.from('documents').select('*')
+        if (cid) q = q.eq('company_id', cid)
+        return q.order('created_at', { ascending: false })
+      }),
+      fetchAndCache('signatures', (sb) => {
+        let q = sb.from('signatures').select('*')
+        if (cid) q = q.eq('company_id', cid)
+        return q.order('signed_at', { ascending: false })
+      }),
     ])
 
-    let filteredProjects = p.data || []
-    // Filter projects if manager has restricted access
+    let filteredProjects = pData || []
+    if (cid) filteredProjects = filteredProjects.filter(proj => proj.company_id === cid)
     if (!isAdmin && managerProjectIds.length > 0) {
       filteredProjects = filteredProjects.filter(proj => managerProjectIds.includes(proj.id))
     }
     const projectIds = new Set(filteredProjects.map(proj => proj.id))
 
     setProjects(filteredProjects)
-    setOperatives((o.data || []).filter(op => !op.project_id || projectIds.has(op.project_id)))
-    setDocuments((d.data || []).filter(doc => projectIds.has(doc.project_id)))
-    setSignatures((s.data || []).filter(sig => projectIds.has(sig.project_id)))
+    setOperatives((oData || []).filter(op => !op.project_id || projectIds.has(op.project_id)))
+    setDocuments((dData || []).filter(doc => projectIds.has(doc.project_id)))
+    setSignatures((sData || []).filter(sig => projectIds.has(sig.project_id)))
     setLoading(false)
   }
 
@@ -1011,14 +1029,26 @@ function SnagsTab({ projects, navigate }) {
 
   async function loadAll() {
     setLoading(true)
-    const [d, s, o] = await Promise.all([
-      cid ? supabase.from('drawings').select('*').eq('company_id', cid).order('uploaded_at', { ascending: false }) : supabase.from('drawings').select('*').order('uploaded_at', { ascending: false }),
-      cid ? supabase.from('snags').select('*').eq('company_id', cid).order('snag_number') : supabase.from('snags').select('*').order('snag_number'),
-      cid ? supabase.from('operatives').select('*').eq('company_id', cid).order('name') : supabase.from('operatives').select('*').order('name'),
+    const [dData, sData, oData] = await Promise.all([
+      fetchAndCache('drawings', (sb) => {
+        let q = sb.from('drawings').select('*')
+        if (cid) q = q.eq('company_id', cid)
+        return q.order('uploaded_at', { ascending: false })
+      }),
+      fetchAndCache('snags', (sb) => {
+        let q = sb.from('snags').select('*')
+        if (cid) q = q.eq('company_id', cid)
+        return q.order('snag_number')
+      }),
+      fetchAndCache('operatives', (sb) => {
+        let q = sb.from('operatives').select('*')
+        if (cid) q = q.eq('company_id', cid)
+        return q.order('name')
+      }),
     ])
-    setDrawings(d.data || [])
-    setAllSnags(s.data || [])
-    setAllOperatives(o.data || [])
+    setDrawings((dData || []).filter(d => !cid || d.company_id === cid))
+    setAllSnags((sData || []).filter(s => !cid || s.company_id === cid))
+    setAllOperatives((oData || []).filter(o => !cid || o.company_id === cid))
     setLoading(false)
   }
 
@@ -1686,20 +1716,22 @@ function ToolboxTab({ projects, navigate }) {
 
   async function loadTalks() {
     setLoading(true)
-    const { data: t } = cid
-      ? await supabase.from('toolbox_talks').select('*').eq('company_id', cid).order('created_at', { ascending: false })
-      : await supabase.from('toolbox_talks').select('*').order('created_at', { ascending: false })
+    const tData = await fetchAndCache('toolbox_talks', (sb) => {
+      let q = sb.from('toolbox_talks').select('*')
+      if (cid) q = q.eq('company_id', cid)
+      return q.order('created_at', { ascending: false })
+    })
 
-    const allTalks = t || []
+    const allTalks = (tData || []).filter(t => !cid || t.company_id === cid)
     setTalks(allTalks)
 
     // Load signature counts
     if (allTalks.length > 0) {
-      const { data: sigs } = await supabase
-        .from('toolbox_signatures')
-        .select('talk_id, operative_name, signed_at')
+      const sigsData = await fetchAndCache('toolbox_signatures', (sb) =>
+        sb.from('toolbox_signatures').select('talk_id, operative_name, signed_at')
+      )
       const grouped = {}
-      ;(sigs || []).forEach(s => {
+      ;(sigsData || []).forEach(s => {
         if (!grouped[s.talk_id]) grouped[s.talk_id] = []
         grouped[s.talk_id].push(s)
       })

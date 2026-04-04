@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
+import { cacheAuth, getCachedAuth } from './offlineDb'
 
 const CompanyContext = createContext(null)
 
@@ -17,15 +18,41 @@ export function CompanyProvider({ children }) {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
-        // Set up basic user data immediately from session
         setupFromAuth(session.user)
-        // Then try to load full profile in background
         loadFullProfile(session.user.id)
+        // Cache session for offline use
+        cacheAuth('session', { access_token: session.access_token, refresh_token: session.refresh_token, user: session.user }).catch(() => {})
+      } else if (!navigator.onLine) {
+        // Offline with no active session — try to restore from IDB
+        await restoreFromOfflineCache()
       }
     } catch (err) {
       console.error('Session check failed:', err)
+      // Network error — try offline cache
+      await restoreFromOfflineCache()
     }
     setIsLoading(false)
+  }
+
+  async function restoreFromOfflineCache() {
+    try {
+      const cachedUser = await getCachedAuth('user')
+      const cachedCompany = await getCachedAuth('company')
+      const cachedProfile = await getCachedAuth('profile')
+      if (cachedUser) {
+        setUser(cachedUser)
+        sessionStorage.setItem('pm_auth', 'true')
+        sessionStorage.setItem('manager_data', JSON.stringify({ ...cachedUser, project_ids: [] }))
+      }
+      if (cachedProfile) setProfile(cachedProfile)
+      if (cachedCompany) {
+        setCompany(cachedCompany)
+        applyBranding(cachedCompany)
+      }
+      if (cachedUser) console.log('[offline] Restored auth from cache')
+    } catch (err) {
+      console.error('Offline cache restore failed:', err)
+    }
   }
 
   function setupFromAuth(authUser) {
@@ -55,7 +82,6 @@ export function CompanyProvider({ children }) {
       const prof = profiles?.[0]
       if (prof) {
         setProfile(prof)
-        // Update user with profile data (more accurate than auth metadata)
         const userData = {
           id: prof.id,
           name: prof.name,
@@ -65,6 +91,9 @@ export function CompanyProvider({ children }) {
         }
         setUser(userData)
         sessionStorage.setItem('manager_data', JSON.stringify({ ...userData, project_ids: [] }))
+        // Cache for offline
+        cacheAuth('user', userData).catch(() => {})
+        cacheAuth('profile', prof).catch(() => {})
       }
 
       // Load company
@@ -79,6 +108,8 @@ export function CompanyProvider({ children }) {
         if (co) {
           setCompany(co)
           applyBranding(co)
+          // Cache for offline
+          cacheAuth('company', co).catch(() => {})
         }
       }
     } catch (err) {
@@ -109,10 +140,12 @@ export function CompanyProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
     if (data?.user) {
-      // Set up immediately from auth response — no waiting for profile query
       setupFromAuth(data.user)
-      // Load full profile + company in background
       loadFullProfile(data.user.id)
+      // Cache session for offline
+      if (data.session) {
+        cacheAuth('session', { access_token: data.session.access_token, refresh_token: data.session.refresh_token, user: data.user }).catch(() => {})
+      }
     }
     return data
   }
