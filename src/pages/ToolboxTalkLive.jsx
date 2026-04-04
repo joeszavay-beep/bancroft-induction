@@ -65,7 +65,7 @@ export default function ToolboxTalkLive() {
   async function handleExport() {
     setExporting(true)
     try {
-      await generateToolboxPDF({ talk, project, signatures })
+      await generateToolboxPDF({ talk, project, signatures, companyName: document.title.split('|')[0]?.trim() || 'CoreSite' })
       toast.success('PDF downloaded')
     } catch (err) {
       console.error(err)

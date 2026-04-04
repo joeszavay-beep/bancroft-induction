@@ -374,6 +374,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
         documents: projDocs,
         operatives: projOps,
         signatures: projSigs,
+        companyName: document.title.split('|')[0]?.trim() || 'CoreSite',
       })
       toast.success('Audit report downloaded')
     } catch (err) {
@@ -489,6 +490,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                                           projectName: p.name,
                                           documentTitle: d.title,
                                           signatures: docSigs,
+                                          companyName: document.title.split('|')[0]?.trim() || 'CoreSite',
                                         })
                                         toast.success(`Sign-off sheet downloaded (${docSigs.length} signatures)`)
                                       } catch (err) {
@@ -1688,7 +1690,7 @@ function ToolboxTab({ projects, navigate }) {
     try {
       const { data: proj } = await supabase.from('projects').select('*').eq('id', talk.project_id).single()
       const { data: sigs } = await supabase.from('toolbox_signatures').select('*').eq('talk_id', talk.id).order('signed_at')
-      await generateToolboxPDF({ talk, project: proj, signatures: sigs || [] })
+      await generateToolboxPDF({ talk, project: proj, signatures: sigs || [], companyName: document.title.split('|')[0]?.trim() || 'CoreSite' })
       toast.success('PDF downloaded')
     } catch (err) {
       console.error(err)
