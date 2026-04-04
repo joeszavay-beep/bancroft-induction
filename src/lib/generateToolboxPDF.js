@@ -1,5 +1,39 @@
 import { jsPDF } from 'jspdf'
 
+async function fetchSignatureAsDataUrl(url) {
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    // If SVG, convert to PNG via canvas
+    if (blob.type.includes('svg') || url.endsWith('.svg')) {
+      const svgText = await blob.text()
+      const img = new Image()
+      const svgBlob = new Blob([svgText], { type: 'image/svg+xml' })
+      const svgUrl = URL.createObjectURL(svgBlob)
+      return new Promise((resolve) => {
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = 300
+          canvas.height = 100
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0, 300, 100)
+          URL.revokeObjectURL(svgUrl)
+          resolve(canvas.toDataURL('image/png'))
+        }
+        img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(null) }
+        img.src = svgUrl
+      })
+    }
+    // Regular image
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch { return null }
+}
+
 export async function generateToolboxPDF({ talk, project, signatures, companyName }) {
   const doc = new jsPDF('p', 'mm', 'a4')
   const pageWidth = 210
@@ -126,14 +160,12 @@ export async function generateToolboxPDF({ talk, project, signatures, companyNam
 
     if (sig.signature_url) {
       try {
-        const response = await fetch(sig.signature_url)
-        const blob = await response.blob()
-        const dataUrl = await new Promise((resolve) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result)
-          reader.readAsDataURL(blob)
-        })
-        doc.addImage(dataUrl, 'PNG', margin + 70, y - 1, 45, 14)
+        const dataUrl = await fetchSignatureAsDataUrl(sig.signature_url)
+        if (dataUrl) {
+          doc.addImage(dataUrl, 'PNG', margin + 70, y - 1, 45, 14)
+        } else {
+          throw new Error('null')
+        }
       } catch {
         doc.setTextColor(150, 150, 150)
         doc.setFontSize(7)

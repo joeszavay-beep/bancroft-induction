@@ -1,5 +1,35 @@
 import { jsPDF } from 'jspdf'
 
+async function fetchSignatureAsDataUrl(url) {
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    if (blob.type.includes('svg') || url.endsWith('.svg')) {
+      const svgText = await blob.text()
+      const img = new Image()
+      const svgBlob = new Blob([svgText], { type: 'image/svg+xml' })
+      const svgUrl = URL.createObjectURL(svgBlob)
+      return new Promise((resolve) => {
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = 300; canvas.height = 100
+          canvas.getContext('2d').drawImage(img, 0, 0, 300, 100)
+          URL.revokeObjectURL(svgUrl)
+          resolve(canvas.toDataURL('image/png'))
+        }
+        img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(null) }
+        img.src = svgUrl
+      })
+    }
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch { return null }
+}
+
 export async function generateSignOffSheet({ projectName, documentTitle, signatures, companyName }) {
   const doc = new jsPDF('p', 'mm', 'a4')
   const pageWidth = 210
@@ -121,14 +151,10 @@ export async function generateSignOffSheet({ projectName, documentTitle, signatu
     // Signature image
     if (sig.signature_url) {
       try {
-        const response = await fetch(sig.signature_url)
-        const blob = await response.blob()
-        const dataUrl = await new Promise((resolve) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result)
-          reader.readAsDataURL(blob)
-        })
-        doc.addImage(dataUrl, 'PNG', margin + 70, y - 3, 50, 18)
+        const dataUrl = await fetchSignatureAsDataUrl(sig.signature_url)
+        if (dataUrl) {
+          doc.addImage(dataUrl, 'PNG', margin + 70, y - 3, 50, 18)
+        } else { throw new Error('null') }
       } catch (e) {
         doc.setTextColor(150, 150, 150)
         doc.setFontSize(8)

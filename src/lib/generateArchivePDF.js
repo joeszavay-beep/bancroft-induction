@@ -4,6 +4,24 @@ async function fetchImageAsDataUrl(url) {
   try {
     const res = await fetch(url)
     const blob = await res.blob()
+    // Handle SVG files - convert to PNG via canvas
+    if (blob.type.includes('svg') || url.endsWith('.svg')) {
+      const svgText = await blob.text()
+      const img = new Image()
+      const svgBlob = new Blob([svgText], { type: 'image/svg+xml' })
+      const svgUrl = URL.createObjectURL(svgBlob)
+      return new Promise((resolve) => {
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = 300; canvas.height = 100
+          canvas.getContext('2d').drawImage(img, 0, 0, 300, 100)
+          URL.revokeObjectURL(svgUrl)
+          resolve(canvas.toDataURL('image/png'))
+        }
+        img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(null) }
+        img.src = svgUrl
+      })
+    }
     return new Promise((resolve) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result)
