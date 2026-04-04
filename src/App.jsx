@@ -13,6 +13,7 @@ import Portal from './pages/Portal'
 import ToolboxSign from './pages/ToolboxSign'
 import Policies from './pages/Policies'
 import SnagReply from './pages/SnagReply'
+import ResetPassword from './pages/ResetPassword'
 
 // App pages (inside sidebar layout)
 import AppHome from './pages/AppHome'
@@ -78,6 +79,7 @@ export default function App() {
       <Route path="/portal" element={<Portal />} />
       <Route path="/portal/:projectId" element={<Portal />} />
       <Route path="/policies/:policyId" element={<Policies />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/snag-reply/:token" element={<SnagReply />} />
 
       {/* Snag drawing viewer (full screen, no sidebar) */}
