@@ -24,11 +24,12 @@ export default function PMLogin() {
 
     try {
       await login(email.trim().toLowerCase(), password.trim())
-      navigate('/app')
+      // Small delay to let React state update before navigating
+      setTimeout(() => navigate('/app'), 100)
     } catch (err) {
       setError(err.message === 'Invalid login credentials' ? 'Invalid email or password' : err.message)
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleReset = async (e) => {

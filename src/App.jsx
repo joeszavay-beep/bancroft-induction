@@ -32,8 +32,10 @@ import AddNewWorker from './pages/AddNewWorker'
 
 function AppLayout() {
   const { isAuthenticated, isLoading } = useCompany()
+  // Also check sessionStorage as fallback during state transitions
+  const hasSession = isAuthenticated || sessionStorage.getItem('pm_auth') === 'true'
   if (isLoading) return <div className="min-h-dvh flex items-center justify-center" style={{ backgroundColor: 'var(--bg-main)' }}><div className="animate-spin w-8 h-8 border-2 border-[#1B6FC8] border-t-transparent rounded-full" /></div>
-  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (!hasSession) return <Navigate to="/login" replace />
   return (
     <SidebarLayout>
       <Routes>
