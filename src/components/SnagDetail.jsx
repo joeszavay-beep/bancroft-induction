@@ -160,6 +160,15 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
     onUpdated()
   }
 
+  async function updateStatus(newStatus) {
+    setSaving(true)
+    const { error } = await supabase.from('snags').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', snag.id)
+    setSaving(false)
+    if (error) { toast.error('Failed to update'); return }
+    toast.success(`Snag #${snag.snag_number} ${newStatus === 'completed' ? 'approved' : newStatus === 'open' ? 'rejected — reopened' : newStatus}`)
+    onUpdated()
+  }
+
   const isOverdue = snag.due_date && new Date(snag.due_date) < new Date() && snag.status === 'open'
   const selectCls = "w-full px-2.5 py-2 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8] bg-white"
   const labelCls = "text-[10px] text-[#6B7A99] uppercase font-semibold tracking-wider mb-1 block"
@@ -185,7 +194,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
           {/* Header */}
           <div className="sticky top-0 bg-white border-b border-[#E2E6EA] px-5 py-3 flex items-center justify-between z-10 shrink-0">
             <div className="flex items-center gap-2.5">
-              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${STATUS_COLORS[snag.status]}`}>
+              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${STATUS_COLORS[snag.status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
                 {snag.status.toUpperCase()}
               </span>
               <h3 className="text-lg font-bold text-[#1A1A2E]">Snag #{snag.snag_number}</h3>

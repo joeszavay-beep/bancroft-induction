@@ -46,47 +46,46 @@ export default function SnagReply() {
     if (!photoFile) { toast.error('Please take or upload a photo'); return }
     setUploading(true)
 
-    // Upload photo
-    const filePath = `snag-replies/${snag.id}/${Date.now()}.jpg`
-    const { error: upErr } = await supabase.storage.from('snag-photos').upload(filePath, photoFile, { contentType: photoFile.type })
-    if (upErr) { setUploading(false); toast.error('Failed to upload photo'); return }
+    try {
+      // Upload photo
+      const filePath = `snag-replies/${snag.id}/${Date.now()}.jpg`
+      const { error: upErr } = await supabase.storage.from('snag-photos').upload(filePath, photoFile, { contentType: photoFile.type })
+      if (upErr) { console.error('Upload error:', upErr); setUploading(false); toast.error('Failed to upload photo'); return }
 
-    const { data: urlData } = supabase.storage.from('snag-photos').getPublicUrl(filePath)
+      const { data: urlData } = supabase.storage.from('snag-photos').getPublicUrl(filePath)
 
-    // Update snag
-    const { error } = await supabase.from('snags').update({
-      status: 'pending_review',
-      review_photo_url: urlData.publicUrl,
-      review_submitted_at: new Date().toISOString(),
-      review_submitted_by: snag.assigned_to || 'Operative',
-      updated_at: new Date().toISOString(),
-    }).eq('id', snag.id)
+      // Update snag status and photo
+      const { error } = await supabase.from('snags').update({
+        status: 'pending_review',
+        review_photo_url: urlData.publicUrl,
+        review_submitted_at: new Date().toISOString(),
+        review_submitted_by: snag.assigned_to || 'Operative',
+        updated_at: new Date().toISOString(),
+      }).eq('id', snag.id)
 
-    if (error) { setUploading(false); toast.error('Failed to submit'); return }
+      if (error) { console.error('Update error:', error); setUploading(false); toast.error('Failed to submit'); return }
 
-    // Add comment if provided
-    if (comment.trim()) {
-      await supabase.from('snag_comments').insert({
-        snag_id: snag.id,
-        comment: comment.trim(),
-        author_name: snag.assigned_to || 'Operative',
-        author_role: 'Operative',
-        company_id: snag.company_id,
-      })
+      // Optional comment and log — don't block success
+      try {
+        if (comment.trim()) {
+          await supabase.from('snag_comments').insert({
+            snag_id: snag.id, comment: comment.trim(),
+            author_name: snag.assigned_to || 'Operative', author_role: 'Operative',
+          })
+        }
+        await supabase.from('snag_comments').insert({
+          snag_id: snag.id, comment: 'Completion photo submitted for review',
+          author_name: snag.assigned_to || 'Operative', author_role: 'Operative',
+        })
+      } catch {}
+
+      setUploading(false)
+      setSubmitted(true)
+    } catch (err) {
+      console.error('Submit error:', err)
+      setUploading(false)
+      toast.error('Something went wrong')
     }
-
-    // Add a comment logging the submission
-    await supabase.from('snag_comments').insert({
-      snag_id: snag.id,
-      comment: 'Completion photo submitted for review',
-      author_name: snag.assigned_to || 'Operative',
-      author_role: 'Operative',
-      company_id: snag.company_id,
-    }).catch(() => {})
-
-    setUploading(false)
-    setSubmitted(true)
-    toast.success('Submitted for review')
   }
 
   if (loading) {
