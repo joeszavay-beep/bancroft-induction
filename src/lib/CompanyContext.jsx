@@ -8,7 +8,6 @@ export function CompanyProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
-  const profileLoaded = useRef(false)
 
   useEffect(() => {
     checkSession()
@@ -18,7 +17,10 @@ export function CompanyProvider({ children }) {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
-        await loadProfile(session.user)
+        // Set up basic user data immediately from session
+        setupFromAuth(session.user)
+        // Then try to load full profile in background
+        loadFullProfile(session.user.id)
       }
     } catch (err) {
       console.error('Session check failed:', err)
@@ -26,63 +28,61 @@ export function CompanyProvider({ children }) {
     setIsLoading(false)
   }
 
-  async function loadProfile(authUser) {
-    if (profileLoaded.current && user?.id === authUser.id) return
+  function setupFromAuth(authUser) {
+    const meta = authUser.user_metadata || {}
+    const userData = {
+      id: authUser.id,
+      name: meta.name || authUser.email?.split('@')[0] || 'User',
+      email: authUser.email,
+      role: meta.role || 'manager',
+      company_id: meta.company_id || null,
+    }
+    setUser(userData)
 
+    // Store in sessionStorage for backward compatibility
+    sessionStorage.setItem('pm_auth', 'true')
+    sessionStorage.setItem('manager_data', JSON.stringify({ ...userData, project_ids: [] }))
+  }
+
+  async function loadFullProfile(userId) {
     try {
-      // Use select + limit instead of .single() to avoid errors on empty results
-      const { data: profiles, error } = await supabase
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', authUser.id)
+        .eq('id', userId)
         .limit(1)
 
       const prof = profiles?.[0]
-
-      if (error) {
-        console.error('Profile query error:', error)
-        return false
+      if (prof) {
+        setProfile(prof)
+        // Update user with profile data (more accurate than auth metadata)
+        const userData = {
+          id: prof.id,
+          name: prof.name,
+          email: prof.email,
+          role: prof.role,
+          company_id: prof.company_id,
+        }
+        setUser(userData)
+        sessionStorage.setItem('manager_data', JSON.stringify({ ...userData, project_ids: [] }))
       }
-      if (!prof) {
-        console.error('Profile not found for user:', authUser.id)
-        return false
-      }
-
-      profileLoaded.current = true
-      setProfile(prof)
-
-      const userData = {
-        id: prof.id,
-        name: prof.name,
-        email: prof.email,
-        role: prof.role,
-        company_id: prof.company_id,
-      }
-      setUser(userData)
-
-      // Store in sessionStorage for backward compatibility
-      sessionStorage.setItem('pm_auth', 'true')
-      sessionStorage.setItem('manager_data', JSON.stringify({
-        ...userData,
-        project_ids: [],
-      }))
 
       // Load company
-      if (prof.company_id) {
-        const { data: co } = await supabase
+      const companyId = prof?.company_id || user?.company_id
+      if (companyId) {
+        const { data: companies } = await supabase
           .from('companies')
           .select('*')
-          .eq('id', prof.company_id)
-          .single()
+          .eq('id', companyId)
+          .limit(1)
+        const co = companies?.[0]
         if (co) {
           setCompany(co)
           applyBranding(co)
         }
       }
-      return true
     } catch (err) {
-      console.error('loadProfile error:', err)
-      return false
+      console.error('Full profile load failed:', err)
     }
   }
 
@@ -95,7 +95,6 @@ export function CompanyProvider({ children }) {
   }
 
   function clearState() {
-    profileLoaded.current = false
     setUser(null)
     setProfile(null)
     setCompany(null)
@@ -110,13 +109,10 @@ export function CompanyProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
     if (data?.user) {
-      // Retry up to 5 times with increasing delays
-      for (let attempt = 1; attempt <= 5; attempt++) {
-        await new Promise(r => setTimeout(r, attempt * 300))
-        const success = await loadProfile(data.user)
-        if (success) return data
-      }
-      throw new Error('Failed to load profile — please try again')
+      // Set up immediately from auth response — no waiting for profile query
+      setupFromAuth(data.user)
+      // Load full profile + company in background
+      loadFullProfile(data.user.id)
     }
     return data
   }
