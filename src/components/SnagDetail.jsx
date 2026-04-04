@@ -73,6 +73,8 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
   const [sending, setSending] = useState(false)
   const [saving, setSaving] = useState(false)
   const [lightbox, setLightbox] = useState(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [snagPhoto, setSnagPhoto] = useState(snag.photo_url)
 
   // Editable fields
   const [status, setStatus] = useState(snag.status || 'open')
@@ -160,6 +162,19 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
     onUpdated()
   }
 
+  async function handlePhotoUpload(file) {
+    if (!file) return
+    setUploadingPhoto(true)
+    const filePath = `snag-photos/${snag.id}/${Date.now()}.jpg`
+    const { error: upErr } = await supabase.storage.from('snag-photos').upload(filePath, file, { contentType: file.type })
+    if (upErr) { setUploadingPhoto(false); toast.error('Failed to upload photo'); return }
+    const { data: urlData } = supabase.storage.from('snag-photos').getPublicUrl(filePath)
+    await supabase.from('snags').update({ photo_url: urlData.publicUrl, updated_at: new Date().toISOString() }).eq('id', snag.id)
+    setSnagPhoto(urlData.publicUrl)
+    setUploadingPhoto(false)
+    toast.success('Photo added')
+  }
+
   async function updateStatus(newStatus) {
     setSaving(true)
     const { error } = await supabase.from('snags').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', snag.id)
@@ -211,18 +226,26 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
             <div className="flex flex-col sm:flex-row">
               {/* Left — Photo */}
               <div className="sm:w-[280px] shrink-0 p-5 border-b sm:border-b-0 sm:border-r border-[#E2E6EA]">
-                {snag.photo_url ? (
-                  <button onClick={() => setLightbox(snag.photo_url)} className="relative w-full group rounded-xl overflow-hidden">
-                    <img src={snag.photo_url} alt="Snag" className="w-full h-52 sm:h-64 object-cover" />
+                {snagPhoto ? (
+                  <button onClick={() => setLightbox(snagPhoto)} className="relative w-full group rounded-xl overflow-hidden">
+                    <img src={snagPhoto} alt="Snag" className="w-full h-52 sm:h-64 object-cover" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                       <ZoomIn size={24} className="text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
                     </div>
                   </button>
                 ) : (
-                  <div className="w-full h-52 sm:h-64 bg-[#F5F6F8] rounded-xl flex flex-col items-center justify-center">
-                    <Camera size={32} className="text-[#B0B8C9] mb-2" />
-                    <p className="text-xs text-[#B0B8C9]">No photo</p>
-                  </div>
+                  <label className="w-full h-52 sm:h-64 bg-[#F5F6F8] rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-[#EEEEED] transition-colors group">
+                    {uploadingPhoto ? (
+                      <div className="w-8 h-8 border-2 border-[#3B7DD8] border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Camera size={32} className="text-[#B0B8C9] mb-2 group-hover:text-[#3B7DD8] transition-colors" />
+                        <p className="text-xs text-[#B0B8C9] group-hover:text-[#3B7DD8] transition-colors">Tap to add photo</p>
+                      </>
+                    )}
+                    <input type="file" accept="image/*" capture="environment" className="hidden"
+                      onChange={e => { if (e.target.files[0]) handlePhotoUpload(e.target.files[0]) }} />
+                  </label>
                 )}
 
                 {/* Review photo — submitted by operative */}
