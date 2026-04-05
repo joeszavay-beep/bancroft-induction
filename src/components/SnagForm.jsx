@@ -6,7 +6,7 @@ import { toastSmart } from '../lib/offlineToast'
 import toast from 'react-hot-toast'
 import Modal from './Modal'
 import LoadingButton from './LoadingButton'
-import { Camera, Upload, Sparkles, Loader2 } from 'lucide-react'
+import { Camera, Upload } from 'lucide-react'
 
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Other']
 const TYPES = ['General', 'Installation', 'Commissioning', 'Design', 'Other']
@@ -26,8 +26,6 @@ export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pi
   const [photo, setPhoto] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
   const [saving, setSaving] = useState(false)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [aiUsed, setAiUsed] = useState(false)
 
   function getDueDate(days) {
     const d = new Date()
@@ -55,42 +53,6 @@ export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pi
       reader.onload = () => setPhotoPreview(reader.result)
       reader.readAsDataURL(file)
     }
-  }
-
-  async function analyzeWithAI() {
-    if (!photo) { toast.error('Take a photo first'); return }
-    setAnalyzing(true)
-    try {
-      // Convert blob to base64
-      const reader = new FileReader()
-      const base64 = await new Promise((resolve) => {
-        reader.onload = () => resolve(reader.result)
-        reader.readAsDataURL(photo)
-      })
-
-      const res = await fetch('/api/analyze-snag', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64 }),
-      })
-
-      if (!res.ok) throw new Error('Analysis failed')
-      const { analysis } = await res.json()
-
-      if (analysis) {
-        if (analysis.trade && TRADES.includes(analysis.trade)) setTrade(analysis.trade)
-        if (analysis.type && TYPES.includes(analysis.type)) setType(analysis.type)
-        if (analysis.description) setDescription(analysis.description)
-        if (analysis.priority) {
-          handlePriorityChange(analysis.priority)
-        }
-        setAiUsed(true)
-        toast.success(`AI: ${analysis.confidence || 'medium'} confidence`, { icon: '✨' })
-      }
-    } catch (err) {
-      toast.error('AI analysis unavailable')
-    }
-    setAnalyzing(false)
   }
 
   async function handleSubmit(e) {
@@ -179,33 +141,15 @@ export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pi
         <div>
           <label className="text-[11px] text-slate-400 mb-1 block">Photo</label>
           {photoPreview ? (
-            <div>
-              <div className="relative">
-                <img src={photoPreview} alt="Snag" className="w-full h-32 object-cover rounded-lg" />
-                <button type="button" onClick={() => { setPhoto(null); setPhotoPreview(null); setAiUsed(false) }} className="absolute top-1 right-1 w-6 h-6 bg-black/50 text-white rounded-full flex items-center justify-center text-xs">✕</button>
-              </div>
-              {!aiUsed && (
-                <button type="button" onClick={analyzeWithAI} disabled={analyzing}
-                  className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-2.5 bg-gradient-to-r from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
-                  {analyzing ? (
-                    <><Loader2 size={14} className="animate-spin" /> Analysing photo...</>
-                  ) : (
-                    <><Sparkles size={14} /> AI Auto-Fill from Photo</>
-                  )}
-                </button>
-              )}
-              {aiUsed && (
-                <div className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 border border-violet-200 rounded-lg">
-                  <Sparkles size={12} className="text-violet-500" />
-                  <span className="text-xs text-violet-700 font-medium">AI auto-filled — review and adjust if needed</span>
-                </div>
-              )}
+            <div className="relative">
+              <img src={photoPreview} alt="Snag" className="w-full h-32 object-cover rounded-lg" />
+              <button type="button" onClick={() => { setPhoto(null); setPhotoPreview(null) }} className="absolute top-1 right-1 w-6 h-6 bg-black/50 text-white rounded-full flex items-center justify-center text-xs">✕</button>
             </div>
           ) : (
             <label className="flex items-center justify-center gap-2 w-full px-3 py-3 bg-slate-50 border border-slate-200 border-dashed rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
               <Camera size={16} className="text-slate-400" />
               <span className="text-sm text-slate-400">Take photo or upload</span>
-              <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+              <input type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} className="hidden" />
             </label>
           )}
         </div>
