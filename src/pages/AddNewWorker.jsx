@@ -110,20 +110,36 @@ export default function AddNewWorker() {
 
     if (sendInvite && email.trim() && data) {
       const proj = projects.find(p => p.id === projectId)
-      await fetch('/api/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          operativeId: data.id,
-          operativeName: fullName,
-          email: email.trim(),
-          projectName: proj?.name || company?.name || 'CoreSite',
-        }),
-      }).catch(() => {})
+      try {
+        const inviteRes = await fetch('/api/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            operativeId: data.id,
+            operativeName: fullName,
+            email: email.trim(),
+            projectName: proj?.name || company?.name || 'CoreSite',
+          }),
+        })
+        const inviteData = await inviteRes.json()
+        if (inviteData.results?.email === 'sent') {
+          toast.success('Worker added & invitation sent')
+        } else if (inviteData.results?.email === 'no_api_key') {
+          toast.error('Worker saved but email not configured on server')
+        } else {
+          toast.error('Worker saved but email failed to send')
+        }
+      } catch (err) {
+        console.error('Invite error:', err)
+        toast.error('Worker saved but invitation failed')
+      }
+      setSaving(false)
+      navigate('/app/workers')
+      return
     }
 
     setSaving(false)
-    toast.success(sendInvite ? 'Worker added & invitation sent' : 'Worker saved')
+    toast.success('Worker saved')
     navigate('/app/workers')
   }
 
