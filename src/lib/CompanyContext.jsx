@@ -16,19 +16,19 @@ export function CompanyProvider({ children }) {
 
   async function checkSession() {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      // Timeout after 5 seconds to prevent infinite loading
+      const sessionPromise = supabase.auth.getSession()
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Session check timeout')), 5000))
+      const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise])
       if (session?.user) {
         setupFromAuth(session.user)
         loadFullProfile(session.user.id)
-        // Cache session for offline use
         cacheAuth('session', { access_token: session.access_token, refresh_token: session.refresh_token, user: session.user }).catch(() => {})
       } else if (!navigator.onLine) {
-        // Offline with no active session — try to restore from IDB
         await restoreFromOfflineCache()
       }
     } catch (err) {
       console.error('Session check failed:', err)
-      // Network error — try offline cache
       await restoreFromOfflineCache()
     }
     setIsLoading(false)
