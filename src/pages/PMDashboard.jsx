@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { authFetch } from '../lib/authFetch'
 import { fetchAndCache } from '../hooks/useOfflineData'
 import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
@@ -695,7 +696,7 @@ function TeamTab({ operatives, projects, onRefresh }) {
     // Send invite email/SMS
     if (data && (email.trim() || mobile.trim())) {
       const proj = projects.find(p => p.id === projectId)
-      await fetch('/api/invite', {
+      await authFetch('/api/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1139,7 +1140,7 @@ function SnagsTab({ projects, navigate }) {
 
     // Send email with snag details and PDF link
     if (assignEmail) {
-      await fetch('/api/invite', {
+      await authFetch('/api/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

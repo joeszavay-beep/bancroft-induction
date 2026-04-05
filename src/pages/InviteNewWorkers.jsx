@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { authFetch } from '../lib/authFetch'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import { Mail, Plus, Minus } from 'lucide-react'
@@ -37,7 +38,7 @@ export default function InviteNewWorkers() {
 
     // Send invite email
     if (data) {
-      await fetch('/api/invite', {
+      await authFetch('/api/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

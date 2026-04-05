@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import SignatureCanvas from 'react-signature-canvas'
 import { supabase } from '../lib/supabase'
+import { authFetch } from '../lib/authFetch'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import PDFViewer from '../components/PDFViewer'
@@ -100,7 +101,7 @@ export default function SignDocument() {
       })
 
       // Send email via Vercel API route
-      await fetch('/api/notify', {
+      await authFetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

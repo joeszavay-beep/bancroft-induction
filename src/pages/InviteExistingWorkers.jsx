@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { authFetch } from '../lib/authFetch'
 import toast from 'react-hot-toast'
 import { UserPlus, Search, Check } from 'lucide-react'
 
@@ -38,7 +39,7 @@ export default function InviteExistingWorkers() {
     // Send invite email
     const proj = projects.find(p => p.id === selectedProject)
     if (op.email) {
-      await fetch('/api/invite', {
+      await authFetch('/api/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

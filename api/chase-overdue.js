@@ -18,7 +18,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
  */
 export default async function handler(req, res) {
   // Allow manual trigger with key, or Vercel cron (no auth needed for cron)
-  const isManual = req.headers['x-cron-key'] === 'CORESITE_CRON_2026'
+  const isManual = process.env.CRON_SECRET && req.headers['x-cron-key'] === process.env.CRON_SECRET
   const isCron = req.headers['x-vercel-cron'] === '1' || req.headers['user-agent']?.includes('vercel-cron')
 
   if (!isManual && !isCron) {

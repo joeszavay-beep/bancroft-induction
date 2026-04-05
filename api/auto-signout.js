@@ -14,7 +14,7 @@ const supabase = createClient(
  */
 export default async function handler(req, res) {
   const isCron = req.headers['x-vercel-cron'] === '1' || req.headers['user-agent']?.includes('vercel-cron')
-  const isManual = req.headers['x-cron-key'] === 'CORESITE_CRON_2026'
+  const isManual = process.env.CRON_SECRET && req.headers['x-cron-key'] === process.env.CRON_SECRET
 
   if (!isCron && !isManual) {
     return res.status(401).json({ error: 'Unauthorized' })

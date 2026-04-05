@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { authFetch } from '../lib/authFetch'
 import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
 import LoadingButton from '../components/LoadingButton'
@@ -114,7 +115,7 @@ export default function SuperAdminPanel() {
     })
 
     // Send welcome email with login credentials
-    await fetch('/api/welcome', {
+    await authFetch('/api/welcome', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

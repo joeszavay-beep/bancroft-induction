@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { authFetch } from '../lib/authFetch'
 import { useCompany } from '../lib/CompanyContext'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
@@ -113,7 +114,7 @@ export default function AddNewWorker() {
     if (sendInvite && email.trim() && data) {
       const proj = projects.find(p => p.id === projectId)
       try {
-        const inviteRes = await fetch('/api/invite', {
+        const inviteRes = await authFetch('/api/invite', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -18,7 +18,7 @@ export default function PMLogin() {
   const handleLogin = async (e) => {
     e.preventDefault()
     if (!email.trim() || !password.trim()) return
-    if (password.trim().length < 6) { setError('Password must be at least 6 characters'); return }
+    if (password.trim().length < 8) { setError('Password must be at least 8 characters'); return }
     setLoading(true)
     setError('')
 
