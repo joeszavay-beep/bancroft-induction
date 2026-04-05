@@ -37,6 +37,7 @@ export default function ProgressViewer() {
   const [history, setHistory] = useState([])
   const [undoStack, setUndoStack] = useState([]) // array of item ids that were placed
   const [redoStack, setRedoStack] = useState([]) // array of items that were undone
+  const [cursorPos, setCursorPos] = useState(null) // { x, y } for custom dot cursor
   const [photoLightbox, setPhotoLightbox] = useState(null) // url for enlarged photo
   const [exporting, setExporting] = useState(false)
   const [project, setProject] = useState(null)
@@ -514,7 +515,24 @@ export default function ProgressViewer() {
       </div>
 
       {/* Drawing viewer — takes all remaining space */}
-      <div className="flex-1 min-h-0 bg-slate-200 relative">
+      <div className="flex-1 min-h-0 bg-slate-200 relative"
+        onMouseMove={isMarking && drawMode === 'dot' ? (e) => setCursorPos({ x: e.clientX, y: e.clientY }) : undefined}
+        onMouseLeave={() => setCursorPos(null)}>
+
+        {/* Custom dot cursor */}
+        {isMarking && drawMode === 'dot' && cursorPos && activeColour && (
+          <div className="fixed pointer-events-none z-50" style={{
+            left: cursorPos.x, top: cursorPos.y,
+            width: Math.max(6, dotSize), height: Math.max(6, dotSize),
+            backgroundColor: STATUS_COLORS[activeColour],
+            borderRadius: '50%',
+            opacity: 0.7,
+            transform: 'translate(-50%, -50%)',
+            border: '1px solid rgba(255,255,255,0.5)',
+            boxShadow: '0 0 4px rgba(0,0,0,0.3)',
+          }} />
+        )}
+
         <TransformWrapper
           initialScale={1}
           minScale={0.3}
@@ -537,7 +555,7 @@ export default function ProgressViewer() {
                 wrapperStyle={{ width: '100%', height: '100%', touchAction: 'none' }}
                 contentStyle={{ width: '100%', touchAction: 'none' }}
               >
-                <div className="relative inline-block" style={{ cursor: isMarking ? 'crosshair' : 'grab' }}>
+                <div className="relative inline-block" style={{ cursor: isMarking ? 'none' : 'grab' }}>
                   <img ref={imageRef} src={drawing?.image_url} alt={drawing?.name}
                     className="max-w-none select-none" style={{ width: '100%', minWidth: '800px' }}
                     onLoad={() => setImageLoaded(true)} draggable={false}
