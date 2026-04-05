@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import { ArrowLeft, User, Shield, Phone, Home, Users } from 'lucide-react'
 import AddressLookup from '../components/AddressLookup'
+import DateOfBirthPicker from '../components/DateOfBirthPicker'
 
 export default function OperativeProfile() {
   const { operativeId } = useParams()
@@ -150,15 +151,7 @@ export default function OperativeProfile() {
 
           <div>
             <label className="text-xs text-slate-500 mb-1 block">Date of Birth *</label>
-            <input
-              type="date"
-              value={dob}
-              onChange={e => setDob(e.target.value)}
-              onClick={e => e.target.showPicker?.()}
-              max={new Date().toISOString().split('T')[0]}
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10 appearance-none"
-              style={{ colorScheme: 'light' }}
-            />
+            <DateOfBirthPicker value={dob} onChange={setDob} />
           </div>
 
           <div>

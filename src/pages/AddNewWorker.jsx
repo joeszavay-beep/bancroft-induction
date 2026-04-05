@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import { UserPlus, Upload } from 'lucide-react'
 import AddressLookup from '../components/AddressLookup'
+import DateOfBirthPicker from '../components/DateOfBirthPicker'
 
 const ROLES = ['Electrician', 'Apprentice', 'Supervisor', 'Engineer', 'Labourer', 'Other']
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Other']
@@ -198,7 +199,7 @@ export default function AddNewWorker() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className={labelCls}>Date of Birth *</label>
-                    <input type="date" value={dob} onChange={e => setDob(e.target.value)} className={inputCls} />
+                    <DateOfBirthPicker value={dob} onChange={setDob} />
                   </div>
                   <div>
                     <label className={labelCls}>NI Number</label>
