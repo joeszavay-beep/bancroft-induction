@@ -235,6 +235,15 @@ export function drawSectionLabel(doc, { label, y, margin }) {
   return y + 6
 }
 
+function drawCheck(doc, x, y) {
+  doc.setFillColor(...COLORS.greenBg)
+  doc.circle(x, y, 5, 'F')
+  doc.setDrawColor(...COLORS.green)
+  doc.setLineWidth(0.8)
+  doc.line(x - 2.5, y, x - 0.5, y + 2)
+  doc.line(x - 0.5, y + 2, x + 2.5, y - 2)
+}
+
 /**
  * Draw a 2-column card grid of people with sign-off status
  */
@@ -281,17 +290,20 @@ export function drawCardGrid(doc, { people, y, margin, pageW, checkPage }) {
       doc.setFont('helvetica', 'normal')
       doc.text(person.secondary || '', avX + 8, avY + 4.5)
 
-      // Status checkmark
-      if (person.signed !== false) {
-        const checkX = cx + cardW - 10
-        const checkY = avY
-        doc.setFillColor(...COLORS.greenBg)
-        doc.circle(checkX, checkY, 5, 'F')
-        // Checkmark
-        doc.setDrawColor(...COLORS.green)
-        doc.setLineWidth(0.8)
-        doc.line(checkX - 2.5, checkY, checkX - 0.5, checkY + 2)
-        doc.line(checkX - 0.5, checkY + 2, checkX + 2.5, checkY - 2)
+      // Signature image or checkmark
+      if (person.signatureImg) {
+        try {
+          const sigW = 28
+          const sigH = 9
+          const sigX = cx + cardW - sigW - 4
+          const sigY = avY - sigH / 2
+          doc.addImage(person.signatureImg, 'PNG', sigX, sigY, sigW, sigH)
+        } catch {
+          // Fallback to checkmark if image fails
+          drawCheck(doc, cx + cardW - 10, avY)
+        }
+      } else if (person.signed !== false) {
+        drawCheck(doc, cx + cardW - 10, avY)
       }
     }
     y += cardH + gap

@@ -81,11 +81,19 @@ export async function generateArchivePDF({ project, operatives, documents, signa
       doc.text('No signatures recorded', margin + 8, y)
       y += 8
     } else {
-      const people = docSigs.map(sig => ({
-        name: sig.operative_name || 'Unknown',
-        secondary: sig.signed_at ? formatDateTime(sig.signed_at) : '—',
-        signed: !sig.invalidated,
-      }))
+      const people = []
+      for (const sig of docSigs) {
+        let sigImg = null
+        if (sig.signature_url && !sig.invalidated) {
+          try { sigImg = await fetchSignatureAsDataUrl(sig.signature_url) } catch {}
+        }
+        people.push({
+          name: sig.operative_name || 'Unknown',
+          secondary: sig.signed_at ? formatDateTime(sig.signed_at) : '—',
+          signed: !sig.invalidated,
+          signatureImg: sigImg,
+        })
+      }
 
       y = drawCardGrid(doc, { people, y, margin, pageW, checkPage })
     }
@@ -130,11 +138,19 @@ export async function generateArchivePDF({ project, operatives, documents, signa
       doc.text('No attendees recorded', margin + 8, y)
       y += 6
     } else {
-      const people = talkSigs.map(sig => ({
-        name: sig.operative_name || 'Unknown',
-        secondary: sig.signed_at ? formatDateTime(sig.signed_at) : '—',
-        signed: true,
-      }))
+      const people = []
+      for (const sig of talkSigs) {
+        let sigImg = null
+        if (sig.signature_url) {
+          try { sigImg = await fetchSignatureAsDataUrl(sig.signature_url) } catch {}
+        }
+        people.push({
+          name: sig.operative_name || 'Unknown',
+          secondary: sig.signed_at ? formatDateTime(sig.signed_at) : '—',
+          signed: true,
+          signatureImg: sigImg,
+        })
+      }
 
       y = drawCardGrid(doc, { people, y, margin, pageW, checkPage })
     }

@@ -43,13 +43,20 @@ export async function generateSignOffSheet({ projectName, documentTitle, signatu
   // Sign-off section
   y = drawSectionLabel(doc, { label: 'Sign-off record', y, margin })
 
-  // Build people data
+  // Build people data with signature images
   const people = []
   for (const sig of signatures) {
+    let sigImg = null
+    if (sig.signature_url && !sig.invalidated) {
+      try {
+        sigImg = await fetchSignatureAsDataUrl(sig.signature_url)
+      } catch {}
+    }
     people.push({
       name: sig.operative_name,
       secondary: sig.invalidated ? 'Invalidated' : formatDateTime(sig.signed_at),
       signed: !sig.invalidated,
+      signatureImg: sigImg,
     })
   }
 
