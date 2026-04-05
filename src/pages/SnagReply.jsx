@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
-import { Camera, CheckCircle2, XCircle, Upload } from 'lucide-react'
+import { Camera, CheckCircle2, XCircle, Upload, Send, MessageSquare } from 'lucide-react'
 
 export default function SnagReply() {
   const { token } = useParams()
@@ -14,6 +14,7 @@ export default function SnagReply() {
   const [photoPreview, setPhotoPreview] = useState(null)
   const [photoFile, setPhotoFile] = useState(null)
   const [comment, setComment] = useState('')
+  const [comments, setComments] = useState([])
 
   useEffect(() => { loadSnag() }, [token])
 
@@ -30,6 +31,10 @@ export default function SnagReply() {
 
     // Already submitted?
     if (data.status === 'pending_review') setSubmitted(true)
+
+    // Load comments
+    const { data: cmts } = await supabase.from('snag_comments').select('*').eq('snag_id', data.id).order('created_at')
+    setComments(cmts || [])
     setLoading(false)
   }
 
@@ -40,6 +45,24 @@ export default function SnagReply() {
     const reader = new FileReader()
     reader.onload = () => setPhotoPreview(reader.result)
     reader.readAsDataURL(file)
+  }
+
+  async function handleCommentOnly() {
+    if (!comment.trim()) { toast.error('Please enter a comment'); return }
+    setUploading(true)
+    try {
+      await supabase.from('snag_comments').insert({
+        snag_id: snag.id, comment: comment.trim(),
+        author_name: snag.assigned_to || 'Operative', author_role: 'Operative',
+      })
+      setUploading(false)
+      setComment('')
+      toast.success('Comment added')
+      loadSnag()
+    } catch {
+      setUploading(false)
+      toast.error('Failed to add comment')
+    }
   }
 
   async function handleSubmit() {
@@ -179,23 +202,60 @@ export default function SnagReply() {
             </div>
           )}
 
-          {/* Optional comment */}
+          {/* Optional comment with photo submission */}
           <textarea
             value={comment}
             onChange={e => setComment(e.target.value)}
-            placeholder="Add a comment (optional)..."
+            placeholder="Add a comment..."
             rows={2}
-            className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-lg text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:border-[#1B6FC8] resize-none mb-4"
+            className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-lg text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:border-[#1B6FC8] resize-none mb-3"
           />
 
-          <button
-            onClick={handleSubmit}
-            disabled={!photoFile || uploading}
-            className="w-full py-3.5 bg-[#2EA043] hover:bg-[#27903A] text-white font-semibold rounded-xl disabled:opacity-40 transition-colors min-h-[48px]"
-          >
-            {uploading ? 'Submitting...' : 'Submit for Review'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSubmit}
+              disabled={!photoFile || uploading}
+              className="flex-1 py-3 bg-[#2EA043] hover:bg-[#27903A] text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm"
+            >
+              {uploading ? 'Submitting...' : 'Submit Photo for Review'}
+            </button>
+            {!photoFile && (
+              <button
+                onClick={handleCommentOnly}
+                disabled={!comment.trim() || uploading}
+                className="px-4 py-3 bg-[#1B6FC8] hover:bg-[#1558A0] text-white font-semibold rounded-xl disabled:opacity-40 transition-colors"
+              >
+                <Send size={16} />
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Comments */}
+        {comments.length > 0 && (
+          <div className="bg-white border border-[#E2E6EA] rounded-xl p-5 shadow-sm">
+            <h2 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-1.5">
+              <MessageSquare size={14} className="text-[#1B6FC8]" /> Comments ({comments.length})
+            </h2>
+            <div className="space-y-3">
+              {comments.map(c => (
+                <div key={c.id} className="flex gap-2.5">
+                  <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-[10px] font-bold shrink-0">
+                    {(c.author_name || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-semibold text-slate-900">{c.author_name}</p>
+                      <span className="text-[10px] text-slate-400">{c.author_role}</span>
+                      <span className="text-[10px] text-slate-300 ml-auto">{new Date(c.created_at).toLocaleString()}</span>
+                    </div>
+                    <p className="text-sm text-slate-600 mt-0.5">{c.comment}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <p className="text-center text-[10px] text-slate-300">CoreSite — Site Compliance Platform</p>
       </div>
