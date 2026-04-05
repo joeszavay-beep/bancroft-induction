@@ -81,7 +81,7 @@ const features = [
   {
     icon: CheckSquare,
     title: 'Inspection Checklists',
-    desc: 'Create reusable templates for pre-plaster, fire stopping, pre-handover checks. Mark pass/fail per item with photo evidence. Auto-generates inspection reports.',
+    desc: 'Create reusable templates for void closure, fire stopping, pre-handover checks. Mark pass/fail per item with photo evidence. Auto-generates inspection reports.',
     color: '#059669',
   },
   {

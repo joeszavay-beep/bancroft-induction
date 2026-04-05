@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 
 const CATEGORIES = [
-  'Pre-Plaster',
+  'Void Closure',
   'Pre-Handover',
   'Fire Stopping',
   'M&E First Fix',
@@ -31,16 +31,16 @@ const DEFAULT_TEMPLATES = [
     ],
   },
   {
-    name: 'Pre-Plaster Inspection',
-    category: 'Pre-Plaster',
+    name: 'Void Closure Inspection',
+    category: 'Void Closure',
     description: 'Checks to complete before plastering begins',
     items: [
-      { label: 'First fix electrics complete', category: 'Pre-Plaster' },
-      { label: 'First fix plumbing complete', category: 'Pre-Plaster' },
-      { label: 'Window and door frames fitted', category: 'Pre-Plaster' },
-      { label: 'Cavity barriers installed', category: 'Pre-Plaster' },
-      { label: 'Lintels and beads in place', category: 'Pre-Plaster' },
-      { label: 'Insulation fitted correctly', category: 'Pre-Plaster' },
+      { label: 'First fix electrics complete', category: 'Void Closure' },
+      { label: 'First fix plumbing complete', category: 'Void Closure' },
+      { label: 'Window and door frames fitted', category: 'Void Closure' },
+      { label: 'Cavity barriers installed', category: 'Void Closure' },
+      { label: 'Lintels and beads in place', category: 'Void Closure' },
+      { label: 'Insulation fitted correctly', category: 'Void Closure' },
     ],
   },
   {
