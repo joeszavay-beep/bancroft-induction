@@ -20,7 +20,7 @@ const QUICK_MESSAGES = [
  */
 export default function Chat() {
   const { user } = useCompany()
-  const cid = user?.company_id
+  const cid = user?.company_id || JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
   const [conversations, setConversations] = useState([])
   const [selectedOp, setSelectedOp] = useState(null)
   const [messages, setMessages] = useState([])
@@ -108,7 +108,27 @@ export default function Chat() {
 
   async function sendMessage() {
     if (!newMsg.trim() || !selectedOp) return
+    const msgText = newMsg.trim()
     setSending(true)
+    // Optimistic: show immediately
+    const tempMsg = {
+      id: `temp-${Date.now()}`,
+      company_id: cid,
+      operative_id: selectedOp.operative_id,
+      operative_name: selectedOp.operative_name,
+      manager_id: user?.id,
+      manager_name: user?.name || 'Manager',
+      sender_type: 'manager',
+      sender_name: user?.name || 'Manager',
+      message: msgText,
+      read_by_manager: true,
+      read_by_operative: false,
+      created_at: new Date().toISOString(),
+    }
+    setMessages(prev => [...prev, tempMsg])
+    setNewMsg('')
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+
     await supabase.from('chat_messages').insert({
       company_id: cid,
       project_id: null,
@@ -118,11 +138,10 @@ export default function Chat() {
       manager_name: user?.name || 'Manager',
       sender_type: 'manager',
       sender_name: user?.name || 'Manager',
-      message: newMsg.trim(),
+      message: msgText,
       read_by_manager: true,
       read_by_operative: false,
     })
-    setNewMsg('')
     setSending(false)
   }
 

@@ -110,7 +110,27 @@ export default function OperativeDashboard() {
 
   async function sendChat() {
     if (!chatMsg.trim() || !op || !selectedManager) return
+    const msgText = chatMsg.trim()
     setChatSending(true)
+    // Optimistic: show immediately
+    const tempMsg = {
+      id: `temp-${Date.now()}`,
+      company_id: op.company_id,
+      operative_id: op.id,
+      operative_name: op.name,
+      manager_id: selectedManager.id,
+      manager_name: selectedManager.name,
+      sender_type: 'operative',
+      sender_name: op.name,
+      message: msgText,
+      read_by_manager: false,
+      read_by_operative: true,
+      created_at: new Date().toISOString(),
+    }
+    setChatMessages(prev => [...prev, tempMsg])
+    setChatMsg('')
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+
     await supabase.from('chat_messages').insert({
       company_id: op.company_id,
       operative_id: op.id,
@@ -119,11 +139,10 @@ export default function OperativeDashboard() {
       manager_name: selectedManager.name,
       sender_type: 'operative',
       sender_name: op.name,
-      message: chatMsg.trim(),
+      message: msgText,
       read_by_manager: false,
       read_by_operative: true,
     })
-    setChatMsg('')
     setChatSending(false)
   }
 
