@@ -273,6 +273,8 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
   const [musterPoint, setMusterPoint] = useState('')
+  const [startTime, setStartTime] = useState('07:30')
+  const [endTime, setEndTime] = useState('17:00')
   const [uploadFile, setUploadFile] = useState(null)
   const [docTitle, setDocTitle] = useState('')
   const [expandedProject, setExpandedProject] = useState(null)
@@ -281,7 +283,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
     e.preventDefault()
     if (!name.trim()) return
     setSaving(true)
-    const { error } = await supabase.from('projects').insert({ name: name.trim(), location: location.trim(), muster_point: musterPoint.trim() || null, company_id: cid })
+    const { error } = await supabase.from('projects').insert({ name: name.trim(), location: location.trim(), muster_point: musterPoint.trim() || null, start_time: startTime || '07:30', end_time: endTime || '17:00', company_id: cid })
     setSaving(false)
     if (error) {
       console.error('Add project error:', error)
@@ -293,6 +295,8 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
     setName('')
     setLocation('')
     setMusterPoint('')
+    setStartTime('07:30')
+    setEndTime('17:00')
     onRefresh()
   }
 
@@ -607,6 +611,22 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
             placeholder="Fire muster point (e.g. Ground floor courtyard)"
             className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
           />
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block font-medium">Working Hours</label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-slate-400 mb-0.5 block">Start Time</label>
+                <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-blue-400" />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-400 mb-0.5 block">End Time</label>
+                <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-blue-400" />
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">10 min grace period either side. Late arrivals / early departures will be flagged.</p>
+          </div>
           <LoadingButton loading={saving} type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white">
             Add Project
           </LoadingButton>

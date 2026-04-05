@@ -110,11 +110,35 @@ export default function SiteSignIn() {
     return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
   }
 
+  function checkTimingFlag(type, now) {
+    const startTime = project?.start_time || '07:30'
+    const endTime = project?.end_time || '17:00'
+    const grace = 10 // minutes
+
+    const nowMins = now.getHours() * 60 + now.getMinutes()
+    const [sh, sm] = startTime.split(':').map(Number)
+    const [eh, em] = endTime.split(':').map(Number)
+    const startMins = sh * 60 + sm
+    const endMins = eh * 60 + em
+
+    if (type === 'sign_in') {
+      if (nowMins > startMins + grace) return 'late'
+      if (nowMins < startMins - grace) return 'early'
+    }
+    if (type === 'sign_out') {
+      if (nowMins < endMins - grace) return 'early'
+      if (nowMins > endMins + grace) return 'overtime'
+    }
+    return null
+  }
+
   const handleRecord = async (type) => {
     if (!selectedOperative || recording) return
     setRecording(true)
 
     const now = new Date()
+    const flag = checkTimingFlag(type, now)
+
     const record = {
       company_id: project?.company_id || project?.companies?.id || null,
       project_id: projectId,
@@ -124,6 +148,7 @@ export default function SiteSignIn() {
       method: 'qr',
       ip_address: null,
       recorded_at: now.toISOString(),
+      notes: flag ? `${flag.charAt(0).toUpperCase() + flag.slice(1)} — ${type === 'sign_in' ? 'arrived' : 'left'} at ${formatTime(now)}` : null,
     }
 
     if (geoPosition) {
@@ -134,12 +159,12 @@ export default function SiteSignIn() {
     const { error } = await supabase.from('site_attendance').insert(record)
 
     if (!error) {
-      // Update local attendance
       setAttendance((prev) => [{ ...record, id: crypto.randomUUID() }, ...prev])
       setSuccess({
         type,
         name: selectedOperative.name,
         time: formatTime(now),
+        flag,
       })
     }
 
@@ -214,6 +239,19 @@ export default function SiteSignIn() {
             {isSignIn ? 'signed in' : 'signed out'} at {success.time}
           </p>
         </div>
+        {success.flag && (
+          <div style={{
+            animation: 'fadeInUp 0.5s ease-out 0.5s forwards', opacity: 0, marginTop: 16,
+            background: success.flag === 'late' ? 'rgba(218,54,51,0.3)' : success.flag === 'early' ? 'rgba(234,88,12,0.3)' : 'rgba(255,255,255,0.15)',
+            borderRadius: 10, padding: '10px 18px', textAlign: 'center',
+          }}>
+            <p style={{ color: '#fff', fontSize: 14, margin: 0, fontWeight: 600 }}>
+              {success.flag === 'late' && `⚠ Late arrival — start time is ${project?.start_time || '07:30'}`}
+              {success.flag === 'early' && (isSignIn ? `Early arrival` : `⚠ Early departure — end time is ${project?.end_time || '17:00'}`)}
+              {success.flag === 'overtime' && `Overtime — end time is ${project?.end_time || '17:00'}`}
+            </p>
+          </div>
+        )}
         {geoPosition && (
           <div style={{ animation: 'fadeInUp 0.5s ease-out 0.5s forwards', opacity: 0, marginTop: 16, display: 'flex', alignItems: 'center', gap: 4, color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
             <MapPin size={14} />

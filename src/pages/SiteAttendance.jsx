@@ -469,15 +469,21 @@ export default function SiteAttendance() {
                       {getOpName(r.operative_id)}
                     </td>
                     <td className="py-2.5 px-3">
-                      {r.type === 'sign_in' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
-                          <LogIn size={11} /> IN
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-                          <LogOut size={11} /> OUT
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {r.type === 'sign_in' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+                            <LogIn size={11} /> IN
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                            <LogOut size={11} /> OUT
+                          </span>
+                        )}
+                        {r.notes?.startsWith('Late') && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600">LATE</span>}
+                        {r.notes?.startsWith('Early') && r.type === 'sign_out' && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600">EARLY</span>}
+                        {r.notes?.startsWith('Overtime') && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600">OT</span>}
+                        {r.method === 'auto' && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500">AUTO</span>}
+                      </div>
                     </td>
                     <td className="py-2.5 px-3 hidden sm:table-cell" style={{ color: 'var(--text-muted)' }}>
                       {r.method || '--'}
