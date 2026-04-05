@@ -5,8 +5,15 @@ import { supabase } from './supabase'
  * Use for authenticated API calls to /api/* routes.
  */
 export async function authFetch(url, options = {}) {
-  const { data: { session } } = await supabase.auth.getSession()
-  const token = session?.access_token
+  let token = null
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    token = session?.access_token
+  } catch {}
+
+  if (!token) {
+    console.warn('authFetch: no auth token available for', url)
+  }
 
   return fetch(url, {
     ...options,

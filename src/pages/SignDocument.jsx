@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import SignatureCanvas from 'react-signature-canvas'
 import { supabase } from '../lib/supabase'
-import { authFetch } from '../lib/authFetch'
+// notify doesn't need auth — called from operative pages
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import PDFViewer from '../components/PDFViewer'
@@ -101,7 +101,7 @@ export default function SignDocument() {
       })
 
       // Send email via Vercel API route
-      await authFetch('/api/notify', {
+      await fetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
