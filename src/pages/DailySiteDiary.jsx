@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
 import toast from 'react-hot-toast'
@@ -84,7 +84,10 @@ export default function DailySiteDiary() {
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [locationInput, setLocationInput] = useState('')
+  const [locationSuggestions, setLocationSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [fetchingWeather, setFetchingWeather] = useState(false)
+  const debounceRef = useRef(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -183,19 +186,52 @@ export default function DailySiteDiary() {
     loadData()
   }
 
-  async function handleFetchWeather() {
-    if (!locationInput.trim()) return
+  function handleLocationChange(value) {
+    setLocationInput(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (value.trim().length < 2) { setLocationSuggestions([]); setShowSuggestions(false); return }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(value.trim())}&count=5&language=en&format=json`)
+        const data = await res.json()
+        if (data.results?.length) {
+          setLocationSuggestions(data.results.map(r => ({
+            name: r.name,
+            region: r.admin1 || '',
+            country: r.country || '',
+            latitude: r.latitude,
+            longitude: r.longitude,
+          })))
+          setShowSuggestions(true)
+        } else {
+          setLocationSuggestions([])
+          setShowSuggestions(false)
+        }
+      } catch { setLocationSuggestions([]); setShowSuggestions(false) }
+    }, 300)
+  }
+
+  async function handleSelectLocation(loc) {
+    setLocationInput(`${loc.name}, ${loc.region}`)
+    setShowSuggestions(false)
+    setLocationSuggestions([])
     setFetchingWeather(true)
     try {
-      const data = await fetchWeatherForLocation(locationInput.trim())
-      setWeather(data.weather)
-      setTempHigh(data.tempHigh.toString())
-      setTempLow(data.tempLow.toString())
-      // If wind is very high, override to windy
-      if (data.windSpeed > 40) setWeather('windy')
-      toast.success(`Weather loaded for ${data.locationName}: ${data.currentTemp}°C`)
-    } catch (err) {
-      toast.error('Could not find weather for that location')
+      const weatherRes = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`
+      )
+      const weatherData = await weatherRes.json()
+      const w = wmoToWeather(weatherData.current?.weather_code ?? 3)
+      const high = Math.round(weatherData.daily?.temperature_2m_max?.[0] ?? 0)
+      const low = Math.round(weatherData.daily?.temperature_2m_min?.[0] ?? 0)
+      const wind = Math.round(weatherData.current?.wind_speed_10m ?? 0)
+      const temp = Math.round(weatherData.current?.temperature_2m ?? 0)
+      setWeather(wind > 40 ? 'windy' : w)
+      setTempHigh(high.toString())
+      setTempLow(low.toString())
+      toast.success(`${loc.name}: ${temp}°C, ${WEATHER_OPTIONS.find(o => o.value === (wind > 40 ? 'windy' : w))?.label || w}`)
+    } catch {
+      toast.error('Failed to fetch weather')
     }
     setFetchingWeather(false)
   }
@@ -353,29 +389,39 @@ export default function DailySiteDiary() {
                 </div>
               </div>
 
-              {/* Weather auto-fetch */}
+              {/* Weather auto-fetch with autocomplete */}
               <div>
                 <label className={labelCls}>Site Location (auto-fill weather)</label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      value={locationInput}
-                      onChange={e => setLocationInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleFetchWeather() } }}
-                      className={`${inputCls} pl-9`}
-                      placeholder="e.g. Manchester, London, Birmingham..."
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleFetchWeather}
-                    disabled={fetchingWeather || !locationInput.trim()}
-                    className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-[#1B6FC8] text-xs font-semibold rounded-lg border border-blue-200 transition-colors disabled:opacity-40 shrink-0"
-                  >
-                    {fetchingWeather ? <Loader2 size={14} className="animate-spin" /> : <Cloud size={14} />}
-                    {fetchingWeather ? 'Fetching...' : 'Get Weather'}
-                  </button>
+                <div className="relative">
+                  <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" />
+                  {fetchingWeather && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-500 animate-spin z-10" />}
+                  <input
+                    value={locationInput}
+                    onChange={e => handleLocationChange(e.target.value)}
+                    onFocus={() => { if (locationSuggestions.length) setShowSuggestions(true) }}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    className={`${inputCls} pl-9`}
+                    placeholder="Start typing a city or town..."
+                    autoComplete="off"
+                  />
+                  {showSuggestions && locationSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                      {locationSuggestions.map((loc, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onMouseDown={() => handleSelectLocation(loc)}
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-0"
+                        >
+                          <MapPin size={14} className="text-slate-400 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-900 truncate">{loc.name}</p>
+                            <p className="text-xs text-slate-500 truncate">{[loc.region, loc.country].filter(Boolean).join(', ')}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
