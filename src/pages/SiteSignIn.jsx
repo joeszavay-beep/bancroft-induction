@@ -283,50 +283,58 @@ export default function SiteSignIn() {
             </p>
           )}
 
-          {/* Status indicator */}
+          {/* Show status and the ONLY valid action */}
           {(() => {
             const isOnSite = currentlyOnSite.some(r => r.operative_id === selectedOperative.id)
             const lastRecord = attendance.find(r => r.operative_id === selectedOperative.id)
-            return isOnSite ? (
-              <div style={{ width: '100%', maxWidth: 400, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#2EA043' }} />
-                <span style={{ fontSize: 14, color: '#166534', fontWeight: 600 }}>On site since {lastRecord ? formatTime(lastRecord.recorded_at) : 'today'}</span>
-              </div>
-            ) : lastRecord?.type === 'sign_out' ? (
-              <div style={{ width: '100%', maxWidth: 400, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#DA3633' }} />
-                <span style={{ fontSize: 14, color: '#991b1b', fontWeight: 600 }}>Signed out at {formatTime(lastRecord.recorded_at)}</span>
-              </div>
-            ) : null
-          })()}
+            const signInTime = isOnSite && lastRecord ? formatTime(lastRecord.recorded_at) : null
 
-          {/* Action buttons — show sign out first if already on site */}
-          {(() => {
-            const isOnSite = currentlyOnSite.some(r => r.operative_id === selectedOperative.id)
-            const primaryAction = isOnSite ? 'sign_out' : 'sign_in'
-            const secondaryAction = isOnSite ? 'sign_in' : 'sign_out'
-
-            const btnStyle = (type, isPrimary) => ({
-              width: '100%', minHeight: isPrimary ? 56 : 48, padding: isPrimary ? '16px 24px' : '12px 24px',
-              background: type === 'sign_in' ? (isPrimary ? '#2EA043' : 'transparent') : (isPrimary ? '#DA3633' : 'transparent'),
-              color: type === 'sign_in' ? (isPrimary ? '#fff' : '#2EA043') : (isPrimary ? '#fff' : '#DA3633'),
-              border: isPrimary ? 'none' : `2px solid ${type === 'sign_in' ? '#2EA043' : '#DA3633'}`,
-              borderRadius: 12,
-              fontSize: isPrimary ? 18 : 15, fontWeight: 700, cursor: recording ? 'wait' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              opacity: recording ? 0.7 : 1, transition: 'opacity 0.2s, transform 0.1s',
-              boxShadow: isPrimary ? `0 2px 8px ${type === 'sign_in' ? 'rgba(46,160,67,0.3)' : 'rgba(218,54,51,0.3)'}` : 'none',
-            })
+            if (isOnSite) {
+              return (
+                <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#2EA043', boxShadow: '0 0 0 3px rgba(46,160,67,0.2)' }} />
+                    <span style={{ fontSize: 15, color: '#166534', fontWeight: 600 }}>On site since {signInTime}</span>
+                  </div>
+                  <button
+                    onClick={() => handleRecord('sign_out')}
+                    disabled={recording}
+                    style={{
+                      width: '100%', minHeight: 56, padding: '16px 24px',
+                      background: '#DA3633', color: '#fff', border: 'none', borderRadius: 12,
+                      fontSize: 18, fontWeight: 700, cursor: recording ? 'wait' : 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                      opacity: recording ? 0.7 : 1, boxShadow: '0 2px 8px rgba(218,54,51,0.3)',
+                    }}
+                  >
+                    <LogOut size={22} />
+                    SIGN OUT
+                  </button>
+                </div>
+              )
+            }
 
             return (
-              <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <button onClick={() => handleRecord(primaryAction)} disabled={recording} style={btnStyle(primaryAction, true)}>
-                  {primaryAction === 'sign_in' ? <LogIn size={22} /> : <LogOut size={22} />}
-                  {primaryAction === 'sign_in' ? 'SIGN IN' : 'SIGN OUT'}
-                </button>
-                <button onClick={() => handleRecord(secondaryAction)} disabled={recording} style={btnStyle(secondaryAction, false)}>
-                  {secondaryAction === 'sign_in' ? <LogIn size={18} /> : <LogOut size={18} />}
-                  {secondaryAction === 'sign_in' ? 'Sign In Instead' : 'Sign Out Instead'}
+              <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {lastRecord?.type === 'sign_out' && (
+                  <div style={{ background: '#f5f5f5', border: '1px solid #e2e8f0', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#94a3b8' }} />
+                    <span style={{ fontSize: 14, color: '#64748b', fontWeight: 500 }}>Last signed out at {formatTime(lastRecord.recorded_at)}</span>
+                  </div>
+                )}
+                <button
+                  onClick={() => handleRecord('sign_in')}
+                  disabled={recording}
+                  style={{
+                    width: '100%', minHeight: 56, padding: '16px 24px',
+                    background: '#2EA043', color: '#fff', border: 'none', borderRadius: 12,
+                    fontSize: 18, fontWeight: 700, cursor: recording ? 'wait' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                    opacity: recording ? 0.7 : 1, boxShadow: '0 2px 8px rgba(46,160,67,0.3)',
+                  }}
+                >
+                  <LogIn size={22} />
+                  SIGN IN
                 </button>
               </div>
             )
