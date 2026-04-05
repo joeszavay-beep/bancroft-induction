@@ -1,6 +1,6 @@
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
-import { CacheFirst, StaleWhileRevalidate, NetworkFirst } from 'workbox-strategies'
+import { CacheFirst, NetworkFirst } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 
@@ -33,23 +33,11 @@ registerRoute(
   })
 )
 
-// Supabase REST API GET requests — StaleWhileRevalidate
-// Serves cached data instantly, refreshes in background
-registerRoute(
-  ({ url, request }) =>
-    url.hostname.includes('supabase.co') &&
-    url.pathname.includes('/rest/v1/') &&
-    request.method === 'GET',
-  new StaleWhileRevalidate({
-    cacheName: 'supabase-api',
-    plugins: [
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
-      new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 7 * 24 * 60 * 60 }),
-    ],
-  })
-)
+// Supabase REST API — NO CACHING. Always fetch fresh from network.
+// Data must be live and accurate. Offline support is handled by
+// IndexedDB in the application layer, not the service worker.
 
-// Supabase Auth API — NetworkFirst (auth must be fresh when possible)
+// Supabase Auth API — NetworkFirst (auth must be fresh)
 registerRoute(
   ({ url }) => url.hostname.includes('supabase.co') && url.pathname.includes('/auth/'),
   new NetworkFirst({
@@ -57,18 +45,6 @@ registerRoute(
     networkTimeoutSeconds: 5,
     plugins: [
       new CacheableResponsePlugin({ statuses: [0, 200] }),
-    ],
-  })
-)
-
-// Google Fonts (if ever used)
-registerRoute(
-  ({ url }) => url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com',
-  new CacheFirst({
-    cacheName: 'google-fonts',
-    plugins: [
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
-      new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 365 * 24 * 60 * 60 }),
     ],
   })
 )
