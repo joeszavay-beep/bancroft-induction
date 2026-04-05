@@ -29,7 +29,7 @@ export default function OperativeProfile() {
   async function loadOperative() {
     const { data } = await supabase
       .from('operatives')
-      .select('*, projects(name)')
+      .select('*, projects(name), companies(name, logo_url)')
       .eq('id', operativeId)
       .single()
     if (!data) {
@@ -92,7 +92,11 @@ export default function OperativeProfile() {
         <button onClick={() => navigate(`/operative/${operativeId}/documents`)} className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
           <ArrowLeft size={22} />
         </button>
-        <img src="/bancroft-logo.png" alt="Bancroft" className="h-7" />
+        {operative?.companies?.logo_url ? (
+          <img src={operative.companies.logo_url} alt={operative.companies.name} className="h-7" />
+        ) : (
+          <span className="text-sm font-semibold text-slate-700">{operative?.companies?.name || <><span className="font-light tracking-widest">CORE</span><span className="font-bold">SITE</span></>}</span>
+        )}
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold text-slate-900 truncate">My Profile</h1>
           <p className="text-xs text-slate-500 truncate">{operative?.name}</p>

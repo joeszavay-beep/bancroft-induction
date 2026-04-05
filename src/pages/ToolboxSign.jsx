@@ -29,7 +29,7 @@ export default function ToolboxSign() {
     setTalk(t)
 
     const [p, o, s] = await Promise.all([
-      supabase.from('projects').select('*').eq('id', t.project_id).single(),
+      supabase.from('projects').select('*, companies(name, logo_url)').eq('id', t.project_id).single(),
       supabase.from('operatives').select('*').eq('project_id', t.project_id).order('name'),
       supabase.from('toolbox_signatures').select('operative_id').eq('talk_id', talkId),
     ])
@@ -125,7 +125,11 @@ export default function ToolboxSign() {
     <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
       <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-4 py-3 shrink-0">
         <div className="flex items-center gap-3">
-          <img src="/bancroft-logo.png" alt="Bancroft" className="h-7" />
+          {project?.companies?.logo_url ? (
+            <img src={project.companies.logo_url} alt={project.companies.name} className="h-7" />
+          ) : (
+            <span className="text-sm font-semibold text-slate-700">{project?.companies?.name || <><span className="font-light tracking-widest">CORE</span><span className="font-bold">SITE</span></>}</span>
+          )}
           <div className="min-w-0">
             <p className="text-xs text-slate-400">Toolbox Talk</p>
             <p className="text-sm font-semibold text-slate-900 truncate">{project?.name}</p>

@@ -29,7 +29,7 @@ export default function Portal() {
 
   async function loadProjectData() {
     const [proj, sigs, docs, ops] = await Promise.all([
-      supabase.from('projects').select('*').eq('id', projectId).single(),
+      supabase.from('projects').select('*, companies(name, logo_url)').eq('id', projectId).single(),
       supabase.from('signatures').select('*').eq('project_id', projectId).order('signed_at', { ascending: false }),
       supabase.from('documents').select('*').eq('project_id', projectId).order('created_at'),
       supabase.from('operatives').select('*').eq('project_id', projectId).order('name'),
@@ -58,7 +58,11 @@ export default function Portal() {
             <ArrowLeft size={22} />
           </button>
           <div>
-            <img src="/bancroft-logo.png" alt="Bancroft" className="h-7" />
+            {project?.companies?.logo_url ? (
+              <img src={project.companies.logo_url} alt={project.companies.name} className="h-7" />
+            ) : (
+              <span className="text-sm font-semibold text-slate-700">{project?.companies?.name || <><span className="font-light tracking-widest">CORE</span><span className="font-bold">SITE</span></>}</span>
+            )}
             <span className="text-xs text-slate-500">Sign-Off Portal</span>
           </div>
         </header>
