@@ -695,16 +695,15 @@ export default function ProgressViewer() {
                 wrapperStyle={{ width: '100%', height: '100%', touchAction: 'none' }}
                 contentStyle={{ width: '100%', touchAction: 'none' }}
               >
-                <div className="relative inline-block" style={{ cursor: (isMarking && activeColour) || drawMode === 'text' || drawMode === 'comment' ? 'none' : 'grab' }}
-                  onMouseDown={(isMarking || drawMode === 'text' || drawMode === 'comment') ? (e) => { mouseDownPos.current = { x: e.clientX, y: e.clientY } } : undefined}
-                  onMouseUp={(isMarking || drawMode === 'text' || drawMode === 'comment') ? (e) => {
+                <div className="relative inline-block" style={{ cursor: isMarking || drawMode === 'text' || drawMode === 'comment' ? 'none' : 'grab' }}
+                  onMouseDown={(e) => { mouseDownPos.current = { x: e.clientX, y: e.clientY } }}
+                  onMouseUp={(e) => {
                     if (!mouseDownPos.current) return
                     const dx = Math.abs(e.clientX - mouseDownPos.current.x)
                     const dy = Math.abs(e.clientY - mouseDownPos.current.y)
                     mouseDownPos.current = null
-                    // Only treat as click if mouse moved less than 5px (not a drag)
-                    if (dx < 5 && dy < 5) handleDrawingTap(e)
-                  } : undefined}>
+                    if (dx < 5 && dy < 5 && (isMarking || drawMode === 'text' || drawMode === 'comment')) handleDrawingTap(e)
+                  }}>
                   <img ref={imageRef} src={drawing?.image_url} alt={drawing?.name}
                     className="max-w-none select-none" style={{ width: '100%', minWidth: '800px' }}
                     onLoad={() => setImageLoaded(true)} draggable={false} />
