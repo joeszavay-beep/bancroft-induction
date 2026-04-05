@@ -34,6 +34,8 @@ import DailySiteDiary from './pages/DailySiteDiary'
 import ContractorPerformance from './pages/ContractorPerformance'
 import Inspections from './pages/Inspections'
 import AftercarePage from './pages/AftercarePage'
+import SiteSignIn from './pages/SiteSignIn'
+import SiteAttendance from './pages/SiteAttendance'
 
 function AppLayout() {
   const { isAuthenticated, isLoading } = useCompany()
@@ -54,6 +56,7 @@ function AppLayout() {
         <Route path="/invite-existing" element={<InviteExistingWorkers />} />
         <Route path="/pipeline" element={<InvitationsPipeline />} />
         <Route path="/diary" element={<DailySiteDiary />} />
+        <Route path="/attendance" element={<SiteAttendance />} />
         <Route path="/performance" element={<ContractorPerformance />} />
         <Route path="/inspections" element={<Inspections />} />
         <Route path="/progress" element={<ProgressDrawingsList />} />
@@ -94,6 +97,7 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/snag-reply/:token" element={<SnagReply />} />
       <Route path="/aftercare/:projectId" element={<AftercarePage />} />
+      <Route path="/site/:projectId" element={<SiteSignIn />} />
 
       {/* Snag drawing viewer (full screen, no sidebar) */}
       <Route path="/snags/:drawingId" element={<SnagDrawingView />} />

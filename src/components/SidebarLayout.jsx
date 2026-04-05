@@ -25,6 +25,7 @@ const NAV_SECTIONS = [
     items: [
       { label: 'All Workers', path: '/app/workers', icon: Users },
       { label: 'Add New Worker', path: '/app/workers/new', icon: UserPlus },
+      { label: 'Site Attendance', path: '/app/attendance', icon: Activity },
     ],
   },
   {
