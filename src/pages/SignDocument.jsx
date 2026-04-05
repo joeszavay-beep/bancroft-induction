@@ -49,7 +49,10 @@ export default function SignDocument() {
 
   async function getIpAddress() {
     try {
-      const res = await fetch('https://api.ipify.org?format=json')
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 3000)
+      const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal })
+      clearTimeout(timeout)
       const data = await res.json()
       return data.ip
     } catch {
@@ -112,8 +115,11 @@ export default function SignDocument() {
   }
 
   async function handleSubmit(e) {
-    e.preventDefault()
-    if (!hasSigned || !typedDob.trim()) return
+    if (e?.preventDefault) e.preventDefault()
+    if (!hasSigned || !typedDob.trim()) {
+      toast.error('Please sign and enter your date of birth')
+      return
+    }
 
     // Verify DOB matches (if operative has DOB set)
     if (operative.date_of_birth) {
@@ -125,38 +131,45 @@ export default function SignDocument() {
 
     setSaving(true)
 
-    // Get IP address
-    const ipAddress = await getIpAddress()
+    try {
+      // Get IP address (with timeout)
+      const ipAddress = await getIpAddress()
 
-    const signatureDataUrl = sigRef.current.toDataURL('image/png')
+      const signatureDataUrl = sigRef.current.toDataURL('image/png')
 
-    // Upload signature image
-    const blob = await (await fetch(signatureDataUrl)).blob()
-    const filePath = `signatures/${operativeId}/${documentId}_${Date.now()}.png`
-    const { error: upErr } = await supabase.storage.from('documents').upload(filePath, blob, { contentType: 'image/png' })
+      // Upload signature image
+      const blob = await (await fetch(signatureDataUrl)).blob()
+      const filePath = `signatures/${operativeId}/${documentId}_${Date.now()}.png`
+      const { error: upErr } = await supabase.storage.from('documents').upload(filePath, blob, { contentType: 'image/png' })
 
-    if (upErr) {
+      if (upErr) {
+        setSaving(false)
+        toast.error(`Failed to upload signature: ${upErr.message}`)
+        return
+      }
+
+      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
+
+      const { error: dbErr } = await supabase.from('signatures').insert({
+        operative_id: operativeId,
+        document_id: documentId,
+        project_id: operative.project_id,
+        company_id: operative.company_id,
+        operative_name: operative.name,
+        document_title: document.title,
+        signature_url: urlData.publicUrl,
+        typed_name: typedDob.trim(),
+        ip_address: ipAddress,
+      })
+
+      if (dbErr) {
+        setSaving(false)
+        toast.error(`Failed to save signature: ${dbErr.message}`)
+        return
+      }
+    } catch (err) {
       setSaving(false)
-      toast.error('Failed to upload signature')
-      return
-    }
-
-    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
-
-    const { error: dbErr } = await supabase.from('signatures').insert({
-      operative_id: operativeId,
-      document_id: documentId,
-      project_id: operative.project_id,
-      operative_name: operative.name,
-      document_title: document.title,
-      signature_url: urlData.publicUrl,
-      typed_name: typedDob.trim(),
-      ip_address: ipAddress,
-    })
-
-    if (dbErr) {
-      setSaving(false)
-      toast.error('Failed to save signature')
+      toast.error(`Something went wrong: ${err.message}`)
       return
     }
 
