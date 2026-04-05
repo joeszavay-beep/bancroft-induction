@@ -99,7 +99,13 @@ export default function PMLogin() {
           </button>
         </div>
 
-        <div className="text-center mt-6 space-y-2">
+        <div className="text-center mt-4">
+          <button onClick={() => navigate('/worker-login')} className="text-xs text-white/40 hover:text-white/70 transition-colors">
+            Worker login →
+          </button>
+        </div>
+
+        <div className="text-center mt-4 space-y-2">
           <p className="text-xs text-white/30">Powered by CoreSite &mdash; Site Compliance Platform</p>
           <div className="flex items-center justify-center gap-3 text-[10px]">
             <a href="/policies/privacy" className="text-white/20 hover:text-white/50 transition-colors">Privacy</a>

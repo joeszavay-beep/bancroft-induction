@@ -36,6 +36,8 @@ import Inspections from './pages/Inspections'
 import AftercarePage from './pages/AftercarePage'
 import SiteSignIn from './pages/SiteSignIn'
 import SiteAttendance from './pages/SiteAttendance'
+import OperativeLogin from './pages/OperativeLogin'
+import OperativeDashboard from './pages/OperativeDashboard'
 
 function AppLayout() {
   const { isAuthenticated, isLoading } = useCompany()
@@ -98,6 +100,8 @@ export default function App() {
       <Route path="/snag-reply/:token" element={<SnagReply />} />
       <Route path="/aftercare/:projectId" element={<AftercarePage />} />
       <Route path="/site/:projectId" element={<SiteSignIn />} />
+      <Route path="/worker-login" element={<OperativeLogin />} />
+      <Route path="/worker" element={<OperativeDashboard />} />
 
       {/* Snag drawing viewer (full screen, no sidebar) */}
       <Route path="/snags/:drawingId" element={<SnagDrawingView />} />
