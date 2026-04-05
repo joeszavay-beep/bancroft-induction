@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Shield, FileCheck, MapPin, Layers, QrCode, Users, Clock, Download, CheckCircle2, ArrowRight, Zap, Lock, Globe, Smartphone, X, Send } from 'lucide-react'
+import { Shield, FileCheck, MapPin, Layers, QrCode, Users, Clock, Download, CheckCircle2, ArrowRight, Zap, Lock, Globe, Smartphone, X, Send, BookOpen, CheckSquare, Bell, BarChart3, WifiOff, HardHat, Activity } from 'lucide-react'
 
 function AnimatedCounter({ end, suffix = '', duration = 2000 }) {
   const [count, setCount] = useState(0)
@@ -57,7 +57,7 @@ const features = [
   {
     icon: MapPin,
     title: 'Snagging & Defect Tracking',
-    desc: 'Drop pins directly on drawings, attach photos, assign to trades, and track resolution. Operatives submit completion photos via email link for PM review.',
+    desc: 'Drop pins directly on drawings, attach photos, assign to trades, and track resolution. Automatic overdue email chasing and contractor performance analytics.',
     color: '#D93E3E',
   },
   {
@@ -68,26 +68,68 @@ const features = [
   },
   {
     icon: QrCode,
-    title: 'Toolbox Talks',
-    desc: 'Generate a QR code, hold it up on site, and watch names appear in real-time as operatives scan and sign. Export the full attendance record as PDF.',
+    title: 'QR Site Sign-In',
+    desc: 'Print a QR poster for the gate. Workers scan to sign in and out — giving you live headcount, fire muster roll call, time tracking, and attendance history.',
     color: '#D29922',
   },
   {
+    icon: BookOpen,
+    title: 'Daily Site Diary',
+    desc: 'Record weather (auto-filled from location), workforce count, deliveries, visitors, delays, and incidents. The daily log every site manager needs, digitised.',
+    color: '#0891B2',
+  },
+  {
+    icon: CheckSquare,
+    title: 'Inspection Checklists',
+    desc: 'Create reusable templates for pre-plaster, fire stopping, pre-handover checks. Mark pass/fail per item with photo evidence. Auto-generates inspection reports.',
+    color: '#059669',
+  },
+  {
     icon: Users,
-    title: 'Worker Management',
-    desc: 'Register workers once, invite them to any project. Full profiles with DOB, NI, next of kin, certifications. Track induction completion across the pipeline.',
+    title: 'Worker Management & Certs',
+    desc: 'Full operative profiles with CSCS card, IPAF, PASMA, first aid tracking. Automatic alerts 30 days before any certification expires. UK address lookup built in.',
     color: '#7C3AED',
+  },
+  {
+    icon: HardHat,
+    title: 'Worker Portal',
+    desc: 'Operatives get their own login to see assigned snags, sign documents and toolbox talks, and track their compliance status. Mobile-first with bottom nav.',
+    color: '#EA580C',
+  },
+  {
+    icon: BarChart3,
+    title: 'Contractor Performance',
+    desc: 'Automatic analytics from your snag data — average resolution time by trade, operative league tables, on-time percentages. Data to back up every subcontractor meeting.',
+    color: '#4F46E5',
+  },
+  {
+    icon: Bell,
+    title: 'Notifications & Auto-Chase',
+    desc: 'In-app notification centre plus automated overdue snag emails sent to operatives every morning. 14+ days overdue auto-escalates to high priority.',
+    color: '#DC2626',
+  },
+  {
+    icon: Activity,
+    title: 'Aftercare Portal',
+    desc: 'Give clients a link to report defects during the 12-month liability period. They submit photos and descriptions — you manage them alongside your snags.',
+    color: '#0D9488',
+  },
+  {
+    icon: WifiOff,
+    title: 'Works Offline',
+    desc: 'Full offline mode — create snags, place pins, take photos underground with no signal. Everything syncs automatically when you\'re back online.',
+    color: '#6366F1',
   },
   {
     icon: Shield,
     title: 'Full H&S Archive',
-    desc: 'One-click export of your entire project H&S pack — every signature, toolbox talk, snag, and operative record compiled into a professional PDF.',
+    desc: 'One-click export of your entire project H&S pack — every signature, toolbox talk, snag, inspection, and diary entry compiled into a professional PDF.',
     color: '#1B2A3D',
   },
 ]
 
 const stats = [
-  { value: 99.9, suffix: '%', label: 'Uptime reliability' },
+  { value: 13, suffix: '+', label: 'Features in one platform' },
   { value: 50, suffix: '%', label: 'Less time on admin' },
   { value: 100, suffix: '%', label: 'Digital paper trail' },
   { value: 0, suffix: '', label: 'Paper forms needed', display: 'Zero' },
