@@ -54,6 +54,9 @@ export default function NotificationBell() {
     }
 
     fetchNotifications()
+    // Poll every 15 seconds for new notifications
+    const interval = setInterval(fetchNotifications, 15000)
+    return () => clearInterval(interval)
   }, [userId])
 
   // Subscribe to realtime inserts

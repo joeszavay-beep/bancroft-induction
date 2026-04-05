@@ -32,22 +32,24 @@ export default function Chat() {
   const channelRef = useRef(null)
 
   useEffect(() => {
-    if (cid) loadConversations()
-    // Poll for new messages every 10 seconds when on the conversation list
+    if (!cid) return
+    loadConversations()
     const interval = setInterval(() => {
-      if (cid && !selectedOp) loadConversations()
+      if (!selectedOp) loadConversations()
     }, 10000)
     return () => clearInterval(interval)
   }, [cid, selectedOp])
 
   async function loadConversations() {
+    if (!cid) return
     setLoading(true)
     // Get all messages for this company, grouped by operative
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('chat_messages')
       .select('*, operatives(name, role, photo_url)')
       .eq('company_id', cid)
       .order('created_at', { ascending: false })
+    if (error) { console.error('Chat load error:', error); setLoading(false); return }
 
     // Group by operative and get latest message + unread count
     const opMap = {}
