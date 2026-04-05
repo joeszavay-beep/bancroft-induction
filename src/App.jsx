@@ -103,7 +103,7 @@ export default function App() {
       <Route path="/snag-reply/:token" element={<SnagReply />} />
       <Route path="/aftercare/:projectId" element={<AftercarePage />} />
       <Route path="/site/:projectId" element={<SiteSignIn />} />
-      <Route path="/worker-login" element={<OperativeLogin />} />
+      <Route path="/worker-login" element={<Navigate to="/login" replace />} />
       <Route path="/worker/*" element={<OperativeDashboard />} />
 
       {/* Snag drawing viewer (full screen, no sidebar) */}

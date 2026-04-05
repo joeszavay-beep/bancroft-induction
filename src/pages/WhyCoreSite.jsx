@@ -112,9 +112,8 @@ export default function WhyCoreSite() {
               <span className="text-xl text-white font-light tracking-[3px]">CORE<span className="font-bold tracking-normal">SITE</span></span>
             </Link>
             <div className="flex items-center gap-4">
-              <button onClick={() => navigate('/worker-login')} className="text-sm text-white/50 hover:text-white transition-colors hidden sm:block">Worker Login</button>
               <button onClick={() => navigate('/login')} className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-lg border border-white/20 transition-colors">
-                Manager Sign In
+                Sign In
               </button>
             </div>
           </header>
@@ -351,8 +350,7 @@ export default function WhyCoreSite() {
             <span className="text-lg text-white font-light tracking-[3px]">CORE<span className="font-bold tracking-normal">SITE</span></span>
             <div className="flex items-center gap-5 text-sm">
               <Link to="/" className="text-white/40 hover:text-white transition-colors">Home</Link>
-              <Link to="/login" className="text-white/40 hover:text-white transition-colors">Manager Login</Link>
-              <Link to="/worker-login" className="text-white/40 hover:text-white transition-colors">Worker Login</Link>
+              <Link to="/login" className="text-white/40 hover:text-white transition-colors">Sign In</Link>
               <a href="mailto:joe@coresite.io" className="text-white/40 hover:text-white transition-colors">Contact</a>
             </div>
           </div>
