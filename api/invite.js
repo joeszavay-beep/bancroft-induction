@@ -15,6 +15,7 @@ export default async function handler(req, res) {
 
   const profileLink = `${baseUrl}/operative/${operativeId}/profile`
   const documentsLink = `${baseUrl}/operative/${operativeId}/documents`
+  const workerLink = `${baseUrl}/worker-login`
 
   const results = { email: null, sms: null }
 
@@ -43,20 +44,20 @@ export default async function handler(req, res) {
                   <p style="color: white; font-size: 16px; margin: 0 0 8px;">Hi ${operativeName},</p>
                   <p style="color: #9ca3af; font-size: 14px; margin: 0 0 20px;">
                     You've been added to <strong style="color: white;">${projectName}</strong>.
-                    Please complete your profile and sign the required documents.
+                    Sign in to complete your profile and sign the required documents.
                   </p>
 
-                  <a href="${profileLink}" style="display: block; background: #3b82f6; color: white; text-align: center; padding: 14px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; margin-bottom: 12px;">
-                    Complete Your Profile
+                  <a href="${workerLink}" style="display: block; background: #3b82f6; color: white; text-align: center; padding: 14px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; margin-bottom: 12px;">
+                    Sign In to CoreSite
                   </a>
 
-                  <a href="${documentsLink}" style="display: block; background: #1c2744; border: 1px solid #253356; color: white; text-align: center; padding: 14px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
-                    View & Sign Documents
+                  <a href="${profileLink}" style="display: block; background: #1c2744; border: 1px solid #253356; color: white; text-align: center; padding: 14px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
+                    First time? Complete Your Profile
                   </a>
 
                   <p style="color: #6b7280; font-size: 11px; margin: 20px 0 0; text-align: center;">
-                    If the buttons don't work, copy this link:<br>
-                    <span style="color: #3b82f6;">${profileLink}</span>
+                    Sign in with your email and date of birth<br>
+                    <span style="color: #3b82f6;">${workerLink}</span>
                   </p>
                 </div>
               </div>

@@ -64,16 +64,29 @@ export default function OperativeDashboard() {
 
   async function loadData(opData) {
     setLoading(true)
-    const pid = opData.project_id
     const cid = opData.company_id
 
+    // Find all operative records for this person (may be on multiple projects)
+    const { data: allOpRecords } = await supabase.from('operatives').select('id, project_id')
+      .eq('company_id', cid).eq('email', opData.email)
+    const projectIds = [...new Set((allOpRecords || []).map(o => o.project_id).filter(Boolean))]
+    const operativeIds = (allOpRecords || []).map(o => o.id)
+
     const [docs, sigs, snagData, talkData, talkSigData, notifData] = await Promise.all([
-      pid ? supabase.from('documents').select('*').eq('project_id', pid).order('created_at', { ascending: false }) : { data: [] },
-      supabase.from('signatures').select('*').eq('operative_id', opData.id).order('signed_at', { ascending: false }),
-      supabase.from('snags').select('*, drawings(name)').eq('assigned_to', opData.name).in('status', ['open', 'reassigned']).order('due_date'),
-      pid ? supabase.from('toolbox_talks').select('*').eq('project_id', pid).eq('is_open', true).order('created_at', { ascending: false }) : { data: [] },
-      supabase.from('toolbox_signatures').select('talk_id').eq('operative_id', opData.id),
-      cid ? supabase.from('notifications').select('*').eq('user_id', opData.id).eq('read', false).order('created_at', { ascending: false }).limit(10) : { data: [] },
+      projectIds.length > 0
+        ? supabase.from('documents').select('*, projects(name)').in('project_id', projectIds).order('created_at', { ascending: false })
+        : { data: [] },
+      operativeIds.length > 0
+        ? supabase.from('signatures').select('*').in('operative_id', operativeIds).order('signed_at', { ascending: false })
+        : { data: [] },
+      supabase.from('snags').select('*, drawings(name)').eq('assigned_to', opData.name).eq('company_id', cid).in('status', ['open', 'reassigned']).order('due_date'),
+      projectIds.length > 0
+        ? supabase.from('toolbox_talks').select('*').in('project_id', projectIds).eq('is_open', true).order('created_at', { ascending: false })
+        : { data: [] },
+      operativeIds.length > 0
+        ? supabase.from('toolbox_signatures').select('talk_id').in('operative_id', operativeIds)
+        : { data: [] },
+      cid ? supabase.from('notifications').select('*').in('user_id', operativeIds).eq('read', false).order('created_at', { ascending: false }).limit(10) : { data: [] },
     ])
 
     setDocuments(docs.data || [])
