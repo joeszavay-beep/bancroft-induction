@@ -122,18 +122,16 @@ export function useOfflineData(table, options = {}) {
  * Use this inside existing loadData() functions.
  */
 export async function fetchAndCache(table, queryFn) {
-  // Try IDB first
-  let cached = null
-  try {
-    cached = await getAllRecords(table)
-  } catch {}
-
-  // If offline, return cached
+  // If offline, return from IDB cache
   if (!navigator.onLine) {
-    return cached || []
+    try {
+      return await getAllRecords(table) || []
+    } catch {
+      return []
+    }
   }
 
-  // Fetch from Supabase
+  // Online: fetch fresh from Supabase, cache to IDB, return fresh
   try {
     const result = await queryFn(supabase)
     const fresh = result.data
@@ -145,7 +143,12 @@ export async function fetchAndCache(table, queryFn) {
     }
     return fresh
   } catch {
-    return cached || []
+    // Network failed — fall back to IDB
+    try {
+      return await getAllRecords(table) || []
+    } catch {
+      return []
+    }
   }
 }
 
