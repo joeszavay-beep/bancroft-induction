@@ -381,7 +381,7 @@ export default function ProgressViewer() {
       </div>
     )}
 
-    <div className="min-h-dvh bg-slate-100 flex flex-col">
+    <div className="h-dvh bg-slate-100 flex flex-col overflow-hidden">
       {/* Header */}
       <header className="bg-[#0D1526] text-white px-3 py-2 flex items-center justify-between shrink-0 sticky top-0 z-20">
         <div className="flex items-center gap-2 min-w-0">
@@ -513,8 +513,8 @@ export default function ProgressViewer() {
         )}
       </div>
 
-      {/* Drawing viewer */}
-      <div className="flex-1 overflow-hidden bg-slate-200 relative">
+      {/* Drawing viewer — takes all remaining space */}
+      <div className="flex-1 min-h-0 bg-slate-200 relative">
         {/* Click overlay for marking */}
         {isMarking && (
           <div className="absolute inset-0 z-30" style={{ cursor: 'crosshair' }} onClick={handleDrawingTap} />
