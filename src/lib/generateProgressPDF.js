@@ -13,11 +13,12 @@ const STATUS_LABELS = {
 
 async function fetchHighResImage(url) {
   try {
-    const res = await fetch(url)
+    const res = await fetch(url, { mode: 'cors' })
     const blob = await res.blob()
     const rawUrl = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(blob) })
     const img = new Image()
-    await new Promise(r => { img.onload = r; img.src = rawUrl })
+    img.crossOrigin = 'anonymous'
+    await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = rawUrl })
     // Keep high res — max 4000px for sharp PDF
     let w = img.width, h = img.height
     const maxDim = 4000
@@ -166,14 +167,41 @@ export async function generateProgressPDF({ drawing, project, items, companyName
           }
           doc.restoreGraphicsState()
         } catch {}
+      } else if (item.label === 'circle' && item.notes) {
+        try {
+          const { radius } = JSON.parse(item.notes)
+          const px = imgX + (item.pin_x / 100) * imgW
+          const py = imgY + (item.pin_y / 100) * imgH
+          const r = Math.max(1, (radius || 16) / 100 * imgW * 0.5)
+          doc.saveGraphicsState()
+          doc.setGState(gState)
+          doc.setDrawColor(...color)
+          doc.setLineWidth(0.4)
+          doc.circle(px, py, Math.min(r, 15), 'D')
+          doc.restoreGraphicsState()
+        } catch {}
+      } else if ((item.label === 'text' || item.label === 'comment') && item.notes) {
+        try {
+          const { text, fontSize } = JSON.parse(item.notes)
+          if (text) {
+            const px = imgX + (item.pin_x / 100) * imgW
+            const py = imgY + (item.pin_y / 100) * imgH
+            doc.setTextColor(...color)
+            doc.setFontSize(Math.max(4, Math.min((fontSize || 12) * 0.4, 10)))
+            doc.setFont('helvetica', 'bold')
+            doc.text(text, px, py)
+          }
+        } catch {}
       } else {
         // Dot or photo
         const px = imgX + (item.pin_x / 100) * imgW
         const py = imgY + (item.pin_y / 100) * imgH
+        let dotR = 1
+        try { const p = JSON.parse(item.notes || '{}'); if (p.size) dotR = Math.max(0.5, p.size * 0.08) } catch {}
         doc.saveGraphicsState()
         doc.setGState(gState)
         doc.setFillColor(...color)
-        doc.circle(px, py, 1, 'F')
+        doc.circle(px, py, dotR, 'F')
         doc.restoreGraphicsState()
       }
     }
