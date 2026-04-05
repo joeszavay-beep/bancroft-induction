@@ -31,7 +31,14 @@ export default function Chat() {
   const messagesEndRef = useRef(null)
   const channelRef = useRef(null)
 
-  useEffect(() => { if (cid) loadConversations() }, [cid])
+  useEffect(() => {
+    if (cid) loadConversations()
+    // Poll for new messages every 10 seconds when on the conversation list
+    const interval = setInterval(() => {
+      if (cid && !selectedOp) loadConversations()
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [cid, selectedOp])
 
   async function loadConversations() {
     setLoading(true)
@@ -142,10 +149,27 @@ export default function Chat() {
       read_by_manager: true,
       read_by_operative: false,
     })
+    // Notify the operative
+    await supabase.from('notifications').insert({
+      company_id: cid,
+      user_id: selectedOp.operative_id,
+      title: `Message from ${user?.name || 'Manager'}`,
+      body: msgText.length > 60 ? msgText.slice(0, 60) + '...' : msgText,
+      type: 'info',
+      link: '/worker',
+    }).catch(() => {})
     setSending(false)
   }
 
-  useEffect(() => { return () => { if (channelRef.current) supabase.removeChannel(channelRef.current) } }, [])
+  // Poll the active conversation for new messages every 5 seconds
+  useEffect(() => {
+    if (!selectedOp) return
+    const interval = setInterval(() => loadMessages(selectedOp.operative_id), 5000)
+    return () => {
+      clearInterval(interval)
+      if (channelRef.current) supabase.removeChannel(channelRef.current)
+    }
+  }, [selectedOp])
 
   const filteredConvs = conversations.filter(c =>
     c.operative_name.toLowerCase().includes(search.toLowerCase())

@@ -56,7 +56,12 @@ export default function OperativeDashboard() {
     setOp(data)
     loadData(data)
     loadChat(data)
-    return () => { if (chatChannelRef.current) supabase.removeChannel(chatChannelRef.current) }
+    // Poll chat every 5 seconds for new messages
+    const chatPoll = setInterval(() => loadChat(data), 5000)
+    return () => {
+      clearInterval(chatPoll)
+      if (chatChannelRef.current) supabase.removeChannel(chatChannelRef.current)
+    }
   }, [])
 
   async function loadData(opData) {
@@ -143,6 +148,15 @@ export default function OperativeDashboard() {
       read_by_manager: false,
       read_by_operative: true,
     })
+    // Notify the manager
+    await supabase.from('notifications').insert({
+      company_id: op.company_id,
+      user_id: selectedManager.id,
+      title: `Message from ${op.name}`,
+      body: msgText.length > 60 ? msgText.slice(0, 60) + '...' : msgText,
+      type: 'info',
+      link: '/app/messages',
+    }).catch(() => {})
     setChatSending(false)
   }
 
