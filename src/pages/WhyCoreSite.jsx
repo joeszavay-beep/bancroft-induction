@@ -137,6 +137,7 @@ const stats = [
 
 export default function WhyCoreSite() {
   const navigate = useNavigate()
+  useEffect(() => { document.title = 'CoreSite — Site Compliance Platform' }, [])
   const [showDemo, setShowDemo] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [sending, setSending] = useState(false)
