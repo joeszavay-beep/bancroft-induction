@@ -7,7 +7,7 @@ import { offlineInsert, offlineDelete } from '../lib/syncQueue'
 import { toastOffline } from '../lib/offlineToast'
 import toast from 'react-hot-toast'
 import PrefetchButton from '../components/PrefetchButton'
-import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check } from 'lucide-react'
+import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check, Circle, Type, MessageSquareText } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
 import { useCompany } from '../lib/CompanyContext'
 
@@ -33,6 +33,8 @@ export default function ProgressViewer() {
   const [polyPoints, setPolyPoints] = useState([]) // points for polyline
   const [clipboard, setClipboard] = useState(null) // copied item template for paste mode
   const [pendingPhoto, setPendingPhoto] = useState(null) // { x, y } waiting for photo upload
+  const [pendingText, setPendingText] = useState(null) // { x, y } waiting for text input
+  const [textInput, setTextInput] = useState('')
   const [selectedItem, setSelectedItem] = useState(null)
   const [history, setHistory] = useState([])
   const [undoStack, setUndoStack] = useState([]) // array of item ids that were placed
@@ -116,6 +118,17 @@ export default function ProgressViewer() {
 
     if (drawMode === 'polyline') {
       setPolyPoints(prev => [...prev, { x, y }])
+      return
+    }
+
+    if (drawMode === 'circle') {
+      await placeCircleItem(x, y)
+      return
+    }
+
+    if (drawMode === 'text' || drawMode === 'comment') {
+      setPendingText({ x, y })
+      setTextInput('')
       return
     }
 
@@ -277,6 +290,59 @@ export default function ProgressViewer() {
     setRedoStack([])
   }
 
+  async function placeCircleItem(x, y) {
+    const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
+    const circleNotes = JSON.stringify({ radius: dotSize })
+
+    const tempId = `temp-${Date.now()}`
+    const tempItem = { id: tempId, item_number: nextNum, pin_x: x, pin_y: y, status: activeColour, label: 'circle', notes: circleNotes, created_by: mgr.name, drawing_id: drawingId }
+    setItems(prev => [...prev, tempItem])
+    skipNextReload.current = true
+
+    const { data } = await offlineInsert('progress_items', {
+      company_id: cid, drawing_id: drawingId, item_number: nextNum,
+      pin_x: x, pin_y: y, status: activeColour, label: 'circle', notes: circleNotes,
+      created_by: mgr.name, updated_by: mgr.name,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    })
+
+    if (data) {
+      setItems(prev => prev.map(i => i.id === tempId ? data : i))
+      setUndoStack(prev => [...prev, data.id])
+      setRedoStack([])
+    } else {
+      setItems(prev => prev.filter(i => i.id !== tempId))
+    }
+  }
+
+  async function placeTextItem(x, y, text, isComment) {
+    if (!text.trim()) return
+    const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
+    const label = isComment ? 'comment' : 'text'
+    const textNotes = JSON.stringify({ text: text.trim(), fontSize: dotSize })
+
+    const tempId = `temp-${Date.now()}`
+    const tempItem = { id: tempId, item_number: nextNum, pin_x: x, pin_y: y, status: activeColour || 'green', label, notes: textNotes, created_by: mgr.name, drawing_id: drawingId }
+    setItems(prev => [...prev, tempItem])
+    skipNextReload.current = true
+
+    const { data } = await offlineInsert('progress_items', {
+      company_id: cid, drawing_id: drawingId, item_number: nextNum,
+      pin_x: x, pin_y: y, status: activeColour || 'green', label, notes: textNotes,
+      created_by: mgr.name, updated_by: mgr.name,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    })
+
+    if (data) {
+      setItems(prev => prev.map(i => i.id === tempId ? data : i))
+      setUndoStack(prev => [...prev, data.id])
+      setRedoStack([])
+    } else {
+      setItems(prev => prev.filter(i => i.id !== tempId))
+    }
+    setPendingText(null)
+  }
+
   async function placeLineItem(x1, y1, x2, y2) {
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
     const midX = (x1 + x2) / 2
@@ -399,7 +465,7 @@ export default function ProgressViewer() {
 
   if (loading) return <div className="min-h-dvh flex items-center justify-center bg-slate-100"><div className="animate-spin w-8 h-8 border-2 border-[#1B6FC8] border-t-transparent rounded-full" /></div>
 
-  const isMarking = activeColour !== null || drawMode === 'photo' || clipboard !== null
+  const isMarking = activeColour !== null || drawMode === 'photo' || drawMode === 'text' || drawMode === 'comment' || clipboard !== null
 
   return (
     <>
@@ -475,6 +541,9 @@ export default function ProgressViewer() {
             { id: 'dot', label: 'Dot' },
             { id: 'line', label: 'Line' },
             { id: 'polyline', label: 'Poly' },
+            { id: 'circle', label: 'Circle' },
+            { id: 'text', label: 'Text' },
+            { id: 'comment', label: 'Note' },
             { id: 'photo', label: '📷' },
           ].map(m => (
             <button key={m.id} onClick={() => { setDrawMode(m.id); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setClipboard(null) }}
@@ -492,8 +561,8 @@ export default function ProgressViewer() {
             title={STATUS_LABELS[status]} />
         ))}
 
-        {/* Size slider - dot mode only */}
-        {drawMode === 'dot' && (
+        {/* Size slider - dot and circle mode */}
+        {(drawMode === 'dot' || drawMode === 'circle') && (
           <div className="flex items-center gap-1.5 ml-auto">
             <div className="flex items-center justify-center" style={{ width: 28, height: 28 }}>
               <div className="rounded-full opacity-60" style={{ width: Math.max(4, dotSize), height: Math.max(4, dotSize), backgroundColor: activeColour ? STATUS_COLORS[activeColour] : '#6B7A99' }} />
@@ -502,6 +571,16 @@ export default function ProgressViewer() {
               className="w-20 h-1 accent-[#1B6FC8]" />
             <input type="number" min="1" max="40" value={dotSize} onChange={e => { const v = Math.max(1, Math.min(40, Number(e.target.value) || 1)); setDotSize(v) }}
               className="w-9 text-[10px] text-center text-[#1A1A2E] font-semibold bg-[#F5F6F8] border border-[#E2E6EA] rounded px-1 py-0.5 focus:outline-none focus:border-[#1B6FC8]" />
+          </div>
+        )}
+
+        {/* Text font size slider */}
+        {drawMode === 'text' && (
+          <div className="flex items-center gap-1.5 ml-auto">
+            <span className="text-[9px] text-[#B0B8C9]">Font</span>
+            <input type="range" min="8" max="32" value={dotSize} onChange={e => setDotSize(Number(e.target.value))}
+              className="w-16 h-1 accent-[#1B6FC8]" />
+            <span className="text-[10px] font-semibold" style={{ color: activeColour ? STATUS_COLORS[activeColour] : '#6B7A99' }}>{dotSize}px</span>
           </div>
         )}
 
@@ -563,6 +642,17 @@ export default function ProgressViewer() {
               transform: 'translate(-50%, -50%)',
               border: '1px solid rgba(255,255,255,0.5)',
               boxShadow: '0 0 4px rgba(0,0,0,0.3)',
+            }} />
+          ) : drawMode === 'circle' ? (
+            /* Circle cursor — ring matching size */
+            <div className="fixed pointer-events-none z-50" style={{
+              left: cursorPos.x, top: cursorPos.y,
+              width: Math.max(10, dotSize * 2), height: Math.max(10, dotSize * 2),
+              border: `2px solid ${STATUS_COLORS[activeColour]}`,
+              backgroundColor: `${STATUS_COLORS[activeColour]}15`,
+              borderRadius: '50%',
+              transform: 'translate(-50%, -50%)',
+              boxShadow: '0 0 4px rgba(0,0,0,0.2)',
             }} />
           ) : (drawMode === 'line' || drawMode === 'polyline') ? (
             /* Crosshair cursor — coloured to match selection */
@@ -675,6 +765,51 @@ export default function ProgressViewer() {
                       )
                     }
 
+                    // Circle
+                    if (item.label === 'circle') {
+                      let radius = 16
+                      try { const p = JSON.parse(item.notes || '{}'); if (p.radius) radius = p.radius } catch {}
+                      return (
+                        <button key={item.id} onClick={clickHandler}
+                          className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-110"
+                          style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto' }}>
+                          <div className="rounded-full border-2"
+                            style={{ width: `${radius * 2}px`, height: `${radius * 2}px`, borderColor: color, backgroundColor: `${color}15` }} />
+                        </button>
+                      )
+                    }
+
+                    // Text
+                    if (item.label === 'text') {
+                      let text = '', fontSize = 12
+                      try { const p = JSON.parse(item.notes || '{}'); text = p.text || ''; fontSize = p.fontSize || 12 } catch {}
+                      return (
+                        <div key={item.id} onClick={clickHandler}
+                          className="absolute z-10 select-none"
+                          style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto', cursor: isMarking ? 'none' : 'pointer' }}>
+                          <span style={{ fontSize: `${Math.max(8, Math.min(fontSize, 32))}px`, fontWeight: 700, color, textShadow: '0 1px 2px rgba(0,0,0,0.3), 0 0 4px rgba(255,255,255,0.8)' }}>
+                            {text}
+                          </span>
+                        </div>
+                      )
+                    }
+
+                    // Comment / Note
+                    if (item.label === 'comment') {
+                      let text = ''
+                      try { const p = JSON.parse(item.notes || '{}'); text = p.text || '' } catch {}
+                      return (
+                        <div key={item.id} onClick={clickHandler}
+                          className="absolute z-10 -translate-x-1/2"
+                          style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto', cursor: isMarking ? 'none' : 'pointer' }}>
+                          <div style={{ backgroundColor: color, color: '#fff', padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600, maxWidth: 150, whiteSpace: 'pre-wrap', boxShadow: '0 2px 6px rgba(0,0,0,0.2)', lineHeight: 1.3 }}>
+                            {text}
+                          </div>
+                          <div style={{ width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: `5px solid ${color}`, margin: '0 auto' }} />
+                        </div>
+                      )
+                    }
+
                     // Default: dot
                     return (
                       <button key={item.id} onClick={clickHandler}
@@ -740,6 +875,33 @@ export default function ProgressViewer() {
             </label>
           </div>
           <button onClick={() => setPendingPhoto(null)} className="w-full mt-2 py-2 text-xs text-[#6B7A99] hover:bg-[#F5F6F8] rounded-md min-h-[44px]">Cancel</button>
+        </div>
+      )}
+
+      {/* Text/Comment input popup */}
+      {pendingText && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#E2E6EA] shadow-xl p-4 pb-6 rounded-t-2xl sm:rounded-t-none">
+          <p className="text-xs text-[#6B7A99] text-center mb-3">
+            {drawMode === 'comment' ? 'Add a note to the drawing' : 'Add text to the drawing'}
+          </p>
+          <input
+            value={textInput}
+            onChange={e => setTextInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { placeTextItem(pendingText.x, pendingText.y, textInput, drawMode === 'comment') } }}
+            placeholder={drawMode === 'comment' ? 'Type your note...' : 'Type your text...'}
+            className="w-full px-3.5 py-2.5 border border-[#E2E6EA] rounded-lg text-sm text-[#1A1A2E] placeholder-[#B0B8C9] focus:outline-none focus:border-[#1B6FC8] mb-3"
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button onClick={() => placeTextItem(pendingText.x, pendingText.y, textInput, drawMode === 'comment')}
+              disabled={!textInput.trim()}
+              className="flex-1 py-2.5 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-semibold rounded-lg disabled:opacity-40 transition-colors">
+              Place {drawMode === 'comment' ? 'Note' : 'Text'}
+            </button>
+            <button onClick={() => setPendingText(null)} className="px-4 py-2.5 text-sm text-[#6B7A99] hover:bg-[#F5F6F8] rounded-lg border border-[#E2E6EA]">
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
