@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
-import { ArrowLeft, User, Shield, Phone, Home, Users } from 'lucide-react'
+import { ArrowLeft, User, Shield, Phone, Home, Users, CreditCard, Camera, ExternalLink, ZoomIn, X } from 'lucide-react'
 import AddressLookup from '../components/AddressLookup'
 import DateOfBirthPicker from '../components/DateOfBirthPicker'
 
@@ -23,6 +23,16 @@ export default function OperativeProfile() {
   const [email, setEmail] = useState('')
   const [nextOfKin, setNextOfKin] = useState('')
   const [nextOfKinPhone, setNextOfKinPhone] = useState('')
+
+  // Card details
+  const [cardType, setCardType] = useState('')
+  const [cardNumber, setCardNumber] = useState('')
+  const [cardExpiry, setCardExpiry] = useState('')
+  const [cardFrontUrl, setCardFrontUrl] = useState('')
+  const [cardBackUrl, setCardBackUrl] = useState('')
+  const [uploadingFront, setUploadingFront] = useState(false)
+  const [uploadingBack, setUploadingBack] = useState(false)
+  const [lightbox, setLightbox] = useState(null)
 
   useEffect(() => {
     loadOperative()
@@ -53,11 +63,46 @@ export default function OperativeProfile() {
     setEmail(data.email || '')
     setNextOfKin(data.next_of_kin || '')
     setNextOfKinPhone(data.next_of_kin_phone || '')
+    setCardType(data.card_type || '')
+    setCardNumber(data.card_number || '')
+    setCardExpiry(data.card_expiry || '')
+    setCardFrontUrl(data.card_front_url || '')
+    setCardBackUrl(data.card_back_url || '')
     setLoading(false)
+  }
+
+  async function uploadCardPhoto(file, side) {
+    if (!file) return null
+    const setter = side === 'front' ? setUploadingFront : setUploadingBack
+    setter(true)
+    const filePath = `cards/${operativeId}/${side}_${Date.now()}.jpg`
+    const { error } = await supabase.storage.from('documents').upload(filePath, file, { contentType: file.type })
+    if (error) { setter(false); toast.error('Failed to upload photo'); return null }
+    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
+    setter(false)
+    return urlData.publicUrl
+  }
+
+  async function handleCardFront(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const url = await uploadCardPhoto(file, 'front')
+    if (url) { setCardFrontUrl(url); toast.success('Front of card uploaded') }
+  }
+
+  async function handleCardBack(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const url = await uploadCardPhoto(file, 'back')
+    if (url) { setCardBackUrl(url); toast.success('Back of card uploaded') }
   }
 
   async function handleSave(e) {
     e.preventDefault()
+    if (!cardType || !cardNumber.trim() || !cardFrontUrl) {
+      toast.error('Please upload your CSCS/ECS card details and front photo')
+      return
+    }
     setSaving(true)
     const { error } = await supabase.from('operatives').update({
       role: (role === 'Other' ? otherRole.trim() : role.trim()) || null,
@@ -68,6 +113,14 @@ export default function OperativeProfile() {
       email: email.trim() || null,
       next_of_kin: nextOfKin.trim() || null,
       next_of_kin_phone: nextOfKinPhone.trim() || null,
+      card_type: cardType || null,
+      card_number: cardNumber.trim() || null,
+      card_expiry: cardExpiry || null,
+      card_front_url: cardFrontUrl || null,
+      card_back_url: cardBackUrl || null,
+      card_verified: null, // reset verification when card details change
+      card_verified_by: null,
+      card_verified_at: null,
     }).eq('id', operativeId)
     setSaving(false)
     if (error) {
@@ -86,7 +139,7 @@ export default function OperativeProfile() {
     )
   }
 
-  const isComplete = dob && niNumber && address && nextOfKin && nextOfKinPhone
+  const isComplete = dob && niNumber && address && nextOfKin && nextOfKinPhone && cardType && cardNumber && cardFrontUrl
 
   return (
     <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
@@ -165,6 +218,134 @@ export default function OperativeProfile() {
           </div>
         </div>
 
+        {/* CSCS / ECS Card */}
+        <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <CreditCard size={16} className="text-amber-500" />
+            <h3 className="text-sm font-semibold text-slate-600">CSCS / ECS Card *</h3>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-xs text-amber-800">You must upload a photo of your valid CSCS or ECS card to work on site. Your card will be verified by your site manager.</p>
+          </div>
+
+          <div>
+            <label className="text-xs text-slate-500 mb-1 block">Card Type *</label>
+            <select
+              value={cardType}
+              onChange={e => setCardType(e.target.value)}
+              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
+            >
+              <option value="">Select card type</option>
+              <optgroup label="CSCS Cards">
+                <option value="CSCS Green - Labourer">CSCS Green — Labourer</option>
+                <option value="CSCS Blue - Skilled Worker">CSCS Blue — Skilled Worker</option>
+                <option value="CSCS Gold - Supervisor">CSCS Gold — Supervisor</option>
+                <option value="CSCS Black - Manager">CSCS Black — Manager</option>
+                <option value="CSCS White - Prof. Qualified">CSCS White — Professionally Qualified</option>
+                <option value="CSCS Red - Trainee">CSCS Red — Trainee</option>
+              </optgroup>
+              <optgroup label="ECS Cards">
+                <option value="ECS Gold - Electrician">ECS Gold — Electrician</option>
+                <option value="ECS Blue - Approved Electrician">ECS Blue — Approved Electrician</option>
+                <option value="ECS Black - Senior/Manager">ECS Black — Senior / Manager</option>
+                <option value="ECS White - Trainee">ECS White — Trainee</option>
+                <option value="ECS Green - Labourer">ECS Green — Labourer</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Card Number *</label>
+              <input
+                value={cardNumber}
+                onChange={e => setCardNumber(e.target.value)}
+                placeholder="e.g. 1234567890"
+                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Expiry Date</label>
+              <input
+                type="date"
+                value={cardExpiry}
+                onChange={e => setCardExpiry(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
+              />
+            </div>
+          </div>
+
+          {/* Card photos */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-slate-500 mb-1.5 block">Front of Card *</label>
+              {cardFrontUrl ? (
+                <div className="relative group">
+                  <img src={cardFrontUrl} alt="Card front" className="w-full h-28 object-cover rounded-lg border border-slate-200 cursor-pointer" onClick={() => setLightbox(cardFrontUrl)} />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
+                    <ZoomIn size={20} className="text-white opacity-0 group-hover:opacity-100 drop-shadow" />
+                  </div>
+                  <button type="button" onClick={() => setCardFrontUrl('')} className="absolute top-1 right-1 w-6 h-6 bg-black/50 text-white rounded-full flex items-center justify-center">
+                    <X size={12} />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center h-28 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
+                  {uploadingFront ? (
+                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Camera size={24} className="text-slate-300 mb-1" />
+                      <span className="text-xs text-slate-400">Take photo</span>
+                    </>
+                  )}
+                  <input type="file" accept="image/*" capture="environment" onChange={handleCardFront} className="hidden" />
+                </label>
+              )}
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1.5 block">Back of Card</label>
+              {cardBackUrl ? (
+                <div className="relative group">
+                  <img src={cardBackUrl} alt="Card back" className="w-full h-28 object-cover rounded-lg border border-slate-200 cursor-pointer" onClick={() => setLightbox(cardBackUrl)} />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
+                    <ZoomIn size={20} className="text-white opacity-0 group-hover:opacity-100 drop-shadow" />
+                  </div>
+                  <button type="button" onClick={() => setCardBackUrl('')} className="absolute top-1 right-1 w-6 h-6 bg-black/50 text-white rounded-full flex items-center justify-center">
+                    <X size={12} />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center h-28 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
+                  {uploadingBack ? (
+                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Camera size={24} className="text-slate-300 mb-1" />
+                      <span className="text-xs text-slate-400">Take photo</span>
+                    </>
+                  )}
+                  <input type="file" accept="image/*" capture="environment" onChange={handleCardBack} className="hidden" />
+                </label>
+              )}
+            </div>
+          </div>
+
+          {operative?.card_verified === true && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+              <Shield size={14} className="text-green-600" />
+              <span className="text-xs text-green-800 font-medium">Card verified by {operative.card_verified_by} on {new Date(operative.card_verified_at).toLocaleDateString('en-GB')}</span>
+            </div>
+          )}
+          {operative?.card_verified === false && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+              <Shield size={14} className="text-red-600" />
+              <span className="text-xs text-red-800 font-medium">Card rejected — please upload a valid card</span>
+            </div>
+          )}
+        </div>
+
         {/* Contact Details */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
           <div className="flex items-center gap-2 mb-1">
@@ -237,6 +418,16 @@ export default function OperativeProfile() {
           Save Profile
         </LoadingButton>
       </form>
+
+      {/* Photo lightbox */}
+      {lightbox && (
+        <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <img src={lightbox} alt="Card" className="max-w-full max-h-full object-contain rounded-lg" />
+          <button onClick={() => setLightbox(null)} className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20">
+            <X size={24} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

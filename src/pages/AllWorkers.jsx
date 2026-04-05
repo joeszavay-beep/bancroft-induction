@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
-import { Users, Search, Plus, Trash2, ChevronRight, AlertTriangle, ShieldCheck, Clock } from 'lucide-react'
+import { Users, Search, Plus, Trash2, ChevronRight, AlertTriangle, ShieldCheck, Clock, CreditCard } from 'lucide-react'
 import AttendanceHistory from '../components/AttendanceHistory'
+import CardVerification from '../components/CardVerification'
 
 export default function AllWorkers() {
   const navigate = useNavigate()
@@ -12,6 +13,7 @@ export default function AllWorkers() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [selectedWorker, setSelectedWorker] = useState(null)
+  const [verifyWorker, setVerifyWorker] = useState(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -143,6 +145,9 @@ export default function AllWorkers() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          <button onClick={() => setVerifyWorker(op)} className={`p-1.5 transition-colors ${op.card_verified === true ? 'text-[#2EA043]' : op.card_front_url || op.card_number ? 'text-amber-500' : 'text-[#B0B8C9]'} hover:text-[#1B6FC8]`} title="Card verification">
+                            <CreditCard size={14} />
+                          </button>
                           <button onClick={() => setSelectedWorker(op)} className="p-1.5 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors" title="Attendance history">
                             <Clock size={14} />
                           </button>
@@ -162,6 +167,9 @@ export default function AllWorkers() {
 
       {selectedWorker && (
         <AttendanceHistory operative={selectedWorker} onClose={() => setSelectedWorker(null)} />
+      )}
+      {verifyWorker && (
+        <CardVerification operative={verifyWorker} onClose={() => setVerifyWorker(null)} onUpdated={() => { setVerifyWorker(null); loadData() }} />
       )}
     </div>
   )
