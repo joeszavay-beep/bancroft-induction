@@ -271,6 +271,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
   const [archivingProject, setArchivingProject] = useState(null)
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
+  const [musterPoint, setMusterPoint] = useState('')
   const [uploadFile, setUploadFile] = useState(null)
   const [docTitle, setDocTitle] = useState('')
   const [expandedProject, setExpandedProject] = useState(null)
@@ -279,7 +280,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
     e.preventDefault()
     if (!name.trim()) return
     setSaving(true)
-    const { error } = await supabase.from('projects').insert({ name: name.trim(), location: location.trim(), company_id: cid })
+    const { error } = await supabase.from('projects').insert({ name: name.trim(), location: location.trim(), muster_point: musterPoint.trim() || null, company_id: cid })
     setSaving(false)
     if (error) {
       console.error('Add project error:', error)
@@ -290,6 +291,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
     setShowAdd(false)
     setName('')
     setLocation('')
+    setMusterPoint('')
     onRefresh()
   }
 
@@ -596,6 +598,12 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
             value={location}
             onChange={e => setLocation(e.target.value)}
             placeholder="Location (optional)"
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
+          />
+          <input
+            value={musterPoint}
+            onChange={e => setMusterPoint(e.target.value)}
+            placeholder="Fire muster point (e.g. Ground floor courtyard)"
             className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
           />
           <LoadingButton loading={saving} type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white">
