@@ -105,14 +105,23 @@ export default function ProgressViewer() {
       return
     }
 
-    // Text/comment mode — doesn't need a colour selected
+    // Annotation modes — don't need a traffic-light colour
     if (drawMode === 'text' || drawMode === 'comment') {
       setPendingText({ x, y })
       setTextInput('')
       return
     }
 
-    if (!activeColour) return
+    if (drawMode === 'circle') {
+      await placeCircleItem(x, y)
+      return
+    }
+
+    // Progress modes — need a colour selected
+    if (!activeColour) {
+      toast.error('Select a colour first')
+      return
+    }
 
     if (drawMode === 'line') {
       if (!lineStart) {
@@ -126,11 +135,6 @@ export default function ProgressViewer() {
 
     if (drawMode === 'polyline') {
       setPolyPoints(prev => [...prev, { x, y }])
-      return
-    }
-
-    if (drawMode === 'circle') {
-      await placeCircleItem(x, y)
       return
     }
 
@@ -509,10 +513,10 @@ export default function ProgressViewer() {
             {exporting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download size={16} />}
           </button>
           {isMarking && <>
-            <button onClick={() => { setActiveColour(null); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setClipboard(null) }} className="p-2 bg-green-500 rounded-lg" title="Done">
+            <button onClick={() => { setActiveColour(null); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setPendingText(null); setClipboard(null) }} className="p-2 bg-green-500 rounded-lg" title="Done">
               <Check size={16} />
             </button>
-            <button onClick={() => { setActiveColour(null); setDrawMode('dot'); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setClipboard(null) }} className="p-2 bg-red-500/60 rounded-lg" title="Cancel">
+            <button onClick={() => { setActiveColour(null); setDrawMode('dot'); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setPendingText(null); setClipboard(null) }} className="p-2 bg-red-500/60 rounded-lg" title="Cancel">
               <X size={16} />
             </button>
           </>}
@@ -551,7 +555,7 @@ export default function ProgressViewer() {
             { id: 'comment', label: 'Note' },
             { id: 'photo', label: '📷' },
           ].map(m => (
-            <button key={m.id} onClick={() => { setDrawMode(m.id); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setClipboard(null) }}
+            <button key={m.id} onClick={() => { setDrawMode(m.id); setLineStart(null); setPolyPoints([]); setPendingPhoto(null); setPendingText(null); setClipboard(null) }}
               className={`px-2.5 py-1 text-[10px] font-medium rounded transition-colors ${drawMode === m.id ? 'bg-white shadow-sm text-[#1A1A2E]' : 'text-[#6B7A99]'}`}>
               {m.label}
             </button>
