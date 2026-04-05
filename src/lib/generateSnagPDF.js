@@ -9,7 +9,9 @@ const STATUS_COLORS = {
 
 async function fetchImageAsDataUrl(url) {
   try {
-    const res = await fetch(url)
+    const bustUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now()
+    const res = await fetch(bustUrl)
+    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`)
     const blob = await res.blob()
     // Compress by drawing to canvas at reduced size
     const origUrl = await new Promise((resolve) => {
@@ -121,7 +123,8 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl, optio
   if (imageUrl) {
     try {
       // Fetch and compress drawing for page 1
-      const response = await fetch(imageUrl)
+      const response = await fetch(imageUrl + (imageUrl.includes('?') ? '&' : '?') + '_t=' + Date.now())
+      if (!response.ok) throw new Error(`Drawing fetch failed: ${response.status}`)
       const blob = await response.blob()
       const rawUrl = await new Promise((resolve) => {
         const reader = new FileReader()
