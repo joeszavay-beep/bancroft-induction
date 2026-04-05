@@ -37,6 +37,8 @@ export default function OperativeDashboard() {
   const [chatMsg, setChatMsg] = useState('')
   const [chatSending, setChatSending] = useState(false)
   const [unreadChat, setUnreadChat] = useState(0)
+  const [managers, setManagers] = useState([])
+  const [selectedManager, setSelectedManager] = useState(null)
   const chatEndRef = useRef(null)
   const chatChannelRef = useRef(null)
 
@@ -81,12 +83,17 @@ export default function OperativeDashboard() {
   }
 
   async function loadChat(opData) {
+    // Load managers for this company
+    const { data: mgrs } = await supabase.from('profiles').select('id, name, email, role')
+      .eq('company_id', opData.company_id).order('name')
+    setManagers(mgrs || [])
+
+    // Load all messages for this operative
     const { data } = await supabase.from('chat_messages').select('*')
       .eq('operative_id', opData.id).order('created_at')
     setChatMessages(data || [])
     const unread = (data || []).filter(m => m.sender_type === 'manager' && !m.read_by_operative).length
     setUnreadChat(unread)
-    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
 
     // Realtime
     if (chatChannelRef.current) supabase.removeChannel(chatChannelRef.current)
@@ -102,12 +109,14 @@ export default function OperativeDashboard() {
   }
 
   async function sendChat() {
-    if (!chatMsg.trim() || !op) return
+    if (!chatMsg.trim() || !op || !selectedManager) return
     setChatSending(true)
     await supabase.from('chat_messages').insert({
       company_id: op.company_id,
       operative_id: op.id,
       operative_name: op.name,
+      manager_id: selectedManager.id,
+      manager_name: selectedManager.name,
       sender_type: 'operative',
       sender_name: op.name,
       message: chatMsg.trim(),
@@ -118,11 +127,14 @@ export default function OperativeDashboard() {
     setChatSending(false)
   }
 
-  async function markChatRead() {
+  async function markChatRead(managerId) {
     if (!op) return
-    setUnreadChat(0)
-    await supabase.from('chat_messages').update({ read_by_operative: true })
+    let q = supabase.from('chat_messages').update({ read_by_operative: true })
       .eq('operative_id', op.id).eq('sender_type', 'manager').eq('read_by_operative', false)
+    if (managerId) q = q.eq('manager_id', managerId)
+    await q
+    const remaining = chatMessages.filter(m => m.sender_type === 'manager' && !m.read_by_operative && (managerId ? m.manager_id !== managerId : false)).length
+    setUnreadChat(remaining)
   }
 
   function handleLogout() {
@@ -201,7 +213,7 @@ export default function OperativeDashboard() {
         {tab === 'home' && <HomeTab op={op} unsignedDocs={unsignedDocs} unsignedTalks={unsignedTalks} snags={snags} overdueSnags={overdueSnags} pendingActions={pendingActions} setTab={setTab} navigate={navigate} primaryColor={primaryColor} />}
         {tab === 'documents' && <DocumentsTab op={op} documents={documents} signatures={signatures} signedDocIds={signedDocIds} navigate={navigate} primaryColor={primaryColor} />}
         {tab === 'snags' && <SnagsTab snags={snags} overdueSnags={overdueSnags} navigate={navigate} primaryColor={primaryColor} openSnag={openSnag} />}
-        {tab === 'chat' && <OperativeChatTab op={op} messages={chatMessages} chatMsg={chatMsg} setChatMsg={setChatMsg} sendChat={sendChat} chatSending={chatSending} chatEndRef={chatEndRef} markChatRead={markChatRead} primaryColor={primaryColor} />}
+        {tab === 'chat' && <OperativeChatTab op={op} messages={chatMessages} chatMsg={chatMsg} setChatMsg={setChatMsg} sendChat={sendChat} chatSending={chatSending} chatEndRef={chatEndRef} markChatRead={markChatRead} primaryColor={primaryColor} managers={managers} selectedManager={selectedManager} setSelectedManager={setSelectedManager} />}
         {tab === 'profile' && <ProfileTab op={op} handleLogout={handleLogout} navigate={navigate} primaryColor={primaryColor} />}
       </main>
 
@@ -705,21 +717,89 @@ function ProfileTab({ op, handleLogout, navigate, primaryColor }) {
 }
 
 /* ========== CHAT TAB ========== */
-function OperativeChatTab({ op, messages, chatMsg, setChatMsg, sendChat, chatSending, chatEndRef, markChatRead, primaryColor }) {
-  useEffect(() => { markChatRead() }, [])
+function OperativeChatTab({ op, messages, chatMsg, setChatMsg, sendChat, chatSending, chatEndRef, markChatRead, primaryColor, managers, selectedManager, setSelectedManager }) {
+  useEffect(() => { if (selectedManager) markChatRead(selectedManager.id) }, [selectedManager])
 
+  // Filter messages for selected manager
+  const filteredMessages = selectedManager
+    ? messages.filter(m => m.manager_id === selectedManager.id || (!m.manager_id && m.sender_type === 'manager'))
+    : []
+
+  // Compute unread per manager
+  const unreadByManager = {}
+  messages.forEach(m => {
+    if (m.sender_type === 'manager' && !m.read_by_operative && m.manager_id) {
+      unreadByManager[m.manager_id] = (unreadByManager[m.manager_id] || 0) + 1
+    }
+  })
+
+  // Manager selection screen
+  if (!selectedManager) {
+    return (
+      <div className="p-4 space-y-4">
+        <h2 className="text-lg font-bold text-slate-900">Messages</h2>
+        <p className="text-sm text-slate-500">Select a manager to chat with</p>
+
+        {managers.length === 0 ? (
+          <div className="text-center py-12 text-slate-400">
+            <MessageSquare size={32} className="mx-auto mb-2 opacity-40" />
+            <p className="text-sm">No managers available</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {managers.map(mgr => {
+              const unread = unreadByManager[mgr.id] || 0
+              const lastMsg = [...messages].reverse().find(m => m.manager_id === mgr.id || (m.sender_type === 'operative' && m.manager_id === mgr.id))
+              return (
+                <button key={mgr.id} onClick={() => { setSelectedManager(mgr); setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100) }}
+                  className="w-full flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-4 text-left hover:border-blue-300 transition-colors">
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ backgroundColor: primaryColor }}>
+                    {mgr.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">{mgr.name}</p>
+                    <p className="text-xs text-slate-500 capitalize">{mgr.role || 'Manager'}</p>
+                  </div>
+                  {unread > 0 && (
+                    <span className="w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: primaryColor }}>
+                      {unread}
+                    </span>
+                  )}
+                  <ChevronRight size={16} className="text-slate-400 shrink-0" />
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Chat thread with selected manager
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 8rem)' }}>
+      {/* Manager header */}
+      <div className="flex items-center gap-3 px-4 py-2.5 bg-white border-b border-slate-200 shrink-0">
+        <button onClick={() => setSelectedManager(null)} className="p-1 text-slate-400"><ArrowLeft size={18} /></button>
+        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: primaryColor }}>
+          {selectedManager.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-900 truncate">{selectedManager.name}</p>
+          <p className="text-[10px] text-slate-500 capitalize">{selectedManager.role || 'Manager'}</p>
+        </div>
+      </div>
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-2" style={{ backgroundColor: '#F0F2F5' }}>
-        {messages.length === 0 && (
+        {filteredMessages.length === 0 && (
           <div className="text-center py-12 text-slate-400">
             <MessageSquare size={32} className="mx-auto mb-2 opacity-40" />
             <p className="text-sm font-medium">No messages yet</p>
-            <p className="text-xs mt-1">Send a message to your site manager</p>
+            <p className="text-xs mt-1">Send the first message to {selectedManager.name?.split(' ')[0]}</p>
           </div>
         )}
-        {messages.map(msg => {
+        {filteredMessages.map(msg => {
           const isMe = msg.sender_type === 'operative'
           return (
             <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
@@ -751,7 +831,7 @@ function OperativeChatTab({ op, messages, chatMsg, setChatMsg, sendChat, chatSen
       <div className="flex gap-2 px-4 py-3 bg-white border-t border-slate-200 shrink-0">
         <input value={chatMsg} onChange={e => setChatMsg(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat() } }}
-          placeholder="Type a message..."
+          placeholder={`Message ${selectedManager.name?.split(' ')[0]}...`}
           className="flex-1 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400" />
         <button onClick={sendChat} disabled={chatSending || !chatMsg.trim()}
           className="px-3.5 py-2.5 rounded-xl text-white disabled:opacity-40 transition-colors" style={{ backgroundColor: primaryColor }}>

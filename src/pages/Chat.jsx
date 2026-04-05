@@ -114,6 +114,8 @@ export default function Chat() {
       project_id: null,
       operative_id: selectedOp.operative_id,
       operative_name: selectedOp.operative_name,
+      manager_id: user?.id,
+      manager_name: user?.name || 'Manager',
       sender_type: 'manager',
       sender_name: user?.name || 'Manager',
       message: newMsg.trim(),
