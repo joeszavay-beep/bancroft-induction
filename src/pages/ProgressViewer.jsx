@@ -547,21 +547,34 @@ export default function ProgressViewer() {
 
       {/* Drawing viewer — takes all remaining space */}
       <div className="flex-1 min-h-0 bg-slate-200 relative"
-        onMouseMove={isMarking && drawMode === 'dot' ? (e) => setCursorPos({ x: e.clientX, y: e.clientY }) : undefined}
+        onMouseMove={isMarking ? (e) => setCursorPos({ x: e.clientX, y: e.clientY }) : undefined}
         onMouseLeave={() => setCursorPos(null)}>
 
-        {/* Custom dot cursor */}
-        {isMarking && drawMode === 'dot' && cursorPos && activeColour && (
-          <div className="fixed pointer-events-none z-50" style={{
-            left: cursorPos.x, top: cursorPos.y,
-            width: Math.max(6, dotSize), height: Math.max(6, dotSize),
-            backgroundColor: STATUS_COLORS[activeColour],
-            borderRadius: '50%',
-            opacity: 0.7,
-            transform: 'translate(-50%, -50%)',
-            border: '1px solid rgba(255,255,255,0.5)',
-            boxShadow: '0 0 4px rgba(0,0,0,0.3)',
-          }} />
+        {/* Custom cursor */}
+        {isMarking && cursorPos && activeColour && (
+          drawMode === 'dot' ? (
+            /* Dot cursor — coloured circle matching size */
+            <div className="fixed pointer-events-none z-50" style={{
+              left: cursorPos.x, top: cursorPos.y,
+              width: Math.max(6, dotSize), height: Math.max(6, dotSize),
+              backgroundColor: STATUS_COLORS[activeColour],
+              borderRadius: '50%',
+              opacity: 0.7,
+              transform: 'translate(-50%, -50%)',
+              border: '1px solid rgba(255,255,255,0.5)',
+              boxShadow: '0 0 4px rgba(0,0,0,0.3)',
+            }} />
+          ) : (drawMode === 'line' || drawMode === 'polyline') ? (
+            /* Crosshair cursor — coloured to match selection */
+            <div className="fixed pointer-events-none z-50" style={{ left: cursorPos.x, top: cursorPos.y, transform: 'translate(-50%, -50%)' }}>
+              {/* Horizontal line */}
+              <div style={{ position: 'absolute', left: -12, top: -1, width: 24, height: 2, backgroundColor: STATUS_COLORS[activeColour], borderRadius: 1, boxShadow: '0 0 2px rgba(0,0,0,0.4)' }} />
+              {/* Vertical line */}
+              <div style={{ position: 'absolute', left: -1, top: -12, width: 2, height: 24, backgroundColor: STATUS_COLORS[activeColour], borderRadius: 1, boxShadow: '0 0 2px rgba(0,0,0,0.4)' }} />
+              {/* Centre dot */}
+              <div style={{ position: 'absolute', left: -3, top: -3, width: 6, height: 6, borderRadius: '50%', backgroundColor: STATUS_COLORS[activeColour], border: '1px solid rgba(255,255,255,0.7)' }} />
+            </div>
+          ) : null
         )}
 
         <TransformWrapper
@@ -586,7 +599,7 @@ export default function ProgressViewer() {
                 wrapperStyle={{ width: '100%', height: '100%', touchAction: 'none' }}
                 contentStyle={{ width: '100%', touchAction: 'none' }}
               >
-                <div className="relative inline-block" style={{ cursor: isMarking ? 'none' : 'grab' }}
+                <div className="relative inline-block" style={{ cursor: isMarking && activeColour ? 'none' : 'grab' }}
                   onMouseDown={isMarking ? (e) => { mouseDownPos.current = { x: e.clientX, y: e.clientY } } : undefined}
                   onMouseUp={isMarking ? (e) => {
                     if (!mouseDownPos.current) return
