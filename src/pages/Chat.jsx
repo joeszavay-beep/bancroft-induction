@@ -4,7 +4,7 @@ import { useCompany } from '../lib/CompanyContext'
 import toast from 'react-hot-toast'
 import {
   MessageSquare, Send, Search, ChevronLeft, Package, AlertTriangle,
-  Wrench, Clock, CheckCircle2, User, Image
+  Wrench, Clock, CheckCircle2, User, Image, Paperclip, X, ZoomIn
 } from 'lucide-react'
 
 const QUICK_MESSAGES = [
@@ -28,6 +28,9 @@ export default function Chat() {
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
+  const [lightbox, setLightbox] = useState(null)
   const messagesEndRef = useRef(null)
   const channelRef = useRef(null)
 
@@ -115,10 +118,29 @@ export default function Chat() {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
   }
 
+  function handlePhotoSelect(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
   async function sendMessage() {
-    if (!newMsg.trim() || !selectedOp) return
+    if ((!newMsg.trim() && !photoFile) || !selectedOp) return
     const msgText = newMsg.trim()
     setSending(true)
+
+    // Upload photo if attached
+    let photoUrl = null
+    if (photoFile) {
+      const path = `chat/${cid}/${Date.now()}.jpg`
+      const { error } = await supabase.storage.from('documents').upload(path, photoFile, { contentType: photoFile.type })
+      if (!error) {
+        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+        photoUrl = urlData.publicUrl
+      }
+    }
+
     // Optimistic: show immediately
     const tempMsg = {
       id: `temp-${Date.now()}`,
@@ -129,13 +151,16 @@ export default function Chat() {
       manager_name: user?.name || 'Manager',
       sender_type: 'manager',
       sender_name: user?.name || 'Manager',
-      message: msgText,
+      message: msgText || (photoUrl ? '📷 Photo' : ''),
+      photo_url: photoUrl || photoPreview,
       read_by_manager: true,
       read_by_operative: false,
       created_at: new Date().toISOString(),
     }
     setMessages(prev => [...prev, tempMsg])
     setNewMsg('')
+    setPhotoFile(null)
+    setPhotoPreview(null)
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
 
     await supabase.from('chat_messages').insert({
@@ -147,7 +172,8 @@ export default function Chat() {
       manager_name: user?.name || 'Manager',
       sender_type: 'manager',
       sender_name: user?.name || 'Manager',
-      message: msgText,
+      message: msgText || (photoUrl ? '📷 Photo' : ''),
+      photo_url: photoUrl,
       read_by_manager: true,
       read_by_operative: false,
     })
@@ -156,7 +182,7 @@ export default function Chat() {
       company_id: cid,
       user_id: selectedOp.operative_id,
       title: `Message from ${user?.name || 'Manager'}`,
-      body: msgText.length > 60 ? msgText.slice(0, 60) + '...' : msgText,
+      body: photoUrl ? '📷 Sent a photo' : (msgText.length > 60 ? msgText.slice(0, 60) + '...' : msgText),
       type: 'info',
       link: '/worker',
     }).catch(() => {})
@@ -220,7 +246,12 @@ export default function Chat() {
                 <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 ${isMe ? 'rounded-br-md' : 'rounded-bl-md'}`}
                   style={{ backgroundColor: isMe ? 'var(--primary-color)' : 'var(--bg-card)', color: isMe ? '#fff' : 'var(--text-primary)', border: isMe ? 'none' : '1px solid var(--border-color)' }}>
                   {!isMe && <p className="text-[10px] font-semibold mb-0.5" style={{ color: 'var(--primary-color)' }}>{msg.sender_name}</p>}
-                  <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                  {msg.photo_url && (
+                    <button onClick={() => setLightbox(msg.photo_url)} className="w-full mb-1.5 rounded-lg overflow-hidden">
+                      <img src={msg.photo_url} alt="" className="w-full max-h-48 object-cover rounded-lg" />
+                    </button>
+                  )}
+                  {msg.message && msg.message !== '📷 Photo' && <p className="text-sm whitespace-pre-wrap">{msg.message}</p>}
                   <p className={`text-[10px] mt-1 ${isMe ? 'text-white/50' : ''}`} style={isMe ? {} : { color: 'var(--text-muted)' }}>
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     {isMe && msg.read_by_operative && ' ✓✓'}
@@ -243,17 +274,39 @@ export default function Chat() {
           ))}
         </div>
 
+        {/* Photo preview */}
+        {photoPreview && (
+          <div className="px-4 py-2 border-t shrink-0" style={{ borderColor: 'var(--border-color)' }}>
+            <div className="relative inline-block">
+              <img src={photoPreview} alt="" className="h-20 rounded-lg object-cover" />
+              <button onClick={() => { setPhotoFile(null); setPhotoPreview(null) }} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"><X size={10} /></button>
+            </div>
+          </div>
+        )}
+
         {/* Input */}
         <div className="flex gap-2 px-4 py-3 border-t shrink-0" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)' }}>
+          <label className="px-2.5 py-2.5 rounded-xl cursor-pointer hover:opacity-70 transition-colors flex items-center" style={{ color: 'var(--text-muted)' }}>
+            <Paperclip size={18} />
+            <input type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
+          </label>
           <input value={newMsg} onChange={e => setNewMsg(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
             placeholder="Type a message..." className="flex-1 px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:border-[#1B6FC8]"
             style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--bg-main)' }} />
-          <button onClick={sendMessage} disabled={sending || !newMsg.trim()}
+          <button onClick={sendMessage} disabled={sending || (!newMsg.trim() && !photoFile)}
             className="px-3.5 py-2.5 rounded-xl text-white disabled:opacity-40 transition-colors" style={{ backgroundColor: 'var(--primary-color)' }}>
             <Send size={18} />
           </button>
         </div>
+
+        {/* Lightbox */}
+        {lightbox && (
+          <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+            <img src={lightbox} alt="" className="max-w-full max-h-full object-contain rounded-lg" />
+            <button onClick={() => setLightbox(null)} className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20"><X size={24} /></button>
+          </div>
+        )}
       </div>
     )
   }

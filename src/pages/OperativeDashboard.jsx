@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import {
   Home, FileText, MapPin, MessageSquare, User, LogOut, Bell,
   CheckCircle2, Clock, AlertTriangle, ChevronRight, Camera, X,
-  Send, ZoomIn, Upload, ArrowLeft
+  Send, ZoomIn, Upload, ArrowLeft, Paperclip
 } from 'lucide-react'
 
 const TABS = ['home', 'documents', 'snags', 'chat', 'profile']
@@ -113,11 +113,23 @@ export default function OperativeDashboard() {
       ).subscribe()
   }
 
-  async function sendChat() {
-    if (!chatMsg.trim() || !op || !selectedManager) return
+  async function sendChat(photoFile = null) {
+    if (!chatMsg.trim() && !photoFile) return
+    if (!op || !selectedManager) return
     const msgText = chatMsg.trim()
     setChatSending(true)
-    // Optimistic: show immediately
+
+    // Upload photo if attached
+    let photoUrl = null
+    if (photoFile) {
+      const path = `chat/${op.company_id}/${Date.now()}.jpg`
+      const { error } = await supabase.storage.from('documents').upload(path, photoFile, { contentType: photoFile.type })
+      if (!error) {
+        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+        photoUrl = urlData.publicUrl
+      }
+    }
+
     const tempMsg = {
       id: `temp-${Date.now()}`,
       company_id: op.company_id,
@@ -127,7 +139,8 @@ export default function OperativeDashboard() {
       manager_name: selectedManager.name,
       sender_type: 'operative',
       sender_name: op.name,
-      message: msgText,
+      message: msgText || (photoUrl ? '📷 Photo' : ''),
+      photo_url: photoUrl,
       read_by_manager: false,
       read_by_operative: true,
       created_at: new Date().toISOString(),
@@ -144,16 +157,16 @@ export default function OperativeDashboard() {
       manager_name: selectedManager.name,
       sender_type: 'operative',
       sender_name: op.name,
-      message: msgText,
+      message: msgText || (photoUrl ? '📷 Photo' : ''),
+      photo_url: photoUrl,
       read_by_manager: false,
       read_by_operative: true,
     })
-    // Notify the manager
     await supabase.from('notifications').insert({
       company_id: op.company_id,
       user_id: selectedManager.id,
       title: `Message from ${op.name}`,
-      body: msgText.length > 60 ? msgText.slice(0, 60) + '...' : msgText,
+      body: photoUrl ? '📷 Sent a photo' : (msgText.length > 60 ? msgText.slice(0, 60) + '...' : msgText),
       type: 'info',
       link: '/app/messages',
     }).catch(() => {})
@@ -751,7 +764,24 @@ function ProfileTab({ op, handleLogout, navigate, primaryColor }) {
 
 /* ========== CHAT TAB ========== */
 function OperativeChatTab({ op, messages, chatMsg, setChatMsg, sendChat, chatSending, chatEndRef, markChatRead, primaryColor, managers, selectedManager, setSelectedManager }) {
+  const [chatPhoto, setChatPhoto] = useState(null)
+  const [chatPhotoPreview, setChatPhotoPreview] = useState(null)
+  const [chatLightbox, setChatLightbox] = useState(null)
+
   useEffect(() => { if (selectedManager) markChatRead(selectedManager.id) }, [selectedManager])
+
+  function handleChatPhoto(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setChatPhoto(file)
+    setChatPhotoPreview(URL.createObjectURL(file))
+  }
+
+  function sendWithPhoto() {
+    sendChat(chatPhoto)
+    setChatPhoto(null)
+    setChatPhotoPreview(null)
+  }
 
   // Filter messages for selected manager
   const filteredMessages = selectedManager
@@ -839,7 +869,12 @@ function OperativeChatTab({ op, messages, chatMsg, setChatMsg, sendChat, chatSen
               <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 ${isMe ? 'rounded-br-md text-white' : 'rounded-bl-md bg-white border border-slate-200'}`}
                 style={isMe ? { backgroundColor: primaryColor } : {}}>
                 {!isMe && <p className="text-[10px] font-semibold mb-0.5" style={{ color: primaryColor }}>{msg.sender_name}</p>}
-                <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                {msg.photo_url && (
+                  <button onClick={() => setChatLightbox(msg.photo_url)} className="w-full mb-1.5 rounded-lg overflow-hidden">
+                    <img src={msg.photo_url} alt="" className="w-full max-h-48 object-cover rounded-lg" />
+                  </button>
+                )}
+                {msg.message && msg.message !== '📷 Photo' && <p className="text-sm whitespace-pre-wrap">{msg.message}</p>}
                 <p className={`text-[10px] mt-1 ${isMe ? 'text-white/50' : 'text-slate-400'}`}>
                   {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
@@ -860,17 +895,39 @@ function OperativeChatTab({ op, messages, chatMsg, setChatMsg, sendChat, chatSen
         ))}
       </div>
 
+      {/* Photo preview */}
+      {chatPhotoPreview && (
+        <div className="px-4 py-2 bg-white border-t border-slate-200 shrink-0">
+          <div className="relative inline-block">
+            <img src={chatPhotoPreview} alt="" className="h-20 rounded-lg object-cover" />
+            <button onClick={() => { setChatPhoto(null); setChatPhotoPreview(null) }} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"><X size={10} /></button>
+          </div>
+        </div>
+      )}
+
       {/* Input */}
       <div className="flex gap-2 px-4 py-3 bg-white border-t border-slate-200 shrink-0">
+        <label className="px-2 py-2.5 text-slate-400 cursor-pointer hover:text-blue-500 transition-colors flex items-center">
+          <Paperclip size={18} />
+          <input type="file" accept="image/*" onChange={handleChatPhoto} className="hidden" />
+        </label>
         <input value={chatMsg} onChange={e => setChatMsg(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat() } }}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatPhoto ? sendWithPhoto() : sendChat() } }}
           placeholder={`Message ${selectedManager.name?.split(' ')[0]}...`}
           className="flex-1 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400" />
-        <button onClick={sendChat} disabled={chatSending || !chatMsg.trim()}
+        <button onClick={() => chatPhoto ? sendWithPhoto() : sendChat()} disabled={chatSending || (!chatMsg.trim() && !chatPhoto)}
           className="px-3.5 py-2.5 rounded-xl text-white disabled:opacity-40 transition-colors" style={{ backgroundColor: primaryColor }}>
           <Send size={18} />
         </button>
       </div>
+
+      {/* Lightbox */}
+      {chatLightbox && (
+        <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4" onClick={() => setChatLightbox(null)}>
+          <img src={chatLightbox} alt="" className="max-w-full max-h-full object-contain rounded-lg" />
+          <button onClick={() => setChatLightbox(null)} className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20"><X size={24} /></button>
+        </div>
+      )}
     </div>
   )
 }
