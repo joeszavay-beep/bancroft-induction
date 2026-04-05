@@ -224,31 +224,36 @@ export default function OperativeDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center" style={{ backgroundColor: '#F5F6F8' }}>
-        <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full" style={{ borderColor: primaryColor }} />
+      <div className="min-h-dvh flex items-center justify-center bg-[#0D1526]">
+        <div className="animate-spin w-8 h-8 border-2 border-white/20 border-t-white rounded-full" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: '#F5F6F8' }}>
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0">
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--bg-main, #F5F6F8)' }}>
+      {/* Dark header — matches manager portal */}
+      <header className="bg-[#0D1526] text-white px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           {op.company_logo ? (
-            <img src={op.company_logo} alt={op.company_name} className="h-7" />
+            <img src={op.company_logo} alt={op.company_name} className="h-6 opacity-80" />
           ) : (
-            <span className="text-sm font-semibold text-slate-700">{op.company_name || <><span className="font-light tracking-widest">CORE</span><span className="font-bold">SITE</span></>}</span>
+            <span className="text-sm font-light tracking-widest text-white/80">CORE<span className="font-bold tracking-normal">SITE</span></span>
           )}
+          <div className="w-px h-5 bg-white/10" />
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-white/90 truncate">{op.name}</p>
+            <p className="text-[10px] text-white/40 truncate">{op.project_name || op.company_name}</p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           {notifications.length > 0 && (
             <div className="relative">
-              <Bell size={18} className="text-slate-400" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{notifications.length}</span>
+              <Bell size={16} className="text-white/50" />
+              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{notifications.length}</span>
             </div>
           )}
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: primaryColor }}>
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: primaryColor }}>
             {op.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
           </div>
         </div>
@@ -408,8 +413,8 @@ export default function OperativeDashboard() {
         </div>
       )}
 
-      {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around py-2 px-1 z-40" style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
+      {/* Bottom nav — dark to match header */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#0D1526] flex items-center justify-around py-2 px-1 z-40" style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
         {[
           { id: 'home', icon: Home, label: 'Home' },
           { id: 'documents', icon: FileText, label: 'Docs', badge: unsignedDocs.length },
@@ -418,11 +423,11 @@ export default function OperativeDashboard() {
           { id: 'profile', icon: User, label: 'Profile' },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} className="flex flex-col items-center gap-0.5 relative min-w-[56px]">
-            <t.icon size={20} className={tab === t.id ? '' : 'text-slate-400'} style={tab === t.id ? { color: primaryColor } : {}} />
+            <t.icon size={20} style={{ color: tab === t.id ? primaryColor : 'rgba(255,255,255,0.35)' }} />
             {t.badge > 0 && (
               <span className="absolute -top-1 right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{t.badge}</span>
             )}
-            <span className={`text-[10px] ${tab === t.id ? 'font-semibold' : 'text-slate-400'}`} style={tab === t.id ? { color: primaryColor } : {}}>{t.label}</span>
+            <span className="text-[10px] font-medium" style={{ color: tab === t.id ? primaryColor : 'rgba(255,255,255,0.35)' }}>{t.label}</span>
           </button>
         ))}
       </nav>
@@ -435,42 +440,38 @@ function HomeTab({ op, unsignedDocs, unsignedTalks, snags, overdueSnags, pending
   return (
     <div className="p-4 space-y-4">
       {/* Welcome */}
-      <div className="bg-white rounded-xl p-4 border border-slate-200">
-        <p className="text-lg font-bold text-slate-900">Hi {op.name?.split(' ')[0]} 👋</p>
-        <p className="text-sm text-slate-500">{op.project_name || 'No project assigned'}{op.role ? ` · ${op.role}` : ''}</p>
-      </div>
-
-      {/* Pending actions */}
-      {pendingActions > 0 ? (
-        <div className="rounded-xl p-4 text-white" style={{ backgroundColor: primaryColor }}>
-          <p className="text-2xl font-bold">{pendingActions}</p>
-          <p className="text-sm opacity-80">pending action{pendingActions !== 1 ? 's' : ''}</p>
-        </div>
-      ) : (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={20} className="text-green-600" />
-            <p className="text-sm font-semibold text-green-800">You're all up to date</p>
+      <div className="bg-[#0D1526] rounded-xl p-5 text-white">
+        <p className="text-lg font-bold">Hi {op.name?.split(' ')[0]}</p>
+        <p className="text-sm text-white/50">{op.project_name || 'No project assigned'}{op.role ? ` · ${op.role}` : ''}</p>
+        {pendingActions > 0 ? (
+          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/10">
+            <span className="text-3xl font-bold" style={{ color: primaryColor }}>{pendingActions}</span>
+            <span className="text-sm text-white/60">pending action{pendingActions !== 1 ? 's' : ''}</span>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/10">
+            <CheckCircle2 size={16} className="text-green-400" />
+            <p className="text-sm text-green-400 font-medium">All up to date</p>
+          </div>
+        )}
+      </div>
 
       {/* Unsigned documents */}
       {unsignedDocs.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Documents to Sign</p>
+          <p className="text-[11px] font-bold text-[#6B7A99] uppercase tracking-wider mb-2">Documents to Sign</p>
           <div className="space-y-1.5">
             {unsignedDocs.slice(0, 3).map(doc => (
               <button key={doc.id} onClick={() => navigate(`/operative/${op.id}/sign/${doc.id}`)}
-                className="w-full bg-white border border-slate-200 rounded-xl p-3.5 flex items-center gap-3 text-left hover:border-blue-300 transition-colors">
-                <div className="w-9 h-9 bg-amber-50 rounded-lg flex items-center justify-center shrink-0">
-                  <FileText size={18} className="text-amber-500" />
+                className="w-full bg-white border border-[#E2E6EA] rounded-xl p-3.5 flex items-center gap-3 text-left hover:border-[#1B6FC8]/30 transition-colors">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${primaryColor}10` }}>
+                  <FileText size={18} style={{ color: primaryColor }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">{doc.title}</p>
-                  <p className="text-xs text-amber-600 font-medium">Awaiting your signature</p>
+                  <p className="text-sm font-medium text-[#1A1A2E] truncate">{doc.title}</p>
+                  <p className="text-xs font-medium" style={{ color: primaryColor }}>Awaiting your signature</p>
                 </div>
-                <ChevronRight size={16} className="text-slate-400" />
+                <ChevronRight size={16} className="text-[#B0B8C9]" />
               </button>
             ))}
             {unsignedDocs.length > 3 && (
@@ -485,21 +486,21 @@ function HomeTab({ op, unsignedDocs, unsignedTalks, snags, overdueSnags, pending
       {/* Assigned snags */}
       {snags.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Assigned Snags</p>
+          <p className="text-[11px] font-bold text-[#6B7A99] uppercase tracking-wider mb-2">Assigned Snags</p>
           <div className="space-y-1.5">
             {snags.slice(0, 3).map(snag => {
               const isOverdue = snag.due_date && new Date(snag.due_date) < new Date()
               return (
-                <div key={snag.id} className="bg-white border border-slate-200 rounded-xl p-3.5 flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isOverdue ? 'bg-red-50' : 'bg-blue-50'}`}>
-                    <MapPin size={18} className={isOverdue ? 'text-red-500' : 'text-blue-500'} />
+                <div key={snag.id} className={`bg-white border rounded-xl p-3.5 flex items-center gap-3 ${isOverdue ? 'border-[#DA3633]/30' : 'border-[#E2E6EA]'}`}>
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0 ${isOverdue ? 'bg-[#DA3633]' : ''}`} style={isOverdue ? {} : { backgroundColor: primaryColor }}>
+                    {snag.snag_number}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">#{snag.snag_number} — {snag.description?.slice(0, 40) || 'No description'}</p>
+                    <p className="text-sm font-medium text-[#1A1A2E] truncate">{snag.description?.slice(0, 40) || 'No description'}</p>
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="text-slate-500">{snag.drawings?.name || 'Unknown drawing'}</span>
-                      {isOverdue && <span className="text-red-600 font-bold">OVERDUE</span>}
-                      {snag.due_date && !isOverdue && <span className="text-slate-400">Due {new Date(snag.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>}
+                      <span className="text-[#6B7A99]">{snag.drawings?.name || 'Unknown drawing'}</span>
+                      {isOverdue && <span className="text-[#DA3633] font-bold">OVERDUE</span>}
+                      {snag.due_date && !isOverdue && <span className="text-[#B0B8C9]">Due {new Date(snag.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>}
                     </div>
                   </div>
                 </div>
@@ -517,19 +518,19 @@ function HomeTab({ op, unsignedDocs, unsignedTalks, snags, overdueSnags, pending
       {/* Unsigned toolbox talks */}
       {unsignedTalks.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Toolbox Talks to Sign</p>
+          <p className="text-[11px] font-bold text-[#6B7A99] uppercase tracking-wider mb-2">Toolbox Talks to Sign</p>
           <div className="space-y-1.5">
             {unsignedTalks.map(talk => (
               <button key={talk.id} onClick={() => navigate(`/toolbox/${talk.id}`)}
-                className="w-full bg-white border border-slate-200 rounded-xl p-3.5 flex items-center gap-3 text-left hover:border-blue-300 transition-colors">
-                <div className="w-9 h-9 bg-purple-50 rounded-lg flex items-center justify-center shrink-0">
-                  <MessageSquare size={18} className="text-purple-500" />
+                className="w-full bg-white border border-[#E2E6EA] rounded-xl p-3.5 flex items-center gap-3 text-left hover:border-[#1B6FC8]/30 transition-colors">
+                <div className="w-9 h-9 bg-[#7C3AED]/10 rounded-lg flex items-center justify-center shrink-0">
+                  <MessageSquare size={18} className="text-[#7C3AED]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">{talk.title}</p>
-                  <p className="text-xs text-purple-600 font-medium">Awaiting your signature</p>
+                  <p className="text-sm font-medium text-[#1A1A2E] truncate">{talk.title}</p>
+                  <p className="text-xs text-[#7C3AED] font-medium">Awaiting your signature</p>
                 </div>
-                <ChevronRight size={16} className="text-slate-400" />
+                <ChevronRight size={16} className="text-[#B0B8C9]" />
               </button>
             ))}
           </div>
@@ -718,44 +719,47 @@ function ToolboxTab({ talks, signedTalkIds, unsignedTalks, navigate, primaryColo
 function ProfileTab({ op, handleLogout, navigate, primaryColor }) {
   return (
     <div className="p-4 space-y-4">
-      <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col items-center">
-        {op.photo_url ? (
-          <img src={op.photo_url} alt={op.name} className="w-20 h-20 rounded-full object-cover border-4 border-slate-100" />
-        ) : (
-          <div className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold" style={{ backgroundColor: primaryColor }}>
-            {op.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-          </div>
-        )}
-        <h2 className="text-lg font-bold text-slate-900 mt-3">{op.name}</h2>
-        <p className="text-sm text-slate-500">{op.role || 'Operative'}</p>
-        <p className="text-xs text-slate-400 mt-1">{op.company_name} · {op.project_name}</p>
+      {/* Profile card — dark header */}
+      <div className="bg-[#0D1526] rounded-xl overflow-hidden">
+        <div className="p-5 flex flex-col items-center">
+          {op.photo_url ? (
+            <img src={op.photo_url} alt={op.name} className="w-20 h-20 rounded-full object-cover border-3 border-white/20" />
+          ) : (
+            <div className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold" style={{ backgroundColor: primaryColor }}>
+              {op.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          <h2 className="text-lg font-bold text-white mt-3">{op.name}</h2>
+          <p className="text-sm text-white/50">{op.role || 'Operative'}</p>
+          <p className="text-xs text-white/30 mt-1">{op.company_name} · {op.project_name}</p>
+        </div>
       </div>
 
       <div className="space-y-2">
         <button onClick={() => navigate(`/operative/${op.id}/profile`)}
-          className="w-full bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3 text-left hover:border-blue-300 transition-colors">
-          <User size={20} className="text-slate-400" />
+          className="w-full bg-white border border-[#E2E6EA] rounded-xl p-4 flex items-center gap-3 text-left hover:border-[#1B6FC8]/30 transition-colors">
+          <User size={20} className="text-[#6B7A99]" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-slate-900">Edit Profile</p>
-            <p className="text-xs text-slate-500">Update your personal details</p>
+            <p className="text-sm font-medium text-[#1A1A2E]">Edit Profile</p>
+            <p className="text-xs text-[#6B7A99]">Update your personal details & card</p>
           </div>
-          <ChevronRight size={16} className="text-slate-400" />
+          <ChevronRight size={16} className="text-[#B0B8C9]" />
         </button>
 
         <button onClick={() => navigate(`/operative/${op.id}/documents`)}
-          className="w-full bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3 text-left hover:border-blue-300 transition-colors">
-          <FileText size={20} className="text-slate-400" />
+          className="w-full bg-white border border-[#E2E6EA] rounded-xl p-4 flex items-center gap-3 text-left hover:border-[#1B6FC8]/30 transition-colors">
+          <FileText size={20} className="text-[#6B7A99]" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-slate-900">View & Sign Documents</p>
-            <p className="text-xs text-slate-500">RAMS, induction packs</p>
+            <p className="text-sm font-medium text-[#1A1A2E]">View & Sign Documents</p>
+            <p className="text-xs text-[#6B7A99]">RAMS, induction packs</p>
           </div>
-          <ChevronRight size={16} className="text-slate-400" />
+          <ChevronRight size={16} className="text-[#B0B8C9]" />
         </button>
 
         <button onClick={handleLogout}
-          className="w-full bg-white border border-red-200 rounded-xl p-4 flex items-center gap-3 text-left hover:bg-red-50 transition-colors">
-          <LogOut size={20} className="text-red-400" />
-          <p className="text-sm font-medium text-red-600">Sign Out</p>
+          className="w-full bg-white border border-[#DA3633]/20 rounded-xl p-4 flex items-center gap-3 text-left hover:bg-[#DA3633]/5 transition-colors">
+          <LogOut size={20} className="text-[#DA3633]" />
+          <p className="text-sm font-medium text-[#DA3633]">Sign Out</p>
         </button>
       </div>
     </div>
