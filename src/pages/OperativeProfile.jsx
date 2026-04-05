@@ -128,8 +128,27 @@ export default function OperativeProfile() {
       return
     }
     toast.success('Profile saved')
-    const hasWorkerSession = sessionStorage.getItem('operative_session')
-    navigate(hasWorkerSession ? '/worker' : `/operative/${operativeId}/documents`)
+
+    // If no worker session yet (first-time setup from invite), create one automatically
+    if (!sessionStorage.getItem('operative_session')) {
+      const sessionData = {
+        id: operative.id,
+        name: operative.name,
+        email: email.trim() || operative.email,
+        role: (role === 'Other' ? otherRole.trim() : role.trim()) || operative.role,
+        photo_url: operative.photo_url,
+        project_id: operative.project_id,
+        project_name: operative.projects?.name,
+        company_id: operative.company_id,
+        company_name: operative.companies?.name,
+        company_logo: operative.companies?.logo_url,
+        primary_colour: operative.companies?.primary_colour || '#1B6FC8',
+      }
+      sessionStorage.setItem('operative_session', JSON.stringify(sessionData))
+      navigate(`/operative/${operativeId}/documents`)
+    } else {
+      navigate('/worker')
+    }
   }
 
   const goBack = () => {
