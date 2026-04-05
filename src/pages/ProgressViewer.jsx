@@ -463,11 +463,11 @@ export default function ProgressViewer() {
         {/* Size slider - dot mode only */}
         {drawMode === 'dot' && (
           <div className="flex items-center gap-1.5 ml-auto">
-            <span className="text-[9px] text-[#B0B8C9]">Size</span>
-            <span className="text-[9px] text-[#6B7A99]">1</span>
+            <div className="flex items-center justify-center" style={{ width: 28, height: 28 }}>
+              <div className="rounded-full opacity-60" style={{ width: Math.max(4, dotSize), height: Math.max(4, dotSize), backgroundColor: activeColour ? STATUS_COLORS[activeColour] : '#6B7A99' }} />
+            </div>
             <input type="range" min="1" max="40" value={dotSize} onChange={e => setDotSize(Number(e.target.value))}
               className="w-20 h-1 accent-[#1B6FC8]" />
-            <span className="text-[9px] text-[#6B7A99]">40</span>
             <input type="number" min="1" max="40" value={dotSize} onChange={e => { const v = Math.max(1, Math.min(40, Number(e.target.value) || 1)); setDotSize(v) }}
               className="w-9 text-[10px] text-center text-[#1A1A2E] font-semibold bg-[#F5F6F8] border border-[#E2E6EA] rounded px-1 py-0.5 focus:outline-none focus:border-[#1B6FC8]" />
           </div>
@@ -515,19 +515,12 @@ export default function ProgressViewer() {
 
       {/* Drawing viewer — takes all remaining space */}
       <div className="flex-1 min-h-0 bg-slate-200 relative">
-        {/* Click overlay for marking */}
-        {isMarking && (
-          <div className="absolute inset-0 z-30" style={{ cursor: 'crosshair' }} onClick={handleDrawingTap} />
-        )}
-
         <TransformWrapper
           initialScale={1}
           minScale={0.3}
           maxScale={10}
-          disabled={isMarking}
-          panning={{ disabled: isMarking, velocityDisabled: false }}
-          pinch={{ disabled: isMarking }}
-          wheel={{ disabled: isMarking, step: 0.08, smoothStep: 0.004 }}
+          panning={{ velocityDisabled: false }}
+          wheel={{ step: 0.08, smoothStep: 0.004 }}
           doubleClick={{ disabled: true }}
           velocityAnimation={{ sensitivity: 1, animationTime: 200 }}
         >
@@ -544,10 +537,11 @@ export default function ProgressViewer() {
                 wrapperStyle={{ width: '100%', height: '100%', touchAction: 'none' }}
                 contentStyle={{ width: '100%', touchAction: 'none' }}
               >
-                <div className="relative inline-block">
+                <div className="relative inline-block" style={{ cursor: isMarking ? 'crosshair' : 'grab' }}>
                   <img ref={imageRef} src={drawing?.image_url} alt={drawing?.name}
                     className="max-w-none select-none" style={{ width: '100%', minWidth: '800px' }}
-                    onLoad={() => setImageLoaded(true)} draggable={false} />
+                    onLoad={() => setImageLoaded(true)} draggable={false}
+                    onClick={isMarking ? handleDrawingTap : undefined} />
 
                   {/* Items: dots, lines, polylines, photos */}
                   {imageLoaded && items.map(item => {
