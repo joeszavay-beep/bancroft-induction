@@ -5,8 +5,47 @@ import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import {
   Plus, ChevronDown, ChevronRight, Calendar, Cloud, Sun, CloudRain, CloudSnow, Wind, Thermometer,
-  Users, Truck, AlertTriangle, Clock, FileText, Edit3, Trash2, X, CloudLightning
+  Users, Truck, AlertTriangle, Clock, FileText, Edit3, Trash2, X, CloudLightning, MapPin, Loader2, CloudDrizzle
 } from 'lucide-react'
+
+// WMO weather codes → our weather values
+function wmoToWeather(code) {
+  if (code <= 1) return 'sunny'
+  if (code <= 3) return 'cloudy'
+  if (code >= 51 && code <= 55) return 'rain'       // drizzle
+  if (code >= 56 && code <= 67) return 'heavy_rain'  // freezing rain / rain
+  if (code >= 61 && code <= 65) return 'rain'
+  if (code >= 66 && code <= 67) return 'heavy_rain'
+  if (code >= 71 && code <= 77) return 'snow'
+  if (code >= 80 && code <= 82) return 'rain'        // showers
+  if (code >= 85 && code <= 86) return 'snow'
+  if (code >= 95) return 'heavy_rain'                 // thunderstorm
+  return 'cloudy'
+}
+
+async function fetchWeatherForLocation(location) {
+  // Step 1: Geocode the location
+  const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=en&format=json`)
+  const geoData = await geoRes.json()
+  if (!geoData.results?.length) throw new Error('Location not found')
+
+  const { latitude, longitude, name } = geoData.results[0]
+
+  // Step 2: Get current weather + daily high/low
+  const weatherRes = await fetch(
+    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`
+  )
+  const weatherData = await weatherRes.json()
+
+  return {
+    locationName: name,
+    weather: wmoToWeather(weatherData.current?.weather_code ?? 3),
+    currentTemp: Math.round(weatherData.current?.temperature_2m ?? 0),
+    tempHigh: Math.round(weatherData.daily?.temperature_2m_max?.[0] ?? 0),
+    tempLow: Math.round(weatherData.daily?.temperature_2m_min?.[0] ?? 0),
+    windSpeed: Math.round(weatherData.current?.wind_speed_10m ?? 0),
+  }
+}
 
 const WEATHER_OPTIONS = [
   { value: 'sunny', label: 'Sunny', icon: Sun, color: 'text-amber-500' },
@@ -44,6 +83,8 @@ export default function DailySiteDiary() {
   const [workPlanned, setWorkPlanned] = useState('')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const [locationInput, setLocationInput] = useState('')
+  const [fetchingWeather, setFetchingWeather] = useState(false)
 
   useEffect(() => { loadData() }, [])
 
@@ -140,6 +181,23 @@ export default function DailySiteDiary() {
     if (error) { toast.error('Failed to delete'); return }
     toast.success('Entry deleted')
     loadData()
+  }
+
+  async function handleFetchWeather() {
+    if (!locationInput.trim()) return
+    setFetchingWeather(true)
+    try {
+      const data = await fetchWeatherForLocation(locationInput.trim())
+      setWeather(data.weather)
+      setTempHigh(data.tempHigh.toString())
+      setTempLow(data.tempLow.toString())
+      // If wind is very high, override to windy
+      if (data.windSpeed > 40) setWeather('windy')
+      toast.success(`Weather loaded for ${data.locationName}: ${data.currentTemp}°C`)
+    } catch (err) {
+      toast.error('Could not find weather for that location')
+    }
+    setFetchingWeather(false)
   }
 
   const projectMap = Object.fromEntries(projects.map(p => [p.id, p.name]))
@@ -292,6 +350,32 @@ export default function DailySiteDiary() {
                 <div>
                   <label className={labelCls}>Date *</label>
                   <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} required />
+                </div>
+              </div>
+
+              {/* Weather auto-fetch */}
+              <div>
+                <label className={labelCls}>Site Location (auto-fill weather)</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={locationInput}
+                      onChange={e => setLocationInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleFetchWeather() } }}
+                      className={`${inputCls} pl-9`}
+                      placeholder="e.g. Manchester, London, Birmingham..."
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleFetchWeather}
+                    disabled={fetchingWeather || !locationInput.trim()}
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-[#1B6FC8] text-xs font-semibold rounded-lg border border-blue-200 transition-colors disabled:opacity-40 shrink-0"
+                  >
+                    {fetchingWeather ? <Loader2 size={14} className="animate-spin" /> : <Cloud size={14} />}
+                    {fetchingWeather ? 'Fetching...' : 'Get Weather'}
+                  </button>
                 </div>
               </div>
 
