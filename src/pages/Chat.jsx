@@ -31,6 +31,9 @@ export default function Chat() {
   const [photoFile, setPhotoFile] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
   const [lightbox, setLightbox] = useState(null)
+  const [showNewChat, setShowNewChat] = useState(false)
+  const [allOperatives, setAllOperatives] = useState([])
+  const [opSearch, setOpSearch] = useState('')
   const messagesEndRef = useRef(null)
   const channelRef = useRef(null)
 
@@ -189,6 +192,25 @@ export default function Chat() {
     setSending(false)
   }
 
+  async function openNewChat() {
+    const { data } = await supabase.from('operatives').select('id, name, role, photo_url')
+      .eq('company_id', cid).order('name')
+    setAllOperatives(data || [])
+    setShowNewChat(true)
+    setOpSearch('')
+  }
+
+  function startChatWith(op) {
+    setShowNewChat(false)
+    const conv = {
+      operative_id: op.id,
+      operative_name: op.name,
+      operative_role: op.role,
+      operative_photo: op.photo_url,
+    }
+    openConversation(conv)
+  }
+
   // Poll the active conversation for new messages every 5 seconds
   useEffect(() => {
     if (!selectedOp) return
@@ -321,7 +343,52 @@ export default function Chat() {
             {totalUnread > 0 ? `${totalUnread} unread` : 'All caught up'}
           </p>
         </div>
+        <button onClick={openNewChat}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors"
+          style={{ backgroundColor: 'var(--primary-color)' }}>
+          <Send size={14} /> New Chat
+        </button>
       </div>
+
+      {/* New chat — operative picker */}
+      {showNewChat && (
+        <div className="border rounded-xl overflow-hidden" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)' }}>
+          <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-color)' }}>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Select an operative</p>
+            <button onClick={() => setShowNewChat(false)} style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
+          </div>
+          <div className="p-3">
+            <div className="relative mb-2">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+              <input value={opSearch} onChange={e => setOpSearch(e.target.value)} placeholder="Search operatives..."
+                className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:border-[#1B6FC8]"
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--bg-main)' }} autoFocus />
+            </div>
+            <div className="max-h-64 overflow-y-auto space-y-1">
+              {allOperatives.filter(o => o.name.toLowerCase().includes(opSearch.toLowerCase())).map(op => (
+                <button key={op.id} onClick={() => startChatWith(op)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors hover:opacity-80"
+                  style={{ backgroundColor: 'var(--bg-main)' }}>
+                  {op.photo_url ? (
+                    <img src={op.photo_url} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ backgroundColor: 'var(--primary-color)' }}>
+                      {op.name?.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{op.name}</p>
+                    {op.role && <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{op.role}</p>}
+                  </div>
+                </button>
+              ))}
+              {allOperatives.length === 0 && (
+                <p className="text-center py-4 text-sm" style={{ color: 'var(--text-muted)' }}>No operatives found</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="relative">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
