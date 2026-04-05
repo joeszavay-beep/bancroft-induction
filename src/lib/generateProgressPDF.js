@@ -13,20 +13,66 @@ const STATUS_LABELS = {
 
 async function fetchHighResImage(url) {
   try {
-    const res = await fetch(url, { mode: 'cors' })
+    // Method 1: Fetch as blob and convert
+    // Bypass service worker cache by adding cache-bust param
+    const bustUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now()
+    const res = await fetch(bustUrl)
+    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`)
     const blob = await res.blob()
-    const rawUrl = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(blob) })
+    const rawUrl = await new Promise((resolve, reject) => {
+      const rd = new FileReader()
+      rd.onload = () => resolve(rd.result)
+      rd.onerror = reject
+      rd.readAsDataURL(blob)
+    })
     const img = new Image()
     img.crossOrigin = 'anonymous'
-    await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = rawUrl })
-    // Keep high res — max 4000px for sharp PDF
+    await new Promise((resolve, reject) => {
+      img.onload = resolve
+      img.onerror = () => reject(new Error('Image load failed'))
+      img.src = rawUrl
+    })
     let w = img.width, h = img.height
-    const maxDim = 4000
-    if (w > maxDim || h > maxDim) { const ratio = Math.min(maxDim / w, maxDim / h); w = Math.round(w * ratio); h = Math.round(h * ratio) }
-    const c = document.createElement('canvas'); c.width = w; c.height = h
+    // Limit to 3000px to avoid canvas memory issues
+    const maxDim = 3000
+    if (w > maxDim || h > maxDim) {
+      const ratio = Math.min(maxDim / w, maxDim / h)
+      w = Math.round(w * ratio)
+      h = Math.round(h * ratio)
+    }
+    const c = document.createElement('canvas')
+    c.width = w
+    c.height = h
     c.getContext('2d').drawImage(img, 0, 0, w, h)
-    return { dataUrl: c.toDataURL('image/jpeg', 0.92), width: w, height: h }
-  } catch { return null }
+    return { dataUrl: c.toDataURL('image/jpeg', 0.85), width: w, height: h }
+  } catch (err) {
+    console.error('fetchHighResImage failed:', err, 'URL:', url)
+    // Method 2: Try using the image element directly with the URL
+    try {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      await new Promise((resolve, reject) => {
+        img.onload = resolve
+        img.onerror = reject
+        img.src = url
+      })
+      let w = img.width, h = img.height
+      const maxDim = 2000
+      if (w > maxDim || h > maxDim) {
+        const ratio = Math.min(maxDim / w, maxDim / h)
+        w = Math.round(w * ratio)
+        h = Math.round(h * ratio)
+      }
+      const c = document.createElement('canvas')
+      c.width = w
+      c.height = h
+      c.getContext('2d').drawImage(img, 0, 0, w, h)
+      return { dataUrl: c.toDataURL('image/jpeg', 0.85), width: w, height: h }
+    } catch (err2) {
+      console.error('fetchHighResImage fallback also failed:', err2)
+      return null
+    }
+  }
 }
 
 export async function generateProgressPDF({ drawing, project, items, companyName }) {
