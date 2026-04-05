@@ -104,6 +104,13 @@ export default function ProgressViewer() {
       return
     }
 
+    // Text/comment mode — doesn't need a colour selected
+    if (drawMode === 'text' || drawMode === 'comment') {
+      setPendingText({ x, y })
+      setTextInput('')
+      return
+    }
+
     if (!activeColour) return
 
     if (drawMode === 'line') {
@@ -123,12 +130,6 @@ export default function ProgressViewer() {
 
     if (drawMode === 'circle') {
       await placeCircleItem(x, y)
-      return
-    }
-
-    if (drawMode === 'text' || drawMode === 'comment') {
-      setPendingText({ x, y })
-      setTextInput('')
       return
     }
 
@@ -465,7 +466,7 @@ export default function ProgressViewer() {
 
   if (loading) return <div className="min-h-dvh flex items-center justify-center bg-slate-100"><div className="animate-spin w-8 h-8 border-2 border-[#1B6FC8] border-t-transparent rounded-full" /></div>
 
-  const isMarking = activeColour !== null || drawMode === 'photo' || drawMode === 'text' || drawMode === 'comment' || clipboard !== null
+  const isMarking = activeColour !== null || drawMode === 'photo' || clipboard !== null
 
   return (
     <>
@@ -626,10 +627,15 @@ export default function ProgressViewer() {
 
       {/* Drawing viewer — takes all remaining space */}
       <div className="flex-1 min-h-0 bg-slate-200 relative"
-        onMouseMove={isMarking ? (e) => setCursorPos({ x: e.clientX, y: e.clientY }) : undefined}
+        onMouseMove={(isMarking || drawMode === 'text' || drawMode === 'comment') ? (e) => setCursorPos({ x: e.clientX, y: e.clientY }) : undefined}
         onMouseLeave={() => setCursorPos(null)}>
 
         {/* Custom cursor */}
+        {cursorPos && (drawMode === 'text' || drawMode === 'comment') && !activeColour && (
+          <div className="fixed pointer-events-none z-50" style={{ left: cursorPos.x, top: cursorPos.y, transform: 'translate(-50%, -50%)' }}>
+            <div style={{ fontSize: 16, color: '#1B6FC8', fontWeight: 700, textShadow: '0 0 4px rgba(255,255,255,0.9)' }}>{drawMode === 'text' ? 'T' : '💬'}</div>
+          </div>
+        )}
         {isMarking && cursorPos && activeColour && (
           drawMode === 'dot' ? (
             /* Dot cursor — coloured circle matching size */
@@ -689,9 +695,9 @@ export default function ProgressViewer() {
                 wrapperStyle={{ width: '100%', height: '100%', touchAction: 'none' }}
                 contentStyle={{ width: '100%', touchAction: 'none' }}
               >
-                <div className="relative inline-block" style={{ cursor: isMarking && activeColour ? 'none' : 'grab' }}
-                  onMouseDown={isMarking ? (e) => { mouseDownPos.current = { x: e.clientX, y: e.clientY } } : undefined}
-                  onMouseUp={isMarking ? (e) => {
+                <div className="relative inline-block" style={{ cursor: (isMarking && activeColour) || drawMode === 'text' || drawMode === 'comment' ? 'none' : 'grab' }}
+                  onMouseDown={(isMarking || drawMode === 'text' || drawMode === 'comment') ? (e) => { mouseDownPos.current = { x: e.clientX, y: e.clientY } } : undefined}
+                  onMouseUp={(isMarking || drawMode === 'text' || drawMode === 'comment') ? (e) => {
                     if (!mouseDownPos.current) return
                     const dx = Math.abs(e.clientX - mouseDownPos.current.x)
                     const dy = Math.abs(e.clientY - mouseDownPos.current.y)
