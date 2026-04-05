@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Shield, FileCheck, MapPin, Layers, QrCode, Users, Clock, Download, CheckCircle2, ArrowRight, Zap, Lock, Globe, Smartphone, X, Send, BookOpen, CheckSquare, Bell, BarChart3, WifiOff, HardHat, Activity } from 'lucide-react'
+import {
+  Shield, FileCheck, MapPin, Layers, QrCode, Users, Clock, Download, CheckCircle2,
+  ArrowRight, Zap, Lock, Globe, Smartphone, X, Send, BookOpen, CheckSquare,
+  Bell, BarChart3, WifiOff, HardHat, Activity, MessageSquare, CreditCard, ChevronRight
+} from 'lucide-react'
 
 function AnimatedCounter({ end, suffix = '', duration = 2000 }) {
   const [count, setCount] = useState(0)
   const ref = useRef(null)
   const started = useRef(false)
-
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && !started.current) {
@@ -24,120 +27,53 @@ function AnimatedCounter({ end, suffix = '', duration = 2000 }) {
     if (ref.current) observer.observe(ref.current)
     return () => observer.disconnect()
   }, [end, duration])
-
   return <span ref={ref}>{count.toLocaleString()}{suffix}</span>
 }
 
-function FadeInSection({ children, delay = 0 }) {
+function FadeIn({ children, delay = 0, className = '' }) {
   const ref = useRef(null)
   const [visible, setVisible] = useState(false)
-
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) setVisible(true)
-    }, { threshold: 0.15 })
+    }, { threshold: 0.1 })
     if (ref.current) observer.observe(ref.current)
     return () => observer.disconnect()
   }, [])
-
   return (
-    <div ref={ref} className={`transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`} style={{ transitionDelay: `${delay}ms` }}>
+    <div ref={ref} className={`transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'} ${className}`} style={{ transitionDelay: `${delay}ms` }}>
       {children}
     </div>
   )
 }
 
 const features = [
-  {
-    icon: FileCheck,
-    title: 'Digital RAMS Sign-Off',
-    desc: 'Operatives review documents in-app and sign with a digital signature. Every sign-off is timestamped with IP verification — no more chasing paper.',
-    color: '#3B7DD8',
-  },
-  {
-    icon: MapPin,
-    title: 'Snagging & Defect Tracking',
-    desc: 'Drop pins directly on drawings, attach photos, assign to trades, and track resolution. Automatic overdue email chasing and contractor performance analytics.',
-    color: '#D93E3E',
-  },
-  {
-    icon: Layers,
-    title: 'Progress Drawings',
-    desc: 'Traffic-light marking system for installation progress. Mark dots, lines and polylines on drawings in green, yellow and red. Export high-res PDFs.',
-    color: '#2D9D5F',
-  },
-  {
-    icon: QrCode,
-    title: 'QR Site Sign-In',
-    desc: 'Print a QR poster for the gate. Workers scan to sign in and out — giving you live headcount, fire muster roll call, time tracking, and attendance history.',
-    color: '#D29922',
-  },
-  {
-    icon: BookOpen,
-    title: 'Daily Site Diary',
-    desc: 'Record weather (auto-filled from location), workforce count, deliveries, visitors, delays, and incidents. The daily log every site manager needs, digitised.',
-    color: '#0891B2',
-  },
-  {
-    icon: CheckSquare,
-    title: 'Inspection Checklists',
-    desc: 'Create reusable templates for void closure, fire stopping, pre-handover checks. Mark pass/fail per item with photo evidence. Auto-generates inspection reports.',
-    color: '#059669',
-  },
-  {
-    icon: Users,
-    title: 'Worker Management & Certs',
-    desc: 'Full operative profiles with CSCS card, IPAF, PASMA, first aid tracking. Automatic alerts 30 days before any certification expires. UK address lookup built in.',
-    color: '#7C3AED',
-  },
-  {
-    icon: HardHat,
-    title: 'Worker Portal',
-    desc: 'Operatives get their own login to see assigned snags, sign documents and toolbox talks, and track their compliance status. Mobile-first with bottom nav.',
-    color: '#EA580C',
-  },
-  {
-    icon: BarChart3,
-    title: 'Contractor Performance',
-    desc: 'Automatic analytics from your snag data — average resolution time by trade, operative league tables, on-time percentages. Data to back up every subcontractor meeting.',
-    color: '#4F46E5',
-  },
-  {
-    icon: Bell,
-    title: 'Notifications & Auto-Chase',
-    desc: 'In-app notification centre plus automated overdue snag emails sent to operatives every morning. 14+ days overdue auto-escalates to high priority.',
-    color: '#DC2626',
-  },
-  {
-    icon: Activity,
-    title: 'Aftercare Portal',
-    desc: 'Give clients a link to report defects during the 12-month liability period. They submit photos and descriptions — you manage them alongside your snags.',
-    color: '#0D9488',
-  },
-  {
-    icon: WifiOff,
-    title: 'Works Offline',
-    desc: 'Full offline mode — create snags, place pins, take photos underground with no signal. Everything syncs automatically when you\'re back online.',
-    color: '#6366F1',
-  },
-  {
-    icon: Shield,
-    title: 'Full H&S Archive',
-    desc: 'One-click export of your entire project H&S pack — every signature, toolbox talk, snag, inspection, and diary entry compiled into a professional PDF.',
-    color: '#1B2A3D',
-  },
+  { icon: FileCheck, title: 'RAMS & Document Sign-Off', desc: 'Digital signatures with IP logging, timestamps, and automatic PDF generation. No more chasing paper.', color: '#3B7DD8' },
+  { icon: MapPin, title: 'Snagging & Defects', desc: 'Pin snags on drawings, attach photos, assign to trades, auto-chase overdue items, track resolution times.', color: '#DA3633' },
+  { icon: Layers, title: 'Progress Drawings', desc: 'Traffic-light system for installation progress. Dots, lines, polylines on drawings. Export to PDF.', color: '#2EA043' },
+  { icon: QrCode, title: 'QR Site Sign-In', desc: 'Print a QR poster for the gate. Live headcount, fire muster roll call, time tracking, auto sign-out.', color: '#D29922' },
+  { icon: BookOpen, title: 'Daily Site Diary', desc: 'Weather auto-fill from location, workforce count, deliveries, delays, incidents. The log every site needs.', color: '#0891B2' },
+  { icon: CheckSquare, title: 'Inspection Checklists', desc: 'Reusable templates for void closure, fire stopping, pre-handover. Pass/fail with photo evidence.', color: '#059669' },
+  { icon: Users, title: 'Worker Management', desc: 'Full profiles with CSCS/ECS card verification, certification expiry alerts, and UK postcode address lookup.', color: '#7C3AED' },
+  { icon: HardHat, title: 'Worker Portal', desc: 'Operatives get their own login. Sign documents, view assigned snags, chat with managers, track compliance.', color: '#EA580C' },
+  { icon: MessageSquare, title: 'Site Chat', desc: 'Real-time messaging between managers and operatives. Photo sharing, quick templates for material requests.', color: '#2563EB' },
+  { icon: BarChart3, title: 'Contractor Performance', desc: 'Resolution times by trade, operative league tables, on-time percentages. Data for every sub meeting.', color: '#4F46E5' },
+  { icon: Bell, title: 'Auto-Chase & Alerts', desc: 'Overdue snag emails every morning. Cert expiry warnings. In-app notifications. Escalation after 14 days.', color: '#DC2626' },
+  { icon: Activity, title: 'Aftercare Portal', desc: 'Public defect reporting for clients during the 12-month liability period. Track alongside your snags.', color: '#0D9488' },
+  { icon: WifiOff, title: 'Works Offline', desc: 'Create snags, take photos, place pins with no signal. Everything syncs automatically when back online.', color: '#6366F1' },
+  { icon: Shield, title: 'H&S Archive & Reports', desc: 'One-click PDF export: signatures, toolbox talks, snags, inspections, diary entries. Full project pack.', color: '#1B2A3D' },
 ]
 
-const stats = [
-  { value: 13, suffix: '+', label: 'Features in one platform' },
-  { value: 50, suffix: '%', label: 'Less time on admin' },
-  { value: 100, suffix: '%', label: 'Digital paper trail' },
-  { value: 0, suffix: '', label: 'Paper forms needed', display: 'Zero' },
+const steps = [
+  { num: '01', title: 'We set up your account', desc: 'Your logo, your colours, your projects. The platform looks like yours from day one.', icon: Globe },
+  { num: '02', title: 'Upload drawings & documents', desc: 'Drag and drop PDFs — automatically converted to high-res images for pin placement.', icon: Download },
+  { num: '03', title: 'Invite your workers', desc: 'Add by name and email. They verify their CSCS card, complete their profile, and sign documents.', icon: Smartphone },
+  { num: '04', title: 'Run your site digitally', desc: 'Snags, progress, toolbox talks, diary, inspections, chat — all in one place, any device.', icon: CheckCircle2 },
 ]
 
 export default function WhyCoreSite() {
   const navigate = useNavigate()
-  useEffect(() => { document.title = 'CoreSite — Site Compliance Platform' }, [])
+  useEffect(() => { document.title = 'CoreSite — Site Compliance Platform for Construction' }, [])
   const [showDemo, setShowDemo] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [sending, setSending] = useState(false)
@@ -157,258 +93,330 @@ export default function WhyCoreSite() {
     setSubmitted(true)
   }
 
+  const inputCls = "w-full px-3.5 py-2.5 border border-[#E2E6EA] rounded-lg text-[#1A1A2E] placeholder-[#B0B8C9] focus:outline-none focus:border-[#3B7DD8] focus:ring-2 focus:ring-[#3B7DD8]/10 text-sm"
+
   return (
     <div className="min-h-dvh bg-white">
-      {/* Dark hero with background image — matching landing page */}
-      <div className="relative">
+
+      {/* ═══════════ HERO ═══════════ */}
+      <div className="relative overflow-hidden">
         <div className="absolute inset-0">
           <img src="/hero.jpg" alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0D1526]/90 via-[#0D1526]/75 to-[#0D1526]/95" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0D1526]/92 via-[#0D1526]/80 to-[#0D1526]" />
         </div>
 
         <div className="relative z-10">
           {/* Nav */}
           <header className="px-6 py-5 flex items-center justify-between max-w-6xl mx-auto">
-            <Link to="/" className="flex items-center gap-2">
-              <img src="/coresite-logo.svg" alt="CoreSite" className="h-9 brightness-0 invert" />
+            <Link to="/">
+              <span className="text-xl text-white font-light tracking-[3px]">CORE<span className="font-bold tracking-normal">SITE</span></span>
             </Link>
-            <div className="flex items-center gap-3">
-              <Link to="/" className="text-sm text-white/60 hover:text-white transition-colors hidden sm:block">Home</Link>
-              <Link to="/why" className="text-sm text-white/60 hover:text-white transition-colors hidden sm:block">Why CoreSite</Link>
-              <button onClick={() => navigate('/login')} className="px-5 py-2 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white text-sm font-medium rounded-lg transition-colors">
-                Sign In
+            <div className="flex items-center gap-4">
+              <button onClick={() => navigate('/worker-login')} className="text-sm text-white/50 hover:text-white transition-colors hidden sm:block">Worker Login</button>
+              <button onClick={() => navigate('/login')} className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-lg border border-white/20 transition-colors">
+                Manager Sign In
               </button>
             </div>
           </header>
 
-          {/* Hero content */}
-          <div className="px-6 pt-12 pb-24 sm:pt-20 sm:pb-32">
+          {/* Hero */}
+          <div className="px-6 pt-16 pb-28 sm:pt-24 sm:pb-36">
             <div className="max-w-4xl mx-auto text-center">
-              <FadeInSection>
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 backdrop-blur-sm text-white/80 text-xs font-medium rounded-full mb-6 border border-white/10">
-                  <Zap size={12} /> The future of site compliance
+              <FadeIn>
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 backdrop-blur-sm text-white/80 text-xs font-medium rounded-full mb-8 border border-white/10">
+                  <Zap size={12} className="text-[#3B7DD8]" /> 14 features. One platform. Zero paper.
                 </div>
-              </FadeInSection>
-              <FadeInSection delay={100}>
-                <h1 className="text-4xl sm:text-6xl font-light text-white leading-tight mb-6">
-                  Stop chasing paper.<br />
-                  <span className="font-bold">Start running sites.</span>
+              </FadeIn>
+              <FadeIn delay={100}>
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-light text-white leading-[1.15] mb-6">
+                  The site compliance platform<br />
+                  <span className="font-bold">contractors actually use.</span>
                 </h1>
-              </FadeInSection>
-              <FadeInSection delay={200}>
-                <p className="text-lg text-white/60 max-w-2xl mx-auto mb-10 leading-relaxed">
-                  CoreSite replaces your paper inductions, printed RAMS, WhatsApp photo trails and Excel snagging lists with one platform that works on site, in the office, and everywhere in between.
+              </FadeIn>
+              <FadeIn delay={200}>
+                <p className="text-lg text-white/50 max-w-2xl mx-auto mb-10 leading-relaxed">
+                  Inductions, RAMS, snagging, progress drawings, toolbox talks, inspections, site diary, QR sign-in, worker management, chat — all in one place. Works on any device. Works offline.
                 </p>
-              </FadeInSection>
-              <FadeInSection delay={300}>
+              </FadeIn>
+              <FadeIn delay={300}>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <button onClick={() => setShowDemo(true)} className="w-full sm:w-auto px-8 py-3.5 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-lg transition-colors text-base flex items-center justify-center gap-2">
-                    Request a Demo <ArrowRight size={16} />
+                  <button onClick={() => setShowDemo(true)} className="w-full sm:w-auto px-8 py-4 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-xl transition-all text-base flex items-center justify-center gap-2 shadow-lg shadow-[#3B7DD8]/20">
+                    Book a Free Demo <ArrowRight size={16} />
                   </button>
-                  <button onClick={() => navigate('/login')} className="w-full sm:w-auto px-8 py-3.5 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg border border-white/20 transition-colors text-base">
-                    Sign In
+                  <button onClick={() => navigate('/login')} className="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-medium rounded-xl border border-white/15 transition-all text-base">
+                    Try it Now
                   </button>
                 </div>
-              </FadeInSection>
+              </FadeIn>
             </div>
           </div>
         </div>
       </div>
 
-
-      {/* Stats */}
-      <section className="py-16 px-6 bg-[#1B2A3D]">
+      {/* ═══════════ STATS ═══════════ */}
+      <section className="bg-[#0D1526] py-14 px-6 -mt-1">
         <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-8">
-          {stats.map((stat, i) => (
-            <FadeInSection key={i} delay={i * 100}>
+          {[
+            { value: 14, suffix: '', label: 'Features built in' },
+            { value: 50, suffix: '%', label: 'Less admin time' },
+            { value: 100, suffix: '%', label: 'Digital audit trail' },
+            { value: 0, suffix: '', label: 'Paper forms', display: 'Zero' },
+          ].map((stat, i) => (
+            <FadeIn key={i} delay={i * 80}>
               <div className="text-center">
                 <p className="text-3xl sm:text-4xl font-bold text-white mb-1">
                   {stat.display || <AnimatedCounter end={stat.value} suffix={stat.suffix} />}
                 </p>
-                <p className="text-sm text-white/50">{stat.label}</p>
+                <p className="text-xs text-white/40 uppercase tracking-wider">{stat.label}</p>
               </div>
-            </FadeInSection>
+            </FadeIn>
           ))}
         </div>
       </section>
 
-      {/* Problem / Solution */}
+      {/* ═══════════ PROBLEM ═══════════ */}
       <section className="py-20 px-6">
-        <div className="max-w-5xl mx-auto">
-          <FadeInSection>
-            <div className="text-center mb-16">
-              <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A1A] mb-4">Built for contractors</h2>
-              <p className="text-[#6B6B6B] max-w-2xl mx-auto">Every feature designed around how contractors actually work on site. From M&E and fit-out to civil engineering and beyond — just the tools you need.</p>
-            </div>
-          </FadeInSection>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((f, i) => (
-              <FadeInSection key={i} delay={i * 80}>
-                <div className="bg-white border border-[#E5E5E5] rounded-xl p-6 hover:shadow-lg hover:border-[#3B7DD8]/30 transition-all group h-full">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-colors" style={{ backgroundColor: `${f.color}10` }}>
-                    <f.icon size={24} style={{ color: f.color }} />
-                  </div>
-                  <h3 className="text-base font-bold text-[#1A1A1A] mb-2">{f.title}</h3>
-                  <p className="text-sm text-[#6B6B6B] leading-relaxed">{f.desc}</p>
+        <div className="max-w-4xl mx-auto text-center">
+          <FadeIn>
+            <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A2E] mb-6">Sound familiar?</h2>
+          </FadeIn>
+          <FadeIn delay={100}>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+              {[
+                'Chasing operatives for RAMS signatures',
+                'Snagging on printed drawings with sticky notes',
+                'WhatsApp photos nobody can find later',
+                'Paper sign-in sheets at the gate',
+                'Manually writing site diaries',
+                'Expired CSCS cards going unnoticed',
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-2.5 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-left">
+                  <X size={14} className="text-red-400 shrink-0" />
+                  <p className="text-sm text-red-800">{item}</p>
                 </div>
-              </FadeInSection>
+              ))}
+            </div>
+          </FadeIn>
+          <FadeIn delay={200}>
+            <div className="mt-8 flex items-center justify-center gap-2 text-[#3B7DD8]">
+              <ArrowRight size={20} className="rotate-90" />
+              <p className="text-lg font-semibold">CoreSite replaces all of it.</p>
+            </div>
+          </FadeIn>
+        </div>
+      </section>
+
+      {/* ═══════════ FEATURES ═══════════ */}
+      <section className="py-20 px-6 bg-[#F8FAFC]">
+        <div className="max-w-6xl mx-auto">
+          <FadeIn>
+            <div className="text-center mb-14">
+              <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A2E] mb-4">Everything you need. Nothing you don't.</h2>
+              <p className="text-[#6B7A99] max-w-xl mx-auto">Built for M&E, fit-out, civils, and every contractor in between. Every feature designed around how sites actually work.</p>
+            </div>
+          </FadeIn>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {features.map((f, i) => (
+              <FadeIn key={i} delay={i * 50}>
+                <div className="bg-white border border-[#E2E6EA] rounded-xl p-5 hover:shadow-lg hover:border-[#3B7DD8]/20 transition-all h-full group">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style={{ backgroundColor: `${f.color}10` }}>
+                    <f.icon size={20} style={{ color: f.color }} />
+                  </div>
+                  <h3 className="text-sm font-bold text-[#1A1A2E] mb-1.5">{f.title}</h3>
+                  <p className="text-xs text-[#6B7A99] leading-relaxed">{f.desc}</p>
+                </div>
+              </FadeIn>
             ))}
           </div>
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="py-20 px-6 bg-[#F8FAFC]">
-        <div className="max-w-4xl mx-auto">
-          <FadeInSection>
-            <div className="text-center mb-16">
-              <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A1A] mb-4">Up and running in minutes</h2>
-              <p className="text-[#6B6B6B]">No installation. No training days. Just log in and go.</p>
+      {/* ═══════════ HOW IT WORKS ═══════════ */}
+      <section className="py-20 px-6">
+        <div className="max-w-3xl mx-auto">
+          <FadeIn>
+            <div className="text-center mb-14">
+              <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A2E] mb-4">Up and running in minutes</h2>
+              <p className="text-[#6B7A99]">No installation. No training days. No app downloads.</p>
             </div>
-          </FadeInSection>
+          </FadeIn>
 
-          <div className="space-y-8">
-            {[
-              { step: '01', title: 'We set up your company', desc: 'Your branding, your logo, your colours. The platform looks like yours from day one.', icon: Globe },
-              { step: '02', title: 'Upload your drawings and RAMS', desc: 'PDFs are automatically converted to high-res images. Drag, drop, done.', icon: Download },
-              { step: '03', title: 'Invite your operatives', desc: 'Add workers by name and email. They get a link to complete their profile and sign documents — no app download needed.', icon: Smartphone },
-              { step: '04', title: 'Start running your site digitally', desc: 'Raise snags, mark progress, run toolbox talks, track inductions. Everything in one place, accessible from any device.', icon: CheckCircle2 },
-            ].map((item, i) => (
-              <FadeInSection key={i} delay={i * 100}>
-                <div className="flex gap-5 items-start">
-                  <div className="w-12 h-12 rounded-xl bg-[#3B7DD8] flex items-center justify-center shrink-0">
-                    <item.icon size={22} className="text-white" />
+          <div className="space-y-6">
+            {steps.map((s, i) => (
+              <FadeIn key={i} delay={i * 100}>
+                <div className="flex gap-4 items-start bg-white border border-[#E2E6EA] rounded-xl p-5 hover:shadow-md transition-all">
+                  <div className="w-11 h-11 rounded-xl bg-[#3B7DD8] flex items-center justify-center shrink-0">
+                    <s.icon size={20} className="text-white" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="text-xs font-bold text-[#3B7DD8] tracking-wider">{item.step}</span>
-                      <h3 className="text-lg font-bold text-[#1A1A1A]">{item.title}</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-bold text-[#3B7DD8] tracking-widest">{s.num}</span>
+                      <h3 className="text-base font-bold text-[#1A1A2E]">{s.title}</h3>
                     </div>
-                    <p className="text-sm text-[#6B6B6B] leading-relaxed">{item.desc}</p>
+                    <p className="text-sm text-[#6B7A99] leading-relaxed">{s.desc}</p>
                   </div>
                 </div>
-              </FadeInSection>
+              </FadeIn>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Security */}
-      <section className="py-20 px-6">
-        <div className="max-w-5xl mx-auto">
-          <FadeInSection>
-            <div className="bg-[#1B2A3D] rounded-2xl p-8 sm:p-12 text-center">
-              <Lock size={32} className="text-[#3B7DD8] mx-auto mb-4" />
-              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">Enterprise-grade security</h2>
-              <p className="text-white/60 max-w-xl mx-auto mb-8 text-sm leading-relaxed">
-                Every password is hashed with bcrypt. Every session uses JWT tokens. Every company's data is completely isolated. Built on Supabase with EU-hosted databases and full GDPR compliance.
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto">
-                {['Bcrypt hashing', 'JWT sessions', 'Company isolation', 'GDPR compliant'].map((item, i) => (
-                  <div key={i} className="bg-white/5 rounded-lg py-3 px-2">
-                    <CheckCircle2 size={16} className="text-[#2D9D5F] mx-auto mb-1.5" />
-                    <p className="text-white/80 text-xs font-medium">{item}</p>
-                  </div>
-                ))}
-              </div>
+      {/* ═══════════ SECURITY ═══════════ */}
+      <section className="py-20 px-6 bg-[#0D1526]">
+        <div className="max-w-4xl mx-auto text-center">
+          <FadeIn>
+            <Lock size={28} className="text-[#3B7DD8] mx-auto mb-4" />
+            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">Enterprise-grade security</h2>
+            <p className="text-white/50 max-w-xl mx-auto mb-10 text-sm leading-relaxed">
+              Row-level security isolates every company's data at the database level. Bcrypt password hashing. JWT session tokens. CSCS card photo verification. Full GDPR compliance.
+            </p>
+          </FadeIn>
+          <FadeIn delay={100}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
+              {['Row-level security', 'Bcrypt hashing', 'JWT sessions', 'CSCS verification', 'Company isolation', 'GDPR compliant', 'Encrypted storage', 'Audit logging'].map((item, i) => (
+                <div key={i} className="bg-white/5 border border-white/10 rounded-lg py-3 px-3">
+                  <CheckCircle2 size={14} className="text-[#2EA043] mx-auto mb-1.5" />
+                  <p className="text-white/70 text-[11px] font-medium">{item}</p>
+                </div>
+              ))}
             </div>
-          </FadeInSection>
+          </FadeIn>
         </div>
       </section>
 
-      {/* CTA */}
+      {/* ═══════════ PRICING HINT ═══════════ */}
+      <section className="py-20 px-6">
+        <div className="max-w-4xl mx-auto">
+          <FadeIn>
+            <div className="text-center mb-10">
+              <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A2E] mb-4">Simple, transparent pricing</h2>
+              <p className="text-[#6B7A99]">No per-user fees. No hidden costs. One price for your whole team.</p>
+            </div>
+          </FadeIn>
+          <FadeIn delay={100}>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                { name: 'Starter', price: 'Free', period: '14-day trial', desc: '1 project, 10 workers', features: ['All core features', 'Email support', 'PDF exports'] },
+                { name: 'Professional', price: 'Get in touch', period: '', desc: '5 projects, 50 workers', features: ['Everything in Starter', 'Priority support', 'Custom branding', 'API access'], highlight: true },
+                { name: 'Enterprise', price: 'Custom', period: '', desc: 'Unlimited everything', features: ['Everything in Pro', 'Dedicated account manager', 'SLA guarantee', 'SSO integration'] },
+              ].map((plan, i) => (
+                <div key={i} className={`rounded-xl p-6 ${plan.highlight ? 'bg-[#0D1526] text-white ring-2 ring-[#3B7DD8] scale-[1.02]' : 'bg-white border border-[#E2E6EA]'}`}>
+                  <p className={`text-xs font-bold uppercase tracking-wider mb-3 ${plan.highlight ? 'text-[#3B7DD8]' : 'text-[#6B7A99]'}`}>{plan.name}</p>
+                  <p className={`text-2xl font-bold mb-0.5 ${plan.highlight ? 'text-white' : 'text-[#1A1A2E]'}`}>{plan.price}</p>
+                  {plan.period && <p className={`text-xs mb-3 ${plan.highlight ? 'text-white/50' : 'text-[#B0B8C9]'}`}>{plan.period}</p>}
+                  <p className={`text-sm mb-4 ${plan.highlight ? 'text-white/60' : 'text-[#6B7A99]'}`}>{plan.desc}</p>
+                  <ul className="space-y-2">
+                    {plan.features.map((f, j) => (
+                      <li key={j} className="flex items-center gap-2 text-xs">
+                        <CheckCircle2 size={12} className={plan.highlight ? 'text-[#3B7DD8]' : 'text-[#2EA043]'} />
+                        <span className={plan.highlight ? 'text-white/80' : 'text-[#6B7A99]'}>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <button onClick={() => setShowDemo(true)}
+                    className={`w-full mt-5 py-2.5 rounded-lg text-sm font-semibold transition-colors ${plan.highlight ? 'bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white' : 'bg-[#F5F6F8] hover:bg-[#E2E6EA] text-[#1A1A2E]'}`}>
+                    {plan.highlight ? 'Book a Demo' : 'Get Started'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </FadeIn>
+        </div>
+      </section>
+
+      {/* ═══════════ CTA ═══════════ */}
       <section className="py-20 px-6 bg-[#F8FAFC]">
         <div className="max-w-3xl mx-auto text-center">
-          <FadeInSection>
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A1A] mb-4">Ready to go digital?</h2>
-            <p className="text-[#6B6B6B] mb-8 max-w-lg mx-auto">Join the contractors who are already saving hours every week with CoreSite. Book a free demo and see for yourself.</p>
+          <FadeIn>
+            <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A2E] mb-4">Ready to go digital?</h2>
+            <p className="text-[#6B7A99] mb-8 max-w-lg mx-auto">Join the contractors already saving hours every week. Book a free demo and see CoreSite on your projects.</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link to="/" className="w-full sm:w-auto px-8 py-3.5 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-lg transition-colors text-base flex items-center justify-center gap-2">
-                Request a Demo <ArrowRight size={16} />
-              </Link>
-              <a href="mailto:joe@coresite.io" className="w-full sm:w-auto px-8 py-3.5 bg-white hover:bg-[#F5F5F5] text-[#1A1A1A] font-medium rounded-lg border border-[#E5E5E5] transition-colors text-base">
+              <button onClick={() => setShowDemo(true)} className="w-full sm:w-auto px-8 py-4 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-xl transition-all text-base flex items-center justify-center gap-2 shadow-lg shadow-[#3B7DD8]/20">
+                Book a Free Demo <ArrowRight size={16} />
+              </button>
+              <a href="mailto:joe@coresite.io" className="w-full sm:w-auto px-8 py-4 bg-white hover:bg-[#F5F6F8] text-[#1A1A2E] font-medium rounded-xl border border-[#E2E6EA] transition-all text-base">
                 Email joe@coresite.io
               </a>
             </div>
-          </FadeInSection>
+          </FadeIn>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-[#1B2A3D] py-12 px-6">
+      {/* ═══════════ FOOTER ═══════════ */}
+      <footer className="bg-[#0D1526] py-12 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-8">
-            <img src="/coresite-logo.svg" alt="CoreSite" className="h-8 brightness-0 invert" />
-            <div className="flex items-center gap-4 text-sm">
-              <Link to="/" className="text-white/50 hover:text-white transition-colors">Home</Link>
-              <Link to="/why" className="text-white/50 hover:text-white transition-colors">Why CoreSite</Link>
-              <Link to="/login" className="text-white/50 hover:text-white transition-colors">Sign In</Link>
-              <a href="mailto:joe@coresite.io" className="text-white/50 hover:text-white transition-colors">Contact</a>
+            <span className="text-lg text-white font-light tracking-[3px]">CORE<span className="font-bold tracking-normal">SITE</span></span>
+            <div className="flex items-center gap-5 text-sm">
+              <Link to="/" className="text-white/40 hover:text-white transition-colors">Home</Link>
+              <Link to="/login" className="text-white/40 hover:text-white transition-colors">Manager Login</Link>
+              <Link to="/worker-login" className="text-white/40 hover:text-white transition-colors">Worker Login</Link>
+              <a href="mailto:joe@coresite.io" className="text-white/40 hover:text-white transition-colors">Contact</a>
             </div>
           </div>
           <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-white/30 text-xs">&copy; {new Date().getFullYear()} CoreSite — Site Compliance Platform</p>
-            <div className="flex items-center gap-3 text-[11px]">
-              <Link to="/policies/privacy" className="text-white/30 hover:text-white/60 transition-colors">Privacy</Link>
-              <Link to="/policies/terms" className="text-white/30 hover:text-white/60 transition-colors">Terms</Link>
-              <Link to="/policies/cookies" className="text-white/30 hover:text-white/60 transition-colors">Cookies</Link>
+            <p className="text-white/25 text-xs">&copy; {new Date().getFullYear()} CoreSite — Site Compliance Platform</p>
+            <div className="flex items-center gap-4 text-[11px]">
+              <Link to="/policies/privacy" className="text-white/25 hover:text-white/50 transition-colors">Privacy</Link>
+              <Link to="/policies/terms" className="text-white/25 hover:text-white/50 transition-colors">Terms</Link>
+              <Link to="/policies/cookies" className="text-white/25 hover:text-white/50 transition-colors">Cookies</Link>
             </div>
           </div>
         </div>
       </footer>
 
-      {/* Demo Request Modal */}
+      {/* ═══════════ DEMO MODAL ═══════════ */}
       {showDemo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => !sending && setShowDemo(false)}>
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
             {submitted ? (
               <div className="p-8 text-center">
-                <div className="w-16 h-16 bg-[#E8F4ED] rounded-full flex items-center justify-center mx-auto mb-5">
-                  <CheckCircle2 size={32} className="text-[#2D9D5F]" />
+                <div className="w-16 h-16 bg-[#ECFDF5] rounded-full flex items-center justify-center mx-auto mb-5">
+                  <CheckCircle2 size={32} className="text-[#2EA043]" />
                 </div>
                 <h2 className="text-xl font-bold text-[#1A1A2E] mb-2">Thanks, {dName.split(' ')[0]}!</h2>
-                <p className="text-sm text-[#6B6B6B] mb-6">We've received your request and will be in touch within 24 hours to arrange your demo.</p>
-                <button onClick={() => setShowDemo(false)} className="px-6 py-2.5 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-medium rounded-lg text-sm transition-colors">Close</button>
+                <p className="text-sm text-[#6B7A99] mb-6">We'll be in touch within 24 hours to arrange your demo.</p>
+                <button onClick={() => setShowDemo(false)} className="px-6 py-2.5 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-medium rounded-lg text-sm">Close</button>
               </div>
             ) : (
               <>
-                <div className="bg-[#1B2A3D] px-6 py-4 flex items-center justify-between">
+                <div className="bg-[#0D1526] px-6 py-4 flex items-center justify-between">
                   <div>
-                    <h2 className="text-white font-semibold text-base">Request a Demo</h2>
-                    <p className="text-white/50 text-xs mt-0.5">See CoreSite in action for your business</p>
+                    <h2 className="text-white font-semibold">Book a Demo</h2>
+                    <p className="text-white/40 text-xs mt-0.5">See CoreSite in action — it takes 15 minutes</p>
                   </div>
-                  <button onClick={() => setShowDemo(false)} className="p-1 text-white/40 hover:text-white transition-colors"><X size={20} /></button>
+                  <button onClick={() => setShowDemo(false)} className="p-1 text-white/30 hover:text-white"><X size={20} /></button>
                 </div>
-                <form onSubmit={handleDemoSubmit} className="p-6 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <form onSubmit={handleDemoSubmit} className="p-6 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs text-[#6B6B6B] font-medium mb-1 block">Full Name *</label>
-                      <input value={dName} onChange={e => setDName(e.target.value)} required className="w-full px-3.5 py-2.5 border border-[#E5E5E5] rounded-lg text-[#1A1A1A] placeholder-[#9A9A9A] focus:outline-none focus:border-[#3B7DD8] focus:ring-2 focus:ring-[#3B7DD8]/10 text-sm" placeholder="Your name" />
+                      <label className="text-[11px] text-[#6B7A99] font-medium mb-1 block">Full Name *</label>
+                      <input value={dName} onChange={e => setDName(e.target.value)} required className={inputCls} placeholder="Your name" />
                     </div>
                     <div>
-                      <label className="text-xs text-[#6B6B6B] font-medium mb-1 block">Email Address *</label>
-                      <input type="email" value={dEmail} onChange={e => setDEmail(e.target.value)} required className="w-full px-3.5 py-2.5 border border-[#E5E5E5] rounded-lg text-[#1A1A1A] placeholder-[#9A9A9A] focus:outline-none focus:border-[#3B7DD8] focus:ring-2 focus:ring-[#3B7DD8]/10 text-sm" placeholder="you@company.com" />
+                      <label className="text-[11px] text-[#6B7A99] font-medium mb-1 block">Email *</label>
+                      <input type="email" value={dEmail} onChange={e => setDEmail(e.target.value)} required className={inputCls} placeholder="you@company.com" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs text-[#6B6B6B] font-medium mb-1 block">Company Name</label>
-                      <input value={dCompany} onChange={e => setDCompany(e.target.value)} className="w-full px-3.5 py-2.5 border border-[#E5E5E5] rounded-lg text-[#1A1A1A] placeholder-[#9A9A9A] focus:outline-none focus:border-[#3B7DD8] focus:ring-2 focus:ring-[#3B7DD8]/10 text-sm" placeholder="Your company" />
+                      <label className="text-[11px] text-[#6B7A99] font-medium mb-1 block">Company</label>
+                      <input value={dCompany} onChange={e => setDCompany(e.target.value)} className={inputCls} placeholder="Company name" />
                     </div>
                     <div>
-                      <label className="text-xs text-[#6B6B6B] font-medium mb-1 block">Phone Number</label>
-                      <input type="tel" value={dPhone} onChange={e => setDPhone(e.target.value)} className="w-full px-3.5 py-2.5 border border-[#E5E5E5] rounded-lg text-[#1A1A1A] placeholder-[#9A9A9A] focus:outline-none focus:border-[#3B7DD8] focus:ring-2 focus:ring-[#3B7DD8]/10 text-sm" placeholder="07..." />
+                      <label className="text-[11px] text-[#6B7A99] font-medium mb-1 block">Phone</label>
+                      <input type="tel" value={dPhone} onChange={e => setDPhone(e.target.value)} className={inputCls} placeholder="07..." />
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs text-[#6B6B6B] font-medium mb-1 block">Tell us about your needs</label>
-                    <textarea value={dMessage} onChange={e => setDMessage(e.target.value)} rows={3} className="w-full px-3.5 py-2.5 border border-[#E5E5E5] rounded-lg text-[#1A1A1A] placeholder-[#9A9A9A] focus:outline-none focus:border-[#3B7DD8] focus:ring-2 focus:ring-[#3B7DD8]/10 text-sm resize-none" placeholder="How many sites? How many operatives?" />
+                    <label className="text-[11px] text-[#6B7A99] font-medium mb-1 block">Message</label>
+                    <textarea value={dMessage} onChange={e => setDMessage(e.target.value)} rows={2} className={`${inputCls} resize-none`} placeholder="Tell us about your business..." />
                   </div>
-                  <button type="submit" disabled={sending || !dName.trim() || !dEmail.trim()} className="w-full py-3 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-lg text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                    {sending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Send size={14} /> Request Demo</>}
+                  <button type="submit" disabled={sending} className="w-full py-3 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-lg text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                    {sending ? 'Sending...' : <><Send size={14} /> Request Demo</>}
                   </button>
-                  <p className="text-[10px] text-[#9A9A9A] text-center">By submitting, you agree to our <Link to="/policies/privacy" className="text-[#3B7DD8] hover:underline">Privacy Policy</Link>.</p>
                 </form>
               </>
             )}
