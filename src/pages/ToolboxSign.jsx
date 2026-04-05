@@ -19,9 +19,19 @@ export default function ToolboxSign() {
   const [hasSigned, setHasSigned] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
 
+  // Check if operative is logged in — auto-select them
+  const opSession = (() => { try { return JSON.parse(sessionStorage.getItem('operative_session') || 'null') } catch { return null } })()
+
   useEffect(() => {
     loadData()
   }, [])
+
+  useEffect(() => {
+    if (opSession?.id && operatives.length > 0) {
+      const match = operatives.find(o => o.id === opSession.id)
+      if (match) setSelectedOp(match.id)
+    }
+  }, [operatives])
 
   async function loadData() {
     const { data: t } = await supabase.from('toolbox_talks').select('*').eq('id', talkId).single()
@@ -157,19 +167,30 @@ export default function ToolboxSign() {
           </div>
         ) : (
           <>
-            {/* Select name */}
+            {/* Identity verification */}
             <div className="bg-white border border-slate-200 rounded-xl p-4">
-              <label className="text-sm font-semibold text-slate-600 block mb-2">Select Your Name</label>
-              <select
-                value={selectedOp}
-                onChange={e => setSelectedOp(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
-              >
-                <option value="">Choose your name...</option>
-                {availableOps.map(op => (
-                  <option key={op.id} value={op.id}>{op.name}{op.role ? ` — ${op.role}` : ''}</option>
-                ))}
-              </select>
+              {opSession ? (
+                <div>
+                  <label className="text-sm font-semibold text-slate-600 block mb-2">Signing as</label>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="w-9 h-9 rounded-full bg-green-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                      {opSession.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-green-900">{opSession.name}</p>
+                      {opSession.role && <p className="text-xs text-green-700">{opSession.role}</p>}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-2">
+                  <p className="text-sm text-slate-600 mb-3">Sign in to record your attendance</p>
+                  <button onClick={() => { sessionStorage.setItem('operative_return_url', window.location.pathname); window.location.href = '/worker-login' }}
+                    className="px-6 py-2.5 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-semibold rounded-lg transition-colors">
+                    Sign In
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Signature */}

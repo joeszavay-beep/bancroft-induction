@@ -38,6 +38,7 @@ import SiteSignIn from './pages/SiteSignIn'
 import SiteAttendance from './pages/SiteAttendance'
 import OperativeLogin from './pages/OperativeLogin'
 import OperativeDashboard from './pages/OperativeDashboard'
+import OperativeGuard from './components/OperativeGuard'
 
 function AppLayout() {
   const { isAuthenticated, isLoading } = useCompany()
@@ -87,11 +88,11 @@ export default function App() {
       <Route path="/pm-login" element={<Navigate to="/login" replace />} />
       <Route path="/pm" element={<Navigate to="/app/dashboard" replace />} />
 
-      {/* Operative routes (public, no sidebar) */}
-      <Route path="/operative" element={<OperativeSelect />} />
-      <Route path="/operative/:operativeId/documents" element={<OperativeDocuments />} />
-      <Route path="/operative/:operativeId/sign/:documentId" element={<SignDocument />} />
-      <Route path="/operative/:operativeId/profile" element={<OperativeProfile />} />
+      {/* Operative routes (auth guarded — must be logged in as the correct operative) */}
+      <Route path="/operative" element={<Navigate to="/worker-login" replace />} />
+      <Route path="/operative/:operativeId/documents" element={<OperativeGuard><OperativeDocuments /></OperativeGuard>} />
+      <Route path="/operative/:operativeId/sign/:documentId" element={<OperativeGuard><SignDocument /></OperativeGuard>} />
+      <Route path="/operative/:operativeId/profile" element={<OperativeGuard><OperativeProfile /></OperativeGuard>} />
       <Route path="/toolbox/:talkId" element={<ToolboxSign />} />
       <Route path="/portal" element={<Portal />} />
       <Route path="/portal/:projectId" element={<Portal />} />

@@ -50,7 +50,14 @@ export default function OperativeLogin() {
       }
       sessionStorage.setItem('operative_session', JSON.stringify(sessionData))
 
-      navigate('/worker')
+      // Check for return URL (e.g. from email invite link)
+      const returnUrl = sessionStorage.getItem('operative_return_url')
+      if (returnUrl) {
+        sessionStorage.removeItem('operative_return_url')
+        navigate(returnUrl)
+      } else {
+        navigate('/worker')
+      }
     } catch (err) {
       setError('Something went wrong. Please try again.')
     }
