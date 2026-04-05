@@ -220,6 +220,13 @@ export default function SiteSignIn() {
             Location recorded
           </div>
         )}
+        {isSignIn && (
+          <div style={{ animation: 'fadeInUp 0.5s ease-out 0.7s forwards', opacity: 0, marginTop: 24, background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '12px 20px', maxWidth: 320, textAlign: 'center' }}>
+            <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, margin: 0, fontWeight: 500 }}>
+              Remember to scan this QR code again when you leave site to sign out
+            </p>
+          </div>
+        )}
       </div>
     )
   }
@@ -276,44 +283,54 @@ export default function SiteSignIn() {
             </p>
           )}
 
-          {/* Action buttons */}
-          <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <button
-              onClick={() => handleRecord('sign_in')}
-              disabled={recording}
-              style={{
-                width: '100%', minHeight: 56, padding: '16px 24px',
-                background: '#2EA043', color: '#fff', border: 'none', borderRadius: 12,
-                fontSize: 18, fontWeight: 700, cursor: recording ? 'wait' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                opacity: recording ? 0.7 : 1, transition: 'opacity 0.2s, transform 0.1s',
-                boxShadow: '0 2px 8px rgba(46,160,67,0.3)',
-              }}
-              onTouchStart={(e) => { if (!recording) e.currentTarget.style.transform = 'scale(0.98)' }}
-              onTouchEnd={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
-            >
-              <LogIn size={22} />
-              SIGN IN
-            </button>
+          {/* Status indicator */}
+          {(() => {
+            const isOnSite = currentlyOnSite.some(r => r.operative_id === selectedOperative.id)
+            const lastRecord = attendance.find(r => r.operative_id === selectedOperative.id)
+            return isOnSite ? (
+              <div style={{ width: '100%', maxWidth: 400, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#2EA043' }} />
+                <span style={{ fontSize: 14, color: '#166534', fontWeight: 600 }}>On site since {lastRecord ? formatTime(lastRecord.recorded_at) : 'today'}</span>
+              </div>
+            ) : lastRecord?.type === 'sign_out' ? (
+              <div style={{ width: '100%', maxWidth: 400, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#DA3633' }} />
+                <span style={{ fontSize: 14, color: '#991b1b', fontWeight: 600 }}>Signed out at {formatTime(lastRecord.recorded_at)}</span>
+              </div>
+            ) : null
+          })()}
 
-            <button
-              onClick={() => handleRecord('sign_out')}
-              disabled={recording}
-              style={{
-                width: '100%', minHeight: 56, padding: '16px 24px',
-                background: '#DA3633', color: '#fff', border: 'none', borderRadius: 12,
-                fontSize: 18, fontWeight: 700, cursor: recording ? 'wait' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                opacity: recording ? 0.7 : 1, transition: 'opacity 0.2s, transform 0.1s',
-                boxShadow: '0 2px 8px rgba(218,54,51,0.3)',
-              }}
-              onTouchStart={(e) => { if (!recording) e.currentTarget.style.transform = 'scale(0.98)' }}
-              onTouchEnd={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
-            >
-              <LogOut size={22} />
-              SIGN OUT
-            </button>
-          </div>
+          {/* Action buttons — show sign out first if already on site */}
+          {(() => {
+            const isOnSite = currentlyOnSite.some(r => r.operative_id === selectedOperative.id)
+            const primaryAction = isOnSite ? 'sign_out' : 'sign_in'
+            const secondaryAction = isOnSite ? 'sign_in' : 'sign_out'
+
+            const btnStyle = (type, isPrimary) => ({
+              width: '100%', minHeight: isPrimary ? 56 : 48, padding: isPrimary ? '16px 24px' : '12px 24px',
+              background: type === 'sign_in' ? (isPrimary ? '#2EA043' : 'transparent') : (isPrimary ? '#DA3633' : 'transparent'),
+              color: type === 'sign_in' ? (isPrimary ? '#fff' : '#2EA043') : (isPrimary ? '#fff' : '#DA3633'),
+              border: isPrimary ? 'none' : `2px solid ${type === 'sign_in' ? '#2EA043' : '#DA3633'}`,
+              borderRadius: 12,
+              fontSize: isPrimary ? 18 : 15, fontWeight: 700, cursor: recording ? 'wait' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              opacity: recording ? 0.7 : 1, transition: 'opacity 0.2s, transform 0.1s',
+              boxShadow: isPrimary ? `0 2px 8px ${type === 'sign_in' ? 'rgba(46,160,67,0.3)' : 'rgba(218,54,51,0.3)'}` : 'none',
+            })
+
+            return (
+              <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <button onClick={() => handleRecord(primaryAction)} disabled={recording} style={btnStyle(primaryAction, true)}>
+                  {primaryAction === 'sign_in' ? <LogIn size={22} /> : <LogOut size={22} />}
+                  {primaryAction === 'sign_in' ? 'SIGN IN' : 'SIGN OUT'}
+                </button>
+                <button onClick={() => handleRecord(secondaryAction)} disabled={recording} style={btnStyle(secondaryAction, false)}>
+                  {secondaryAction === 'sign_in' ? <LogIn size={18} /> : <LogOut size={18} />}
+                  {secondaryAction === 'sign_in' ? 'Sign In Instead' : 'Sign Out Instead'}
+                </button>
+              </div>
+            )
+          })()}
         </div>
       </div>
     )
