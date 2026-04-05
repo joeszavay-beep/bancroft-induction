@@ -31,6 +31,9 @@ import InvitationsPipeline from './pages/InvitationsPipeline'
 import AllWorkers from './pages/AllWorkers'
 import AddNewWorker from './pages/AddNewWorker'
 import DailySiteDiary from './pages/DailySiteDiary'
+import ContractorPerformance from './pages/ContractorPerformance'
+import Inspections from './pages/Inspections'
+import AftercarePage from './pages/AftercarePage'
 
 function AppLayout() {
   const { isAuthenticated, isLoading } = useCompany()
@@ -51,6 +54,8 @@ function AppLayout() {
         <Route path="/invite-existing" element={<InviteExistingWorkers />} />
         <Route path="/pipeline" element={<InvitationsPipeline />} />
         <Route path="/diary" element={<DailySiteDiary />} />
+        <Route path="/performance" element={<ContractorPerformance />} />
+        <Route path="/inspections" element={<Inspections />} />
         <Route path="/progress" element={<ProgressDrawingsList />} />
         <Route path="/snags" element={<PMDashboard key="snags" initialTab="snags" />} />
         <Route path="/drawings" element={<PMDashboard key="drawings" initialTab="snags" />} />
@@ -88,6 +93,7 @@ export default function App() {
       <Route path="/policies/:policyId" element={<Policies />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/snag-reply/:token" element={<SnagReply />} />
+      <Route path="/aftercare/:projectId" element={<AftercarePage />} />
 
       {/* Snag drawing viewer (full screen, no sidebar) */}
       <Route path="/snags/:drawingId" element={<SnagDrawingView />} />

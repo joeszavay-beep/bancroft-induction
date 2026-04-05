@@ -4,6 +4,7 @@ import { useCompany } from '../lib/CompanyContext'
 import { useTheme } from '../lib/ThemeContext'
 import OfflineIndicator from './OfflineIndicator'
 import SyncBadge from './SyncBadge'
+import NotificationBell from './NotificationBell'
 import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
@@ -47,6 +48,7 @@ const NAV_SECTIONS = [
     items: [
       { label: 'Snag Overview', path: '/app/snags', icon: MapPin },
       { label: 'Snag Drawings', path: '/app/drawings', icon: Image },
+      { label: 'Performance', path: '/app/performance', icon: Activity },
     ],
   },
   {
@@ -269,6 +271,7 @@ export default function SidebarLayout({ children }) {
         <header className="hidden lg:flex h-11 items-center justify-between px-6 shrink-0" style={{ backgroundColor: sidebarColor }}>
           <button onClick={() => navigate('/app')} className="text-white/70 text-xs font-medium tracking-wider hover:text-white transition-colors">{companyName.toUpperCase()}</button>
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <span className="text-white/50 text-xs">{userName}</span>
             <div className="w-7 h-7 rounded-full bg-[var(--primary-color)] flex items-center justify-center text-white text-[10px] font-bold">
               {userInitials}
