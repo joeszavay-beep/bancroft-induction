@@ -80,7 +80,6 @@ export default function SnagDrawingView() {
     const rect = imageRef.current.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
-    console.log('Pin placed at:', x.toFixed(1), y.toFixed(1))
     setPendingPin({ x, y })
     setPlacingPin(false)
     setShowForm(true)
@@ -327,7 +326,7 @@ export default function SnagDrawingView() {
                         alt={drawing?.name}
                         className="max-w-none select-none"
                         style={{ width: '100%', minWidth: '800px' }}
-                        onLoad={() => { setImageLoaded(true); console.log('Image loaded successfully') }}
+                        onLoad={() => setImageLoaded(true)}
                         onError={(e) => { console.error('Image load error:', e); setImgError(true) }}
                         draggable={false}
                       />

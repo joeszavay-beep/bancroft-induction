@@ -24,7 +24,7 @@ export default function OperativeDocuments() {
       .single()
 
     if (!op) {
-      navigate('/operative')
+      navigate('/worker')
       return
     }
     setOperative(op)

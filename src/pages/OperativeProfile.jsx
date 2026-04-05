@@ -35,7 +35,7 @@ export default function OperativeProfile() {
       .eq('id', operativeId)
       .single()
     if (!data) {
-      navigate('/operative')
+      navigate('/worker')
       return
     }
     setOperative(data)

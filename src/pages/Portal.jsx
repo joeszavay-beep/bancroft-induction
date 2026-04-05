@@ -22,8 +22,7 @@ export default function Portal() {
   }, [projectId])
 
   async function loadProjects() {
-    const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false })
-    setDocuments(data || []) // reuse state for project list
+    // Don't list all projects publicly — redirect to login
     setLoading(false)
   }
 
@@ -52,34 +51,13 @@ export default function Portal() {
   // Project list view
   if (!projectId) {
     return (
-      <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
-        <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-4 py-3 flex items-center gap-3 shrink-0">
-          <button onClick={() => navigate('/')} className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
-            <ArrowLeft size={22} />
+      <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col items-center justify-center p-6">
+        <div className="text-center max-w-sm">
+          <h2 className="text-lg font-bold text-slate-900 mb-2">Sign-Off Portal</h2>
+          <p className="text-sm text-slate-500 mb-4">Access a project's sign-off record via the link provided by your manager.</p>
+          <button onClick={() => navigate('/worker-login')} className="px-6 py-2.5 bg-[#1B6FC8] text-white text-sm font-semibold rounded-lg">
+            Worker Login
           </button>
-          <div>
-            {project?.companies?.logo_url ? (
-              <img src={project.companies.logo_url} alt={project.companies.name} className="h-7" />
-            ) : (
-              <span className="text-sm font-semibold text-slate-700">{project?.companies?.name || <><span className="font-light tracking-widest">CORE</span><span className="font-bold">SITE</span></>}</span>
-            )}
-            <span className="text-xs text-slate-500">Sign-Off Portal</span>
-          </div>
-        </header>
-        <div className="p-4 space-y-2">
-          {documents.map(p => (
-            <button
-              key={p.id}
-              onClick={() => navigate(`/portal/${p.id}`)}
-              className="w-full flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-4 hover:border-blue-400/50 transition-colors text-left"
-            >
-              <FolderOpen size={20} className="text-blue-500 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-slate-900 font-medium truncate">{p.name}</p>
-                {p.location && <p className="text-xs text-slate-500 truncate">{p.location}</p>}
-              </div>
-            </button>
-          ))}
         </div>
       </div>
     )

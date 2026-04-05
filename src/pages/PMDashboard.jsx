@@ -1256,7 +1256,7 @@ function SnagsTab({ projects, navigate }) {
       return
     }
     const { data: urlData } = supabase.storage.from('drawings').getPublicUrl(filePath)
-    console.log('Drawing URL:', urlData.publicUrl)
+    // Drawing uploaded
     const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
 
     const { error: dbErr } = await supabase.from('drawings').insert({
