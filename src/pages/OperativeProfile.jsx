@@ -128,7 +128,13 @@ export default function OperativeProfile() {
       return
     }
     toast.success('Profile saved')
-    navigate(`/operative/${operativeId}/documents`)
+    const hasWorkerSession = sessionStorage.getItem('operative_session')
+    navigate(hasWorkerSession ? '/worker' : `/operative/${operativeId}/documents`)
+  }
+
+  const goBack = () => {
+    const hasWorkerSession = sessionStorage.getItem('operative_session')
+    navigate(hasWorkerSession ? '/worker' : `/operative/${operativeId}/documents`)
   }
 
   if (loading) {
@@ -144,7 +150,7 @@ export default function OperativeProfile() {
   return (
     <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
       <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-4 py-3 flex items-center gap-3 shrink-0">
-        <button onClick={() => navigate(`/operative/${operativeId}/documents`)} className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
+        <button onClick={goBack} className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
           <ArrowLeft size={22} />
         </button>
         {operative?.companies?.logo_url ? (

@@ -64,7 +64,7 @@ export default function OperativeDocuments() {
   return (
     <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
       <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-4 py-3 flex items-center gap-3 shrink-0">
-        <button onClick={() => navigate('/operative')} className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
+        <button onClick={() => navigate(sessionStorage.getItem('operative_session') ? '/worker' : '/')} className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
           <ArrowLeft size={22} />
         </button>
         <div className="min-w-0">
