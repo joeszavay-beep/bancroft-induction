@@ -53,6 +53,12 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    title: 'Messages',
+    items: [
+      { label: 'Chat', path: '/app/messages', icon: MessageSquare },
+    ],
+  },
+  {
     title: 'H&S',
     items: [
       { label: 'Toolbox Talks', path: '/app/toolbox', icon: MessageSquare, feature: 'toolbox_talks' },

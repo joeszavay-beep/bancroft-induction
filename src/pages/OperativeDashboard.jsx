@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
@@ -8,7 +8,15 @@ import {
   Send, ZoomIn, Upload, ArrowLeft
 } from 'lucide-react'
 
-const TABS = ['home', 'documents', 'snags', 'toolbox', 'profile']
+const TABS = ['home', 'documents', 'snags', 'chat', 'profile']
+
+const QUICK_MESSAGES = [
+  { icon: 'Package', label: 'Material Request', text: 'Material needed: ' },
+  { icon: 'Wrench', label: 'Tool Request', text: 'Tool needed: ' },
+  { icon: 'AlertTriangle', label: 'Report Issue', text: 'Issue on site: ' },
+  { icon: 'Clock', label: 'Running Late', text: 'Running late — ETA: ' },
+  { icon: 'CheckCircle2', label: 'Job Complete', text: 'Completed: ' },
+]
 
 export default function OperativeDashboard() {
   const navigate = useNavigate()
@@ -24,6 +32,14 @@ export default function OperativeDashboard() {
   const [talkSigs, setTalkSigs] = useState([])
   const [notifications, setNotifications] = useState([])
 
+  // Chat
+  const [chatMessages, setChatMessages] = useState([])
+  const [chatMsg, setChatMsg] = useState('')
+  const [chatSending, setChatSending] = useState(false)
+  const [unreadChat, setUnreadChat] = useState(0)
+  const chatEndRef = useRef(null)
+  const chatChannelRef = useRef(null)
+
   // Snag detail
   const [selectedSnag, setSelectedSnag] = useState(null)
   const [snagComments, setSnagComments] = useState([])
@@ -37,6 +53,8 @@ export default function OperativeDashboard() {
     const data = JSON.parse(session)
     setOp(data)
     loadData(data)
+    loadChat(data)
+    return () => { if (chatChannelRef.current) supabase.removeChannel(chatChannelRef.current) }
   }, [])
 
   async function loadData(opData) {
@@ -60,6 +78,51 @@ export default function OperativeDashboard() {
     setTalkSigs(talkSigData.data || [])
     setNotifications(notifData.data || [])
     setLoading(false)
+  }
+
+  async function loadChat(opData) {
+    const { data } = await supabase.from('chat_messages').select('*')
+      .eq('operative_id', opData.id).order('created_at')
+    setChatMessages(data || [])
+    const unread = (data || []).filter(m => m.sender_type === 'manager' && !m.read_by_operative).length
+    setUnreadChat(unread)
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+
+    // Realtime
+    if (chatChannelRef.current) supabase.removeChannel(chatChannelRef.current)
+    chatChannelRef.current = supabase
+      .channel(`op-chat-${opData.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `operative_id=eq.${opData.id}` },
+        (payload) => {
+          setChatMessages(prev => [...prev, payload.new])
+          if (payload.new.sender_type === 'manager') setUnreadChat(prev => prev + 1)
+          setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+        }
+      ).subscribe()
+  }
+
+  async function sendChat() {
+    if (!chatMsg.trim() || !op) return
+    setChatSending(true)
+    await supabase.from('chat_messages').insert({
+      company_id: op.company_id,
+      operative_id: op.id,
+      operative_name: op.name,
+      sender_type: 'operative',
+      sender_name: op.name,
+      message: chatMsg.trim(),
+      read_by_manager: false,
+      read_by_operative: true,
+    })
+    setChatMsg('')
+    setChatSending(false)
+  }
+
+  async function markChatRead() {
+    if (!op) return
+    setUnreadChat(0)
+    await supabase.from('chat_messages').update({ read_by_operative: true })
+      .eq('operative_id', op.id).eq('sender_type', 'manager').eq('read_by_operative', false)
   }
 
   function handleLogout() {
@@ -138,7 +201,7 @@ export default function OperativeDashboard() {
         {tab === 'home' && <HomeTab op={op} unsignedDocs={unsignedDocs} unsignedTalks={unsignedTalks} snags={snags} overdueSnags={overdueSnags} pendingActions={pendingActions} setTab={setTab} navigate={navigate} primaryColor={primaryColor} />}
         {tab === 'documents' && <DocumentsTab op={op} documents={documents} signatures={signatures} signedDocIds={signedDocIds} navigate={navigate} primaryColor={primaryColor} />}
         {tab === 'snags' && <SnagsTab snags={snags} overdueSnags={overdueSnags} navigate={navigate} primaryColor={primaryColor} openSnag={openSnag} />}
-        {tab === 'toolbox' && <ToolboxTab talks={talks} signedTalkIds={signedTalkIds} unsignedTalks={unsignedTalks} navigate={navigate} primaryColor={primaryColor} />}
+        {tab === 'chat' && <OperativeChatTab op={op} messages={chatMessages} chatMsg={chatMsg} setChatMsg={setChatMsg} sendChat={sendChat} chatSending={chatSending} chatEndRef={chatEndRef} markChatRead={markChatRead} primaryColor={primaryColor} />}
         {tab === 'profile' && <ProfileTab op={op} handleLogout={handleLogout} navigate={navigate} primaryColor={primaryColor} />}
       </main>
 
@@ -293,7 +356,7 @@ export default function OperativeDashboard() {
           { id: 'home', icon: Home, label: 'Home' },
           { id: 'documents', icon: FileText, label: 'Docs', badge: unsignedDocs.length },
           { id: 'snags', icon: MapPin, label: 'Snags', badge: snags.length },
-          { id: 'toolbox', icon: MessageSquare, label: 'Toolbox', badge: unsignedTalks.length },
+          { id: 'chat', icon: MessageSquare, label: 'Chat', badge: unreadChat },
           { id: 'profile', icon: User, label: 'Profile' },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} className="flex flex-col items-center gap-0.5 relative min-w-[56px]">
@@ -635,6 +698,64 @@ function ProfileTab({ op, handleLogout, navigate, primaryColor }) {
           className="w-full bg-white border border-red-200 rounded-xl p-4 flex items-center gap-3 text-left hover:bg-red-50 transition-colors">
           <LogOut size={20} className="text-red-400" />
           <p className="text-sm font-medium text-red-600">Sign Out</p>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ========== CHAT TAB ========== */
+function OperativeChatTab({ op, messages, chatMsg, setChatMsg, sendChat, chatSending, chatEndRef, markChatRead, primaryColor }) {
+  useEffect(() => { markChatRead() }, [])
+
+  return (
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 8rem)' }}>
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-2" style={{ backgroundColor: '#F0F2F5' }}>
+        {messages.length === 0 && (
+          <div className="text-center py-12 text-slate-400">
+            <MessageSquare size={32} className="mx-auto mb-2 opacity-40" />
+            <p className="text-sm font-medium">No messages yet</p>
+            <p className="text-xs mt-1">Send a message to your site manager</p>
+          </div>
+        )}
+        {messages.map(msg => {
+          const isMe = msg.sender_type === 'operative'
+          return (
+            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 ${isMe ? 'rounded-br-md text-white' : 'rounded-bl-md bg-white border border-slate-200'}`}
+                style={isMe ? { backgroundColor: primaryColor } : {}}>
+                {!isMe && <p className="text-[10px] font-semibold mb-0.5" style={{ color: primaryColor }}>{msg.sender_name}</p>}
+                <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                <p className={`text-[10px] mt-1 ${isMe ? 'text-white/50' : 'text-slate-400'}`}>
+                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+            </div>
+          )
+        })}
+        <div ref={chatEndRef} />
+      </div>
+
+      {/* Quick messages */}
+      <div className="flex gap-1.5 px-4 py-2 overflow-x-auto shrink-0 bg-white border-t border-slate-200">
+        {QUICK_MESSAGES.map(qm => (
+          <button key={qm.label} onClick={() => setChatMsg(qm.text)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-medium border border-slate-200 text-slate-500 whitespace-nowrap shrink-0 hover:border-blue-300 hover:text-blue-600 transition-colors">
+            {qm.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Input */}
+      <div className="flex gap-2 px-4 py-3 bg-white border-t border-slate-200 shrink-0">
+        <input value={chatMsg} onChange={e => setChatMsg(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat() } }}
+          placeholder="Type a message..."
+          className="flex-1 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400" />
+        <button onClick={sendChat} disabled={chatSending || !chatMsg.trim()}
+          className="px-3.5 py-2.5 rounded-xl text-white disabled:opacity-40 transition-colors" style={{ backgroundColor: primaryColor }}>
+          <Send size={18} />
         </button>
       </div>
     </div>

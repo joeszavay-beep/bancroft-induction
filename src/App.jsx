@@ -35,6 +35,7 @@ import ContractorPerformance from './pages/ContractorPerformance'
 import Inspections from './pages/Inspections'
 import AftercarePage from './pages/AftercarePage'
 import SiteSignIn from './pages/SiteSignIn'
+import Chat from './pages/Chat'
 import SiteAttendance from './pages/SiteAttendance'
 import OperativeLogin from './pages/OperativeLogin'
 import OperativeDashboard from './pages/OperativeDashboard'
@@ -60,6 +61,7 @@ function AppLayout() {
         <Route path="/pipeline" element={<InvitationsPipeline />} />
         <Route path="/diary" element={<DailySiteDiary />} />
         <Route path="/attendance" element={<SiteAttendance />} />
+        <Route path="/messages" element={<Chat />} />
         <Route path="/performance" element={<ContractorPerformance />} />
         <Route path="/inspections" element={<Inspections />} />
         <Route path="/progress" element={<ProgressDrawingsList />} />
