@@ -3,9 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
-import { ArrowLeft, User, Shield, Phone, Home, Users, CreditCard, Camera, ExternalLink, ZoomIn, X } from 'lucide-react'
+import { ArrowLeft, User, Shield, Phone, Users, CreditCard, Camera, ZoomIn, X, CheckCircle2, ExternalLink } from 'lucide-react'
 import AddressLookup from '../components/AddressLookup'
 import DateOfBirthPicker from '../components/DateOfBirthPicker'
+
+const inputCls = "w-full px-3.5 py-2.5 border border-[#E2E6EA] rounded-lg text-[#1A1A2E] placeholder-[#B0B8C9] text-sm focus:outline-none focus:border-[#1B6FC8] focus:ring-2 focus:ring-[#1B6FC8]/10 bg-white"
+const labelCls = "text-[11px] text-[#6B7A99] font-medium mb-1 block uppercase tracking-wider"
 
 export default function OperativeProfile() {
   const { operativeId } = useParams()
@@ -24,7 +27,7 @@ export default function OperativeProfile() {
   const [nextOfKin, setNextOfKin] = useState('')
   const [nextOfKinPhone, setNextOfKinPhone] = useState('')
 
-  // Card details
+  // Card
   const [cardType, setCardType] = useState('')
   const [cardNumber, setCardNumber] = useState('')
   const [cardExpiry, setCardExpiry] = useState('')
@@ -34,28 +37,18 @@ export default function OperativeProfile() {
   const [uploadingBack, setUploadingBack] = useState(false)
   const [lightbox, setLightbox] = useState(null)
 
-  useEffect(() => {
-    loadOperative()
-  }, [])
+  useEffect(() => { loadOperative() }, [])
 
   async function loadOperative() {
     const { data } = await supabase
       .from('operatives')
-      .select('*, projects(name), companies(name, logo_url)')
+      .select('*, projects(name), companies(name, logo_url, primary_colour)')
       .eq('id', operativeId)
       .single()
-    if (!data) {
-      navigate('/worker')
-      return
-    }
+    if (!data) { navigate('/worker'); return }
     setOperative(data)
-    const trades = ['Labourer', 'Apprentice', 'Electrician', 'Plumber', 'BMS Engineer', 'Lighting Control']
-    if (data.role && !trades.includes(data.role)) {
-      setRole('Other')
-      setOtherRole(data.role)
-    } else {
-      setRole(data.role || '')
-    }
+    const trades = ['Labourer', 'Apprentice', 'Electrician', 'Plumber', 'BMS Engineer', 'Lighting Control', 'Supervisor', 'Engineer']
+    if (data.role && !trades.includes(data.role)) { setRole('Other'); setOtherRole(data.role) } else { setRole(data.role || '') }
     setDob(data.date_of_birth || '')
     setNiNumber(data.ni_number || '')
     setAddress(data.address || '')
@@ -77,7 +70,7 @@ export default function OperativeProfile() {
     setter(true)
     const filePath = `cards/${operativeId}/${side}_${Date.now()}.jpg`
     const { error } = await supabase.storage.from('documents').upload(filePath, file, { contentType: file.type })
-    if (error) { setter(false); toast.error('Failed to upload photo'); return null }
+    if (error) { setter(false); toast.error('Upload failed'); return null }
     const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
     setter(false)
     return urlData.publicUrl
@@ -87,22 +80,23 @@ export default function OperativeProfile() {
     const file = e.target.files?.[0]
     if (!file) return
     const url = await uploadCardPhoto(file, 'front')
-    if (url) { setCardFrontUrl(url); toast.success('Front of card uploaded') }
+    if (url) { setCardFrontUrl(url); toast.success('Front uploaded') }
   }
 
   async function handleCardBack(e) {
     const file = e.target.files?.[0]
     if (!file) return
     const url = await uploadCardPhoto(file, 'back')
-    if (url) { setCardBackUrl(url); toast.success('Back of card uploaded') }
+    if (url) { setCardBackUrl(url); toast.success('Back uploaded') }
   }
 
   async function handleSave(e) {
     e.preventDefault()
     if (!cardType || !cardNumber.trim() || !cardFrontUrl) {
-      toast.error('Please upload your CSCS/ECS card details and front photo')
+      toast.error('Please complete your CSCS/ECS card details and upload the front photo')
       return
     }
+    if (!dob) { toast.error('Date of birth is required'); return }
     setSaving(true)
     const { error } = await supabase.from('operatives').update({
       role: (role === 'Other' ? otherRole.trim() : role.trim()) || null,
@@ -118,340 +112,256 @@ export default function OperativeProfile() {
       card_expiry: cardExpiry || null,
       card_front_url: cardFrontUrl || null,
       card_back_url: cardBackUrl || null,
-      card_verified: null, // reset verification when card details change
+      card_verified: null,
       card_verified_by: null,
       card_verified_at: null,
     }).eq('id', operativeId)
     setSaving(false)
-    if (error) {
-      toast.error('Failed to save profile')
-      return
-    }
+    if (error) { toast.error('Failed to save'); return }
     toast.success('Profile saved')
 
-    // If no worker session yet (first-time setup from invite), create one automatically
     if (!sessionStorage.getItem('operative_session')) {
-      const sessionData = {
-        id: operative.id,
-        name: operative.name,
-        email: email.trim() || operative.email,
+      sessionStorage.setItem('operative_session', JSON.stringify({
+        id: operative.id, name: operative.name, email: email.trim() || operative.email,
         role: (role === 'Other' ? otherRole.trim() : role.trim()) || operative.role,
-        photo_url: operative.photo_url,
-        project_id: operative.project_id,
-        project_name: operative.projects?.name,
-        company_id: operative.company_id,
-        company_name: operative.companies?.name,
-        company_logo: operative.companies?.logo_url,
+        photo_url: operative.photo_url, project_id: operative.project_id,
+        project_name: operative.projects?.name, company_id: operative.company_id,
+        company_name: operative.companies?.name, company_logo: operative.companies?.logo_url,
         primary_colour: operative.companies?.primary_colour || '#1B6FC8',
-      }
-      sessionStorage.setItem('operative_session', JSON.stringify(sessionData))
+      }))
       navigate(`/operative/${operativeId}/documents`)
     } else {
       navigate('/worker')
     }
   }
 
-  const goBack = () => {
-    const hasWorkerSession = sessionStorage.getItem('operative_session')
-    navigate(hasWorkerSession ? '/worker' : `/operative/${operativeId}/documents`)
-  }
+  const goBack = () => navigate(sessionStorage.getItem('operative_session') ? '/worker' : `/operative/${operativeId}/documents`)
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+      <div className="min-h-dvh flex items-center justify-center" style={{ backgroundColor: '#0D1526' }}>
+        <div className="animate-spin w-8 h-8 border-2 border-white/30 border-t-white rounded-full" />
       </div>
     )
   }
 
+  const primaryColour = operative?.companies?.primary_colour || '#1B6FC8'
   const isComplete = dob && niNumber && address && nextOfKin && nextOfKinPhone && cardType && cardNumber && cardFrontUrl
+  const isFirstTime = !operative?.date_of_birth
 
   return (
-    <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
-      <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-4 py-3 flex items-center gap-3 shrink-0">
-        <button onClick={goBack} className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
-          <ArrowLeft size={22} />
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: '#F5F6F8' }}>
+      {/* Dark header */}
+      <header className="bg-[#0D1526] text-white px-4 py-3 flex items-center gap-3 shrink-0">
+        <button onClick={goBack} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+          <ArrowLeft size={20} />
         </button>
-        {operative?.companies?.logo_url ? (
-          <img src={operative.companies.logo_url} alt={operative.companies.name} className="h-7" />
-        ) : (
-          <span className="text-sm font-semibold text-slate-700">{operative?.companies?.name || <><span className="font-light tracking-widest">CORE</span><span className="font-bold">SITE</span></>}</span>
-        )}
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-bold text-slate-900 truncate">My Profile</h1>
-          <p className="text-xs text-slate-500 truncate">{operative?.name}</p>
+          <p className="text-sm font-bold truncate">{isFirstTime ? 'Complete Your Profile' : 'My Profile'}</p>
+          <p className="text-[11px] text-white/50 truncate">
+            {operative?.companies?.name || 'CoreSite'} {operative?.projects?.name ? `· ${operative.projects.name}` : ''}
+          </p>
         </div>
+        {operative?.companies?.logo_url && (
+          <img src={operative.companies.logo_url} alt="" className="h-6 opacity-70" />
+        )}
       </header>
 
-      <form onSubmit={handleSave} className="flex-1 p-4 space-y-4 overflow-y-auto pb-8">
-        {!isComplete && (
-          <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 flex items-start gap-3">
-            <Shield size={20} className="text-warning shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm text-slate-900 font-semibold">Complete your profile</p>
-              <p className="text-xs text-slate-500 mt-1">Please fill in all fields below. This information is required for site induction compliance.</p>
+      <form onSubmit={handleSave} className="flex-1 overflow-y-auto">
+        <div className="max-w-lg mx-auto p-4 space-y-4 pb-8">
+
+          {/* Welcome banner for first-time */}
+          {isFirstTime && (
+            <div className="rounded-xl p-4 text-white" style={{ backgroundColor: primaryColour }}>
+              <p className="text-sm font-semibold">Welcome, {operative?.name?.split(' ')[0]}</p>
+              <p className="text-xs opacity-80 mt-1">Please complete all sections below to get started on site. Your CSCS/ECS card will be verified by your manager.</p>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Personal Details */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
-          <div className="flex items-center gap-2 mb-1">
-            <User size={16} className="text-blue-500" />
-            <h3 className="text-sm font-semibold text-slate-600">Personal Details</h3>
-          </div>
+          {/* Incomplete warning for returning users */}
+          {!isFirstTime && !isComplete && (
+            <div className="bg-[#FEF3C7] border border-[#FCD34D] rounded-xl p-3.5 flex items-start gap-3">
+              <Shield size={18} className="text-[#D29922] shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-[#92400E] font-semibold">Profile incomplete</p>
+                <p className="text-xs text-[#A16207] mt-0.5">Fill in all required fields to remain compliant.</p>
+              </div>
+            </div>
+          )}
 
-          <div>
-            <label className="text-xs text-slate-500 mb-1 block">Role / Trade</label>
-            <select
-              value={role}
-              onChange={e => { setRole(e.target.value); if (e.target.value !== 'Other') setOtherRole('') }}
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
-            >
-              <option value="">Select trade</option>
-              <option value="Labourer">Labourer</option>
-              <option value="Apprentice">Apprentice</option>
-              <option value="Electrician">Electrician</option>
-              <option value="Plumber">Plumber</option>
-              <option value="BMS Engineer">BMS Engineer</option>
-              <option value="Lighting Control">Lighting Control</option>
-              <option value="Other">Other (Specify)</option>
-            </select>
-            {role === 'Other' && (
-              <input
-                value={otherRole}
-                onChange={e => setOtherRole(e.target.value)}
-                placeholder="Specify your trade"
-                className="w-full mt-2 px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
-              />
+          {/* ─── SECTION 1: CSCS / ECS Card ─── */}
+          <Section icon={CreditCard} title="CSCS / ECS Card" colour="#D29922" required>
+            <div className="bg-[#FEF3C7] border border-[#FCD34D] rounded-lg p-2.5 mb-3">
+              <p className="text-[11px] text-[#92400E]">Upload a clear photo of your valid card. It will be verified by your site manager.</p>
+            </div>
+
+            <div>
+              <label className={labelCls}>Card Type *</label>
+              <select value={cardType} onChange={e => setCardType(e.target.value)} className={inputCls}>
+                <option value="">Select card type</option>
+                <optgroup label="CSCS Cards">
+                  <option value="CSCS Green - Labourer">CSCS Green — Labourer</option>
+                  <option value="CSCS Blue - Skilled Worker">CSCS Blue — Skilled Worker</option>
+                  <option value="CSCS Gold - Supervisor">CSCS Gold — Supervisor</option>
+                  <option value="CSCS Black - Manager">CSCS Black — Manager</option>
+                  <option value="CSCS White - Prof. Qualified">CSCS White — Prof. Qualified</option>
+                  <option value="CSCS Red - Trainee">CSCS Red — Trainee</option>
+                </optgroup>
+                <optgroup label="ECS Cards">
+                  <option value="ECS Gold - Electrician">ECS Gold — Electrician</option>
+                  <option value="ECS Blue - Approved Electrician">ECS Blue — Approved Electrician</option>
+                  <option value="ECS Black - Senior/Manager">ECS Black — Senior / Manager</option>
+                  <option value="ECS White - Trainee">ECS White — Trainee</option>
+                  <option value="ECS Green - Labourer">ECS Green — Labourer</option>
+                </optgroup>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Card Number *</label>
+                <input value={cardNumber} onChange={e => setCardNumber(e.target.value)} placeholder="e.g. 1234567890" className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Expiry Date</label>
+                <input type="date" value={cardExpiry} onChange={e => setCardExpiry(e.target.value)} className={inputCls} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <CardPhotoUpload label="Front of Card *" url={cardFrontUrl} uploading={uploadingFront}
+                onUpload={handleCardFront} onClear={() => setCardFrontUrl('')} onView={() => setLightbox(cardFrontUrl)} />
+              <CardPhotoUpload label="Back of Card" url={cardBackUrl} uploading={uploadingBack}
+                onUpload={handleCardBack} onClear={() => setCardBackUrl('')} onView={() => setLightbox(cardBackUrl)} />
+            </div>
+
+            {operative?.card_verified === true && (
+              <div className="flex items-center gap-2 p-2.5 bg-[#ECFDF5] border border-[#A7F3D0] rounded-lg">
+                <CheckCircle2 size={14} className="text-[#059669]" />
+                <span className="text-xs text-[#065F46] font-medium">Verified by {operative.card_verified_by} · {new Date(operative.card_verified_at).toLocaleDateString('en-GB')}</span>
+              </div>
             )}
-          </div>
+            {operative?.card_verified === false && (
+              <div className="flex items-center gap-2 p-2.5 bg-[#FEF2F2] border border-[#FECACA] rounded-lg">
+                <Shield size={14} className="text-[#DC2626]" />
+                <span className="text-xs text-[#991B1B] font-medium">Card rejected — please upload a valid card</span>
+              </div>
+            )}
+          </Section>
 
-          <div>
-            <label className="text-xs text-slate-500 mb-1 block">Date of Birth *</label>
-            <DateOfBirthPicker value={dob} onChange={setDob} />
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-500 mb-1 block">National Insurance Number *</label>
-            <input
-              value={niNumber}
-              onChange={e => setNiNumber(e.target.value)}
-              placeholder="e.g. AB 12 34 56 C"
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10 uppercase"
-            />
-          </div>
-        </div>
-
-        {/* CSCS / ECS Card */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
-          <div className="flex items-center gap-2 mb-1">
-            <CreditCard size={16} className="text-amber-500" />
-            <h3 className="text-sm font-semibold text-slate-600">CSCS / ECS Card *</h3>
-          </div>
-
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <p className="text-xs text-amber-800">You must upload a photo of your valid CSCS or ECS card to work on site. Your card will be verified by your site manager.</p>
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-500 mb-1 block">Card Type *</label>
-            <select
-              value={cardType}
-              onChange={e => setCardType(e.target.value)}
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
-            >
-              <option value="">Select card type</option>
-              <optgroup label="CSCS Cards">
-                <option value="CSCS Green - Labourer">CSCS Green — Labourer</option>
-                <option value="CSCS Blue - Skilled Worker">CSCS Blue — Skilled Worker</option>
-                <option value="CSCS Gold - Supervisor">CSCS Gold — Supervisor</option>
-                <option value="CSCS Black - Manager">CSCS Black — Manager</option>
-                <option value="CSCS White - Prof. Qualified">CSCS White — Professionally Qualified</option>
-                <option value="CSCS Red - Trainee">CSCS Red — Trainee</option>
-              </optgroup>
-              <optgroup label="ECS Cards">
-                <option value="ECS Gold - Electrician">ECS Gold — Electrician</option>
-                <option value="ECS Blue - Approved Electrician">ECS Blue — Approved Electrician</option>
-                <option value="ECS Black - Senior/Manager">ECS Black — Senior / Manager</option>
-                <option value="ECS White - Trainee">ECS White — Trainee</option>
-                <option value="ECS Green - Labourer">ECS Green — Labourer</option>
-              </optgroup>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+          {/* ─── SECTION 2: Personal Details ─── */}
+          <Section icon={User} title="Personal Details" colour="#1B6FC8">
             <div>
-              <label className="text-xs text-slate-500 mb-1 block">Card Number *</label>
-              <input
-                value={cardNumber}
-                onChange={e => setCardNumber(e.target.value)}
-                placeholder="e.g. 1234567890"
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-500 mb-1 block">Expiry Date</label>
-              <input
-                type="date"
-                value={cardExpiry}
-                onChange={e => setCardExpiry(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
-              />
-            </div>
-          </div>
-
-          {/* Card photos */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-slate-500 mb-1.5 block">Front of Card *</label>
-              {cardFrontUrl ? (
-                <div className="relative group">
-                  <img src={cardFrontUrl} alt="Card front" className="w-full h-28 object-cover rounded-lg border border-slate-200 cursor-pointer" onClick={() => setLightbox(cardFrontUrl)} />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
-                    <ZoomIn size={20} className="text-white opacity-0 group-hover:opacity-100 drop-shadow" />
-                  </div>
-                  <button type="button" onClick={() => setCardFrontUrl('')} className="absolute top-1 right-1 w-6 h-6 bg-black/50 text-white rounded-full flex items-center justify-center">
-                    <X size={12} />
-                  </button>
-                </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center h-28 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
-                  {uploadingFront ? (
-                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <Camera size={24} className="text-slate-300 mb-1" />
-                      <span className="text-xs text-slate-400">Take photo</span>
-                    </>
-                  )}
-                  <input type="file" accept="image/*" capture="environment" onChange={handleCardFront} className="hidden" />
-                </label>
+              <label className={labelCls}>Role / Trade</label>
+              <select value={role} onChange={e => { setRole(e.target.value); if (e.target.value !== 'Other') setOtherRole('') }} className={inputCls}>
+                <option value="">Select trade</option>
+                {['Labourer', 'Apprentice', 'Electrician', 'Plumber', 'BMS Engineer', 'Lighting Control', 'Supervisor', 'Engineer'].map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+                <option value="Other">Other (Specify)</option>
+              </select>
+              {role === 'Other' && (
+                <input value={otherRole} onChange={e => setOtherRole(e.target.value)} placeholder="Specify your trade" className={`${inputCls} mt-2`} />
               )}
             </div>
+
             <div>
-              <label className="text-xs text-slate-500 mb-1.5 block">Back of Card</label>
-              {cardBackUrl ? (
-                <div className="relative group">
-                  <img src={cardBackUrl} alt="Card back" className="w-full h-28 object-cover rounded-lg border border-slate-200 cursor-pointer" onClick={() => setLightbox(cardBackUrl)} />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
-                    <ZoomIn size={20} className="text-white opacity-0 group-hover:opacity-100 drop-shadow" />
-                  </div>
-                  <button type="button" onClick={() => setCardBackUrl('')} className="absolute top-1 right-1 w-6 h-6 bg-black/50 text-white rounded-full flex items-center justify-center">
-                    <X size={12} />
-                  </button>
-                </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center h-28 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
-                  {uploadingBack ? (
-                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <Camera size={24} className="text-slate-300 mb-1" />
-                      <span className="text-xs text-slate-400">Take photo</span>
-                    </>
-                  )}
-                  <input type="file" accept="image/*" capture="environment" onChange={handleCardBack} className="hidden" />
-                </label>
-              )}
+              <label className={labelCls}>Date of Birth *</label>
+              <DateOfBirthPicker value={dob} onChange={setDob} />
             </div>
-          </div>
 
-          {operative?.card_verified === true && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
-              <Shield size={14} className="text-green-600" />
-              <span className="text-xs text-green-800 font-medium">Card verified by {operative.card_verified_by} on {new Date(operative.card_verified_at).toLocaleDateString('en-GB')}</span>
+            <div>
+              <label className={labelCls}>National Insurance Number *</label>
+              <input value={niNumber} onChange={e => setNiNumber(e.target.value)} placeholder="e.g. AB 12 34 56 C" className={`${inputCls} uppercase`} />
             </div>
-          )}
-          {operative?.card_verified === false && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
-              <Shield size={14} className="text-red-600" />
-              <span className="text-xs text-red-800 font-medium">Card rejected — please upload a valid card</span>
+          </Section>
+
+          {/* ─── SECTION 3: Contact ─── */}
+          <Section icon={Phone} title="Contact Details" colour="#1B6FC8">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Mobile</label>
+                <input type="tel" value={mobile} onChange={e => setMobile(e.target.value)} placeholder="07..." className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Email</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" className={inputCls} />
+              </div>
             </div>
-          )}
+            <div>
+              <label className={labelCls}>Home Address *</label>
+              <AddressLookup value={address} onChange={setAddress} placeholder="Enter postcode..." />
+            </div>
+          </Section>
+
+          {/* ─── SECTION 4: Emergency Contact ─── */}
+          <Section icon={Users} title="Emergency Contact" colour="#DC2626">
+            <div>
+              <label className={labelCls}>Next of Kin Name *</label>
+              <input value={nextOfKin} onChange={e => setNextOfKin(e.target.value)} placeholder="Full name" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Next of Kin Phone *</label>
+              <input type="tel" value={nextOfKinPhone} onChange={e => setNextOfKinPhone(e.target.value)} placeholder="Phone number" className={inputCls} />
+            </div>
+          </Section>
+
+          <LoadingButton loading={saving} type="submit" className="w-full text-white text-sm font-semibold rounded-xl py-3.5" style={{ backgroundColor: primaryColour }}>
+            {isFirstTime ? 'Complete Profile & Continue' : 'Save Profile'}
+          </LoadingButton>
         </div>
-
-        {/* Contact Details */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Phone size={16} className="text-blue-500" />
-            <h3 className="text-sm font-semibold text-slate-600">Contact Details</h3>
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-500 mb-1 block">Mobile Number</label>
-            <input
-              type="tel"
-              value={mobile}
-              onChange={e => setMobile(e.target.value)}
-              placeholder="07..."
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-500 mb-1 block">Email Address</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-500 mb-1 block">Home Address *</label>
-            <AddressLookup
-              value={address}
-              onChange={setAddress}
-              placeholder="Enter postcode to find address..."
-            />
-          </div>
-        </div>
-
-        {/* Emergency Contact */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Users size={16} className="text-danger" />
-            <h3 className="text-sm font-semibold text-slate-600">Emergency Contact / Next of Kin</h3>
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-500 mb-1 block">Next of Kin Name *</label>
-            <input
-              value={nextOfKin}
-              onChange={e => setNextOfKin(e.target.value)}
-              placeholder="Full name"
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-500 mb-1 block">Next of Kin Phone *</label>
-            <input
-              type="tel"
-              value={nextOfKinPhone}
-              onChange={e => setNextOfKinPhone(e.target.value)}
-              placeholder="Phone number"
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
-            />
-          </div>
-        </div>
-
-        <LoadingButton loading={saving} type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white text-lg py-4">
-          Save Profile
-        </LoadingButton>
       </form>
 
-      {/* Photo lightbox */}
+      {/* Lightbox */}
       {lightbox && (
         <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
           <img src={lightbox} alt="Card" className="max-w-full max-h-full object-contain rounded-lg" />
-          <button onClick={() => setLightbox(null)} className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20">
-            <X size={24} />
-          </button>
+          <button onClick={() => setLightbox(null)} className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20"><X size={24} /></button>
         </div>
+      )}
+    </div>
+  )
+}
+
+function Section({ icon: Icon, title, colour, required, children }) {
+  return (
+    <div className="bg-white border border-[#E2E6EA] rounded-xl overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-[#E2E6EA] flex items-center gap-2" style={{ backgroundColor: `${colour}08` }}>
+        <Icon size={15} style={{ color: colour }} />
+        <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: colour }}>{title}</h3>
+        {required && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E]">Required</span>}
+      </div>
+      <div className="p-4 space-y-3">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function CardPhotoUpload({ label, url, uploading, onUpload, onClear, onView }) {
+  return (
+    <div>
+      <label className={labelCls}>{label}</label>
+      {url ? (
+        <div className="relative group rounded-lg overflow-hidden border border-[#E2E6EA]">
+          <img src={url} alt="" className="w-full h-24 object-cover cursor-pointer" onClick={onView} />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+            <ZoomIn size={18} className="text-white opacity-0 group-hover:opacity-100 drop-shadow" />
+          </div>
+          <button type="button" onClick={onClear} className="absolute top-1 right-1 w-5 h-5 bg-black/50 text-white rounded-full flex items-center justify-center"><X size={10} /></button>
+        </div>
+      ) : (
+        <label className="flex flex-col items-center justify-center h-24 bg-[#F5F6F8] border-2 border-dashed border-[#E2E6EA] rounded-lg cursor-pointer hover:border-[#1B6FC8] transition-colors">
+          {uploading ? (
+            <div className="w-5 h-5 border-2 border-[#1B6FC8] border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <>
+              <Camera size={20} className="text-[#B0B8C9] mb-0.5" />
+              <span className="text-[10px] text-[#B0B8C9]">Take photo</span>
+            </>
+          )}
+          <input type="file" accept="image/*" capture="environment" onChange={onUpload} className="hidden" />
+        </label>
       )}
     </div>
   )
