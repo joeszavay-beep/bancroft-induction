@@ -38,6 +38,7 @@ export default function ProgressViewer() {
   const [undoStack, setUndoStack] = useState([]) // array of item ids that were placed
   const [redoStack, setRedoStack] = useState([]) // array of items that were undone
   const [cursorPos, setCursorPos] = useState(null) // { x, y } for custom dot cursor
+  const mouseDownPos = useRef(null) // track click vs drag
   const [photoLightbox, setPhotoLightbox] = useState(null) // url for enlarged photo
   const [exporting, setExporting] = useState(false)
   const [project, setProject] = useState(null)
@@ -555,11 +556,19 @@ export default function ProgressViewer() {
                 wrapperStyle={{ width: '100%', height: '100%', touchAction: 'none' }}
                 contentStyle={{ width: '100%', touchAction: 'none' }}
               >
-                <div className="relative inline-block" style={{ cursor: isMarking ? 'none' : 'grab' }}>
+                <div className="relative inline-block" style={{ cursor: isMarking ? 'none' : 'grab' }}
+                  onMouseDown={isMarking ? (e) => { mouseDownPos.current = { x: e.clientX, y: e.clientY } } : undefined}
+                  onMouseUp={isMarking ? (e) => {
+                    if (!mouseDownPos.current) return
+                    const dx = Math.abs(e.clientX - mouseDownPos.current.x)
+                    const dy = Math.abs(e.clientY - mouseDownPos.current.y)
+                    mouseDownPos.current = null
+                    // Only treat as click if mouse moved less than 5px (not a drag)
+                    if (dx < 5 && dy < 5) handleDrawingTap(e)
+                  } : undefined}>
                   <img ref={imageRef} src={drawing?.image_url} alt={drawing?.name}
                     className="max-w-none select-none" style={{ width: '100%', minWidth: '800px' }}
-                    onLoad={() => setImageLoaded(true)} draggable={false}
-                    onClick={isMarking ? handleDrawingTap : undefined} />
+                    onLoad={() => setImageLoaded(true)} draggable={false} />
 
                   {/* Items: dots, lines, polylines, photos */}
                   {imageLoaded && items.map(item => {
