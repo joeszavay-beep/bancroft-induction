@@ -104,7 +104,7 @@ export default function App() {
       <Route path="/aftercare/:projectId" element={<AftercarePage />} />
       <Route path="/site/:projectId" element={<SiteSignIn />} />
       <Route path="/worker-login" element={<OperativeLogin />} />
-      <Route path="/worker" element={<OperativeDashboard />} />
+      <Route path="/worker/*" element={<OperativeDashboard />} />
 
       {/* Snag drawing viewer (full screen, no sidebar) */}
       <Route path="/snags/:drawingId" element={<SnagDrawingView />} />

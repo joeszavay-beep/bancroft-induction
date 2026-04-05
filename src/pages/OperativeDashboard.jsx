@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Routes, Route } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
+import WorkerSidebarLayout from '../components/WorkerSidebarLayout'
 import {
   Home, FileText, MapPin, MessageSquare, User, LogOut, Bell,
   CheckCircle2, Clock, AlertTriangle, ChevronRight, Camera, X,
   Send, ZoomIn, Upload, ArrowLeft, Paperclip
 } from 'lucide-react'
-
-const TABS = ['home', 'documents', 'snags', 'chat', 'profile']
 
 const QUICK_MESSAGES = [
   { icon: 'Package', label: 'Material Request', text: 'Material needed: ' },
@@ -20,7 +19,6 @@ const QUICK_MESSAGES = [
 
 export default function OperativeDashboard() {
   const navigate = useNavigate()
-  const [tab, setTab] = useState('home')
   const [op, setOp] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -231,42 +229,14 @@ export default function OperativeDashboard() {
   }
 
   return (
-    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--bg-main, #F5F6F8)' }}>
-      {/* Dark header — matches manager portal */}
-      <header className="bg-[#0D1526] text-white px-4 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          {op.company_logo ? (
-            <img src={op.company_logo} alt={op.company_name} className="h-6 opacity-80" />
-          ) : (
-            <span className="text-sm font-light tracking-widest text-white/80">CORE<span className="font-bold tracking-normal">SITE</span></span>
-          )}
-          <div className="w-px h-5 bg-white/10" />
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-white/90 truncate">{op.name}</p>
-            <p className="text-[10px] text-white/40 truncate">{op.project_name || op.company_name}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2.5">
-          {notifications.length > 0 && (
-            <div className="relative">
-              <Bell size={16} className="text-white/50" />
-              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{notifications.length}</span>
-            </div>
-          )}
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: primaryColor }}>
-            {op.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main className="flex-1 overflow-y-auto pb-20">
-        {tab === 'home' && <HomeTab op={op} unsignedDocs={unsignedDocs} unsignedTalks={unsignedTalks} snags={snags} overdueSnags={overdueSnags} pendingActions={pendingActions} setTab={setTab} navigate={navigate} primaryColor={primaryColor} />}
-        {tab === 'documents' && <DocumentsTab op={op} documents={documents} signatures={signatures} signedDocIds={signedDocIds} navigate={navigate} primaryColor={primaryColor} />}
-        {tab === 'snags' && <SnagsTab snags={snags} overdueSnags={overdueSnags} navigate={navigate} primaryColor={primaryColor} openSnag={openSnag} />}
-        {tab === 'chat' && <OperativeChatTab op={op} messages={chatMessages} chatMsg={chatMsg} setChatMsg={setChatMsg} sendChat={sendChat} chatSending={chatSending} chatEndRef={chatEndRef} markChatRead={markChatRead} primaryColor={primaryColor} managers={managers} selectedManager={selectedManager} setSelectedManager={setSelectedManager} />}
-        {tab === 'profile' && <ProfileTab op={op} handleLogout={handleLogout} navigate={navigate} primaryColor={primaryColor} />}
-      </main>
+    <WorkerSidebarLayout op={op}>
+      <Routes>
+        <Route path="/" element={<HomeTab op={op} unsignedDocs={unsignedDocs} unsignedTalks={unsignedTalks} snags={snags} overdueSnags={overdueSnags} pendingActions={pendingActions} navigate={navigate} primaryColor={primaryColor} />} />
+        <Route path="/documents" element={<DocumentsTab op={op} documents={documents} signatures={signatures} signedDocIds={signedDocIds} navigate={navigate} primaryColor={primaryColor} />} />
+        <Route path="/snags" element={<SnagsTab snags={snags} overdueSnags={overdueSnags} navigate={navigate} primaryColor={primaryColor} openSnag={openSnag} />} />
+        <Route path="/chat" element={<OperativeChatTab op={op} messages={chatMessages} chatMsg={chatMsg} setChatMsg={setChatMsg} sendChat={sendChat} chatSending={chatSending} chatEndRef={chatEndRef} markChatRead={markChatRead} primaryColor={primaryColor} managers={managers} selectedManager={selectedManager} setSelectedManager={setSelectedManager} />} />
+        <Route path="/profile" element={<ProfileTab op={op} handleLogout={handleLogout} navigate={navigate} primaryColor={primaryColor} />} />
+      </Routes>
 
       {/* Snag detail modal */}
       {selectedSnag && (
@@ -413,25 +383,7 @@ export default function OperativeDashboard() {
         </div>
       )}
 
-      {/* Bottom nav — dark to match header */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-[#0D1526] flex items-center justify-around py-2 px-1 z-40" style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
-        {[
-          { id: 'home', icon: Home, label: 'Home' },
-          { id: 'documents', icon: FileText, label: 'Docs', badge: unsignedDocs.length },
-          { id: 'snags', icon: MapPin, label: 'Snags', badge: snags.length },
-          { id: 'chat', icon: MessageSquare, label: 'Chat', badge: unreadChat },
-          { id: 'profile', icon: User, label: 'Profile' },
-        ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} className="flex flex-col items-center gap-0.5 relative min-w-[56px]">
-            <t.icon size={20} style={{ color: tab === t.id ? primaryColor : 'rgba(255,255,255,0.35)' }} />
-            {t.badge > 0 && (
-              <span className="absolute -top-1 right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{t.badge}</span>
-            )}
-            <span className="text-[10px] font-medium" style={{ color: tab === t.id ? primaryColor : 'rgba(255,255,255,0.35)' }}>{t.label}</span>
-          </button>
-        ))}
-      </nav>
-    </div>
+    </WorkerSidebarLayout>
   )
 }
 
@@ -475,7 +427,7 @@ function HomeTab({ op, unsignedDocs, unsignedTalks, snags, overdueSnags, pending
               </button>
             ))}
             {unsignedDocs.length > 3 && (
-              <button onClick={() => setTab('documents')} className="text-xs font-medium hover:underline" style={{ color: primaryColor }}>
+              <button onClick={() => navigate('/worker/documents')} className="text-xs font-medium hover:underline" style={{ color: primaryColor }}>
                 View all {unsignedDocs.length} documents →
               </button>
             )}
@@ -507,7 +459,7 @@ function HomeTab({ op, unsignedDocs, unsignedTalks, snags, overdueSnags, pending
               )
             })}
             {snags.length > 3 && (
-              <button onClick={() => setTab('snags')} className="text-xs font-medium hover:underline" style={{ color: primaryColor }}>
+              <button onClick={() => navigate('/worker/snags')} className="text-xs font-medium hover:underline" style={{ color: primaryColor }}>
                 View all {snags.length} snags →
               </button>
             )}
