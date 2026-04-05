@@ -187,7 +187,7 @@ export default function Inspections() {
     if (!template) return toast.error('Template not found')
 
     setSavingInspection(true)
-    const initialResults = template.items.map(item => ({
+    const initialResults = parseJson(template.items).map(item => ({
       label: item.label,
       result: null,
       notes: '',
@@ -212,9 +212,16 @@ export default function Inspections() {
     loadData()
   }
 
+  function parseJson(r) {
+    if (!r) return []
+    if (Array.isArray(r)) return r
+    if (typeof r === 'string') { try { return JSON.parse(r) } catch { return [] } }
+    return []
+  }
+
   function openInspection(insp) {
     setActiveInspection(insp)
-    setResults(insp.results || [])
+    setResults(parseJson(insp.results))
     setOverallNotes(insp.notes || '')
   }
 
@@ -543,7 +550,7 @@ export default function Inspections() {
                 <div>
                   <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{t.name}</h3>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    {t.items?.length || 0} items &middot; {t.category}
+                    {parseJson(t.items).length} items &middot; {t.category}
                   </p>
                   {t.description && (
                     <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{t.description}</p>
