@@ -725,13 +725,18 @@ export default function ProgressViewer() {
                 contentStyle={{ width: '100%', touchAction: 'none' }}
               >
                 <div className="relative inline-block" style={{ cursor: isMarking || isAnnotationMode ? 'none' : 'grab' }}
-                  onMouseDown={(e) => { mouseDownPos.current = { x: e.clientX, y: e.clientY } }}
-                  onMouseUp={(e) => {
+                  onPointerDown={(e) => { mouseDownPos.current = { x: e.clientX, y: e.clientY, time: Date.now() } }}
+                  onPointerUp={(e) => {
                     if (!mouseDownPos.current) return
                     const dx = Math.abs(e.clientX - mouseDownPos.current.x)
                     const dy = Math.abs(e.clientY - mouseDownPos.current.y)
+                    const dt = Date.now() - mouseDownPos.current.time
                     mouseDownPos.current = null
-                    if (dx < 5 && dy < 5 && (isMarking || isAnnotationMode)) handleDrawingTap(e)
+                    // Click = moved less than 5px and held less than 500ms
+                    if (dx < 5 && dy < 5 && dt < 500 && (isMarking || isAnnotationMode)) {
+                      e.stopPropagation()
+                      handleDrawingTap(e)
+                    }
                   }}>
                   <img ref={imageRef} src={drawing?.image_url} alt={drawing?.name}
                     className="max-w-none select-none" style={{ width: '100%', minWidth: '800px' }}
