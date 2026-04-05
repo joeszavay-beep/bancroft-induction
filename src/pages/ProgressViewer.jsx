@@ -39,6 +39,7 @@ export default function ProgressViewer() {
   const [redoStack, setRedoStack] = useState([]) // array of items that were undone
   const [cursorPos, setCursorPos] = useState(null) // { x, y } for custom dot cursor
   const mouseDownPos = useRef(null) // track click vs drag
+  const skipNextReload = useRef(false) // skip realtime reload after own insert
   const [photoLightbox, setPhotoLightbox] = useState(null) // url for enlarged photo
   const [exporting, setExporting] = useState(false)
   const [project, setProject] = useState(null)
@@ -49,7 +50,7 @@ export default function ProgressViewer() {
     const channel = supabase
       .channel(`progress-${drawingId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'progress_items', filter: `drawing_id=eq.${drawingId}` },
-        () => { loadItems() }
+        () => { if (skipNextReload.current) { skipNextReload.current = false } else { loadItems() } }
       ).subscribe((status) => { setIsLive(status === 'SUBSCRIBED') })
     return () => { supabase.removeChannel(channel) }
   }, [drawingId])
@@ -128,6 +129,7 @@ export default function ProgressViewer() {
     const midX = polyPoints.reduce((s, p) => s + p.x, 0) / polyPoints.length
     const midY = polyPoints.reduce((s, p) => s + p.y, 0) / polyPoints.length
     const polyData = JSON.stringify({ points: polyPoints, width: dotSize })
+    skipNextReload.current = true
 
     const { data, offline } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
@@ -251,6 +253,7 @@ export default function ProgressViewer() {
       created_by: mgr.name, drawing_id: drawingId,
     }
     setItems(prev => [...prev, tempItem])
+    skipNextReload.current = true
 
     const { data, offline } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
@@ -279,6 +282,7 @@ export default function ProgressViewer() {
     const midX = (x1 + x2) / 2
     const midY = (y1 + y2) / 2
     const lineData = JSON.stringify({ x1, y1, x2, y2, width: dotSize })
+    skipNextReload.current = true
 
     const { data, offline } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
@@ -341,6 +345,7 @@ export default function ProgressViewer() {
     if (redoStack.length === 0) return
     const item = redoStack[redoStack.length - 1]
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
+    skipNextReload.current = true
 
     const { data, offline } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
