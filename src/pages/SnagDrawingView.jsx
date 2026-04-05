@@ -176,7 +176,7 @@ export default function SnagDrawingView() {
   }
 
   return (
-    <div className="min-h-dvh bg-slate-100 flex flex-col">
+    <div className="h-dvh bg-slate-100 flex flex-col overflow-hidden">
       {/* Dark header bar */}
       <header className="bg-slate-800 text-white px-3 py-2.5 flex items-center justify-between shrink-0 sticky top-0 z-20">
         <div className="flex items-center gap-2 min-w-0">
@@ -277,7 +277,7 @@ export default function SnagDrawingView() {
           )}
         </div>
       ) : (
-        <div className="flex-1 overflow-hidden bg-slate-200 relative">
+        <div className="flex-1 min-h-0 bg-slate-200 relative">
           {/* Click overlay for pin placement - sits on top of everything */}
           {placingPin && (
             <div
