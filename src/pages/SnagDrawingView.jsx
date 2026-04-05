@@ -313,7 +313,7 @@ export default function SnagDrawingView() {
                   </div>
                 )}
 
-                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', touchAction: 'none' }} contentStyle={{ touchAction: 'none' }}>
+                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', touchAction: 'none' }} contentStyle={{ width: '100%', touchAction: 'none' }}>
                   <div className="relative inline-block">
                     {imgError ? (
                       <div className="w-[800px] h-[600px] bg-white flex items-center justify-center">
@@ -325,9 +325,9 @@ export default function SnagDrawingView() {
                         src={drawing?.file_url}
                         alt={drawing?.name}
                         className="max-w-none select-none"
-                        style={{ maxWidth: 'none', minWidth: '800px', width: 'auto', height: 'auto' }}
+                        style={{ width: '100%', minWidth: '800px' }}
                         onLoad={() => setImageLoaded(true)}
-                        onError={(e) => { setImgError(true) }}
+                        onError={(e) => { console.error('Image load error:', e); setImgError(true) }}
                         draggable={false}
                       />
                     )}
