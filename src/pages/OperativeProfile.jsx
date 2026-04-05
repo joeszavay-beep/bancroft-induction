@@ -70,7 +70,7 @@ export default function OperativeProfile() {
     setter(true)
     const filePath = `cards/${operativeId}/${side}_${Date.now()}.jpg`
     const { error } = await supabase.storage.from('documents').upload(filePath, file, { contentType: file.type })
-    if (error) { setter(false); toast.error('Upload failed'); return null }
+    if (error) { setter(false); toast.error(`Upload failed: ${error.message}`); return null }
     const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
     setter(false)
     return urlData.publicUrl
@@ -92,10 +92,9 @@ export default function OperativeProfile() {
 
   async function handleSave(e) {
     e.preventDefault()
-    if (!cardType || !cardNumber.trim() || !cardFrontUrl) {
-      toast.error('Please complete your CSCS/ECS card details and upload the front photo')
-      return
-    }
+    if (!cardType) { toast.error('Please select your card type'); return }
+    if (!cardNumber.trim()) { toast.error('Please enter your card number'); return }
+    if (!cardFrontUrl) { toast.error('Please upload a photo of the front of your card'); return }
     if (!dob) { toast.error('Date of birth is required'); return }
     setSaving(true)
     const { error } = await supabase.from('operatives').update({
@@ -360,7 +359,7 @@ function CardPhotoUpload({ label, url, uploading, onUpload, onClear, onView }) {
               <span className="text-[10px] text-[#B0B8C9]">Take photo</span>
             </>
           )}
-          <input type="file" accept="image/*" capture="environment" onChange={onUpload} className="hidden" />
+          <input type="file" accept="image/*" onChange={onUpload} className="hidden" />
         </label>
       )}
     </div>
