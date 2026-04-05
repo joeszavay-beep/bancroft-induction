@@ -243,6 +243,15 @@ export default function ProgressViewer() {
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
     const sizeNotes = JSON.stringify({ size: dotSize })
 
+    // Show dot immediately (optimistic)
+    const tempId = `temp-${Date.now()}`
+    const tempItem = {
+      id: tempId, item_number: nextNum, pin_x: x, pin_y: y,
+      status: activeColour, label: 'dot', notes: sizeNotes,
+      created_by: mgr.name, drawing_id: drawingId,
+    }
+    setItems(prev => [...prev, tempItem])
+
     const { data, offline } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
       pin_x: x, pin_y: y, status: activeColour,
@@ -251,10 +260,16 @@ export default function ProgressViewer() {
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     })
 
-    if (!data) { toast.error('Failed to place item'); return }
+    if (!data) {
+      // Remove temp item on failure
+      setItems(prev => prev.filter(i => i.id !== tempId))
+      toast.error('Failed to place item')
+      return
+    }
     if (offline) toastOffline('Dot saved offline')
 
-    setItems(prev => [...prev, data])
+    // Replace temp with real data
+    setItems(prev => prev.map(i => i.id === tempId ? data : i))
     setUndoStack(prev => [...prev, data.id])
     setRedoStack([])
   }
