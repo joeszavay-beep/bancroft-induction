@@ -29,6 +29,15 @@ export default function AddNewWorker() {
   const [email, setEmail] = useState('')
   const [employmentType, setEmploymentType] = useState('')
 
+  // Certifications
+  const [cscsNumber, setCscsNumber] = useState('')
+  const [cscsExpiry, setCscsExpiry] = useState('')
+  const [cscsType, setCscsType] = useState('')
+  const [ipafExpiry, setIpafExpiry] = useState('')
+  const [pasmaExpiry, setPasmaExpiry] = useState('')
+  const [ssstsExpiry, setSsstsExpiry] = useState('')
+  const [firstAidExpiry, setFirstAidExpiry] = useState('')
+
   // Emergency
   const [nokName, setNokName] = useState('')
   const [nokRelation, setNokRelation] = useState('')
@@ -84,6 +93,13 @@ export default function AddNewWorker() {
       project_id: projectId || null,
       photo_url: photoUrl,
       company_id: cid,
+      cscs_number: cscsNumber.trim() || null,
+      cscs_expiry: cscsExpiry || null,
+      cscs_type: cscsType || null,
+      ipaf_expiry: ipafExpiry || null,
+      pasma_expiry: pasmaExpiry || null,
+      sssts_expiry: ssstsExpiry || null,
+      first_aid_expiry: firstAidExpiry || null,
     }).select().single()
 
     if (error) {
@@ -224,6 +240,55 @@ export default function AddNewWorker() {
               <option value="">No Site Association</option>
               {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
+          </div>
+        </div>
+
+        {/* Certifications */}
+        <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm mb-4">
+          <div className="px-5 py-3 border-b border-[#E2E6EA] bg-[#F5F6F8]">
+            <p className="text-sm font-semibold text-[#1A1A2E]">Certifications & Qualifications</p>
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className={labelCls}>CSCS Card Number</label>
+                <input value={cscsNumber} onChange={e => setCscsNumber(e.target.value)} className={inputCls} placeholder="e.g. 1234567890" />
+              </div>
+              <div>
+                <label className={labelCls}>CSCS Card Type</label>
+                <select value={cscsType} onChange={e => setCscsType(e.target.value)} className={inputCls}>
+                  <option value="">Select type</option>
+                  <option value="Green - Labourer">Green - Labourer</option>
+                  <option value="Blue - Skilled Worker">Blue - Skilled Worker</option>
+                  <option value="Gold - Supervisor">Gold - Supervisor</option>
+                  <option value="Black - Manager">Black - Manager</option>
+                  <option value="White - Professionally Qualified">White - Prof. Qualified</option>
+                  <option value="Red - Trainee">Red - Trainee</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>CSCS Expiry</label>
+                <input type="date" value={cscsExpiry} onChange={e => setCscsExpiry(e.target.value)} className={inputCls} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div>
+                <label className={labelCls}>IPAF Expiry</label>
+                <input type="date" value={ipafExpiry} onChange={e => setIpafExpiry(e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>PASMA Expiry</label>
+                <input type="date" value={pasmaExpiry} onChange={e => setPasmaExpiry(e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>SSSTS/SMSTS Expiry</label>
+                <input type="date" value={ssstsExpiry} onChange={e => setSsstsExpiry(e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>First Aid Expiry</label>
+                <input type="date" value={firstAidExpiry} onChange={e => setFirstAidExpiry(e.target.value)} className={inputCls} />
+              </div>
+            </div>
           </div>
         </div>
 

@@ -30,6 +30,7 @@ import InviteExistingWorkers from './pages/InviteExistingWorkers'
 import InvitationsPipeline from './pages/InvitationsPipeline'
 import AllWorkers from './pages/AllWorkers'
 import AddNewWorker from './pages/AddNewWorker'
+import DailySiteDiary from './pages/DailySiteDiary'
 
 function AppLayout() {
   const { isAuthenticated, isLoading } = useCompany()
@@ -49,6 +50,7 @@ function AppLayout() {
         <Route path="/invite-workers" element={<InviteNewWorkers />} />
         <Route path="/invite-existing" element={<InviteExistingWorkers />} />
         <Route path="/pipeline" element={<InvitationsPipeline />} />
+        <Route path="/diary" element={<DailySiteDiary />} />
         <Route path="/progress" element={<ProgressDrawingsList />} />
         <Route path="/snags" element={<PMDashboard key="snags" initialTab="snags" />} />
         <Route path="/drawings" element={<PMDashboard key="drawings" initialTab="snags" />} />

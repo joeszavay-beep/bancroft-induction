@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
-import { Users, Search, Plus, Trash2, ChevronRight } from 'lucide-react'
+import { Users, Search, Plus, Trash2, ChevronRight, AlertTriangle, ShieldCheck } from 'lucide-react'
 
 export default function AllWorkers() {
   const navigate = useNavigate()
@@ -74,16 +74,28 @@ export default function AllWorkers() {
                 <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99] hidden sm:table-cell">Email</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99] hidden sm:table-cell">Mobile</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Project</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Profile</th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99] hidden md:table-cell">CSCS</th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Certs</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-[#6B7A99]">No workers found</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-[#6B7A99]">No workers found</td></tr>
               ) : (
                 filtered.map(op => {
-                  const profileComplete = !!(op.date_of_birth && op.ni_number)
+                  const today = new Date()
+                  const thirtyDays = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
+                  const expiryFields = [
+                    { label: 'CSCS', date: op.cscs_expiry },
+                    { label: 'IPAF', date: op.ipaf_expiry },
+                    { label: 'PASMA', date: op.pasma_expiry },
+                    { label: 'SSSTS', date: op.sssts_expiry },
+                    { label: 'First Aid', date: op.first_aid_expiry },
+                  ].filter(f => f.date)
+                  const expired = expiryFields.filter(f => new Date(f.date) < today)
+                  const expiringSoon = expiryFields.filter(f => new Date(f.date) >= today && new Date(f.date) <= thirtyDays)
+                  const certStatus = expired.length > 0 ? 'expired' : expiringSoon.length > 0 ? 'warning' : expiryFields.length > 0 ? 'valid' : 'none'
                   return (
                     <tr key={op.id} className="border-t border-[#E2E6EA] hover:bg-[#F5F6F8]/50">
                       <td className="px-4 py-3">
@@ -102,10 +114,30 @@ export default function AllWorkers() {
                       <td className="px-4 py-3 text-[#6B7A99] hidden sm:table-cell">{op.email || '—'}</td>
                       <td className="px-4 py-3 text-[#6B7A99] hidden sm:table-cell">{op.mobile || '—'}</td>
                       <td className="px-4 py-3 text-[#6B7A99]">{op.projects?.name || '—'}</td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        {op.cscs_number ? (
+                          <div>
+                            <span className="text-xs font-mono text-[#1A1A2E]">{op.cscs_number}</span>
+                            {op.cscs_type && <span className="block text-[10px] text-[#6B7A99]">{op.cscs_type}</span>}
+                          </div>
+                        ) : <span className="text-[#B0B8C9]">—</span>}
+                      </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${profileComplete ? 'bg-[#2EA043]/10 text-[#2EA043]' : 'bg-[#D29922]/10 text-[#D29922]'}`}>
-                          {profileComplete ? 'Complete' : 'Incomplete'}
-                        </span>
+                        {certStatus === 'expired' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#DA3633]/10 text-[#DA3633]" title={expired.map(f => `${f.label} expired`).join(', ')}>
+                            <AlertTriangle size={10} /> {expired.length} expired
+                          </span>
+                        ) : certStatus === 'warning' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#D29922]/10 text-[#D29922]" title={expiringSoon.map(f => `${f.label} expires ${f.date}`).join(', ')}>
+                            <AlertTriangle size={10} /> {expiringSoon.length} expiring
+                          </span>
+                        ) : certStatus === 'valid' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#2EA043]/10 text-[#2EA043]">
+                            <ShieldCheck size={10} /> Valid
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-[#B0B8C9]">No certs</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <button onClick={() => removeWorker(op.id, op.name)} className="p-1.5 text-[#6B7A99] hover:text-[#DA3633] transition-colors">

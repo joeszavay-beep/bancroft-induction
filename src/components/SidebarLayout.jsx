@@ -7,7 +7,7 @@ import SyncBadge from './SyncBadge'
 import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
-  Globe, Settings, User, Shield, Image, Layers
+  Globe, Settings, User, Shield, Image, Layers, BookOpen, CheckSquare, Activity, Bell
 } from 'lucide-react'
 
 const NAV_SECTIONS = [
@@ -30,6 +30,8 @@ const NAV_SECTIONS = [
     title: 'Projects',
     items: [
       { label: 'All Projects', path: '/app/projects', icon: FolderOpen },
+      { label: 'Site Diary', path: '/app/diary', icon: BookOpen },
+      { label: 'Inspections', path: '/app/inspections', icon: CheckSquare },
     ],
   },
   {

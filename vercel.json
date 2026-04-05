@@ -1,4 +1,7 @@
 {
+  "crons": [
+    { "path": "/api/chase-overdue", "schedule": "0 7 * * 1-5" }
+  ],
   "headers": [
     {
       "source": "/service-worker.js",
