@@ -5,6 +5,7 @@ import { useCompany } from '../lib/CompanyContext'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import { UserPlus, Upload } from 'lucide-react'
+import AddressLookup from '../components/AddressLookup'
 
 const ROLES = ['Electrician', 'Apprentice', 'Supervisor', 'Engineer', 'Labourer', 'Other']
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Other']
@@ -204,9 +205,13 @@ export default function AddNewWorker() {
                     <input value={niNumber} onChange={e => setNiNumber(e.target.value)} className={`${inputCls} uppercase`} />
                   </div>
                 </div>
-                <div>
-                  <label className={labelCls}>Home Postcode *</label>
-                  <input value={postcode} onChange={e => setPostcode(e.target.value)} className={inputCls} />
+                <div className="sm:col-span-2">
+                  <label className={labelCls}>Home Address *</label>
+                  <AddressLookup
+                    value={postcode}
+                    onChange={setPostcode}
+                    placeholder="Enter postcode to find address..."
+                  />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>

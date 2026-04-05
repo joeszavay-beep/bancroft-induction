@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import { ArrowLeft, User, Shield, Phone, Home, Users } from 'lucide-react'
+import AddressLookup from '../components/AddressLookup'
 
 export default function OperativeProfile() {
   const { operativeId } = useParams()
@@ -202,12 +203,10 @@ export default function OperativeProfile() {
 
           <div>
             <label className="text-xs text-slate-500 mb-1 block">Home Address *</label>
-            <textarea
+            <AddressLookup
               value={address}
-              onChange={e => setAddress(e.target.value)}
-              placeholder="Full address including postcode"
-              rows={3}
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10 resize-none"
+              onChange={setAddress}
+              placeholder="Enter postcode to find address..."
             />
           </div>
         </div>
