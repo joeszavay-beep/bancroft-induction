@@ -49,7 +49,7 @@ function FadeIn({ children, delay = 0, className = '' }) {
 
 const features = [
   { icon: FileCheck, title: 'RAMS & Document Sign-Off', desc: 'Digital signatures with IP logging, timestamps, and automatic PDF generation. No more chasing paper.', color: '#3B7DD8' },
-  { icon: MapPin, title: 'Snagging & Defects', desc: 'Pin snags on drawings, attach photos, assign to trades, auto-chase overdue items, track resolution times.', color: '#DA3633' },
+  { icon: MapPin, title: 'AI-Powered Snagging', desc: 'Take a photo — AI auto-identifies the trade, describes the defect, and sets the priority. Pin on drawings, assign, and track.', color: '#DA3633' },
   { icon: Layers, title: 'Progress Drawings', desc: 'Traffic-light system for installation progress. Dots, lines, polylines on drawings. Export to PDF.', color: '#2EA043' },
   { icon: QrCode, title: 'QR Site Sign-In', desc: 'Print a QR poster for the gate. Live headcount, fire muster roll call, time tracking, auto sign-out.', color: '#D29922' },
   { icon: BookOpen, title: 'Daily Site Diary', desc: 'Weather auto-fill from location, workforce count, deliveries, delays, incidents. The log every site needs.', color: '#0891B2' },
