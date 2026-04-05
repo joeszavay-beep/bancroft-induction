@@ -330,24 +330,32 @@ export default function ProgressViewer() {
     const item = items.find(i => i.id === lastId)
     if (!item) return
 
-    // Delete from DB (history table is online-only, not critical)
+    // Remove from UI immediately
+    setRedoStack(prev => [...prev, item])
+    setUndoStack(prev => prev.slice(0, -1))
+    setItems(prev => prev.filter(i => i.id !== lastId))
+    skipNextReload.current = true
+
+    // Delete from DB in background
     if (navigator.onLine) {
       await supabase.from('progress_item_history').delete().eq('item_id', lastId).catch(() => {})
     }
     await offlineDelete('progress_items', lastId)
-
-    setRedoStack(prev => [...prev, item])
-    setUndoStack(prev => prev.slice(0, -1))
-    setItems(prev => prev.filter(i => i.id !== lastId))
   }
 
   async function handleRedo() {
     if (redoStack.length === 0) return
     const item = redoStack[redoStack.length - 1]
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
+
+    // Add back to UI immediately
+    const tempId = `redo-${Date.now()}`
+    const tempItem = { ...item, id: tempId, item_number: nextNum }
+    setItems(prev => [...prev, tempItem])
+    setRedoStack(prev => prev.slice(0, -1))
     skipNextReload.current = true
 
-    const { data, offline } = await offlineInsert('progress_items', {
+    const { data } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
       pin_x: item.pin_x, pin_y: item.pin_y, status: item.status,
       label: item.label, notes: item.notes, photo_url: item.photo_url,
@@ -355,11 +363,13 @@ export default function ProgressViewer() {
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     })
 
-    if (!data) { toast.error('Redo failed'); return }
-
-    setRedoStack(prev => prev.slice(0, -1))
-    setUndoStack(prev => [...prev, data.id])
-    loadItems()
+    if (data) {
+      setItems(prev => prev.map(i => i.id === tempId ? data : i))
+      setUndoStack(prev => [...prev, data.id])
+    } else {
+      setItems(prev => prev.filter(i => i.id !== tempId))
+      toast.error('Redo failed')
+    }
   }
 
   async function handleExport() {
