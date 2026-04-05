@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCompany } from '../lib/CompanyContext'
 import { supabase } from '../lib/supabase'
-import { Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, ArrowLeft, Loader2, ChevronRight } from 'lucide-react'
 import LoadingButton from '../components/LoadingButton'
 import DateOfBirthPicker from '../components/DateOfBirthPicker'
 
@@ -10,7 +10,7 @@ export default function PMLogin() {
   const navigate = useNavigate()
   const { login, resetPassword } = useCompany()
 
-  // Step: 'email' → 'manager' or 'worker'
+  // Step: 'email' → 'choose' → 'manager' or 'worker'
   const [step, setStep] = useState('email')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -21,6 +21,12 @@ export default function PMLogin() {
   const [showPassword, setShowPassword] = useState(false)
   const [showReset, setShowReset] = useState(false)
   const [accountName, setAccountName] = useState('')
+  const [hasManager, setHasManager] = useState(false)
+  const [hasWorker, setHasWorker] = useState(false)
+  const [managerName, setManagerName] = useState('')
+  const [workerName, setWorkerName] = useState('')
+  const [workerCompany, setWorkerCompany] = useState('')
+  const [managerCompany, setManagerCompany] = useState('')
 
   async function handleEmailNext(e) {
     e.preventDefault()
@@ -30,35 +36,41 @@ export default function PMLogin() {
 
     const trimmed = email.trim().toLowerCase()
 
-    // Check if this email is a manager (in profiles table)
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, name')
-      .eq('email', trimmed)
-      .limit(1)
+    // Check both tables in parallel
+    const [{ data: profiles }, { data: operatives }] = await Promise.all([
+      supabase.from('profiles').select('id, name, company_id, companies(name)').eq('email', trimmed).limit(1),
+      supabase.from('operatives').select('id, name, date_of_birth, company_id, companies(name)').eq('email', trimmed).limit(1),
+    ])
 
-    if (profiles?.length > 0) {
+    const foundManager = profiles?.length > 0
+    const foundWorker = operatives?.length > 0 && operatives[0].date_of_birth
+
+    setHasManager(foundManager)
+    setHasWorker(foundWorker)
+    if (foundManager) { setManagerName(profiles[0].name); setManagerCompany(profiles[0].companies?.name || '') }
+    if (foundWorker) { setWorkerName(operatives[0].name); setWorkerCompany(operatives[0].companies?.name || '') }
+
+    if (foundManager && foundWorker) {
+      // Both exist — let user choose
+      setStep('choose')
+      setChecking(false)
+      return
+    }
+
+    if (foundManager) {
       setAccountName(profiles[0].name)
       setStep('manager')
       setChecking(false)
       return
     }
 
-    // Check if this email is an operative
-    const { data: operatives } = await supabase
-      .from('operatives')
-      .select('id, name, date_of_birth')
-      .eq('email', trimmed)
-      .limit(1)
-
     if (operatives?.length > 0) {
-      setAccountName(operatives[0].name)
       if (!operatives[0].date_of_birth) {
-        // New operative — hasn't completed profile yet
         setError('You need to complete your profile first. Check your invite email for the link.')
         setChecking(false)
         return
       }
+      setAccountName(operatives[0].name)
       setStep('worker')
       setChecking(false)
       return
@@ -186,6 +198,43 @@ export default function PMLogin() {
                   </LoadingButton>
                 </form>
               )}
+            </>
+          )}
+
+          {/* ── STEP 1B: Choose account type ── */}
+          {step === 'choose' && (
+            <>
+              <button onClick={goBack} className="flex items-center gap-1 text-xs text-[#6B7A99] hover:text-[#1B6FC8] mb-4 transition-colors">
+                <ArrowLeft size={14} /> Change email
+              </button>
+              <h2 className="text-lg font-bold text-[#1A1A2E] mb-1">Choose Account</h2>
+              <p className="text-sm text-[#6B7A99] mb-5">This email has multiple accounts</p>
+
+              <div className="space-y-2.5">
+                <button onClick={() => { setAccountName(managerName); setStep('manager') }}
+                  className="w-full flex items-center gap-3 p-3.5 border border-[#E2E6EA] rounded-xl text-left hover:border-[#1B6FC8] hover:bg-[#F5F8FF] transition-all">
+                  <div className="w-10 h-10 rounded-full bg-[#1B6FC8] flex items-center justify-center text-white text-xs font-bold shrink-0">
+                    {managerName?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[#1A1A2E]">{managerName}</p>
+                    <p className="text-xs text-[#6B7A99]">Manager · {managerCompany}</p>
+                  </div>
+                  <ChevronRight size={16} className="text-[#B0B8C9]" />
+                </button>
+
+                <button onClick={() => { setAccountName(workerName); setStep('worker') }}
+                  className="w-full flex items-center gap-3 p-3.5 border border-[#E2E6EA] rounded-xl text-left hover:border-[#2EA043] hover:bg-[#F0FDF4] transition-all">
+                  <div className="w-10 h-10 rounded-full bg-[#2EA043] flex items-center justify-center text-white text-xs font-bold shrink-0">
+                    {workerName?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[#1A1A2E]">{workerName}</p>
+                    <p className="text-xs text-[#6B7A99]">Worker · {workerCompany}</p>
+                  </div>
+                  <ChevronRight size={16} className="text-[#B0B8C9]" />
+                </button>
+              </div>
             </>
           )}
 
