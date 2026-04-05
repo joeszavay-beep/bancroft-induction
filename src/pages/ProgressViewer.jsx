@@ -35,6 +35,7 @@ export default function ProgressViewer() {
   const [pendingPhoto, setPendingPhoto] = useState(null) // { x, y } waiting for photo upload
   const [pendingText, setPendingText] = useState(null) // { x, y } waiting for text input
   const [textInput, setTextInput] = useState('')
+  const [annotationColour, setAnnotationColour] = useState('#1B6FC8') // separate colour for annotations
   const [selectedItem, setSelectedItem] = useState(null)
   const [history, setHistory] = useState([])
   const [undoStack, setUndoStack] = useState([]) // array of item ids that were placed
@@ -293,16 +294,16 @@ export default function ProgressViewer() {
 
   async function placeCircleItem(x, y) {
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
-    const circleNotes = JSON.stringify({ radius: dotSize })
+    const circleNotes = JSON.stringify({ radius: dotSize, color: annotationColour })
 
     const tempId = `temp-${Date.now()}`
-    const tempItem = { id: tempId, item_number: nextNum, pin_x: x, pin_y: y, status: activeColour, label: 'circle', notes: circleNotes, created_by: mgr.name, drawing_id: drawingId }
+    const tempItem = { id: tempId, item_number: nextNum, pin_x: x, pin_y: y, status: 'green', label: 'circle', notes: circleNotes, created_by: mgr.name, drawing_id: drawingId }
     setItems(prev => [...prev, tempItem])
     skipNextReload.current = true
 
     const { data } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
-      pin_x: x, pin_y: y, status: activeColour, label: 'circle', notes: circleNotes,
+      pin_x: x, pin_y: y, status: 'green', label: 'circle', notes: circleNotes,
       created_by: mgr.name, updated_by: mgr.name,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     })
@@ -320,16 +321,16 @@ export default function ProgressViewer() {
     if (!text.trim()) return
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
     const label = isComment ? 'comment' : 'text'
-    const textNotes = JSON.stringify({ text: text.trim(), fontSize: dotSize })
+    const textNotes = JSON.stringify({ text: text.trim(), fontSize: dotSize, color: annotationColour })
 
     const tempId = `temp-${Date.now()}`
-    const tempItem = { id: tempId, item_number: nextNum, pin_x: x, pin_y: y, status: activeColour || 'green', label, notes: textNotes, created_by: mgr.name, drawing_id: drawingId }
+    const tempItem = { id: tempId, item_number: nextNum, pin_x: x, pin_y: y, status: 'green', label, notes: textNotes, created_by: mgr.name, drawing_id: drawingId }
     setItems(prev => [...prev, tempItem])
     skipNextReload.current = true
 
     const { data } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
-      pin_x: x, pin_y: y, status: activeColour || 'green', label, notes: textNotes,
+      pin_x: x, pin_y: y, status: 'green', label, notes: textNotes,
       created_by: mgr.name, updated_by: mgr.name,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     })
@@ -460,9 +461,12 @@ export default function ProgressViewer() {
     setHistory(data || [])
   }
 
-  const total = items.length
+  const ANNOTATION_LABELS = ['circle', 'text', 'comment']
+  const isAnnotationMode = drawMode === 'circle' || drawMode === 'text' || drawMode === 'comment'
+  const progressItems = items.filter(i => !ANNOTATION_LABELS.includes(i.label))
+  const total = progressItems.length
   const counts = { green: 0, yellow: 0, red: 0 }
-  items.forEach(i => { if (counts[i.status] !== undefined) counts[i.status]++ })
+  progressItems.forEach(i => { if (counts[i.status] !== undefined) counts[i.status]++ })
 
   if (loading) return <div className="min-h-dvh flex items-center justify-center bg-slate-100"><div className="animate-spin w-8 h-8 border-2 border-[#1B6FC8] border-t-transparent rounded-full" /></div>
 
@@ -554,16 +558,27 @@ export default function ProgressViewer() {
           ))}
         </div>
 
-        {/* Colour buttons */}
-        {Object.entries(STATUS_COLORS).map(([status, color]) => (
-          <button key={status} onClick={() => { setActiveColour(activeColour === status ? null : status); setLineStart(null); setClipboard(null) }}
-            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-all ${activeColour === status ? 'border-[#1A1A2E] scale-110 shadow-md' : 'border-[#E2E6EA] hover:border-[#1A1A2E]'}`}
-            style={{ backgroundColor: color }}
-            title={STATUS_LABELS[status]} />
-        ))}
+        {/* Colour buttons — traffic light for progress, palette for annotations */}
+        {isAnnotationMode ? (
+          <>
+            {['#1B6FC8', '#DA3633', '#2EA043', '#D29922', '#7C3AED', '#0D1526', '#EC4899', '#FFFFFF'].map(c => (
+              <button key={c} onClick={() => setAnnotationColour(c)}
+                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-all ${annotationColour === c ? 'border-[#1A1A2E] scale-110 shadow-md' : 'border-[#E2E6EA] hover:border-[#1A1A2E]'}`}
+                style={{ backgroundColor: c }}
+                title={c} />
+            ))}
+          </>
+        ) : (
+          Object.entries(STATUS_COLORS).map(([status, color]) => (
+            <button key={status} onClick={() => { setActiveColour(activeColour === status ? null : status); setLineStart(null); setClipboard(null) }}
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-all ${activeColour === status ? 'border-[#1A1A2E] scale-110 shadow-md' : 'border-[#E2E6EA] hover:border-[#1A1A2E]'}`}
+              style={{ backgroundColor: color }}
+              title={STATUS_LABELS[status]} />
+          ))
+        )}
 
-        {/* Size slider - dot and circle mode */}
-        {(drawMode === 'dot' || drawMode === 'circle') && (
+        {/* Size slider - dot mode */}
+        {drawMode === 'dot' && (
           <div className="flex items-center gap-1.5 ml-auto">
             <div className="flex items-center justify-center" style={{ width: 28, height: 28 }}>
               <div className="rounded-full opacity-60" style={{ width: Math.max(4, dotSize), height: Math.max(4, dotSize), backgroundColor: activeColour ? STATUS_COLORS[activeColour] : '#6B7A99' }} />
@@ -572,6 +587,16 @@ export default function ProgressViewer() {
               className="w-20 h-1 accent-[#1B6FC8]" />
             <input type="number" min="1" max="40" value={dotSize} onChange={e => { const v = Math.max(1, Math.min(40, Number(e.target.value) || 1)); setDotSize(v) }}
               className="w-9 text-[10px] text-center text-[#1A1A2E] font-semibold bg-[#F5F6F8] border border-[#E2E6EA] rounded px-1 py-0.5 focus:outline-none focus:border-[#1B6FC8]" />
+          </div>
+        )}
+
+        {/* Circle size slider */}
+        {drawMode === 'circle' && (
+          <div className="flex items-center gap-1.5 ml-auto">
+            <span className="text-[9px] text-[#B0B8C9]">Size</span>
+            <input type="range" min="5" max="40" value={dotSize} onChange={e => setDotSize(Number(e.target.value))}
+              className="w-16 h-1 accent-[#1B6FC8]" />
+            <span className="text-[10px] font-semibold" style={{ color: annotationColour }}>{dotSize}</span>
           </div>
         )}
 
@@ -627,13 +652,17 @@ export default function ProgressViewer() {
 
       {/* Drawing viewer — takes all remaining space */}
       <div className="flex-1 min-h-0 bg-slate-200 relative"
-        onMouseMove={(isMarking || drawMode === 'text' || drawMode === 'comment') ? (e) => setCursorPos({ x: e.clientX, y: e.clientY }) : undefined}
+        onMouseMove={(isMarking || isAnnotationMode) ? (e) => setCursorPos({ x: e.clientX, y: e.clientY }) : undefined}
         onMouseLeave={() => setCursorPos(null)}>
 
         {/* Custom cursor */}
-        {cursorPos && (drawMode === 'text' || drawMode === 'comment') && !activeColour && (
+        {cursorPos && isAnnotationMode && (
           <div className="fixed pointer-events-none z-50" style={{ left: cursorPos.x, top: cursorPos.y, transform: 'translate(-50%, -50%)' }}>
-            <div style={{ fontSize: 16, color: '#1B6FC8', fontWeight: 700, textShadow: '0 0 4px rgba(255,255,255,0.9)' }}>{drawMode === 'text' ? 'T' : '💬'}</div>
+            {drawMode === 'circle' ? (
+              <div style={{ width: Math.max(10, dotSize * 2), height: Math.max(10, dotSize * 2), border: `2px solid ${annotationColour}`, backgroundColor: `${annotationColour}15`, borderRadius: '50%', boxShadow: '0 0 4px rgba(0,0,0,0.2)' }} />
+            ) : (
+              <div style={{ fontSize: 16, color: annotationColour, fontWeight: 700, textShadow: '0 0 4px rgba(255,255,255,0.9)' }}>{drawMode === 'text' ? 'T' : '💬'}</div>
+            )}
           </div>
         )}
         {isMarking && cursorPos && activeColour && (
@@ -695,14 +724,14 @@ export default function ProgressViewer() {
                 wrapperStyle={{ width: '100%', height: '100%', touchAction: 'none' }}
                 contentStyle={{ width: '100%', touchAction: 'none' }}
               >
-                <div className="relative inline-block" style={{ cursor: isMarking || drawMode === 'text' || drawMode === 'comment' ? 'none' : 'grab' }}
+                <div className="relative inline-block" style={{ cursor: isMarking || isAnnotationMode ? 'none' : 'grab' }}
                   onMouseDown={(e) => { mouseDownPos.current = { x: e.clientX, y: e.clientY } }}
                   onMouseUp={(e) => {
                     if (!mouseDownPos.current) return
                     const dx = Math.abs(e.clientX - mouseDownPos.current.x)
                     const dy = Math.abs(e.clientY - mouseDownPos.current.y)
                     mouseDownPos.current = null
-                    if (dx < 5 && dy < 5 && (isMarking || drawMode === 'text' || drawMode === 'comment')) handleDrawingTap(e)
+                    if (dx < 5 && dy < 5 && (isMarking || isAnnotationMode)) handleDrawingTap(e)
                   }}>
                   <img ref={imageRef} src={drawing?.image_url} alt={drawing?.name}
                     className="max-w-none select-none" style={{ width: '100%', minWidth: '800px' }}
@@ -772,27 +801,27 @@ export default function ProgressViewer() {
 
                     // Circle
                     if (item.label === 'circle') {
-                      let radius = 16
-                      try { const p = JSON.parse(item.notes || '{}'); if (p.radius) radius = p.radius } catch {}
+                      let radius = 16, annoColor = color
+                      try { const p = JSON.parse(item.notes || '{}'); if (p.radius) radius = p.radius; if (p.color) annoColor = p.color } catch {}
                       return (
                         <button key={item.id} onClick={clickHandler}
                           className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-110"
                           style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto' }}>
                           <div className="rounded-full border-2"
-                            style={{ width: `${radius * 2}px`, height: `${radius * 2}px`, borderColor: color, backgroundColor: `${color}15` }} />
+                            style={{ width: `${radius * 2}px`, height: `${radius * 2}px`, borderColor: annoColor, backgroundColor: `${annoColor}15` }} />
                         </button>
                       )
                     }
 
                     // Text
                     if (item.label === 'text') {
-                      let text = '', fontSize = 12
-                      try { const p = JSON.parse(item.notes || '{}'); text = p.text || ''; fontSize = p.fontSize || 12 } catch {}
+                      let text = '', fontSize = 12, annoColor = color
+                      try { const p = JSON.parse(item.notes || '{}'); text = p.text || ''; fontSize = p.fontSize || 12; if (p.color) annoColor = p.color } catch {}
                       return (
                         <div key={item.id} onClick={clickHandler}
                           className="absolute z-10 select-none"
                           style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto', cursor: isMarking ? 'none' : 'pointer' }}>
-                          <span style={{ fontSize: `${Math.max(8, Math.min(fontSize, 32))}px`, fontWeight: 700, color, textShadow: '0 1px 2px rgba(0,0,0,0.3), 0 0 4px rgba(255,255,255,0.8)' }}>
+                          <span style={{ fontSize: `${Math.max(8, Math.min(fontSize, 32))}px`, fontWeight: 700, color: annoColor, textShadow: '0 1px 2px rgba(0,0,0,0.3), 0 0 4px rgba(255,255,255,0.8)' }}>
                             {text}
                           </span>
                         </div>
@@ -801,16 +830,16 @@ export default function ProgressViewer() {
 
                     // Comment / Note
                     if (item.label === 'comment') {
-                      let text = ''
-                      try { const p = JSON.parse(item.notes || '{}'); text = p.text || '' } catch {}
+                      let text = '', annoColor = color
+                      try { const p = JSON.parse(item.notes || '{}'); text = p.text || ''; if (p.color) annoColor = p.color } catch {}
                       return (
                         <div key={item.id} onClick={clickHandler}
                           className="absolute z-10 -translate-x-1/2"
                           style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto', cursor: isMarking ? 'none' : 'pointer' }}>
-                          <div style={{ backgroundColor: color, color: '#fff', padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600, maxWidth: 150, whiteSpace: 'pre-wrap', boxShadow: '0 2px 6px rgba(0,0,0,0.2)', lineHeight: 1.3 }}>
+                          <div style={{ backgroundColor: annoColor, color: '#fff', padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600, maxWidth: 150, whiteSpace: 'pre-wrap', boxShadow: '0 2px 6px rgba(0,0,0,0.2)', lineHeight: 1.3 }}>
                             {text}
                           </div>
-                          <div style={{ width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: `5px solid ${color}`, margin: '0 auto' }} />
+                          <div style={{ width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: `5px solid ${annoColor}`, margin: '0 auto' }} />
                         </div>
                       )
                     }
