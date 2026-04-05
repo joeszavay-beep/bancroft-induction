@@ -1,6 +1,7 @@
 {
   "crons": [
-    { "path": "/api/chase-overdue", "schedule": "0 7 * * 1-5" }
+    { "path": "/api/chase-overdue", "schedule": "0 7 * * 1-5" },
+    { "path": "/api/auto-signout", "schedule": "59 23 * * *" }
   ],
   "headers": [
     {
