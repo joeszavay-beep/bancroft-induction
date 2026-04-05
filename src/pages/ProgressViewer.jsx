@@ -542,11 +542,11 @@ export default function ProgressViewer() {
 
               <TransformComponent
                 wrapperStyle={{ width: '100%', height: '100%', touchAction: 'none' }}
-                contentStyle={{ width: '100%', touchAction: 'none' }}
+                contentStyle={{ touchAction: 'none' }}
               >
                 <div className="relative inline-block">
                   <img ref={imageRef} src={drawing?.image_url} alt={drawing?.name}
-                    className="max-w-none select-none" style={{ width: '100%', minWidth: '800px' }}
+                    className="max-w-none select-none" style={{ maxWidth: 'none', minWidth: '800px', width: 'auto', height: 'auto' }}
                     onLoad={() => setImageLoaded(true)} draggable={false} />
 
                   {/* Items: dots, lines, polylines, photos */}
