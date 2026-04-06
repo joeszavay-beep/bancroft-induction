@@ -83,7 +83,7 @@ export default function Chat() {
 
   async function openConversation(conv) {
     setSelectedOp(conv)
-    await loadMessages(conv.operative_id)
+    await loadMessages(conv.operative_id, true)
 
     // Mark as read
     await supabase.from('chat_messages')
@@ -103,22 +103,26 @@ export default function Chat() {
           if (payload.new.sender_type === 'operative') {
             supabase.from('chat_messages').update({ read_by_manager: true }).eq('id', payload.new.id).then(() => {})
           }
-          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+          setTimeout(() => messagesEndRef.current?.parentElement?.scrollTo({ top: messagesEndRef.current.parentElement.scrollHeight, behavior: 'smooth' }), 100)
         }
       ).subscribe()
 
     loadConversations() // refresh unread counts
   }
 
-  async function loadMessages(opId) {
+  async function loadMessages(opId, scroll = false) {
     const { data } = await supabase
       .from('chat_messages')
       .select('*')
       .eq('company_id', cid)
       .eq('operative_id', opId)
       .order('created_at')
-    setMessages(data || [])
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+    const newMsgs = data || []
+    const hadNew = newMsgs.length !== messages.length
+    setMessages(newMsgs)
+    if (scroll || hadNew) {
+      setTimeout(() => messagesEndRef.current?.parentElement?.scrollTo({ top: messagesEndRef.current.parentElement.scrollHeight, behavior: 'smooth' }), 100)
+    }
   }
 
   function handlePhotoSelect(e) {
@@ -164,7 +168,7 @@ export default function Chat() {
     setNewMsg('')
     setPhotoFile(null)
     setPhotoPreview(null)
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+    setTimeout(() => messagesEndRef.current?.parentElement?.scrollTo({ top: messagesEndRef.current.parentElement.scrollHeight, behavior: 'smooth' }), 50)
 
     await supabase.from('chat_messages').insert({
       company_id: cid,
