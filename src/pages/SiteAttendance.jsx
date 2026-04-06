@@ -54,10 +54,10 @@ export default function SiteAttendance() {
   const [showMuster, setShowMuster] = useState(false)
   const [musterChecked, setMusterChecked] = useState({})
 
-  // History
+  // History — default to last 30 days
   const [historyOpen, setHistoryOpen] = useState(false)
-  const [historyFrom, setHistoryFrom] = useState('')
-  const [historyTo, setHistoryTo] = useState('')
+  const [historyFrom, setHistoryFrom] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split('T')[0] })
+  const [historyTo, setHistoryTo] = useState(() => new Date().toISOString().split('T')[0])
   const [historyRecords, setHistoryRecords] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
 
@@ -66,8 +66,19 @@ export default function SiteAttendance() {
   const qrRef = useRef(null)
 
   useEffect(() => {
-    if (cid) loadData()
+    if (cid) { loadData(); loadHistoryAuto() }
   }, [cid])
+
+  async function loadHistoryAuto() {
+    const fromDate = new Date(); fromDate.setDate(fromDate.getDate() - 30)
+    const toDate = new Date(); toDate.setHours(23, 59, 59)
+    const { data } = await supabase.from('site_attendance').select('*')
+      .eq('company_id', cid)
+      .gte('recorded_at', fromDate.toISOString())
+      .lte('recorded_at', toDate.toISOString())
+      .order('recorded_at', { ascending: false })
+    setHistoryRecords(data || [])
+  }
 
   async function loadData() {
     setLoading(true)
@@ -145,7 +156,7 @@ export default function SiteAttendance() {
           const signIn = new Date(sorted[i].recorded_at)
           const hour = signIn.getHours()
           const min = signIn.getMinutes()
-          if (hour > 8 || (hour === 8 && min > 0)) lateArrivals++
+          if (hour > 7 || (hour === 7 && min > 40)) lateArrivals++
 
           // Find next sign_out for this operative
           const nextOut = sorted.slice(i + 1).find(r => r.type === 'sign_out')
