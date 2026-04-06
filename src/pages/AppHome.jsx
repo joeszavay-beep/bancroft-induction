@@ -129,27 +129,27 @@ export default function AppHome() {
             <button onClick={() => navigate('/app/attendance')} className="text-[10px] font-medium" style={{ color: 'var(--primary-color)' }}>View attendance →</button>
           </div>
           <div className="p-5 grid grid-cols-3 gap-4">
-            <div className="text-center">
+            <button onClick={() => navigate('/app/attendance')} className="text-center hover:opacity-70 transition-opacity">
               <div className="w-12 h-12 rounded-full bg-[#2EA043]/10 flex items-center justify-center mx-auto mb-2">
                 <Users size={20} className="text-[#2EA043]" />
               </div>
               <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.onSite}</p>
               <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>On site now</p>
-            </div>
-            <div className="text-center">
+            </button>
+            <button onClick={() => navigate('/app/attendance')} className="text-center hover:opacity-70 transition-opacity">
               <div className="w-12 h-12 rounded-full bg-[#1B6FC8]/10 flex items-center justify-center mx-auto mb-2">
                 <LogIn size={20} className="text-[#1B6FC8]" />
               </div>
               <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.signIns}</p>
               <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Sign-ins today</p>
-            </div>
-            <div className="text-center">
+            </button>
+            <button onClick={() => navigate('/app/workers')} className="text-center hover:opacity-70 transition-opacity">
               <div className="w-12 h-12 rounded-full bg-[#7C3AED]/10 flex items-center justify-center mx-auto mb-2">
                 <Users size={20} className="text-[#7C3AED]" />
               </div>
               <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.workers}</p>
               <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Total workers</p>
-            </div>
+            </button>
           </div>
         </div>
 
@@ -160,28 +160,28 @@ export default function AppHome() {
             <button onClick={() => navigate('/app/snags')} className="text-[10px] font-medium" style={{ color: 'var(--primary-color)' }}>View all →</button>
           </div>
           <div className="p-5 grid grid-cols-3 gap-4">
-            <div className="text-center">
+            <button onClick={() => navigate('/app/snags')} className="text-center hover:opacity-70 transition-opacity">
               <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.openSnags}</p>
               <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Open</p>
-            </div>
-            <div className="text-center">
+            </button>
+            <button onClick={() => navigate('/app/snags')} className="text-center hover:opacity-70 transition-opacity">
               <p className={`text-2xl font-bold ${s.overdue > 0 ? 'text-[#DA3633]' : ''}`} style={s.overdue === 0 ? { color: 'var(--text-primary)' } : {}}>{s.overdue}</p>
               <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Overdue</p>
-            </div>
-            <div className="text-center">
+            </button>
+            <button onClick={() => navigate('/app/performance')} className="text-center hover:opacity-70 transition-opacity">
               <p className="text-2xl font-bold text-[#2EA043]">{s.closedWeek}</p>
               <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Closed this week</p>
-            </div>
+            </button>
           </div>
           {s.raisedWeek > 0 && (
-            <div className="px-5 pb-4">
+            <button onClick={() => navigate('/app/performance')} className="px-5 pb-4 w-full text-left hover:opacity-70 transition-opacity">
               <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-main)' }}>
                 <div className="h-full bg-[#2EA043] rounded-full transition-all" style={{ width: `${Math.min(100, s.raisedWeek > 0 ? (s.closedWeek / s.raisedWeek) * 100 : 0)}%` }} />
               </div>
               <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
                 {s.closedWeek} of {s.raisedWeek} raised this week resolved ({s.raisedWeek > 0 ? Math.round((s.closedWeek / s.raisedWeek) * 100) : 0}%)
               </p>
-            </div>
+            </button>
           )}
         </div>
       </div>
