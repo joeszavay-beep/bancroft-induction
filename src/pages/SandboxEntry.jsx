@@ -30,15 +30,14 @@ export default function SandboxEntry() {
       return
     }
 
-    // Now save lead (after auth so RLS allows insert)
-    await supabase.from('demo_requests').insert({
+    // Save lead and send email — fire and forget, don't block the demo
+    supabase.from('demo_requests').insert({
       name: name.trim(), email: email.trim(),
       company: company.trim() || null, phone: mobile.trim() || null,
       message: 'Entered via Try Demo button',
     }).catch(() => {})
 
-    // Send welcome email
-    await fetch('/api/demo-request', {
+    fetch('/api/demo-request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
