@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 import LoadingButton from './LoadingButton'
 import {
   X, MapPin, Calendar, User, MessageSquare, Send,
-  CheckCircle2, Trash2, ZoomIn, Camera
+  CheckCircle2, Trash2, ZoomIn, Camera, Box
 } from 'lucide-react'
 
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Other']
@@ -79,6 +79,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
   const [lightbox, setLightbox] = useState(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [snagPhoto, setSnagPhoto] = useState(snag.photo_url)
+  const [bimElement, setBimElement] = useState(null)
 
   // Editable fields
   const [status, setStatus] = useState(snag.status || 'open')
@@ -90,7 +91,13 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
   const [assignedTo, setAssignedTo] = useState(snag.assigned_to || '')
   const [reassignTo, setReassignTo] = useState('')
 
-  useEffect(() => { loadComments() }, [snag.id])
+  useEffect(() => { loadComments(); loadBimElement() }, [snag.id])
+
+  async function loadBimElement() {
+    if (!snag.bim_element_id) return
+    const { data } = await supabase.from('bim_elements').select('*').eq('id', snag.bim_element_id).single()
+    if (data) setBimElement(data)
+  }
 
   // Escape key handler
   useEffect(() => {
@@ -414,6 +421,17 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
                 )}
 
                 {/* Read-only meta */}
+                {/* BIM asset link */}
+                {bimElement && (
+                  <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
+                    <Box size={14} className="text-purple-500 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-purple-800 truncate">{bimElement.name}</p>
+                      <p className="text-[10px] text-purple-500">{bimElement.category} — {bimElement.ifc_type}</p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-[#6B7A99] pt-1 border-t border-[#E2E6EA]">
                   {snag.raised_by && <span className="flex items-center gap-1"><User size={10} /> Raised by {snag.raised_by}</span>}
                   <span className="flex items-center gap-1"><Calendar size={10} /> {new Date(snag.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>

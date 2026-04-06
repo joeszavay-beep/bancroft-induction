@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  optimizeDeps: {
+    exclude: ['web-ifc'], // WASM module — don't pre-bundle
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -16,6 +19,7 @@ export default defineConfig({
       manifest: false, // using public/manifest.json directly
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,ico}'],
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024, // 8MB — web-ifc WASM makes bundle larger
       },
       devOptions: {
         enabled: true,

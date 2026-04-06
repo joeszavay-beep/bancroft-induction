@@ -9,8 +9,13 @@ import SnagDetail from '../components/SnagDetail'
 import SnagForm from '../components/SnagForm'
 import { generateSnagPDF } from '../lib/generateSnagPDF'
 import PrefetchButton from '../components/PrefetchButton'
+import BIMOverlay, { BIMToggle } from '../components/BIMOverlay'
+import BIMCalibration from '../components/BIMCalibration'
+import BIMUpload from '../components/BIMUpload'
+import BIMAssetLink from '../components/BIMAssetLink'
+import { findNearbyElements, ifcToDrawingPercent } from '../lib/bimUtils'
 import {
-  ArrowLeft, List, Map, Plus, Download, X, ZoomIn, ZoomOut, Crosshair, Upload
+  ArrowLeft, List, Map, Plus, Download, X, ZoomIn, ZoomOut, Crosshair, Upload, Settings
 } from 'lucide-react'
 
 const STATUS_COLORS = {
@@ -44,10 +49,45 @@ export default function SnagDrawingView() {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imgError, setImgError] = useState(false)
 
+  // BIM state
+  const [bimModels, setBimModels] = useState([])
+  const [bimElements, setBimElements] = useState([])
+  const [bimCalibration, setBimCalibration] = useState(null)
+  const [bimVisible, setBimVisible] = useState(false)
+  const [bimCategoryFilter, setBimCategoryFilter] = useState(null)
+  const [showBimUpload, setShowBimUpload] = useState(false)
+  const [showBimCalibrate, setShowBimCalibrate] = useState(false)
+  const [selectedBimElement, setSelectedBimElement] = useState(null)
+  const [nearbyBimElements, setNearbyBimElements] = useState([])
+  const [linkedBimElement, setLinkedBimElement] = useState(null)
+
   useEffect(() => {
     loadData()
+    loadBimData()
     if (searchParams.get('add') === 'true') setPlacingPin(true)
   }, [drawingId])
+
+  async function loadBimData() {
+    if (!drawingId) return
+    // Get drawing to find project_id
+    const { data: d } = await supabase.from('drawings').select('project_id').eq('id', drawingId).single()
+    if (!d) return
+
+    // Load BIM models for this project
+    const { data: models } = await supabase.from('bim_models').select('*').eq('project_id', d.project_id).eq('status', 'ready')
+    setBimModels(models || [])
+
+    if (!models?.length) return
+
+    // Load calibration for this drawing
+    const { data: cal } = await supabase.from('bim_drawing_calibration').select('*').eq('drawing_id', drawingId).single()
+    setBimCalibration(cal || null)
+
+    // Load elements from all models on this project
+    const modelIds = models.map(m => m.id)
+    const { data: elements } = await supabase.from('bim_elements').select('*').in('model_id', modelIds)
+    setBimElements(elements || [])
+  }
 
   async function loadData() {
     setLoading(true)
@@ -82,6 +122,19 @@ export default function SnagDrawingView() {
     const y = ((e.clientY - rect.top) / rect.height) * 100
     setPendingPin({ x, y })
     setPlacingPin(false)
+
+    // Find nearby BIM elements if calibration exists
+    if (bimCalibration && bimElements.length > 0) {
+      const mapped = bimElements.map(el => {
+        if (el.x == null || el.y == null) return el
+        const pos = ifcToDrawingPercent({ x: el.x, y: el.y }, bimCalibration)
+        return pos ? { ...el, draw_x: pos.x, draw_y: pos.y } : el
+      })
+      const nearby = findNearbyElements(mapped, { x, y }, 5)
+      setNearbyBimElements(nearby)
+      setLinkedBimElement(null)
+    }
+
     setShowForm(true)
   }
 
@@ -203,6 +256,29 @@ export default function SnagDrawingView() {
             {replacingDrawing ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Upload size={16} />}
             <input type="file" accept=".pdf,.png,.jpg,.jpeg,.svg" className="hidden" onChange={e => { if (e.target.files[0]) handleReplaceDrawing(e.target.files[0]) }} />
           </label>
+          {/* BIM toggle */}
+          {bimModels.length > 0 && bimCalibration && (
+            <BIMToggle
+              visible={bimVisible}
+              onToggle={setBimVisible}
+              elements={bimElements}
+              categoryFilter={bimCategoryFilter}
+              onCategoryChange={setBimCategoryFilter}
+            />
+          )}
+          {/* BIM settings (upload / calibrate) */}
+          <button onClick={() => {
+            if (bimModels.length > 0) setShowBimCalibrate(true)
+            else setShowBimUpload(true)
+          }}
+            className="p-2 hover:bg-slate-700 rounded-lg transition-colors relative"
+            title="BIM Settings"
+          >
+            <Settings size={16} />
+            {bimModels.length > 0 && !bimCalibration && (
+              <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-amber-400 rounded-full" title="Calibration needed" />
+            )}
+          </button>
           <PrefetchButton drawingId={drawingId} projectId={drawing?.project_id} className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-white" />
           <button onClick={handleExport} disabled={exporting} className="p-2 hover:bg-slate-700 rounded-lg transition-colors">
             {exporting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download size={16} />}
@@ -357,6 +433,19 @@ export default function SnagDrawingView() {
                       )
                     })}
 
+                    {/* BIM element overlay */}
+                    {imageLoaded && (
+                      <BIMOverlay
+                        elements={bimCategoryFilter
+                          ? bimElements.filter(el => bimCategoryFilter.includes(el.category))
+                          : bimElements}
+                        calibration={bimCalibration}
+                        visible={bimVisible}
+                        onElementClick={setSelectedBimElement}
+                        selectedElementId={selectedBimElement?.id}
+                      />
+                    )}
+
                     {/* Pending pin */}
                     {pendingPin && (
                       <div className="absolute -translate-x-1/2 -translate-y-full z-10 animate-bounce" style={{ left: `${pendingPin.x}%`, top: `${pendingPin.y}%` }}>
@@ -378,7 +467,7 @@ export default function SnagDrawingView() {
       {showForm && pendingPin && (
         <SnagForm
           open={showForm}
-          onClose={() => { setShowForm(false); setPendingPin(null) }}
+          onClose={() => { setShowForm(false); setPendingPin(null); setNearbyBimElements([]); setLinkedBimElement(null) }}
           drawingId={drawingId}
           projectId={drawing.project_id}
           pinX={pendingPin.x}
@@ -386,6 +475,9 @@ export default function SnagDrawingView() {
           nextNumber={(snags.length > 0 ? Math.max(...snags.map(s => s.snag_number)) : 0) + 1}
           operatives={operatives}
           onCreated={handleSnagCreated}
+          nearbyBimElements={nearbyBimElements}
+          linkedBimElement={linkedBimElement}
+          onBimElementLink={setLinkedBimElement}
         />
       )}
 
@@ -399,6 +491,61 @@ export default function SnagDrawingView() {
           operatives={operatives}
           drawing={drawing}
         />
+      )}
+
+      {/* BIM Upload modal */}
+      {showBimUpload && (
+        <BIMUpload
+          open={showBimUpload}
+          onClose={() => setShowBimUpload(false)}
+          projectId={drawing?.project_id}
+          companyId={JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id}
+          models={bimModels}
+          onModelsChanged={() => { loadBimData(); setShowBimUpload(false) }}
+        />
+      )}
+
+      {/* BIM Calibration modal */}
+      {showBimCalibrate && (
+        <BIMCalibration
+          open={showBimCalibrate}
+          onClose={() => setShowBimCalibrate(false)}
+          drawingId={drawingId}
+          modelId={bimModels[0]?.id}
+          companyId={JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id}
+          imageUrl={drawing?.file_url}
+          existingCalibration={bimCalibration}
+          onSaved={(cal) => { setBimCalibration(cal); loadBimData() }}
+        />
+      )}
+
+      {/* BIM Element detail popover */}
+      {selectedBimElement && !placingPin && (
+        <div className="absolute bottom-20 left-4 right-4 z-30 bg-white rounded-xl shadow-xl border border-slate-200 p-4 max-w-sm mx-auto">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-bold text-slate-800">{selectedBimElement.name}</p>
+            <button onClick={() => setSelectedBimElement(null)} className="text-slate-400 hover:text-slate-600">
+              <X size={16} />
+            </button>
+          </div>
+          <div className="space-y-1 text-xs text-slate-600">
+            <p><span className="text-slate-400">Type:</span> {selectedBimElement.ifc_type}</p>
+            <p><span className="text-slate-400">Category:</span> {selectedBimElement.category}</p>
+            {selectedBimElement.system_type && <p><span className="text-slate-400">System:</span> {selectedBimElement.system_type}</p>}
+            {selectedBimElement.floor_name && <p><span className="text-slate-400">Floor:</span> {selectedBimElement.floor_name}</p>}
+            {selectedBimElement.description && <p><span className="text-slate-400">Description:</span> {selectedBimElement.description}</p>}
+            {Object.keys(selectedBimElement.properties || {}).length > 0 && (
+              <details className="mt-2">
+                <summary className="text-[10px] text-slate-400 cursor-pointer hover:text-slate-600">Properties ({Object.keys(selectedBimElement.properties).length})</summary>
+                <div className="mt-1 bg-slate-50 rounded-lg p-2 max-h-32 overflow-y-auto">
+                  {Object.entries(selectedBimElement.properties).map(([k, v]) => (
+                    <p key={k} className="text-[10px]"><span className="text-slate-400">{k}:</span> {String(v)}</p>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

@@ -37,6 +37,7 @@ import AftercarePage from './pages/AftercarePage'
 import SiteSignIn from './pages/SiteSignIn'
 import Chat from './pages/Chat'
 import SiteAttendance from './pages/SiteAttendance'
+import BIMModels from './pages/BIMModels'
 import OperativeLogin from './pages/OperativeLogin'
 import SandboxEntry from './pages/SandboxEntry'
 import OperativeDashboard from './pages/OperativeDashboard'
@@ -66,6 +67,7 @@ function AppLayout() {
         <Route path="/performance" element={<ContractorPerformance />} />
         <Route path="/inspections" element={<Inspections />} />
         <Route path="/progress" element={<ProgressDrawingsList />} />
+        <Route path="/bim" element={<BIMModels />} />
         <Route path="/snags" element={<PMDashboard key="snags" initialTab="snags" />} />
         <Route path="/drawings" element={<PMDashboard key="drawings" initialTab="snags" />} />
         <Route path="/toolbox" element={<PMDashboard key="toolbox" initialTab="toolbox" />} />

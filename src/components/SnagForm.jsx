@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import Modal from './Modal'
 import LoadingButton from './LoadingButton'
 import { Camera, Upload } from 'lucide-react'
+import BIMAssetLink from './BIMAssetLink'
 
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Other']
 const TYPES = ['General', 'Installation', 'Commissioning', 'Design', 'Other']
@@ -16,7 +17,7 @@ const PRIORITIES = [
   { value: 'low', label: 'Low (10 day fix)', days: 10 },
 ]
 
-export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pinY, nextNumber, operatives, onCreated }) {
+export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pinY, nextNumber, operatives, onCreated, nearbyBimElements, linkedBimElement, onBimElementLink }) {
   const [trade, setTrade] = useState('')
   const [type, setType] = useState('General')
   const [description, setDescription] = useState('')
@@ -81,6 +82,7 @@ export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pi
       raised_by: managerData.name || 'PM',
       pin_x: pinX,
       pin_y: pinY,
+      bim_element_id: linkedBimElement?.id || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
@@ -177,6 +179,15 @@ export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pi
             {operatives.map(op => <option key={op.id} value={op.name}>{op.name}{op.role ? ` — ${op.role}` : ''}</option>)}
           </select>
         </div>
+
+        {nearbyBimElements?.length > 0 && (
+          <BIMAssetLink
+            nearbyElements={nearbyBimElements}
+            selectedElement={linkedBimElement}
+            onSelect={onBimElementLink}
+            onDismiss={() => onBimElementLink?.(null)}
+          />
+        )}
 
         <LoadingButton loading={saving} type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-xl">
           Raise Snag #{nextNumber}

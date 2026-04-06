@@ -9,7 +9,7 @@ import DemoBanner from './DemoBanner'
 import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
-  Globe, Settings, User, Shield, Image, Layers, BookOpen, CheckSquare, Activity, Bell
+  Globe, Settings, User, Shield, Image, Layers, BookOpen, CheckSquare, Activity, Bell, Box
 } from 'lucide-react'
 
 const NAV_SECTIONS = [
@@ -53,6 +53,12 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    title: 'BIM',
+    items: [
+      { label: 'BIM Models', path: '/app/bim', icon: Box },
+    ],
+  },
+  {
     title: 'H&S',
     items: [
       { label: 'Toolbox Talks', path: '/app/toolbox', icon: MessageSquare, feature: 'toolbox_talks' },
@@ -81,7 +87,7 @@ export default function SidebarLayout({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Progress', 'Snags', 'H&S', 'Portal', 'Admin'])
+  const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Progress', 'Snags', 'BIM', 'H&S', 'Portal', 'Admin'])
 
   const { company, user, logout: ctxLogout } = useCompany()
   const { isDark, toggleTheme } = useTheme()

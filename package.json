@@ -27,7 +27,8 @@
     "react-signature-canvas": "^1.1.0-alpha.2",
     "react-zoom-pan-pinch": "^3.7.0",
     "uuid": "^13.0.0",
-    "vite-plugin-pwa": "^1.2.0"
+    "vite-plugin-pwa": "^1.2.0",
+    "web-ifc": "^0.0.77"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
