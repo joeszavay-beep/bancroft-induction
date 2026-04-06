@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { BIM_CATEGORIES, ifcToDrawingPercent } from '../lib/bimUtils'
-import { Box, ZapOff } from 'lucide-react'
+import { Box, ZapOff, Layers } from 'lucide-react'
 
 /**
  * BIM element overlay for drawing viewers.
- * Renders category-colored icons on the drawing at calibrated positions.
+ * Renders small category-colored dots on the drawing at calibrated positions.
  */
 export default function BIMOverlay({ elements, calibration, visible, onElementClick, selectedElementId }) {
   const [hoveredId, setHoveredId] = useState(null)
@@ -26,35 +26,35 @@ export default function BIMOverlay({ elements, calibration, visible, onElementCl
         return (
           <button
             key={el.id}
-            className="absolute -translate-x-1/2 -translate-y-1/2 z-[5] transition-transform"
+            className="absolute -translate-x-1/2 -translate-y-1/2 z-[5]"
             style={{
               left: `${pos.x}%`,
               top: `${pos.y}%`,
-              transform: `translate(-50%, -50%) scale(${isHovered || isSelected ? 1.3 : 1})`,
             }}
             onMouseEnter={() => setHoveredId(el.id)}
             onMouseLeave={() => setHoveredId(null)}
             onClick={(e) => { e.stopPropagation(); onElementClick?.(el) }}
             title={`${el.name} (${cat.label})`}
           >
+            {/* Small colored dot — 8px normal, 10px when hovered/selected */}
             <div
-              className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] border-2 shadow-sm ${
-                isSelected ? 'ring-2 ring-white ring-offset-1' : ''
-              }`}
               style={{
+                width: isHovered || isSelected ? 10 : 8,
+                height: isHovered || isSelected ? 10 : 8,
                 backgroundColor: cat.color,
-                borderColor: isSelected ? '#fff' : cat.color,
-                opacity: isSelected || isHovered ? 1 : 0.75,
+                borderRadius: '50%',
+                border: isSelected ? '2px solid white' : '1px solid rgba(0,0,0,0.2)',
+                boxShadow: isSelected ? '0 0 0 2px ' + cat.color : isHovered ? '0 0 4px ' + cat.color : 'none',
+                opacity: isSelected || isHovered ? 1 : 0.8,
+                transition: 'all 0.15s ease',
               }}
-            >
-              <span className="drop-shadow-sm">{cat.icon}</span>
-            </div>
+            />
 
             {/* Tooltip on hover */}
             {isHovered && (
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-slate-900 text-white text-[10px] px-2 py-1 rounded-md whitespace-nowrap shadow-lg pointer-events-none z-50">
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 bg-slate-900/95 text-white text-[10px] px-2 py-1 rounded-md whitespace-nowrap shadow-lg pointer-events-none z-50">
                 <p className="font-semibold">{el.name}</p>
-                <p className="text-slate-300">{cat.label} — {el.ifc_type}</p>
+                <p className="text-slate-300">{cat.label} · {el.floor_name || 'Unknown floor'}</p>
               </div>
             )}
           </button>
@@ -65,14 +65,21 @@ export default function BIMOverlay({ elements, calibration, visible, onElementCl
 }
 
 /**
- * BIM layer toggle button and category filter panel
+ * BIM layer toggle button with category filter and floor selector
  */
-export function BIMToggle({ visible, onToggle, elements, categoryFilter, onCategoryChange }) {
+export function BIMToggle({ visible, onToggle, elements, categoryFilter, onCategoryChange, floors, selectedFloor, onFloorChange }) {
   const [showPanel, setShowPanel] = useState(false)
 
   const counts = {}
   for (const el of (elements || [])) {
     counts[el.category] = (counts[el.category] || 0) + 1
+  }
+
+  // Floor counts
+  const floorCounts = {}
+  for (const el of (elements || [])) {
+    const f = el.floor_name || 'Unknown'
+    floorCounts[f] = (floorCounts[f] || 0) + 1
   }
 
   return (
@@ -91,7 +98,7 @@ export function BIMToggle({ visible, onToggle, elements, categoryFilter, onCateg
       </button>
 
       {showPanel && visible && (
-        <div className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 w-56">
+        <div className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 w-60">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-bold text-slate-700">BIM Elements</p>
             <button onClick={() => { onToggle(false); setShowPanel(false) }}
@@ -100,6 +107,38 @@ export function BIMToggle({ visible, onToggle, elements, categoryFilter, onCateg
             </button>
           </div>
 
+          {/* Floor selector */}
+          {floors?.length > 1 && (
+            <div className="mb-2 pb-2 border-b border-slate-100">
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 flex items-center gap-1">
+                <Layers size={10} /> FLOOR
+              </p>
+              <div className="flex flex-wrap gap-1">
+                <button
+                  onClick={() => onFloorChange?.(null)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                    !selectedFloor ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  All
+                </button>
+                {floors.map(f => (
+                  <button
+                    key={f}
+                    onClick={() => onFloorChange?.(selectedFloor === f ? null : f)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                      selectedFloor === f ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    {f} ({floorCounts[f] || 0})
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Category filters */}
+          <p className="text-[10px] font-semibold text-slate-400 mb-1">CATEGORIES</p>
           <div className="space-y-1">
             {Object.entries(BIM_CATEGORIES).map(([key, cat]) => {
               if (!counts[key]) return null
@@ -109,10 +148,8 @@ export function BIMToggle({ visible, onToggle, elements, categoryFilter, onCateg
                   key={key}
                   onClick={() => {
                     if (!categoryFilter) {
-                      // First click: show only this category
                       onCategoryChange([key])
                     } else if (categoryFilter.includes(key) && categoryFilter.length === 1) {
-                      // Clicking the only active: show all
                       onCategoryChange(null)
                     } else if (categoryFilter.includes(key)) {
                       onCategoryChange(categoryFilter.filter(c => c !== key))
@@ -124,7 +161,7 @@ export function BIMToggle({ visible, onToggle, elements, categoryFilter, onCateg
                     isActive ? 'bg-slate-100 text-slate-800' : 'text-slate-400 hover:bg-slate-50'
                   }`}
                 >
-                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: isActive ? cat.color : '#CBD5E1' }} />
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: isActive ? cat.color : '#CBD5E1' }} />
                   <span className="flex-1 text-left">{cat.label}</span>
                   <span className="text-[10px] text-slate-400">{counts[key]}</span>
                 </button>
@@ -133,7 +170,7 @@ export function BIMToggle({ visible, onToggle, elements, categoryFilter, onCateg
           </div>
 
           <p className="text-[10px] text-slate-400 mt-2 pt-2 border-t border-slate-100">
-            {elements?.length || 0} elements loaded
+            {elements?.length || 0} elements {selectedFloor ? `on ${selectedFloor}` : 'total'}
           </p>
         </div>
       )}

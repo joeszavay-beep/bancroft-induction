@@ -94,14 +94,62 @@ export async function parseIFC(buffer, onProgress) {
 
   onProgress?.(20)
 
-  const elements = []
+  // Build storey map: element expressID -> storey name
+  // Walk IfcRelContainedInSpatialStructure to find which storey each element is on
   const allTypes = ifcApi.GetAllTypesOfModel(modelId)
+  const storeyMap = {}
+  const storeyNames = []
+  onProgress?.(25)
+
+  try {
+    // Find all IfcBuildingStorey entities
+    const storeyTypeId = allTypes.find(t => t.typeName?.toUpperCase() === 'IFCBUILDINGSTOREY')?.typeID
+    if (storeyTypeId) {
+      const storeyIds = ifcApi.GetLineIDsWithType(modelId, storeyTypeId)
+      for (let i = 0; i < storeyIds.size(); i++) {
+        const s = ifcApi.GetLine(modelId, storeyIds.get(i), false)
+        if (s?.Name?.value) storeyNames.push({ id: storeyIds.get(i), name: s.Name.value })
+      }
+    }
+
+    // Find all IfcRelContainedInSpatialStructure
+    const relType = allTypes.find(t => t.typeName?.toUpperCase() === 'IFCRELCONTAINEDINSPATIALSTRUCTURE')?.typeID
+    if (relType) {
+      const relIds = ifcApi.GetLineIDsWithType(modelId, relType)
+      for (let i = 0; i < relIds.size(); i++) {
+        try {
+          const rel = ifcApi.GetLine(modelId, relIds.get(i), false)
+          if (!rel) continue
+
+          // RelatingStructure is the spatial element (storey)
+          const structId = rel.RelatingStructure?.value ?? rel.RelatingStructure?.expressID
+          const storey = storeyNames.find(s => s.id === structId)
+          const floorLabel = storey?.name || null
+
+          // RelatedElements are the elements contained in that storey
+          const related = rel.RelatedElements
+          if (Array.isArray(related)) {
+            for (const ref of related) {
+              const elId = ref?.value ?? ref?.expressID ?? ref
+              if (typeof elId === 'number') storeyMap[elId] = floorLabel
+            }
+          }
+        } catch {}
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to build storey map:', err.message)
+  }
+
+  onProgress?.(30)
+
+  const elements = []
   const totalTypes = allTypes.length
   let processed = 0
 
-  for (const { typeID, typeName } of allTypes) {
+  for (const { typeID, typeName } of allTypes2) {
     processed++
-    const progress = 20 + Math.floor((processed / totalTypes) * 70)
+    const progress = 30 + Math.floor((processed / totalTypes) * 60)
     if (processed % 50 === 0) onProgress?.(progress)
 
     // Only extract MEP-related elements
@@ -147,8 +195,14 @@ export async function parseIFC(buffer, onProgress) {
           }
         } catch {}
 
-        // Get system/floor info from spatial containment
-        let floorName = null
+        // Floor from storey map, or fall back to Z-height heuristic
+        let floorName = storeyMap[expressId] || null
+        if (!floorName && z != null) {
+          // Heuristic: group by Z ranges (typical 3m storey height)
+          const level = Math.floor(z / 3) + 1
+          floorName = `Level ${String(level).padStart(2, '0')}`
+        }
+
         let systemType = null
         try {
           if (props.PredefinedType?.value) systemType = props.PredefinedType.value
@@ -179,7 +233,10 @@ export async function parseIFC(buffer, onProgress) {
 
   onProgress?.(100)
 
-  return { elements, ifcSchema: schema }
+  // Collect unique floor names from parsed elements
+  const floors = [...new Set(elements.map(e => e.floor_name).filter(Boolean))].sort()
+
+  return { elements, ifcSchema: schema, floors }
 }
 
 /**

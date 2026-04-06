@@ -60,6 +60,8 @@ export default function SnagDrawingView() {
   const [selectedBimElement, setSelectedBimElement] = useState(null)
   const [nearbyBimElements, setNearbyBimElements] = useState([])
   const [linkedBimElement, setLinkedBimElement] = useState(null)
+  const [bimFloors, setBimFloors] = useState([])
+  const [selectedBimFloor, setSelectedBimFloor] = useState(null)
 
   useEffect(() => {
     loadData()
@@ -87,6 +89,10 @@ export default function SnagDrawingView() {
     const modelIds = models.map(m => m.id)
     const { data: elements } = await supabase.from('bim_elements').select('*').in('model_id', modelIds)
     setBimElements(elements || [])
+
+    // Extract unique floor names
+    const floors = [...new Set((elements || []).map(e => e.floor_name).filter(Boolean))].sort()
+    setBimFloors(floors)
   }
 
   async function loadData() {
@@ -264,6 +270,9 @@ export default function SnagDrawingView() {
               elements={bimElements}
               categoryFilter={bimCategoryFilter}
               onCategoryChange={setBimCategoryFilter}
+              floors={bimFloors}
+              selectedFloor={selectedBimFloor}
+              onFloorChange={setSelectedBimFloor}
             />
           )}
           {/* BIM settings (upload / calibrate) */}
@@ -436,9 +445,11 @@ export default function SnagDrawingView() {
                     {/* BIM element overlay */}
                     {imageLoaded && (
                       <BIMOverlay
-                        elements={bimCategoryFilter
-                          ? bimElements.filter(el => bimCategoryFilter.includes(el.category))
-                          : bimElements}
+                        elements={bimElements.filter(el => {
+                          if (bimCategoryFilter && !bimCategoryFilter.includes(el.category)) return false
+                          if (selectedBimFloor && el.floor_name !== selectedBimFloor) return false
+                          return true
+                        })}
                         calibration={bimCalibration}
                         visible={bimVisible}
                         onElementClick={setSelectedBimElement}
