@@ -34,21 +34,17 @@ const handler = {
             // Block insert/update/delete/upsert in demo mode
             if (['insert', 'update', 'delete', 'upsert'].includes(chainProp) && isDemo()) {
               showDemoToast()
-              // Return a fake chain that resolves with no error
-              return () => ({
-                select: () => ({
-                  single: () => Promise.resolve({ data: null, error: null }),
-                  then: (cb) => Promise.resolve({ data: [], error: null }).then(cb),
-                }),
-                eq: () => ({
-                  select: () => ({
-                    single: () => Promise.resolve({ data: null, error: null }),
-                    then: (cb) => Promise.resolve({ data: [], error: null }).then(cb),
-                  }),
-                  then: (cb) => Promise.resolve({ data: null, error: null }).then(cb),
-                }),
-                then: (cb) => Promise.resolve({ data: null, error: null }).then(cb),
-              })
+              // Return a fake chain that's fully Promise-compatible
+              const fakeResult = Promise.resolve({ data: null, error: null })
+              const fakeChain = {
+                select: () => fakeChain,
+                single: () => fakeResult,
+                eq: () => fakeChain,
+                in: () => fakeChain,
+                then: (cb) => fakeResult.then(cb),
+                catch: (cb) => fakeResult.catch(cb),
+              }
+              return () => fakeChain
             }
             return chainTarget[chainProp]
           },

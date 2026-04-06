@@ -31,11 +31,11 @@ export default function SandboxEntry() {
       }
 
       // Save lead and send email — fire and forget
-      supabase.from('demo_requests').insert({
+      try { supabase.from('demo_requests').insert({
         name: name.trim(), email: email.trim(),
         company: company.trim() || null, phone: mobile.trim() || null,
         message: 'Entered via Try Demo button',
-      }).catch(() => {})
+      }) } catch {}
 
       fetch('/api/demo-request', {
         method: 'POST',
