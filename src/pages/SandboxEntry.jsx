@@ -12,34 +12,41 @@ export default function SandboxEntry() {
 
   useEffect(() => {
     async function enter() {
-      // Load the demo company and profile data directly
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*, companies(id, name, logo_url, primary_colour, secondary_colour, features)')
-        .eq('email', 'demo@coresite.io')
-        .single()
+      // Sign out any existing session first
+      await supabase.auth.signOut().catch(() => {})
 
-      if (!profile) {
+      // Actually sign in as the demo account so RLS works
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: 'demo@coresite.io',
+        password: 'Demo2026!',
+      })
+
+      if (error || !data?.user) {
         navigate('/login')
         return
       }
 
-      const company = profile.companies
+      // Load profile and company
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*, companies(id, name, logo_url, primary_colour, secondary_colour, features)')
+        .eq('id', data.user.id)
+        .single()
 
-      // Set up session data as if logged in
+      const company = profile?.companies
+
       const userData = {
-        id: profile.id,
-        name: profile.name,
-        email: profile.email,
-        role: profile.role,
-        company_id: profile.company_id,
+        id: profile?.id || data.user.id,
+        name: profile?.name || 'Demo User',
+        email: 'demo@coresite.io',
+        role: profile?.role || 'manager',
+        company_id: profile?.company_id,
       }
 
       sessionStorage.setItem('pm_auth', 'true')
       sessionStorage.setItem('manager_data', JSON.stringify({ ...userData, project_ids: [] }))
       sessionStorage.setItem('sandbox_mode', 'true')
 
-      // Apply company branding
       if (company) {
         const root = document.documentElement
         root.style.setProperty('--primary-color', company.primary_colour || '#1B6FC8')
