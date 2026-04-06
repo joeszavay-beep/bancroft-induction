@@ -84,11 +84,8 @@ export const BIM_CATEGORIES = {
 export async function parseIFC(buffer, onProgress) {
   const ifcApi = new WebIfc.IfcAPI()
 
-  // Load WASM from public directory
-  await ifcApi.Init({
-    COORDINATE_TO_ORIGIN: true,
-    locateFile: (path) => `/${path}`,
-  })
+  // Load WASM from public directory — first arg is locateFile handler
+  await ifcApi.Init((path) => `/${path}`)
 
   onProgress?.(10)
 
