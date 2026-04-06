@@ -18,14 +18,7 @@ export default function SandboxEntry() {
     setLoading(true)
     setError('')
 
-    // Save lead to demo_requests
-    await supabase.from('demo_requests').insert({
-      name: name.trim(), email: email.trim(),
-      company: company.trim() || null, phone: mobile.trim() || null,
-      message: 'Entered via Try Demo button',
-    }).catch(() => {})
-
-    // Sign in as demo account for RLS
+    // Sign in as demo account first (needed for RLS)
     await supabase.auth.signOut().catch(() => {})
     const { data, error: authErr } = await supabase.auth.signInWithPassword({
       email: 'demo@coresite.io', password: 'Demo2026!',
@@ -36,6 +29,24 @@ export default function SandboxEntry() {
       setLoading(false)
       return
     }
+
+    // Now save lead (after auth so RLS allows insert)
+    await supabase.from('demo_requests').insert({
+      name: name.trim(), email: email.trim(),
+      company: company.trim() || null, phone: mobile.trim() || null,
+      message: 'Entered via Try Demo button',
+    }).catch(() => {})
+
+    // Send welcome email
+    await fetch('/api/demo-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: name.trim(), email: email.trim(),
+        company: company.trim(), phone: mobile.trim(),
+        message: 'Try Demo',
+      }),
+    }).catch(() => {})
 
     const { data: profile } = await supabase
       .from('profiles')
