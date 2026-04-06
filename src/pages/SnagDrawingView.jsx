@@ -594,10 +594,16 @@ export default function SnagDrawingView() {
           }
         }}
         onElementHover={(id) => setHoveredBimElementId(id)}
-        onStatusUpdate={async (ids, status) => {
-          await supabase.from('bim_elements').update({ status }).in('id', ids)
-          toast.success(`${ids.length} elements marked as ${status}`)
-          loadBimData()
+        onStatusUpdate={async (ids, newStatus) => {
+          // Optimistic update — immediately reflect in UI
+          setBimElements(prev => prev.map(el => ids.includes(el.id) ? { ...el, status: newStatus } : el))
+          const { error } = await supabase.from('bim_elements').update({ status: newStatus }).in('id', ids)
+          if (error) {
+            toast.error('Failed to update status — is the status column added?')
+            loadBimData() // revert
+          } else {
+            toast.success(`${ids.length} element${ids.length > 1 ? 's' : ''} marked as ${newStatus}`)
+          }
         }}
         drawingId={drawingId}
       />
