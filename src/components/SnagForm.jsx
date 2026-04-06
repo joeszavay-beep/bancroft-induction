@@ -87,7 +87,7 @@ export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pi
 
     const fileUpload = photo ? {
       bucket: 'snag-photos',
-      path: `${projectId}/${drawingId}/${Date.now()}.jpg`,
+      path: `${projectId}/${drawingId}/${crypto.randomUUID()}.jpg`,
       blob: photo,
       contentType: photo.type,
       field: 'photo_url',

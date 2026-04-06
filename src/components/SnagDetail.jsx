@@ -177,7 +177,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
     let compressed = file
     try { compressed = await smartCompress(file) } catch {}
 
-    const filePath = `snag-photos/${snag.id}/${Date.now()}.jpg`
+    const filePath = `snag-photos/${snag.id}/${crypto.randomUUID()}.jpg`
 
     if (navigator.onLine) {
       const { error: upErr } = await supabase.storage.from('snag-photos').upload(filePath, compressed, { contentType: 'image/jpeg' })
@@ -191,7 +191,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
       // Queue the photo upload for when we're back online
       // Store blob in IDB and show local preview
       const { cacheBlob } = await import('../lib/offlineDb')
-      const blobKey = `blob_photo_${snag.id}_${Date.now()}`
+      const blobKey = `blob_photo_${snag.id}_${crypto.randomUUID()}`
       const arrayBuffer = await compressed.arrayBuffer()
       await cacheBlob(blobKey, arrayBuffer, { contentType: 'image/jpeg' })
 

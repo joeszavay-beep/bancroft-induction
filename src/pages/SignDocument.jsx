@@ -90,7 +90,7 @@ export default function SignDocument() {
 
       // Store notification in settings for PM to see
       await supabase.from('settings').upsert({
-        key: `notification_${operativeId}_${Date.now()}`,
+        key: `notification_${operativeId}_${crypto.randomUUID()}`,
         value: JSON.stringify({
           type: 'completion',
           operative_name: operative.name,
@@ -140,7 +140,7 @@ export default function SignDocument() {
 
       // Upload signature image
       const blob = await (await fetch(signatureDataUrl)).blob()
-      const filePath = `signatures/${operativeId}/${documentId}_${Date.now()}.png`
+      const filePath = `signatures/${operativeId}/${documentId}_${crypto.randomUUID()}.png`
       const { error: upErr } = await supabase.storage.from('documents').upload(filePath, blob, { contentType: 'image/png' })
 
       if (upErr) {

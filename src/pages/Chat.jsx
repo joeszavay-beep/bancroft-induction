@@ -140,7 +140,7 @@ export default function Chat() {
     // Upload photo if attached
     let photoUrl = null
     if (photoFile) {
-      const path = `chat/${cid}/${Date.now()}.jpg`
+      const path = `chat/${cid}/${crypto.randomUUID()}.jpg`
       const { error } = await supabase.storage.from('documents').upload(path, photoFile, { contentType: photoFile.type })
       if (!error) {
         const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
@@ -150,7 +150,7 @@ export default function Chat() {
 
     // Optimistic: show immediately
     const tempMsg = {
-      id: `temp-${Date.now()}`,
+      id: `temp-${crypto.randomUUID()}`,
       company_id: cid,
       operative_id: selectedOp.operative_id,
       operative_name: selectedOp.operative_name,

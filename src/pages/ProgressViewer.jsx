@@ -169,7 +169,7 @@ export default function ProgressViewer() {
 
   async function handlePhotoUpload(file) {
     if (!pendingPhoto || !file) return
-    const filePath = `${cid || 'default'}/${drawingId}/${Date.now()}.jpg`
+    const filePath = `${cid || 'default'}/${drawingId}/${crypto.randomUUID()}.jpg`
     const { error: upErr } = await supabase.storage.from('progress-photos').upload(filePath, file, { contentType: file.type })
     if (upErr) { toast.error('Failed to upload photo'); return }
     const { data: urlData } = supabase.storage.from('progress-photos').getPublicUrl(filePath)
@@ -265,7 +265,7 @@ export default function ProgressViewer() {
     const sizeNotes = JSON.stringify({ size: dotSize })
 
     // Show dot immediately (optimistic)
-    const tempId = `temp-${Date.now()}`
+    const tempId = `temp-${crypto.randomUUID()}`
     const tempItem = {
       id: tempId, item_number: nextNum, pin_x: x, pin_y: y,
       status: activeColour, label: 'dot', notes: sizeNotes,
@@ -300,7 +300,7 @@ export default function ProgressViewer() {
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
     const circleNotes = JSON.stringify({ radius: dotSize, color: annotationColour })
 
-    const tempId = `temp-${Date.now()}`
+    const tempId = `temp-${crypto.randomUUID()}`
     const tempItem = { id: tempId, item_number: nextNum, pin_x: x, pin_y: y, status: 'green', label: 'circle', notes: circleNotes, created_by: mgr.name, drawing_id: drawingId }
     setItems(prev => [...prev, tempItem])
     skipNextReload.current = true
@@ -327,7 +327,7 @@ export default function ProgressViewer() {
     const label = isComment ? 'comment' : 'text'
     const textNotes = JSON.stringify({ text: text.trim(), fontSize: dotSize, color: annotationColour })
 
-    const tempId = `temp-${Date.now()}`
+    const tempId = `temp-${crypto.randomUUID()}`
     const tempItem = { id: tempId, item_number: nextNum, pin_x: x, pin_y: y, status: 'green', label, notes: textNotes, created_by: mgr.name, drawing_id: drawingId }
     setItems(prev => [...prev, tempItem])
     skipNextReload.current = true
@@ -421,7 +421,7 @@ export default function ProgressViewer() {
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
 
     // Add back to UI immediately
-    const tempId = `redo-${Date.now()}`
+    const tempId = `redo-${crypto.randomUUID()}`
     const tempItem = { ...item, id: tempId, item_number: nextNum }
     setItems(prev => [...prev, tempItem])
     setRedoStack(prev => prev.slice(0, -1))

@@ -74,7 +74,7 @@ export default function AddNewWorker() {
 
     let photoUrl = null
     if (photo) {
-      const filePath = `photos/${Date.now()}.jpg`
+      const filePath = `photos/${crypto.randomUUID()}.jpg`
       const { error: upErr } = await supabase.storage.from('documents').upload(filePath, photo, { contentType: photo.type })
       if (!upErr) {
         const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)

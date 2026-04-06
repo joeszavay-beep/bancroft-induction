@@ -64,7 +64,7 @@ export default function ToolboxSign() {
 
     // Upload signature
     const blob = await (await fetch(signatureDataUrl)).blob()
-    const filePath = `toolbox/${talkId}/${selectedOp}_${Date.now()}.png`
+    const filePath = `toolbox/${talkId}/${selectedOp}_${crypto.randomUUID()}.png`
     const { error: upErr } = await supabase.storage.from('documents').upload(filePath, blob, { contentType: 'image/png' })
 
     let sigUrl = null

@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 
   const resendKey = process.env.RESEND_API_KEY
   if (!resendKey) {
-    console.log(`[Welcome] ${contactName} at ${companyName} — email: ${email}, password: ${tempPassword}`)
+    console.log(`[Welcome] ${contactName} at ${companyName} — email: ${email} (password set)`)
     return res.status(200).json({ message: 'Logged (no API key)' })
   }
 

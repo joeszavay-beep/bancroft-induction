@@ -21,7 +21,7 @@ export default function SandboxEntry() {
     try {
       // Sign in as demo account (needed for RLS)
       const { data, error: authErr } = await supabase.auth.signInWithPassword({
-        email: 'demo@coresite.io', password: 'Demo2026!',
+        email: 'demo@coresite.io', password: import.meta.env.VITE_DEMO_PASSWORD || 'D3m0!2026',
       })
 
       if (authErr || !data?.user) {

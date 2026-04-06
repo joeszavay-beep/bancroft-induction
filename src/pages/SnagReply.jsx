@@ -71,7 +71,7 @@ export default function SnagReply() {
 
     try {
       // Upload photo
-      const filePath = `snag-replies/${snag.id}/${Date.now()}.jpg`
+      const filePath = `snag-replies/${snag.id}/${crypto.randomUUID()}.jpg`
       const { error: upErr } = await supabase.storage.from('snag-photos').upload(filePath, photoFile, { contentType: photoFile.type })
       if (upErr) { console.error('Upload error:', upErr); setUploading(false); toast.error('Failed to upload photo'); return }
 

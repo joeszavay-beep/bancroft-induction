@@ -133,7 +133,7 @@ export default function OperativeDashboard() {
     // Upload photo if attached
     let photoUrl = null
     if (photoFile) {
-      const path = `chat/${op.company_id}/${Date.now()}.jpg`
+      const path = `chat/${op.company_id}/${crypto.randomUUID()}.jpg`
       const { error } = await supabase.storage.from('documents').upload(path, photoFile, { contentType: photoFile.type })
       if (!error) {
         const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
@@ -142,7 +142,7 @@ export default function OperativeDashboard() {
     }
 
     const tempMsg = {
-      id: `temp-${Date.now()}`,
+      id: `temp-${crypto.randomUUID()}`,
       company_id: op.company_id,
       operative_id: op.id,
       operative_name: op.name,

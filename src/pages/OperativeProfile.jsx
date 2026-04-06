@@ -68,7 +68,7 @@ export default function OperativeProfile() {
     if (!file) return null
     const setter = side === 'front' ? setUploadingFront : setUploadingBack
     setter(true)
-    const filePath = `cards/${operativeId}/${side}_${Date.now()}.jpg`
+    const filePath = `cards/${operativeId}/${side}_${crypto.randomUUID()}.jpg`
     const { error } = await supabase.storage.from('documents').upload(filePath, file, { contentType: file.type })
     if (error) { setter(false); toast.error(`Upload failed: ${error.message}`); return null }
     const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)

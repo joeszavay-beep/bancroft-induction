@@ -305,7 +305,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
     if (!uploadFile || !docTitle.trim()) return
     setSaving(true)
     const fileExt = uploadFile.name.split('.').pop()
-    const filePath = `${showUpload}/${Date.now()}.${fileExt}`
+    const filePath = `${showUpload}/${crypto.randomUUID()}.${fileExt}`
     const { error: upErr } = await supabase.storage.from('documents').upload(filePath, uploadFile)
     if (upErr) {
       setSaving(false)
@@ -360,7 +360,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
     if (!uploadFile || !showUpdateDoc) return
     setSaving(true)
     const fileExt = uploadFile.name.split('.').pop()
-    const filePath = `${showUpdateDoc.project_id}/${Date.now()}.${fileExt}`
+    const filePath = `${showUpdateDoc.project_id}/${crypto.randomUUID()}.${fileExt}`
     const { error: upErr } = await supabase.storage.from('documents').upload(filePath, uploadFile)
     if (upErr) {
       setSaving(false)
@@ -759,7 +759,7 @@ function TeamTab({ operatives, projects, onRefresh }) {
   async function handlePhotoUpload(opId, file) {
     if (!file) return
     setUploadingPhoto(opId)
-    const filePath = `photos/${opId}_${Date.now()}.jpg`
+    const filePath = `photos/${opId}_${crypto.randomUUID()}.jpg`
     const { error: upErr } = await supabase.storage.from('documents').upload(filePath, file, { contentType: file.type })
     if (upErr) {
       setUploadingPhoto(null)
@@ -1155,7 +1155,7 @@ function SnagsTab({ projects, navigate }) {
       const pdfBlob = await generateSnagPDFBlob({ drawing, project: proj, snags: selectedSnagData, imageUrl: drawing?.file_url })
 
       if (pdfBlob) {
-        const pdfPath = `snag-reports/${cid}/${Date.now()}.pdf`
+        const pdfPath = `snag-reports/${cid}/${crypto.randomUUID()}.pdf`
         const { error: upErr } = await supabase.storage.from('documents').upload(pdfPath, pdfBlob, { contentType: 'application/pdf' })
         if (!upErr) {
           const { data: urlData } = supabase.storage.from('documents').getPublicUrl(pdfPath)
@@ -1280,7 +1280,7 @@ function SnagsTab({ projects, navigate }) {
       }
     }
 
-    const filePath = `${drawingProjectId}/${Date.now()}.${fileExt}`
+    const filePath = `${drawingProjectId}/${crypto.randomUUID()}.${fileExt}`
     const { error: upErr } = await supabase.storage.from('drawings').upload(filePath, fileToUpload, {
       contentType: fileExt === 'png' ? 'image/png' : fileToUpload.type || 'image/jpeg',
     })
