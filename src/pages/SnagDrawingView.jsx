@@ -13,6 +13,8 @@ import BIMOverlay, { BIMToggle } from '../components/BIMOverlay'
 import BIMCalibration from '../components/BIMCalibration'
 import BIMUpload from '../components/BIMUpload'
 import BIMAssetLink from '../components/BIMAssetLink'
+import BIMElementPanel from '../components/BIMElementPanel'
+import BIMElementPopup from '../components/BIMElementPopup'
 import { findNearbyElements, ifcToDrawingPercent } from '../lib/bimUtils'
 import {
   ArrowLeft, List, Map, Plus, Download, X, ZoomIn, ZoomOut, Crosshair, Upload, Settings
@@ -62,6 +64,11 @@ export default function SnagDrawingView() {
   const [linkedBimElement, setLinkedBimElement] = useState(null)
   const [bimFloors, setBimFloors] = useState([])
   const [selectedBimFloor, setSelectedBimFloor] = useState(null)
+  const [bimPanelOpen, setBimPanelOpen] = useState(false)
+  const [bimPopupElement, setBimPopupElement] = useState(null)
+  const [bimPopupPosition, setBimPopupPosition] = useState(null)
+  const [bimPopupSnags, setBimPopupSnags] = useState([])
+  const [hoveredBimElementId, setHoveredBimElementId] = useState(null)
 
   useEffect(() => {
     loadData()
@@ -273,6 +280,8 @@ export default function SnagDrawingView() {
               floors={bimFloors}
               selectedFloor={selectedBimFloor}
               onFloorChange={setSelectedBimFloor}
+              onOpenList={() => setBimPanelOpen(!bimPanelOpen)}
+              listOpen={bimPanelOpen}
             />
           )}
           {/* BIM settings (upload / calibrate) */}
@@ -362,7 +371,7 @@ export default function SnagDrawingView() {
           )}
         </div>
       ) : (
-        <div className="flex-1 min-h-0 bg-slate-200 relative">
+        <div className={`flex-1 min-h-0 bg-slate-200 relative transition-all duration-200 ${bimPanelOpen ? 'mr-[400px] max-md:mr-0' : ''}`}>
           {/* Click overlay for pin placement - sits on top of everything */}
           {placingPin && (
             <div
@@ -452,8 +461,16 @@ export default function SnagDrawingView() {
                         })}
                         calibration={bimCalibration}
                         visible={bimVisible}
-                        onElementClick={setSelectedBimElement}
-                        selectedElementId={selectedBimElement?.id}
+                        onElementClick={async (el, e) => {
+                          // Fetch linked snags for popup
+                          const { data: elSnags } = await supabase.from('snags').select('id, snag_number, description, status').eq('bim_element_id', el.id)
+                          setBimPopupSnags(elSnags || [])
+                          setBimPopupElement(el)
+                          setBimPopupPosition({ x: e.clientX, y: e.clientY })
+                          setSelectedBimElement(el)
+                        }}
+                        selectedElementId={bimPopupElement?.id || selectedBimElement?.id}
+                        hoveredElementId={hoveredBimElementId}
                       />
                     )}
 
@@ -530,34 +547,60 @@ export default function SnagDrawingView() {
         />
       )}
 
-      {/* BIM Element detail popover */}
-      {selectedBimElement && !placingPin && (
-        <div className="absolute bottom-20 left-4 right-4 z-30 bg-white rounded-xl shadow-xl border border-slate-200 p-4 max-w-sm mx-auto">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-bold text-slate-800">{selectedBimElement.name}</p>
-            <button onClick={() => setSelectedBimElement(null)} className="text-slate-400 hover:text-slate-600">
-              <X size={16} />
-            </button>
-          </div>
-          <div className="space-y-1 text-xs text-slate-600">
-            <p><span className="text-slate-400">Type:</span> {selectedBimElement.ifc_type}</p>
-            <p><span className="text-slate-400">Category:</span> {selectedBimElement.category}</p>
-            {selectedBimElement.system_type && <p><span className="text-slate-400">System:</span> {selectedBimElement.system_type}</p>}
-            {selectedBimElement.floor_name && <p><span className="text-slate-400">Floor:</span> {selectedBimElement.floor_name}</p>}
-            {selectedBimElement.description && <p><span className="text-slate-400">Description:</span> {selectedBimElement.description}</p>}
-            {Object.keys(selectedBimElement.properties || {}).length > 0 && (
-              <details className="mt-2">
-                <summary className="text-[10px] text-slate-400 cursor-pointer hover:text-slate-600">Properties ({Object.keys(selectedBimElement.properties).length})</summary>
-                <div className="mt-1 bg-slate-50 rounded-lg p-2 max-h-32 overflow-y-auto">
-                  {Object.entries(selectedBimElement.properties).map(([k, v]) => (
-                    <p key={k} className="text-[10px]"><span className="text-slate-400">{k}:</span> {String(v)}</p>
-                  ))}
-                </div>
-              </details>
-            )}
-          </div>
-        </div>
+      {/* BIM Element Popup */}
+      {bimPopupElement && bimPopupPosition && (
+        <BIMElementPopup
+          element={bimPopupElement}
+          position={bimPopupPosition}
+          linkedSnags={bimPopupSnags}
+          onClose={() => { setBimPopupElement(null); setBimPopupPosition(null); setSelectedBimElement(null) }}
+          onRaiseSnag={(el) => {
+            // Close popup, place pin at element position, pre-link element
+            setBimPopupElement(null)
+            setBimPopupPosition(null)
+            if (bimCalibration && el.x != null && el.y != null) {
+              const pos = ifcToDrawingPercent({ x: el.x, y: el.y }, bimCalibration)
+              if (pos) {
+                setPendingPin({ x: pos.x, y: pos.y })
+                setLinkedBimElement(el)
+                setShowForm(true)
+              }
+            }
+          }}
+        />
       )}
+
+      {/* BIM Element List Panel */}
+      <BIMElementPanel
+        open={bimPanelOpen}
+        onClose={() => setBimPanelOpen(false)}
+        elements={bimElements.filter(el => {
+          if (bimCategoryFilter && !bimCategoryFilter.includes(el.category)) return false
+          if (selectedBimFloor && el.floor_name !== selectedBimFloor) return false
+          return true
+        })}
+        onElementClick={(el) => {
+          // Zoom to element and show popup
+          if (bimCalibration && el.x != null && el.y != null && transformRef.current) {
+            const pos = ifcToDrawingPercent({ x: el.x, y: el.y }, bimCalibration)
+            if (pos && imageRef.current) {
+              const rect = imageRef.current.getBoundingClientRect()
+              const targetX = rect.left + (pos.x / 100) * rect.width
+              const targetY = rect.top + (pos.y / 100) * rect.height
+              setBimPopupElement(el)
+              setBimPopupPosition({ x: targetX, y: targetY })
+              setSelectedBimElement(el)
+            }
+          }
+        }}
+        onElementHover={(id) => setHoveredBimElementId(id)}
+        onStatusUpdate={async (ids, status) => {
+          await supabase.from('bim_elements').update({ status }).in('id', ids)
+          toast.success(`${ids.length} elements marked as ${status}`)
+          loadBimData()
+        }}
+        drawingId={drawingId}
+      />
     </div>
   )
 }
