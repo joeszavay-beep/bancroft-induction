@@ -1,70 +1,123 @@
-import { useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { Eye, ArrowRight, Loader2 } from 'lucide-react'
 
-/**
- * Sandbox entry point — sets up a read-only demo session
- * using the ABC Construction demo data, then redirects to /app.
- * No password needed. All mutations are blocked by the supabase proxy.
- */
 export default function SandboxEntry() {
   const navigate = useNavigate()
+  const [name, setName] = useState('')
+  const [company, setCompany] = useState('')
+  const [email, setEmail] = useState('')
+  const [mobile, setMobile] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    async function enter() {
-      // Sign out any existing session first
-      await supabase.auth.signOut().catch(() => {})
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!name.trim() || !email.trim()) { setError('Name and email are required'); return }
+    setLoading(true)
+    setError('')
 
-      // Actually sign in as the demo account so RLS works
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: 'demo@coresite.io',
-        password: 'Demo2026!',
-      })
+    // Save lead to demo_requests
+    await supabase.from('demo_requests').insert({
+      name: name.trim(), email: email.trim(),
+      company: company.trim() || null, phone: mobile.trim() || null,
+      message: 'Entered via Try Demo button',
+    }).catch(() => {})
 
-      if (error || !data?.user) {
-        navigate('/login')
-        return
-      }
+    // Sign in as demo account for RLS
+    await supabase.auth.signOut().catch(() => {})
+    const { data, error: authErr } = await supabase.auth.signInWithPassword({
+      email: 'demo@coresite.io', password: 'Demo2026!',
+    })
 
-      // Load profile and company
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*, companies(id, name, logo_url, primary_colour, secondary_colour, features)')
-        .eq('id', data.user.id)
-        .single()
-
-      const company = profile?.companies
-
-      const userData = {
-        id: profile?.id || data.user.id,
-        name: profile?.name || 'Demo User',
-        email: 'demo@coresite.io',
-        role: profile?.role || 'manager',
-        company_id: profile?.company_id,
-      }
-
-      sessionStorage.setItem('pm_auth', 'true')
-      sessionStorage.setItem('manager_data', JSON.stringify({ ...userData, project_ids: [] }))
-      sessionStorage.setItem('sandbox_mode', 'true')
-
-      if (company) {
-        const root = document.documentElement
-        root.style.setProperty('--primary-color', company.primary_colour || '#1B6FC8')
-        root.style.setProperty('--sidebar-color', company.secondary_colour || '#0D1526')
-        document.title = `${company.name} | CoreSite (Demo)`
-      }
-
-      navigate('/app')
+    if (authErr || !data?.user) {
+      setError('Unable to load demo. Please try again.')
+      setLoading(false)
+      return
     }
 
-    enter()
-  }, [])
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*, companies(id, name, logo_url, primary_colour, secondary_colour, features)')
+      .eq('id', data.user.id)
+      .single()
+
+    const co = profile?.companies
+    const userData = {
+      id: profile?.id || data.user.id,
+      name: profile?.name || 'Demo User',
+      email: 'demo@coresite.io',
+      role: profile?.role || 'manager',
+      company_id: profile?.company_id,
+    }
+
+    sessionStorage.setItem('pm_auth', 'true')
+    sessionStorage.setItem('manager_data', JSON.stringify({ ...userData, project_ids: [] }))
+    sessionStorage.setItem('sandbox_mode', 'true')
+
+    if (co) {
+      document.documentElement.style.setProperty('--primary-color', co.primary_colour || '#1B6FC8')
+      document.documentElement.style.setProperty('--sidebar-color', co.secondary_colour || '#0D1526')
+      document.title = `${co.name} | CoreSite (Demo)`
+    }
+
+    navigate('/app')
+  }
+
+  const inputCls = "w-full px-3.5 py-2.5 border border-[#E2E6EA] rounded-lg text-[#1A1A2E] placeholder-[#B0B8C9] focus:outline-none focus:border-[#1B6FC8] focus:ring-2 focus:ring-[#1B6FC8]/10 text-sm"
 
   return (
-    <div className="min-h-dvh bg-[#0D1526] flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin w-8 h-8 border-2 border-white/20 border-t-white rounded-full mx-auto mb-4" />
-        <p className="text-white/50 text-sm">Loading demo...</p>
+    <div className="min-h-dvh bg-[#0D1526] flex flex-col items-center justify-center px-6">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Eye size={28} className="text-white" />
+          </div>
+          <h1 className="text-xl text-white font-light tracking-[3px]">CORE<span className="font-bold tracking-normal">SITE</span></h1>
+          <p className="text-white/40 text-xs mt-2">Try the full platform — no commitment</p>
+        </div>
+
+        <div className="bg-white rounded-xl p-6 shadow-xl">
+          <h2 className="text-lg font-bold text-[#1A1A2E] mb-1">Try CoreSite</h2>
+          <p className="text-sm text-[#6B7A99] mb-5">Enter your details to explore the demo</p>
+
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <label className="text-[11px] text-[#6B7A99] font-medium mb-1 block">Full Name *</label>
+              <input value={name} onChange={e => { setName(e.target.value); setError('') }} className={inputCls} placeholder="Your name" autoFocus />
+            </div>
+            <div>
+              <label className="text-[11px] text-[#6B7A99] font-medium mb-1 block">Company</label>
+              <input value={company} onChange={e => setCompany(e.target.value)} className={inputCls} placeholder="Your company name" />
+            </div>
+            <div>
+              <label className="text-[11px] text-[#6B7A99] font-medium mb-1 block">Email *</label>
+              <input type="email" value={email} onChange={e => { setEmail(e.target.value); setError('') }} className={inputCls} placeholder="you@company.com" />
+            </div>
+            <div>
+              <label className="text-[11px] text-[#6B7A99] font-medium mb-1 block">Mobile</label>
+              <input type="tel" value={mobile} onChange={e => setMobile(e.target.value)} className={inputCls} placeholder="07..." />
+            </div>
+
+            {error && <p className="text-sm text-[#DA3633]">{error}</p>}
+
+            <button type="submit" disabled={loading}
+              className="w-full py-3 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+              {loading ? <><Loader2 size={16} className="animate-spin" /> Loading demo...</> : <>Explore Demo <ArrowRight size={16} /></>}
+            </button>
+          </form>
+
+          <p className="text-[10px] text-[#B0B8C9] text-center mt-4">
+            Your details are only used to follow up if you'd like to learn more.
+          </p>
+        </div>
+
+        <div className="text-center mt-5">
+          <button onClick={() => navigate('/login')} className="text-xs text-white/30 hover:text-white/60 transition-colors">
+            Already have an account? Sign in
+          </button>
+        </div>
       </div>
     </div>
   )
