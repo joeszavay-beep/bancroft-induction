@@ -450,135 +450,141 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-900">Projects</h2>
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors">
-          <Plus size={16} /> Add
+        <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Projects</h2>
+        <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-lg transition-colors" style={{ backgroundColor: 'var(--primary-color)' }}>
+          <Plus size={16} /> New Project
         </button>
       </div>
 
       {projects.length === 0 ? (
-        <div className="text-center py-12 text-slate-400">
-          <FolderOpen size={40} className="mx-auto mb-3 opacity-50" />
-          <p>No projects yet</p>
+        <div className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
+          <FolderOpen size={40} className="mx-auto mb-3 opacity-40" />
+          <p className="text-sm">No projects yet</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {projects.map(p => {
             const projDocs = documents.filter(d => d.project_id === p.id)
             const projOps = operatives.filter(o => o.project_id === p.id)
+            const projSigs = signatures.filter(s => s.project_id === p.id && !s.invalidated)
+            const totalSigsNeeded = projDocs.length * projOps.length
+            const signOffPct = totalSigsNeeded > 0 ? Math.round((projSigs.length / totalSigsNeeded) * 100) : 0
             const expanded = expandedProject === p.id
             return (
-              <div key={p.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setExpandedProject(expanded ? null : p.id)}
-                  className="w-full flex items-center gap-3 p-4 text-left"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-slate-900 font-semibold truncate">{p.name}</p>
-                    {p.location && <p className="text-xs text-slate-500 truncate">{p.location}</p>}
-                    <div className="flex gap-3 mt-1.5">
-                      <span className="text-xs text-slate-400">{projDocs.length} doc{projDocs.length !== 1 ? 's' : ''}</span>
-                      <span className="text-xs text-slate-400">{projOps.length} operative{projOps.length !== 1 ? 's' : ''}</span>
+              <div key={p.id} className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                {/* Project header */}
+                <button onClick={() => setExpandedProject(expanded ? null : p.id)} className="w-full text-left p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="min-w-0">
+                      <h3 className="text-base font-bold truncate" style={{ color: 'var(--text-primary)' }}>{p.name}</h3>
+                      {p.location && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{p.location}</p>}
+                    </div>
+                    <ChevronRight size={18} className={`transition-transform shrink-0 ml-2 ${expanded ? 'rotate-90' : ''}`} style={{ color: 'var(--text-muted)' }} />
+                  </div>
+
+                  {/* Stats row */}
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="rounded-lg p-2.5" style={{ backgroundColor: 'var(--bg-main)' }}>
+                      <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{projOps.length}</p>
+                      <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Workers</p>
+                    </div>
+                    <div className="rounded-lg p-2.5" style={{ backgroundColor: 'var(--bg-main)' }}>
+                      <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{projDocs.length}</p>
+                      <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Documents</p>
+                    </div>
+                    <div className="rounded-lg p-2.5" style={{ backgroundColor: 'var(--bg-main)' }}>
+                      <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{projSigs.length}</p>
+                      <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Signatures</p>
+                    </div>
+                    <div className="rounded-lg p-2.5" style={{ backgroundColor: 'var(--bg-main)' }}>
+                      <p className={`text-lg font-bold ${signOffPct === 100 ? 'text-[#2EA043]' : ''}`} style={signOffPct < 100 ? { color: 'var(--text-primary)' } : {}}>{signOffPct}%</p>
+                      <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Sign-off</p>
                     </div>
                   </div>
-                  <ChevronRight size={18} className={`text-slate-400 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+
+                  {/* Sign-off progress bar */}
+                  {totalSigsNeeded > 0 && (
+                    <div className="mt-3">
+                      <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-main)' }}>
+                        <div className="h-full bg-[#2EA043] rounded-full transition-all" style={{ width: `${signOffPct}%` }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Meta */}
+                  <div className="flex flex-wrap gap-3 mt-3 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                    {p.start_time && <span>Hours: {p.start_time} – {p.end_time || '17:00'}</span>}
+                    {p.muster_point && <span>Muster: {p.muster_point}</span>}
+                    <span>Created {new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                  </div>
                 </button>
 
+                {/* Expanded detail */}
                 {expanded && (
-                  <div className="border-t border-slate-200 p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-semibold text-slate-600">Documents</h4>
-                      <button onClick={() => { setShowUpload(p.id); setDocTitle(''); setUploadFile(null) }} className="text-xs text-blue-500 hover:underline flex items-center gap-1">
-                        <Upload size={12} /> Upload
-                      </button>
-                    </div>
-                    {projDocs.length === 0 ? (
-                      <p className="text-xs text-slate-400">No documents uploaded</p>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {projDocs.map(d => {
-                          const docSigs = signatures.filter(s => s.document_id === d.id && !s.invalidated)
-                          const invalidatedCount = signatures.filter(s => s.document_id === d.id && s.invalidated).length
-                          return (
-                            <div key={d.id} className="bg-slate-50 rounded-lg px-3 py-2">
-                              <div className="flex items-center gap-2">
-                                <FileText size={14} className="text-blue-500 shrink-0" />
-                                <span className="flex-1 text-sm text-slate-900 truncate">{d.title}</span>
-                                <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">v{d.version || 1}</span>
-                                {docSigs.length > 0 && (
-                                  <button
-                                    disabled={downloading === d.id}
-                                    onClick={async () => {
+                  <div className="border-t p-5 space-y-4" style={{ borderColor: 'var(--border-color)' }}>
+                    {/* Documents */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Documents</h4>
+                        <button onClick={() => { setShowUpload(p.id); setDocTitle(''); setUploadFile(null) }} className="text-xs font-medium flex items-center gap-1" style={{ color: 'var(--primary-color)' }}>
+                          <Upload size={12} /> Upload
+                        </button>
+                      </div>
+                      {projDocs.length === 0 ? (
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No documents uploaded</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {projDocs.map(d => {
+                            const docSigs = signatures.filter(s => s.document_id === d.id && !s.invalidated)
+                            const invalidatedCount = signatures.filter(s => s.document_id === d.id && s.invalidated).length
+                            return (
+                              <div key={d.id} className="rounded-lg px-3 py-2.5" style={{ backgroundColor: 'var(--bg-main)' }}>
+                                <div className="flex items-center gap-2">
+                                  <FileText size={14} style={{ color: 'var(--primary-color)' }} className="shrink-0" />
+                                  <span className="flex-1 text-sm truncate" style={{ color: 'var(--text-primary)' }}>{d.title}</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-card)' }}>v{d.version || 1}</span>
+                                  {docSigs.length > 0 && (
+                                    <button disabled={downloading === d.id} onClick={async () => {
                                       setDownloading(d.id)
                                       try {
-                                        await generateSignOffSheet({
-                                          projectName: p.name,
-                                          documentTitle: d.title,
-                                          signatures: docSigs,
-                                          companyName: document.title.split('|')[0]?.trim() || 'CoreSite',
-                                        })
-                                        toast.success(`Sign-off sheet downloaded (${docSigs.length} signatures)`)
-                                      } catch (err) {
-                                        console.error(err)
-                                        toast.error('Failed to generate PDF')
-                                      }
+                                        await generateSignOffSheet({ projectName: p.name, documentTitle: d.title, signatures: docSigs, companyName: document.title.split('|')[0]?.trim() || 'CoreSite' })
+                                      } catch {}
                                       setDownloading(null)
-                                    }}
-                                    className="p-1 text-blue-500 hover:text-blue-400 transition-colors"
-                                    title="Download sign-off sheet"
-                                  >
-                                    {downloading === d.id ? (
-                                      <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                                    ) : (
-                                      <Download size={14} />
-                                    )}
-                                  </button>
-                                )}
-                                <button onClick={() => { setShowUpdateDoc(d); setUploadFile(null) }} className="p-1 text-warning hover:text-yellow-400 transition-colors" title="Upload new version">
-                                  <RefreshCw size={14} />
-                                </button>
-                                <span className="text-xs text-slate-400">{docSigs.length} sig{docSigs.length !== 1 ? 's' : ''}</span>
-                                <button onClick={() => deleteDocument(d.id)} className="p-1 text-slate-400 hover:text-danger transition-colors">
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                              {invalidatedCount > 0 && (
-                                <div className="flex items-center gap-1.5 mt-1.5 text-warning">
-                                  <FileWarning size={12} />
-                                  <span className="text-[11px]">{invalidatedCount} signature{invalidatedCount !== 1 ? 's' : ''} invalidated — operatives must re-sign</span>
+                                    }} className="p-1 transition-colors" style={{ color: 'var(--primary-color)' }} title="Download sign-off sheet">
+                                      {downloading === d.id ? <div className="w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--primary-color)' }} /> : <Download size={14} />}
+                                    </button>
+                                  )}
+                                  <button onClick={() => { setShowUpdateDoc(d); setUploadFile(null) }} className="p-1 text-[#D29922] hover:opacity-70" title="Upload new version"><RefreshCw size={14} /></button>
+                                  <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{docSigs.length} sig{docSigs.length !== 1 ? 's' : ''}</span>
+                                  <button onClick={() => deleteDocument(d.id)} className="p-1 text-[#DA3633] hover:opacity-70"><Trash2 size={14} /></button>
                                 </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                    {/* Audit trail export */}
-                    <button
-                      disabled={exportingAudit === p.id}
-                      onClick={() => handleAuditExport(p)}
-                      className="w-full mt-2 py-2 text-sm text-blue-500 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-center gap-2"
-                    >
-                      {exportingAudit === p.id ? (
-                        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <ShieldCheck size={14} />
+                                {invalidatedCount > 0 && (
+                                  <div className="flex items-center gap-1.5 mt-1.5 text-[#D29922]">
+                                    <FileWarning size={12} />
+                                    <span className="text-[11px]">{invalidatedCount} invalidated — re-sign required</span>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
                       )}
-                      Download Audit Trail
-                    </button>
-                    <button
-                      disabled={archivingProject === p.id}
-                      onClick={() => handleArchive(p)}
-                      className="w-full py-2 text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
-                    >
-                      {archivingProject === p.id ? (
-                        <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Download size={14} />
-                      )}
-                      Archive Full H&S Pack
-                    </button>
-                    <button onClick={() => deleteProject(p.id)} className="w-full py-2 text-sm text-danger hover:bg-danger/10 rounded-lg transition-colors">
+                    </div>
+
+                    {/* Actions */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button disabled={exportingAudit === p.id} onClick={() => handleAuditExport(p)}
+                        className="py-2.5 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors border" style={{ color: 'var(--primary-color)', borderColor: 'var(--border-color)' }}>
+                        {exportingAudit === p.id ? <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--primary-color)' }} /> : <ShieldCheck size={14} />}
+                        Audit Trail
+                      </button>
+                      <button disabled={archivingProject === p.id} onClick={() => handleArchive(p)}
+                        className="py-2.5 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors border" style={{ color: 'var(--text-primary)', borderColor: 'var(--border-color)' }}>
+                        {archivingProject === p.id ? <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" /> : <Download size={14} />}
+                        H&S Archive
+                      </button>
+                    </div>
+                    <button onClick={() => deleteProject(p.id)} className="w-full py-2 text-xs text-[#DA3633] hover:bg-[#DA3633]/5 rounded-lg transition-colors">
                       Delete Project
                     </button>
                   </div>

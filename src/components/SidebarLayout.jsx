@@ -49,14 +49,7 @@ const NAV_SECTIONS = [
     feature: 'snagging',
     items: [
       { label: 'Snag Overview', path: '/app/snags', icon: MapPin },
-      { label: 'Snag Drawings', path: '/app/drawings', icon: Image },
       { label: 'Performance', path: '/app/performance', icon: Activity },
-    ],
-  },
-  {
-    title: 'Messages',
-    items: [
-      { label: 'Chat', path: '/app/messages', icon: MessageSquare },
     ],
   },
   {
@@ -169,6 +162,19 @@ export default function SidebarLayout({ children }) {
         >
           <Home size={16} />
           <span>Home</span>
+        </button>
+
+        {/* Messages — standalone, always visible */}
+        <button
+          onClick={() => { navigate('/app/messages'); setMobileOpen(false) }}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] transition-colors ${
+            isActive('/app/messages')
+              ? 'bg-white/10 text-white border-l-2 border-[#1B6FC8]'
+              : 'text-white/60 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <MessageSquare size={16} />
+          <span>Messages</span>
         </button>
 
         {allSections.map(section => {
