@@ -18,61 +18,66 @@ export default function SandboxEntry() {
     setLoading(true)
     setError('')
 
-    // Sign in as demo account first (needed for RLS)
-    await supabase.auth.signOut().catch(() => {})
-    const { data, error: authErr } = await supabase.auth.signInWithPassword({
-      email: 'demo@coresite.io', password: 'Demo2026!',
-    })
+    try {
+      // Sign in as demo account (needed for RLS)
+      const { data, error: authErr } = await supabase.auth.signInWithPassword({
+        email: 'demo@coresite.io', password: 'Demo2026!',
+      })
 
-    if (authErr || !data?.user) {
-      setError('Unable to load demo. Please try again.')
-      setLoading(false)
-      return
-    }
+      if (authErr || !data?.user) {
+        setError(`Login failed: ${authErr?.message || 'Unknown error'}`)
+        setLoading(false)
+        return
+      }
 
-    // Save lead and send email — fire and forget, don't block the demo
-    supabase.from('demo_requests').insert({
-      name: name.trim(), email: email.trim(),
-      company: company.trim() || null, phone: mobile.trim() || null,
-      message: 'Entered via Try Demo button',
-    }).catch(() => {})
-
-    fetch('/api/demo-request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      // Save lead and send email — fire and forget
+      supabase.from('demo_requests').insert({
         name: name.trim(), email: email.trim(),
-        company: company.trim(), phone: mobile.trim(),
-        message: 'Try Demo',
-      }),
-    }).catch(() => {})
+        company: company.trim() || null, phone: mobile.trim() || null,
+        message: 'Entered via Try Demo button',
+      }).catch(() => {})
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*, companies(id, name, logo_url, primary_colour, secondary_colour, features)')
-      .eq('id', data.user.id)
-      .single()
+      fetch('/api/demo-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(), email: email.trim(),
+          company: company.trim(), phone: mobile.trim(),
+          message: 'Try Demo',
+        }),
+      }).catch(() => {})
 
-    const co = profile?.companies
-    const userData = {
-      id: profile?.id || data.user.id,
-      name: profile?.name || 'Demo User',
-      email: 'demo@coresite.io',
-      role: profile?.role || 'manager',
-      company_id: profile?.company_id,
+      // Load profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*, companies(id, name, logo_url, primary_colour, secondary_colour, features)')
+        .eq('id', data.user.id)
+        .single()
+
+      const co = profile?.companies
+      const userData = {
+        id: profile?.id || data.user.id,
+        name: profile?.name || 'Demo User',
+        email: 'demo@coresite.io',
+        role: profile?.role || 'manager',
+        company_id: profile?.company_id,
+      }
+
+      sessionStorage.setItem('pm_auth', 'true')
+      sessionStorage.setItem('manager_data', JSON.stringify({ ...userData, project_ids: [] }))
+      sessionStorage.setItem('sandbox_mode', 'true')
+
+      if (co) {
+        document.documentElement.style.setProperty('--primary-color', co.primary_colour || '#1B6FC8')
+        document.documentElement.style.setProperty('--sidebar-color', co.secondary_colour || '#0D1526')
+        document.title = `${co.name} | CoreSite (Demo)`
+      }
+
+      window.location.href = '/app'
+    } catch (err) {
+      setError(`Error: ${err.message}`)
+      setLoading(false)
     }
-
-    sessionStorage.setItem('pm_auth', 'true')
-    sessionStorage.setItem('manager_data', JSON.stringify({ ...userData, project_ids: [] }))
-    sessionStorage.setItem('sandbox_mode', 'true')
-
-    if (co) {
-      document.documentElement.style.setProperty('--primary-color', co.primary_colour || '#1B6FC8')
-      document.documentElement.style.setProperty('--sidebar-color', co.secondary_colour || '#0D1526')
-      document.title = `${co.name} | CoreSite (Demo)`
-    }
-
-    navigate('/app')
   }
 
   const inputCls = "w-full px-3.5 py-2.5 border border-[#E2E6EA] rounded-lg text-[#1A1A2E] placeholder-[#B0B8C9] focus:outline-none focus:border-[#1B6FC8] focus:ring-2 focus:ring-[#1B6FC8]/10 text-sm"
