@@ -5,6 +5,7 @@ import { useTheme } from '../lib/ThemeContext'
 import OfflineIndicator from './OfflineIndicator'
 import SyncBadge from './SyncBadge'
 import NotificationBell from './NotificationBell'
+import DemoBanner from './DemoBanner'
 import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
@@ -244,7 +245,9 @@ export default function SidebarLayout({ children }) {
   )
 
   return (
-    <div className="min-h-dvh flex" style={{ backgroundColor: 'var(--bg-main)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--bg-main)' }}>
+      <DemoBanner />
+      <div className="flex-1 flex min-h-0">
       <OfflineIndicator />
       {/* Desktop sidebar */}
       <div className="hidden lg:flex">{sidebar}</div>
@@ -300,6 +303,7 @@ export default function SidebarLayout({ children }) {
             <a href="/policies/cookies" target="_blank" className="hover:underline" style={{ color: 'var(--text-muted)' }}>Cookies</a>
           </div>
         </footer>
+      </div>
       </div>
     </div>
   )

@@ -5,6 +5,16 @@ import { supabase } from './supabase'
  * Use for authenticated API calls to /api/* routes.
  */
 export async function authFetch(url, options = {}) {
+  // Block API calls in demo mode
+  try {
+    const data = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+    if (data.email === 'demo@coresite.io') {
+      const toast = (await import('react-hot-toast')).default
+      toast('This is a demo — request your own account', { icon: '👁️', style: { background: '#EFF6FF', color: '#1E40AF', border: '1px solid #93C5FD' }, duration: 3000, id: 'demo-block' })
+      return new Response(JSON.stringify({ error: 'Demo mode' }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+  } catch {}
+
   let token = null
 
   // Try getting session token

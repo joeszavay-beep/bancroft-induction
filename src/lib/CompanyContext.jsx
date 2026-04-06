@@ -167,9 +167,11 @@ export function CompanyProvider({ children }) {
     applyBranding(updatedCompany)
   }
 
+  const isDemo = user?.email === 'demo@coresite.io'
+
   return (
     <CompanyContext.Provider value={{
-      company, user, profile, isLoading,
+      company, user, profile, isLoading, isDemo,
       login, logout, resetPassword, refreshCompany,
       isAuthenticated: !!user,
     }}>
