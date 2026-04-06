@@ -38,6 +38,7 @@ import SiteSignIn from './pages/SiteSignIn'
 import Chat from './pages/Chat'
 import SiteAttendance from './pages/SiteAttendance'
 import OperativeLogin from './pages/OperativeLogin'
+import SandboxEntry from './pages/SandboxEntry'
 import OperativeDashboard from './pages/OperativeDashboard'
 import OperativeGuard from './components/OperativeGuard'
 
@@ -104,6 +105,7 @@ export default function App() {
       <Route path="/aftercare/:projectId" element={<AftercarePage />} />
       <Route path="/site/:projectId" element={<SiteSignIn />} />
       <Route path="/worker-login" element={<Navigate to="/login" replace />} />
+      <Route path="/try" element={<SandboxEntry />} />
       <Route path="/worker/*" element={<OperativeDashboard />} />
 
       {/* Snag drawing viewer (full screen, no sidebar) */}

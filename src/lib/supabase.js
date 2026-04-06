@@ -11,10 +11,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 const realSupabase = createClient(supabaseUrl || '', supabaseAnonKey || '')
 
 function isDemo() {
-  try {
-    const data = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
-    return data.email === 'demo@coresite.io'
-  } catch { return false }
+  return sessionStorage.getItem('sandbox_mode') === 'true'
 }
 
 function showDemoToast() {

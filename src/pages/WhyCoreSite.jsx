@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import {
   Shield, FileCheck, MapPin, Layers, QrCode, Users, Clock, Download, CheckCircle2,
   ArrowRight, Zap, Lock, Globe, Smartphone, X, Send, BookOpen, CheckSquare,
-  Bell, BarChart3, WifiOff, HardHat, Activity, MessageSquare, CreditCard, ChevronRight
+  Bell, BarChart3, WifiOff, HardHat, Activity, MessageSquare, CreditCard, ChevronRight, Eye
 } from 'lucide-react'
 
 function AnimatedCounter({ end, suffix = '', duration = 2000 }) {
@@ -142,8 +142,8 @@ export default function WhyCoreSite() {
                   <button onClick={() => setShowDemo(true)} className="w-full sm:w-auto px-8 py-4 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-xl transition-all text-base flex items-center justify-center gap-2 shadow-lg shadow-[#3B7DD8]/20">
                     Book a Free Demo <ArrowRight size={16} />
                   </button>
-                  <button onClick={() => navigate('/login')} className="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-medium rounded-xl border border-white/15 transition-all text-base">
-                    Try it Now
+                  <button onClick={() => navigate('/try')} className="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-medium rounded-xl border border-white/15 transition-all text-base flex items-center justify-center gap-2">
+                    <Eye size={16} /> Try it Yourself
                   </button>
                 </div>
               </FadeIn>

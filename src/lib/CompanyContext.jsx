@@ -167,7 +167,7 @@ export function CompanyProvider({ children }) {
     applyBranding(updatedCompany)
   }
 
-  const isDemo = user?.email === 'demo@coresite.io'
+  const isDemo = typeof window !== 'undefined' && sessionStorage.getItem('sandbox_mode') === 'true'
 
   return (
     <CompanyContext.Provider value={{
