@@ -642,20 +642,30 @@ export default function BIMElementPanel({
                       </span>
                     </td>
 
-                    {/* Status */}
+                    {/* Status — click to cycle */}
                     <td style={{ padding: '0 6px' }}>
-                      <span style={{
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const order = ['not_verified', 'installed', 'snagged', 'commissioned']
+                          const next = order[(order.indexOf(statusKey) + 1) % order.length]
+                          onStatusUpdate?.([el.id], next)
+                        }}
+                        title="Click to change status"
+                        style={{
                         display: 'inline-block',
                         padding: '2px 8px',
                         borderRadius: 10,
                         fontSize: 11,
                         fontWeight: 500,
+                        border: 'none',
+                        cursor: 'pointer',
                         background: statusInfo.bg,
                         color: statusInfo.text,
                         whiteSpace: 'nowrap',
                       }}>
                         {statusInfo.label}
-                      </span>
+                      </button>
                     </td>
 
                     {/* Snags */}
