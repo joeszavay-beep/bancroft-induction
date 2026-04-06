@@ -27,10 +27,22 @@ export default function AllWorkers() {
   }
 
   async function removeWorker(id, name) {
-    if (!confirm(`Remove ${name}? This will also remove their signatures.`)) return
-    await supabase.from('signatures').delete().eq('operative_id', id)
-    await supabase.from('operatives').delete().eq('id', id)
-    toast.success('Worker removed')
+    if (!confirm(`Remove ${name}? This will remove all their data including signatures, attendance, and messages.`)) return
+    try {
+      // Delete all related records first (foreign key constraints)
+      await Promise.all([
+        supabase.from('signatures').delete().eq('operative_id', id),
+        supabase.from('site_attendance').delete().eq('operative_id', id),
+        supabase.from('toolbox_signatures').delete().eq('operative_id', id),
+        supabase.from('chat_messages').delete().eq('operative_id', id),
+        supabase.from('notifications').delete().eq('user_id', id),
+      ])
+      const { error } = await supabase.from('operatives').delete().eq('id', id)
+      if (error) throw error
+      toast.success('Worker removed')
+    } catch (err) {
+      toast.error(`Failed to remove: ${err.message}`)
+    }
     loadData()
   }
 
