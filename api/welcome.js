@@ -37,7 +37,7 @@ export default async function handler(req, res) {
         subject: `Welcome to CoreSite — ${companyName} account created`,
         html: `
           <div style="font-family: system-ui, sans-serif; max-width: 540px; margin: 0 auto;">
-            <div style="background: #0D1526; border-radius: 12px 12px 0 0; padding: 28px 24px;">
+            <div style="background: #1A2744; border-radius: 12px 12px 0 0; padding: 28px 24px;">
               <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 200; letter-spacing: 4px;">CORE<span style="font-weight: 700; letter-spacing: 1px;">SITE</span></h1>
               <p style="color: #6B7A99; margin: 4px 0 0; font-size: 12px;">Site Compliance Platform</p>
             </div>

@@ -10,6 +10,7 @@ import {
   X, MapPin, Calendar, User, MessageSquare, Send,
   CheckCircle2, Trash2, ZoomIn, Camera, Box
 } from 'lucide-react'
+import { getSession } from '../lib/storage'
 
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Other']
 const TYPES = ['General', 'Installation', 'Commissioning', 'Design', 'Other']
@@ -123,7 +124,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
     e.preventDefault()
     if (!newComment.trim()) return
     setSending(true)
-    const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+    const managerData = JSON.parse(getSession('manager_data') || '{}')
     const { data, offline } = await offlineInsert('snag_comments', {
       snag_id: snag.id,
       comment: newComment.trim(),

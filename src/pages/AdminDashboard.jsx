@@ -8,6 +8,7 @@ import {
   ArrowLeft, Users, Plus, Trash2, Edit3, Shield, FolderOpen,
   CheckCircle2, XCircle, Eye, EyeOff, LogOut, ChevronDown
 } from 'lucide-react'
+import { getSession, removeSession } from '../lib/storage'
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
@@ -32,10 +33,10 @@ export default function AdminDashboard() {
   const [editProjects, setEditProjects] = useState([])
   const [editActive, setEditActive] = useState(true)
 
-  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
+  const cid = JSON.parse(getSession('manager_data') || '{}').company_id
 
   useEffect(() => {
-    const mgr = sessionStorage.getItem('manager_data')
+    const mgr = getSession('manager_data')
     if (!mgr || JSON.parse(mgr).role !== 'admin') {
       navigate('/login')
       return
@@ -131,8 +132,8 @@ export default function AdminDashboard() {
   }
 
   function handleLogout() {
-    sessionStorage.removeItem('manager_data')
-    sessionStorage.removeItem('pm_auth')
+    removeSession('manager_data')
+    removeSession('pm_auth')
     navigate('/')
   }
 

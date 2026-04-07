@@ -42,7 +42,7 @@ export default function ResetPassword() {
 
   if (success) {
     return (
-      <div className="min-h-dvh bg-[#0D1526] flex flex-col items-center justify-center px-6">
+      <div className="min-h-dvh bg-[#1A2744] flex flex-col items-center justify-center px-6">
         <div className="w-full max-w-sm text-center">
           <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-5">
             <CheckCircle2 size={32} className="text-[#2EA043]" />
@@ -58,7 +58,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="min-h-dvh bg-[#0D1526] flex flex-col items-center justify-center px-6">
+    <div className="min-h-dvh bg-[#1A2744] flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <img src="/coresite-logo.svg" alt="CoreSite" className="h-12 mx-auto mb-6 brightness-0 invert" />

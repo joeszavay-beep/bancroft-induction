@@ -415,7 +415,7 @@ export default function Policies() {
 
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--bg-main)' }}>
-      <header className="bg-[#0D1526] px-4 sm:px-6 py-4 flex items-center gap-3">
+      <header className="bg-[#1A2744] px-4 sm:px-6 py-4 flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-1.5 text-white/60 hover:text-white transition-colors">
           <ArrowLeft size={20} />
         </button>

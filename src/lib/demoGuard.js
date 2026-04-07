@@ -1,4 +1,5 @@
 import toast from 'react-hot-toast'
+import { getSession } from './storage'
 
 /**
  * Check if current session is demo and block mutations.
@@ -8,7 +9,7 @@ import toast from 'react-hot-toast'
  */
 export function isDemoBlock() {
   try {
-    const data = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+    const data = JSON.parse(getSession('manager_data') || '{}')
     if (data.email === 'demo@coresite.io') {
       toast('This is a demo — request your own account to save changes', {
         icon: '👁️',

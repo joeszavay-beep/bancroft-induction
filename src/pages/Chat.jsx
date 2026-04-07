@@ -6,6 +6,7 @@ import {
   MessageSquare, Send, Search, ChevronLeft, Package, AlertTriangle,
   Wrench, Clock, CheckCircle2, User, Image, Paperclip, X, ZoomIn
 } from 'lucide-react'
+import { getSession } from '../lib/storage'
 
 const QUICK_MESSAGES = [
   { icon: Package, label: 'Material Request', text: 'Material needed: ' },
@@ -20,7 +21,7 @@ const QUICK_MESSAGES = [
  */
 export default function Chat() {
   const { user } = useCompany()
-  const cid = user?.company_id || JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
+  const cid = user?.company_id || JSON.parse(getSession('manager_data') || '{}').company_id
   const [conversations, setConversations] = useState([])
   const [selectedOp, setSelectedOp] = useState(null)
   const [messages, setMessages] = useState([])

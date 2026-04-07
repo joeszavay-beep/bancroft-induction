@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import PDFViewer from '../components/PDFViewer'
 import { ArrowLeft, RotateCcw, CheckCircle2, Shield } from 'lucide-react'
+import { getSession } from '../lib/storage'
 
 export default function SignDocument() {
   const { operativeId, documentId } = useParams()
@@ -212,10 +213,10 @@ export default function SignDocument() {
           </div>
         )}
         <button
-          onClick={() => navigate(sessionStorage.getItem('operative_session') ? '/worker' : `/operative/${operativeId}/documents`)}
+          onClick={() => navigate(getSession('operative_session') ? '/worker' : `/operative/${operativeId}/documents`)}
           className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors mt-4"
         >
-          {sessionStorage.getItem('operative_session') ? 'Back to Dashboard' : 'Back to Documents'}
+          {getSession('operative_session') ? 'Back to Dashboard' : 'Back to Documents'}
         </button>
       </div>
     )
@@ -226,7 +227,7 @@ export default function SignDocument() {
   return (
     <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
       <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-4 py-3 flex items-center gap-3 shrink-0">
-        <button onClick={() => navigate(sessionStorage.getItem('operative_session') ? '/worker' : `/operative/${operativeId}/documents`)} className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
+        <button onClick={() => navigate(getSession('operative_session') ? '/worker' : `/operative/${operativeId}/documents`)} className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
           <ArrowLeft size={22} />
         </button>
         <div className="min-w-0">

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Shield, LogIn } from 'lucide-react'
+import { getSession, setSession } from '../lib/storage'
 
 /**
  * Auth guard for operative routes.
@@ -24,7 +25,7 @@ export default function OperativeGuard({ children }) {
   }, [operativeId])
 
   async function checkAccess() {
-    const session = sessionStorage.getItem('operative_session')
+    const session = getSession('operative_session')
     const isProfilePage = location.pathname.includes('/profile')
 
     // If logged in, check ID matches
@@ -58,7 +59,7 @@ export default function OperativeGuard({ children }) {
     }
 
     // All other cases — require login
-    sessionStorage.setItem('operative_return_url', window.location.pathname)
+    setSession('operative_return_url', window.location.pathname)
     setStatus('login')
   }
 

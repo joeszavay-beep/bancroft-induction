@@ -4,9 +4,10 @@ import { authFetch } from '../lib/authFetch'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import { Mail, Plus, Minus } from 'lucide-react'
+import { getSession } from '../lib/storage'
 
 export default function InviteNewWorkers() {
-  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
+  const cid = JSON.parse(getSession('manager_data') || '{}').company_id
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')

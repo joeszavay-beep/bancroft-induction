@@ -9,6 +9,7 @@ import {
   Building2, Plus, Edit3, Trash2, Users, FolderOpen, MapPin, FileText,
   CheckCircle2, XCircle, LogOut, Shield, Eye, ChevronDown, ArrowLeft, Key, UserPlus
 } from 'lucide-react'
+import { getSession } from '../lib/storage'
 
 export default function SuperAdminPanel() {
   const navigate = useNavigate()
@@ -32,7 +33,7 @@ export default function SuperAdminPanel() {
   const [logo, setLogo] = useState(null)
 
   useEffect(() => {
-    const mgr = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+    const mgr = JSON.parse(getSession('manager_data') || '{}')
     if (mgr.role !== 'admin' && mgr.role !== 'super_admin') {
       navigate('/app')
       return
@@ -174,7 +175,7 @@ export default function SuperAdminPanel() {
   return (
     <div className="min-h-dvh bg-[#F5F6F8]">
       {/* Header */}
-      <header className="bg-[#0D1526] px-6 py-3 flex items-center justify-between">
+      <header className="bg-[#1A2744] px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Shield size={20} className="text-amber-400" />
           <div>

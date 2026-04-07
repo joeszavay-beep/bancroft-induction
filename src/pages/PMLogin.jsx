@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { Eye, EyeOff, ArrowLeft, Loader2, ChevronRight } from 'lucide-react'
 import LoadingButton from '../components/LoadingButton'
 import DateOfBirthPicker from '../components/DateOfBirthPicker'
+import { setSession } from '../lib/storage'
 
 export default function PMLogin() {
   const navigate = useNavigate()
@@ -116,7 +117,7 @@ export default function PMLogin() {
       }
 
       const op = ops[0]
-      sessionStorage.setItem('operative_session', JSON.stringify({
+      setSession('operative_session', JSON.stringify({
         id: op.id, name: op.name, email: op.email, role: op.role,
         photo_url: op.photo_url, project_id: op.project_id,
         project_name: op.projects?.name, company_id: op.company_id,
@@ -156,7 +157,7 @@ export default function PMLogin() {
   const inputCls = "w-full px-3.5 py-2.5 border border-[#E2E6EA] rounded-lg text-[#1A1A2E] placeholder-[#B0B8C9] focus:outline-none focus:border-[#1B6FC8] focus:ring-2 focus:ring-[#1B6FC8]/10 text-sm"
 
   return (
-    <div className="min-h-dvh bg-[#0D1526] flex flex-col items-center justify-center px-6">
+    <div className="min-h-dvh bg-[#1A2744] flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <span className="text-2xl text-white font-light tracking-[4px]">CORE<span className="font-bold tracking-normal">SITE</span></span>

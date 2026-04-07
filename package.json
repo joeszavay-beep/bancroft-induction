@@ -10,9 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aparajita/capacitor-biometric-auth": "^10.0.0",
     "@capacitor/cli": "^8.3.0",
     "@capacitor/core": "^8.3.0",
     "@capacitor/ios": "^8.3.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
     "@supabase/supabase-js": "^2.101.0",
     "idb": "^8.0.3",
     "jspdf": "^4.2.1",
@@ -26,6 +29,7 @@
     "react-router-dom": "^7.13.2",
     "react-signature-canvas": "^1.1.0-alpha.2",
     "react-zoom-pan-pinch": "^3.7.0",
+    "three": "^0.183.2",
     "uuid": "^13.0.0",
     "vite-plugin-pwa": "^1.2.0",
     "web-ifc": "^0.0.77"

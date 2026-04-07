@@ -18,6 +18,7 @@ import { generateArchivePDF } from '../lib/generateArchivePDF'
 import SnagDetail from '../components/SnagDetail'
 import { generateSnagPDF } from '../lib/generateSnagPDF'
 import { generateToolboxPDF } from '../lib/generateToolboxPDF'
+import { getSession, removeSession } from '../lib/storage'
 
 const TABS = [
   { id: 'home', label: 'Home', icon: Home },
@@ -39,7 +40,7 @@ export default function PMDashboard({ initialTab }) {
   const [signatures, setSignatures] = useState([])
   const [loading, setLoading] = useState(true)
 
-  const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+  const managerData = JSON.parse(getSession('manager_data') || '{}')
   const managerProjectIds = managerData.project_ids || []
   const isAdmin = managerData.role === 'admin'
 
@@ -89,8 +90,8 @@ export default function PMDashboard({ initialTab }) {
   }
 
   const handleLogout = () => {
-    sessionStorage.removeItem('pm_auth')
-    sessionStorage.removeItem('manager_data')
+    removeSession('pm_auth')
+    removeSession('manager_data')
     navigate('/')
   }
 
@@ -262,7 +263,7 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
 
 /* ==================== PROJECTS TAB ==================== */
 function ProjectsTab({ projects, documents, operatives, signatures, onRefresh }) {
-  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
+  const cid = JSON.parse(getSession('manager_data') || '{}').company_id
   const [showAdd, setShowAdd] = useState(false)
   const [showUpload, setShowUpload] = useState(null) // project id
   const [showUpdateDoc, setShowUpdateDoc] = useState(null) // document to update
@@ -694,7 +695,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
 
 /* ==================== TEAM TAB ==================== */
 function TeamTab({ operatives, projects, onRefresh }) {
-  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
+  const cid = JSON.parse(getSession('manager_data') || '{}').company_id
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(null)
@@ -1023,7 +1024,7 @@ function SettingsTab() {
 
 /* ==================== SNAGS TAB ==================== */
 function SnagsTab({ projects, navigate }) {
-  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
+  const cid = JSON.parse(getSession('manager_data') || '{}').company_id
   const [drawings, setDrawings] = useState([])
   const [allSnags, setAllSnags] = useState([])
   const [allOperatives, setAllOperatives] = useState([])
@@ -1176,7 +1177,7 @@ function SnagsTab({ projects, navigate }) {
           projectName: `Snag Assignment — ${proj?.name || 'Project'}`,
           customHtml: `
             <div style="font-family:system-ui,sans-serif;max-width:580px;margin:0 auto;">
-              <div style="background:#0D1526;padding:20px 24px;border-radius:12px 12px 0 0;">
+              <div style="background:#1A2744;padding:20px 24px;border-radius:12px 12px 0 0;">
                 <h1 style="color:white;margin:0;font-size:20px;">CoreSite</h1>
                 <p style="color:#6B7A99;margin:4px 0 0;font-size:12px;">Snag Assignment — ${drawing?.name || 'Drawing'}</p>
               </div>
@@ -1292,7 +1293,7 @@ function SnagsTab({ projects, navigate }) {
     }
     const { data: urlData } = supabase.storage.from('drawings').getPublicUrl(filePath)
     // Drawing uploaded
-    const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+    const managerData = JSON.parse(getSession('manager_data') || '{}')
 
     const { error: dbErr } = await supabase.from('drawings').insert({
       project_id: drawingProjectId,
@@ -1647,7 +1648,7 @@ function SnagsTab({ projects, navigate }) {
 
       {/* Floating action bar when snags are checked */}
       {checkedSnags.size > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#0D1526] text-white px-3 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-2xl flex items-center gap-2 sm:gap-3 max-w-[95vw]">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#1A2744] text-white px-3 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-2xl flex items-center gap-2 sm:gap-3 max-w-[95vw]">
           <span className="text-xs sm:text-sm font-semibold whitespace-nowrap">{checkedSnags.size} snag{checkedSnags.size > 1 ? 's' : ''}</span>
           <button onClick={() => setShowAssignModal(true)} className="px-3 sm:px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-xs sm:text-sm font-medium rounded-lg transition-colors min-h-[44px]">
             Assign & Email
@@ -1734,7 +1735,7 @@ function SnagsTab({ projects, navigate }) {
 /* ==================== H&S REPORT TAB ==================== */
 /* ==================== TOOLBOX TAB ==================== */
 function ToolboxTab({ projects, navigate }) {
-  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
+  const cid = JSON.parse(getSession('manager_data') || '{}').company_id
   const [talks, setTalks] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -1779,7 +1780,7 @@ function ToolboxTab({ projects, navigate }) {
     e.preventDefault()
     if (!title.trim() || !projectId) return
     setSaving(true)
-    const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+    const managerData = JSON.parse(getSession('manager_data') || '{}')
     const { data, error } = await supabase.from('toolbox_talks').insert({
       title: title.trim(),
       description: description.trim() || null,

@@ -147,7 +147,7 @@ export async function parseIFC(buffer, onProgress) {
   const totalTypes = allTypes.length
   let processed = 0
 
-  for (const { typeID, typeName } of allTypes2) {
+  for (const { typeID, typeName } of allTypes) {
     processed++
     const progress = 30 + Math.floor((processed / totalTypes) * 60)
     if (processed % 50 === 0) onProgress?.(progress)

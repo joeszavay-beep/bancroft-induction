@@ -177,7 +177,7 @@ export default function SiteSignIn() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{
-            width: 40, height: 40, border: '3px solid #e2e8f0', borderTopColor: '#0D1526',
+            width: 40, height: 40, border: '3px solid #e2e8f0', borderTopColor: '#1A2744',
             borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px',
           }} />
           <p style={{ color: '#64748b', fontSize: 14 }}>Loading site...</p>
@@ -201,7 +201,7 @@ export default function SiteSignIn() {
   }
 
   const companyName = project.companies?.name || ''
-  const primaryColour = project.companies?.primary_colour || '#0D1526'
+  const primaryColour = project.companies?.primary_colour || '#1A2744'
 
   // --- Success screen ---
   if (success) {
@@ -274,7 +274,7 @@ export default function SiteSignIn() {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8f9fa' }}>
         {/* Header */}
-        <div style={{ background: '#0D1526', padding: '16px 20px', flexShrink: 0 }}>
+        <div style={{ background: '#1A2744', padding: '16px 20px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button
               onClick={() => setSelectedOperative(null)}
@@ -386,7 +386,7 @@ export default function SiteSignIn() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8f9fa' }}>
       {/* Header */}
-      <div style={{ background: '#0D1526', padding: '20px 20px 16px', flexShrink: 0 }}>
+      <div style={{ background: '#1A2744', padding: '20px 20px 16px', flexShrink: 0 }}>
         <div style={{ color: '#fff', fontSize: 20, fontWeight: 300, letterSpacing: 1, marginBottom: 8 }}>
           CORE<span style={{ fontWeight: 700 }}>SITE</span>
         </div>

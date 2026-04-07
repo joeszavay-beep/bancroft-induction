@@ -10,6 +10,7 @@ import PrefetchButton from '../components/PrefetchButton'
 import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check, Circle, Type, MessageSquareText } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
 import { useCompany } from '../lib/CompanyContext'
+import { getSession } from '../lib/storage'
 
 const STATUS_COLORS = { green: '#2EA043', yellow: '#D29922', red: '#DA3633' }
 const STATUS_LABELS = { green: 'Installed', yellow: 'Available', red: 'Blocked' }
@@ -19,8 +20,8 @@ export default function ProgressViewer() {
   const navigate = useNavigate()
   const { company } = useCompany()
   const imageRef = useRef(null)
-  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
-  const mgr = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+  const cid = JSON.parse(getSession('manager_data') || '{}').company_id
+  const mgr = JSON.parse(getSession('manager_data') || '{}')
 
   const [drawing, setDrawing] = useState(null)
   const [items, setItems] = useState([])
@@ -490,7 +491,7 @@ export default function ProgressViewer() {
 
     <div className="h-dvh bg-slate-100 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-[#0D1526] text-white px-3 py-2 flex items-center justify-between shrink-0 sticky top-0 z-20">
+      <header className="bg-[#1A2744] text-white px-3 py-2 flex items-center justify-between shrink-0 sticky top-0 z-20">
         <div className="flex items-center gap-2 min-w-0">
           <button onClick={() => navigate('/app/progress')} className="p-1.5 hover:bg-white/10 rounded-lg"><ArrowLeft size={18} /></button>
           <div className="min-w-0">
@@ -565,7 +566,7 @@ export default function ProgressViewer() {
         {/* Colour buttons — traffic light for progress, palette for annotations */}
         {isAnnotationMode ? (
           <>
-            {['#1B6FC8', '#DA3633', '#2EA043', '#D29922', '#7C3AED', '#0D1526', '#EC4899', '#FFFFFF'].map(c => (
+            {['#1B6FC8', '#DA3633', '#2EA043', '#D29922', '#7C3AED', '#1A2744', '#EC4899', '#FFFFFF'].map(c => (
               <button key={c} onClick={() => setAnnotationColour(c)}
                 className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-all ${annotationColour === c ? 'border-[#1A1A2E] scale-110 shadow-md' : 'border-[#E2E6EA] hover:border-[#1A1A2E]'}`}
                 style={{ backgroundColor: c }}
@@ -710,6 +711,7 @@ export default function ProgressViewer() {
           initialScale={1}
           minScale={0.3}
           maxScale={10}
+          centerOnInit
           panning={{ velocityDisabled: false }}
           wheel={{ step: 0.08, smoothStep: 0.004 }}
           doubleClick={{ disabled: true }}
@@ -725,8 +727,8 @@ export default function ProgressViewer() {
               )}
 
               <TransformComponent
-                wrapperStyle={{ width: '100%', height: '100%', touchAction: 'none' }}
-                contentStyle={{ width: '100%', touchAction: 'none' }}
+                wrapperStyle={{ width: '100%', height: '100%' }}
+                contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 <div className="relative inline-block" style={{ cursor: isMarking || isAnnotationMode ? 'none' : 'grab' }}
                   onPointerDown={(e) => { mouseDownPos.current = { x: e.clientX, y: e.clientY, time: Date.now() } }}
@@ -743,13 +745,16 @@ export default function ProgressViewer() {
                     }
                   }}>
                   <img ref={imageRef} src={drawing?.image_url} alt={drawing?.name}
-                    className="max-w-none select-none" style={{ width: '100%', minWidth: '800px' }}
+                    className="max-w-none select-none" style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
                     onLoad={() => setImageLoaded(true)} draggable={false} />
 
                   {/* Items: dots, lines, polylines, photos */}
                   {imageLoaded && items.map(item => {
                     const color = STATUS_COLORS[item.status] || '#B0B8C9'
                     const clickHandler = (e) => { e.stopPropagation(); if (!isMarking) { setSelectedItem(item); loadItemHistory(item.id) } }
+                    // Scale sizes relative to image — sizes were authored at ~1200px wide
+                    const imgEl = imageRef.current
+                    const renderScale = imgEl ? imgEl.clientWidth / (imgEl.naturalWidth || 1200) : 1
                     // Parse stored size from notes
                     let itemSize = dotSize // fallback to current slider for old items
                     let itemWidth = 4
@@ -760,6 +765,8 @@ export default function ProgressViewer() {
                         if (parsed.width) itemWidth = parsed.width
                       }
                     } catch {}
+                    itemSize = Math.max(2, itemSize * renderScale)
+                    itemWidth = Math.max(1, itemWidth * renderScale)
 
                     // Line
                     if (item.label === 'line' && item.notes) {
@@ -812,12 +819,13 @@ export default function ProgressViewer() {
                     if (item.label === 'circle') {
                       let radius = 16, annoColor = color
                       try { const p = JSON.parse(item.notes || '{}'); if (p.radius) radius = p.radius; if (p.color) annoColor = p.color } catch {}
+                      const scaledRadius = Math.max(4, radius * renderScale)
                       return (
                         <button key={item.id} onClick={clickHandler}
                           className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-110"
                           style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto' }}>
                           <div className="rounded-full border-2"
-                            style={{ width: `${radius * 2}px`, height: `${radius * 2}px`, borderColor: annoColor, backgroundColor: `${annoColor}15` }} />
+                            style={{ width: `${scaledRadius * 2}px`, height: `${scaledRadius * 2}px`, borderColor: annoColor, backgroundColor: `${annoColor}15` }} />
                         </button>
                       )
                     }
@@ -826,11 +834,12 @@ export default function ProgressViewer() {
                     if (item.label === 'text') {
                       let text = '', fontSize = 12, annoColor = color
                       try { const p = JSON.parse(item.notes || '{}'); text = p.text || ''; fontSize = p.fontSize || 12; if (p.color) annoColor = p.color } catch {}
+                      const scaledFont = Math.max(6, Math.min(fontSize, 32) * renderScale)
                       return (
                         <div key={item.id} onClick={clickHandler}
                           className="absolute z-10 select-none"
                           style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto', cursor: isMarking ? 'none' : 'pointer' }}>
-                          <span style={{ fontSize: `${Math.max(8, Math.min(fontSize, 32))}px`, fontWeight: 700, color: annoColor, textShadow: '0 1px 2px rgba(0,0,0,0.3), 0 0 4px rgba(255,255,255,0.8)' }}>
+                          <span style={{ fontSize: `${scaledFont}px`, fontWeight: 700, color: annoColor, textShadow: '0 1px 2px rgba(0,0,0,0.3), 0 0 4px rgba(255,255,255,0.8)' }}>
                             {text}
                           </span>
                         </div>

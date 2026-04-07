@@ -1,6 +1,10 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { Capacitor } from '@capacitor/core'
 import { useCompany } from './lib/CompanyContext'
 import SidebarLayout from './components/SidebarLayout'
+import BiometricGate from './components/BiometricGate'
+
+const isNative = Capacitor.isNativePlatform()
 
 // Public pages
 import LandingPage from './pages/LandingPage'
@@ -38,15 +42,34 @@ import SiteSignIn from './pages/SiteSignIn'
 import Chat from './pages/Chat'
 import SiteAttendance from './pages/SiteAttendance'
 import BIMModels from './pages/BIMModels'
+import BIMViewer3D from './pages/BIMViewer3D'
 import OperativeLogin from './pages/OperativeLogin'
 import SandboxEntry from './pages/SandboxEntry'
 import OperativeDashboard from './pages/OperativeDashboard'
 import OperativeGuard from './components/OperativeGuard'
+import { getSession } from './lib/storage'
+
+// On native: redirect to /app if session exists, otherwise /login
+function NativeEntry() {
+  const { isAuthenticated, isLoading } = useCompany()
+  const hasSession = isAuthenticated || getSession('pm_auth') === 'true' || getSession('operative_session')
+  if (isLoading) return <div className="min-h-dvh flex items-center justify-center" style={{ backgroundColor: '#1A2744' }}><div className="animate-spin w-8 h-8 border-2 border-white/30 border-t-white rounded-full" /></div>
+  if (hasSession) return <Navigate to="/app" replace />
+  return <Navigate to="/login" replace />
+}
+
+// On native: redirect away from login if already authenticated
+function LoginGuard() {
+  const { isAuthenticated, isLoading } = useCompany()
+  const hasSession = isAuthenticated || getSession('pm_auth') === 'true'
+  if (isLoading) return <div className="min-h-dvh flex items-center justify-center" style={{ backgroundColor: '#1A2744' }}><div className="animate-spin w-8 h-8 border-2 border-white/30 border-t-white rounded-full" /></div>
+  if (isNative && hasSession) return <Navigate to="/app" replace />
+  return <PMLogin />
+}
 
 function AppLayout() {
   const { isAuthenticated, isLoading } = useCompany()
-  // Also check sessionStorage as fallback during state transitions
-  const hasSession = isAuthenticated || sessionStorage.getItem('pm_auth') === 'true'
+  const hasSession = isAuthenticated || getSession('pm_auth') === 'true'
   if (isLoading) return <div className="min-h-dvh flex items-center justify-center" style={{ backgroundColor: 'var(--bg-main)' }}><div className="animate-spin w-8 h-8 border-2 border-[#1B6FC8] border-t-transparent rounded-full" /></div>
   if (!hasSession) return <Navigate to="/login" replace />
   return (
@@ -83,10 +106,11 @@ function AppLayout() {
 
 export default function App() {
   return (
+    <BiometricGate>
     <Routes>
       {/* Public routes */}
-      <Route path="/" element={<WhyCoreSite />} />
-      <Route path="/login" element={<PMLogin />} />
+      <Route path="/" element={isNative ? <NativeEntry /> : <WhyCoreSite />} />
+      <Route path="/login" element={<LoginGuard />} />
       <Route path="/why" element={<WhyCoreSite />} />
       <Route path="/old-landing" element={<LandingPage />} />
       {/* Legacy redirect */}
@@ -110,9 +134,10 @@ export default function App() {
       <Route path="/try" element={<SandboxEntry />} />
       <Route path="/worker/*" element={<OperativeDashboard />} />
 
-      {/* Snag drawing viewer (full screen, no sidebar) */}
+      {/* Full screen viewers (no sidebar) */}
       <Route path="/snags/:drawingId" element={<SnagDrawingView />} />
       <Route path="/progress/:drawingId" element={<ProgressViewer />} />
+      <Route path="/bim-3d/:modelId" element={<BIMViewer3D />} />
 
       {/* Super admin (no sidebar) */}
       <Route path="/superadmin" element={<SuperAdminPanel />} />
@@ -120,5 +145,6 @@ export default function App() {
       {/* App routes (with sidebar) */}
       <Route path="/app/*" element={<AppLayout />} />
     </Routes>
+    </BiometricGate>
   )
 }

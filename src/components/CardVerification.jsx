@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import { X, Shield, ExternalLink, ZoomIn, CheckCircle2, XCircle, CreditCard, Clock } from 'lucide-react'
+import { getSession } from '../lib/storage'
 
 /**
  * Card verification modal for managers.
@@ -12,7 +13,7 @@ import { X, Shield, ExternalLink, ZoomIn, CheckCircle2, XCircle, CreditCard, Clo
 export default function CardVerification({ operative, onClose, onUpdated }) {
   const [lightbox, setLightbox] = useState(null)
   const [saving, setSaving] = useState(false)
-  const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+  const managerData = JSON.parse(getSession('manager_data') || '{}')
 
   async function handleVerify(verified) {
     setSaving(true)

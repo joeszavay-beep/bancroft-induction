@@ -8,6 +8,7 @@ import Modal from './Modal'
 import LoadingButton from './LoadingButton'
 import { Camera, Upload } from 'lucide-react'
 import BIMAssetLink from './BIMAssetLink'
+import { getSession } from '../lib/storage'
 
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Other']
 const TYPES = ['General', 'Installation', 'Commissioning', 'Design', 'Other']
@@ -64,7 +65,7 @@ export default function SnagForm({ open, onClose, drawingId, projectId, pinX, pi
     }
     setSaving(true)
 
-    const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+    const managerData = JSON.parse(getSession('manager_data') || '{}')
 
     const snagRecord = {
       company_id: managerData.company_id || null,

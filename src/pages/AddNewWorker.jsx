@@ -8,6 +8,7 @@ import LoadingButton from '../components/LoadingButton'
 import { UserPlus, Upload } from 'lucide-react'
 import AddressLookup from '../components/AddressLookup'
 import DateOfBirthPicker from '../components/DateOfBirthPicker'
+import { getSession } from '../lib/storage'
 
 const ROLES = ['Electrician', 'Apprentice', 'Supervisor', 'Engineer', 'Labourer', 'Other']
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Other']
@@ -15,7 +16,7 @@ const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwo
 export default function AddNewWorker() {
   const navigate = useNavigate()
   const { company } = useCompany()
-  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
+  const cid = JSON.parse(getSession('manager_data') || '{}').company_id
   const [saving, setSaving] = useState(false)
   const [photo, setPhoto] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)

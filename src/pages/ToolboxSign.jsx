@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import { CheckCircle2, RotateCcw, FileText, XCircle } from 'lucide-react'
+import { getSession, setSession } from '../lib/storage'
 
 export default function ToolboxSign() {
   const { talkId } = useParams()
@@ -20,7 +21,7 @@ export default function ToolboxSign() {
   const [showSuccess, setShowSuccess] = useState(false)
 
   // Check if operative is logged in — auto-select them
-  const opSession = (() => { try { return JSON.parse(sessionStorage.getItem('operative_session') || 'null') } catch { return null } })()
+  const opSession = (() => { try { return JSON.parse(getSession('operative_session') || 'null') } catch { return null } })()
 
   useEffect(() => {
     loadData()
@@ -185,7 +186,7 @@ export default function ToolboxSign() {
               ) : (
                 <div className="text-center py-2">
                   <p className="text-sm text-slate-600 mb-3">Sign in to record your attendance</p>
-                  <button onClick={() => { sessionStorage.setItem('operative_return_url', window.location.pathname); window.location.href = '/worker-login' }}
+                  <button onClick={() => { setSession('operative_return_url', window.location.pathname); window.location.href = '/worker-login' }}
                     className="px-6 py-2.5 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-semibold rounded-lg transition-colors">
                     Sign In
                   </button>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Eye, ArrowRight, Loader2 } from 'lucide-react'
+import { setSession } from '../lib/storage'
 
 export default function SandboxEntry() {
   const navigate = useNavigate()
@@ -63,13 +64,13 @@ export default function SandboxEntry() {
         company_id: profile?.company_id,
       }
 
-      sessionStorage.setItem('pm_auth', 'true')
-      sessionStorage.setItem('manager_data', JSON.stringify({ ...userData, project_ids: [] }))
+      setSession('pm_auth', 'true')
+      setSession('manager_data', JSON.stringify({ ...userData, project_ids: [] }))
       sessionStorage.setItem('sandbox_mode', 'true')
 
       if (co) {
         document.documentElement.style.setProperty('--primary-color', co.primary_colour || '#1B6FC8')
-        document.documentElement.style.setProperty('--sidebar-color', co.secondary_colour || '#0D1526')
+        document.documentElement.style.setProperty('--sidebar-color', co.secondary_colour || '#1A2744')
         document.title = `${co.name} | CoreSite (Demo)`
       }
 
@@ -83,7 +84,7 @@ export default function SandboxEntry() {
   const inputCls = "w-full px-3.5 py-2.5 border border-[#E2E6EA] rounded-lg text-[#1A1A2E] placeholder-[#B0B8C9] focus:outline-none focus:border-[#1B6FC8] focus:ring-2 focus:ring-[#1B6FC8]/10 text-sm"
 
   return (
-    <div className="min-h-dvh bg-[#0D1526] flex flex-col items-center justify-center px-6">
+    <div className="min-h-dvh bg-[#1A2744] flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">

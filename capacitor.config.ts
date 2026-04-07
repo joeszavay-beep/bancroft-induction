@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'CoreSite',
   webDir: 'dist',
   server: {
-    url: 'https://coresite.io',
+    url: 'https://www.coresite.io',
     cleartext: false,
   },
   ios: {
@@ -17,11 +17,11 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchAutoHide: true,
       launchFadeOutDuration: 300,
-      backgroundColor: '#0D1526',
+      backgroundColor: '#1A2744',
     },
     StatusBar: {
       style: 'LIGHT',
-      backgroundColor: '#0D1526',
+      backgroundColor: '#1A2744',
     },
   },
 };

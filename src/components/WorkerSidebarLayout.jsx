@@ -5,6 +5,7 @@ import {
   MapPin, MessageSquare, User, Sun, Moon
 } from 'lucide-react'
 import { useTheme } from '../lib/ThemeContext'
+import { removeSession } from '../lib/storage'
 
 /**
  * Sidebar layout for worker portal — mirrors the manager SidebarLayout
@@ -19,7 +20,7 @@ export default function WorkerSidebarLayout({ children, op }) {
   if (!op) return children
 
   const primaryColor = op.primary_colour || '#1B6FC8'
-  const sidebarColor = '#0D1526'
+  const sidebarColor = '#1A2744'
   const userName = op.name || 'Worker'
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
@@ -32,7 +33,7 @@ export default function WorkerSidebarLayout({ children, op }) {
   ]
 
   function handleLogout() {
-    sessionStorage.removeItem('operative_session')
+    removeSession('operative_session')
     navigate('/worker-login')
   }
 

@@ -64,7 +64,7 @@ export default async function handler(req, res) {
         subject: isTryDemo ? `Welcome to CoreSite, ${name.split(' ')[0]}!` : 'Thanks for your interest in CoreSite',
         html: `
           <div style="font-family: system-ui, sans-serif; max-width: 520px; margin: 0 auto;">
-            <div style="background: #0D1526; border-radius: 10px 10px 0 0; padding: 24px;">
+            <div style="background: #1A2744; border-radius: 10px 10px 0 0; padding: 24px;">
               <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 200; letter-spacing: 4px;">CORE<span style="font-weight: 700; letter-spacing: 1px;">SITE</span></h1>
               <p style="color: rgba(255,255,255,0.4); margin: 6px 0 0; font-size: 12px;">Site Compliance Platform</p>
             </div>

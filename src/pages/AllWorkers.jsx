@@ -5,10 +5,11 @@ import toast from 'react-hot-toast'
 import { Users, Search, Plus, Trash2, ChevronRight, AlertTriangle, ShieldCheck, Clock, CreditCard } from 'lucide-react'
 import AttendanceHistory from '../components/AttendanceHistory'
 import CardVerification from '../components/CardVerification'
+import { getSession } from '../lib/storage'
 
 export default function AllWorkers() {
   const navigate = useNavigate()
-  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
+  const cid = JSON.parse(getSession('manager_data') || '{}').company_id
   const [operatives, setOperatives] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')

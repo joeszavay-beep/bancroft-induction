@@ -50,7 +50,7 @@ export default function LandingPage() {
       {/* Hero background */}
       <div className="absolute inset-0">
         <img src="/hero.jpg" alt="" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0D1526]/85 via-[#0D1526]/70 to-[#0D1526]/90" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1A2744]/85 via-[#1A2744]/70 to-[#1A2744]/90" />
       </div>
 
       {/* Content */}

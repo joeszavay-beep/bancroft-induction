@@ -19,6 +19,7 @@ import { findNearbyElements, ifcToDrawingPercent } from '../lib/bimUtils'
 import {
   ArrowLeft, List, Map, Plus, Download, X, ZoomIn, ZoomOut, Crosshair, Upload, Settings
 } from 'lucide-react'
+import { getSession } from '../lib/storage'
 
 const STATUS_COLORS = {
   open: { bg: '#ef4444', ring: '#fca5a5' },
@@ -34,6 +35,7 @@ export default function SnagDrawingView() {
   const navigate = useNavigate()
   const imageRef = useRef(null)
   const transformRef = useRef(null)
+  const pinTapRef = useRef(null)
 
   const [drawing, setDrawing] = useState(null)
   const [project, setProject] = useState(null)
@@ -372,24 +374,14 @@ export default function SnagDrawingView() {
         </div>
       ) : (
         <div className={`flex-1 min-h-0 bg-slate-200 relative transition-all duration-200 ${bimPanelOpen ? 'mr-[400px] max-md:mr-0' : ''}`}>
-          {/* Click overlay for pin placement - sits on top of everything */}
-          {placingPin && (
-            <div
-              className="absolute inset-0 z-30"
-              style={{ cursor: 'crosshair' }}
-              onClick={handleOverlayClick}
-            />
-          )}
-
           <TransformWrapper
             ref={transformRef}
             initialScale={1}
             minScale={0.3}
             maxScale={10}
-            disabled={placingPin}
-            panning={{ disabled: placingPin, velocityDisabled: false }}
-            pinch={{ disabled: placingPin }}
-            wheel={{ disabled: placingPin, step: 0.08, smoothStep: 0.004 }}
+            centerOnInit
+            panning={{ velocityDisabled: false }}
+            wheel={{ step: 0.08, smoothStep: 0.004 }}
             doubleClick={{ disabled: true }}
             velocityAnimation={{ sensitivity: 1, animationTime: 200 }}
           >
@@ -407,8 +399,18 @@ export default function SnagDrawingView() {
                   </div>
                 )}
 
-                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', touchAction: 'none' }} contentStyle={{ width: '100%', touchAction: 'none' }}>
-                  <div className="relative inline-block">
+                <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div className="relative inline-block"
+                    style={{ cursor: placingPin ? 'crosshair' : 'grab' }}
+                    onPointerDown={(e) => { if (placingPin) pinTapRef.current = { x: e.clientX, y: e.clientY, time: Date.now() } }}
+                    onPointerUp={(e) => {
+                      if (!placingPin || !pinTapRef.current) return
+                      const dx = Math.abs(e.clientX - pinTapRef.current.x)
+                      const dy = Math.abs(e.clientY - pinTapRef.current.y)
+                      const dt = Date.now() - pinTapRef.current.time
+                      pinTapRef.current = null
+                      if (dx < 8 && dy < 8 && dt < 400) handleOverlayClick(e)
+                    }}>
                     {imgError ? (
                       <div className="w-[800px] h-[600px] bg-white flex items-center justify-center">
                         <p className="text-slate-400 text-sm">Failed to load drawing image</p>
@@ -419,7 +421,7 @@ export default function SnagDrawingView() {
                         src={drawing?.file_url}
                         alt={drawing?.name}
                         className="max-w-none select-none"
-                        style={{ width: '100%', minWidth: '800px' }}
+                        style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
                         onLoad={() => setImageLoaded(true)}
                         onError={(e) => { console.error('Image load error:', e); setImgError(true) }}
                         draggable={false}
@@ -527,7 +529,7 @@ export default function SnagDrawingView() {
           open={showBimUpload}
           onClose={() => setShowBimUpload(false)}
           projectId={drawing?.project_id}
-          companyId={JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id}
+          companyId={JSON.parse(getSession('manager_data') || '{}').company_id}
           models={bimModels}
           onModelsChanged={() => { loadBimData(); setShowBimUpload(false) }}
         />
@@ -540,7 +542,7 @@ export default function SnagDrawingView() {
           onClose={() => setShowBimCalibrate(false)}
           drawingId={drawingId}
           modelId={bimModels[0]?.id}
-          companyId={JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id}
+          companyId={JSON.parse(getSession('manager_data') || '{}').company_id}
           imageUrl={drawing?.file_url}
           existingCalibration={bimCalibration}
           onSaved={(cal) => { setBimCalibration(cal); loadBimData() }}

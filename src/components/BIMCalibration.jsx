@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import Modal from './Modal'
 import LoadingButton from './LoadingButton'
 import { Crosshair, RotateCcw, Check } from 'lucide-react'
+import { getSession } from '../lib/storage'
 
 /**
  * Two-point calibration modal.
@@ -56,7 +57,7 @@ export default function BIMCalibration({ open, onClose, drawingId, modelId, comp
     }
 
     setSaving(true)
-    const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+    const managerData = JSON.parse(getSession('manager_data') || '{}')
 
     const record = {
       drawing_id: drawingId,

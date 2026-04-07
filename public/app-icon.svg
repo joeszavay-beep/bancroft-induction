@@ -1,0 +1,28 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0E1A2E"/>
+      <stop offset="100%" stop-color="#162544"/>
+    </linearGradient>
+    <!-- Clip the crosshair lines so they only show in the C's opening -->
+    <clipPath id="gap">
+      <rect x="560" y="0" width="464" height="1024"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+
+  <!-- The C as a thick arc — geometrically perfect circle segment -->
+  <path d="M 610 268 A 280 280 0 1 0 610 756"
+        fill="none" stroke="white" stroke-width="82" stroke-linecap="round"/>
+
+  <!-- Crosshair lines through the C opening — clipped to the gap -->
+  <g clip-path="url(#gap)">
+    <line x1="512" y1="152" x2="512" y2="872" stroke="#1B6FC8" stroke-width="2" opacity="0.5"/>
+    <line x1="152" y1="512" x2="872" y2="512" stroke="#1B6FC8" stroke-width="2" opacity="0.5"/>
+  </g>
+
+  <!-- Crosshair target dot — sits in the centre of the C -->
+  <circle cx="512" cy="512" r="6" fill="#1B6FC8" opacity="0.7"/>
+</svg>

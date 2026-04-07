@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import Modal from './Modal'
 import LoadingButton from './LoadingButton'
 import { Upload, Box, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react'
+import { getSession } from '../lib/storage'
 
 /**
  * BIM Model upload and management panel.
@@ -61,7 +62,7 @@ export default function BIMUpload({ open, onClose, projectId, companyId, models,
       setProgress(85)
       setProgressLabel(`Found ${elements.length} MEP elements. Saving...`)
 
-      const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+      const managerData = JSON.parse(getSession('manager_data') || '{}')
 
       // Create BIM model record
       const { data: model, error: modelErr } = await supabase.from('bim_models').insert({

@@ -146,7 +146,7 @@ export default function SnagReply() {
   return (
     <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50">
       {/* Header */}
-      <header className="bg-[#0D1526] px-4 py-3">
+      <header className="bg-[#1A2744] px-4 py-3">
         <div className="max-w-lg mx-auto flex items-center gap-3">
           <img src="/coresite-logo.svg" alt="CoreSite" className="h-7 brightness-0 invert" />
           <span className="text-white/40 text-xs">Snag Completion</span>

@@ -8,6 +8,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight, Camera, X,
   Send, ZoomIn, Upload, ArrowLeft, Paperclip
 } from 'lucide-react'
+import { getSession, removeSession } from '../lib/storage'
 
 const QUICK_MESSAGES = [
   { icon: 'Package', label: 'Material Request', text: 'Material needed: ' },
@@ -48,7 +49,7 @@ export default function OperativeDashboard() {
   const [lightbox, setLightbox] = useState(null)
 
   useEffect(() => {
-    const session = sessionStorage.getItem('operative_session')
+    const session = getSession('operative_session')
     if (!session) { navigate('/worker-login'); return }
     const data = JSON.parse(session)
     setOp(data)
@@ -195,7 +196,7 @@ export default function OperativeDashboard() {
   }
 
   function handleLogout() {
-    sessionStorage.removeItem('operative_session')
+    removeSession('operative_session')
     navigate('/worker-login')
   }
 
@@ -235,7 +236,7 @@ export default function OperativeDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-[#0D1526]">
+      <div className="min-h-dvh flex items-center justify-center bg-[#1A2744]">
         <div className="animate-spin w-8 h-8 border-2 border-white/20 border-t-white rounded-full" />
       </div>
     )
@@ -255,7 +256,7 @@ export default function OperativeDashboard() {
       {selectedSnag && (
         <div className="fixed inset-0 z-50 flex flex-col bg-white">
           {/* Header */}
-          <header className="bg-[#0D1526] text-white px-4 py-3 flex items-center gap-3 shrink-0">
+          <header className="bg-[#1A2744] text-white px-4 py-3 flex items-center gap-3 shrink-0">
             <button onClick={() => setSelectedSnag(null)} className="p-1.5 hover:bg-white/10 rounded-lg"><ArrowLeft size={20} /></button>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold">Snag #{selectedSnag.snag_number}</p>
@@ -405,7 +406,7 @@ function HomeTab({ op, unsignedDocs, unsignedTalks, snags, overdueSnags, pending
   return (
     <div className="p-4 space-y-4">
       {/* Welcome */}
-      <div className="bg-[#0D1526] rounded-xl p-5 text-white">
+      <div className="bg-[#1A2744] rounded-xl p-5 text-white">
         <p className="text-lg font-bold">Hi {op.name?.split(' ')[0]}</p>
         <p className="text-sm text-white/50">{op.project_name || 'No project assigned'}{op.role ? ` · ${op.role}` : ''}</p>
         {pendingActions > 0 ? (
@@ -685,7 +686,7 @@ function ProfileTab({ op, handleLogout, navigate, primaryColor }) {
   return (
     <div className="p-4 space-y-4">
       {/* Profile card — dark header */}
-      <div className="bg-[#0D1526] rounded-xl overflow-hidden">
+      <div className="bg-[#1A2744] rounded-xl overflow-hidden">
         <div className="p-5 flex flex-col items-center">
           {op.photo_url ? (
             <img src={op.photo_url} alt={op.name} className="w-20 h-20 rounded-full object-cover border-3 border-white/20" />

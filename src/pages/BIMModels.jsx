@@ -2,12 +2,15 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { BIM_CATEGORIES } from '../lib/bimUtils'
 import toast from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 import {
   Box, Upload, Trash2, CheckCircle2, AlertCircle, ChevronDown, ChevronRight,
-  Search
+  Search, Cuboid
 } from 'lucide-react'
+import { getSession } from '../lib/storage'
 
 export default function BIMModels() {
+  const navigate = useNavigate()
   const fileRef = useRef(null)
   const [projects, setProjects] = useState([])
   const [selectedProject, setSelectedProject] = useState('')
@@ -22,7 +25,7 @@ export default function BIMModels() {
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
 
-  const managerData = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+  const managerData = JSON.parse(getSession('manager_data') || '{}')
 
   useEffect(() => { loadProjects() }, [])
   useEffect(() => { if (selectedProject) loadModels() }, [selectedProject])
@@ -255,6 +258,12 @@ export default function BIMModels() {
                       {m.element_count} elements · {m.ifc_schema} {sizeMB && `· ${sizeMB} MB`} · {new Date(m.created_at).toLocaleDateString('en-GB')}
                     </p>
                   </div>
+                  {m.status === 'ready' && (
+                    <button onClick={(e) => { e.stopPropagation(); navigate(`/bim-3d/${m.id}`) }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-xs font-semibold rounded-lg transition-colors">
+                      <Cuboid size={14} /> View 3D
+                    </button>
+                  )}
                   <button onClick={(e) => { e.stopPropagation(); handleDelete(m.id) }}
                     disabled={deleting === m.id}
                     className="p-2 text-slate-400 hover:text-red-500 transition-colors">

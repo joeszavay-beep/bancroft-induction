@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import LoadingButton from '../components/LoadingButton'
 import DateOfBirthPicker from '../components/DateOfBirthPicker'
 import { HardHat, Mail } from 'lucide-react'
+import { getSession, setSession, removeSession } from '../lib/storage'
 
 export default function OperativeLogin() {
   const navigate = useNavigate()
@@ -48,12 +49,12 @@ export default function OperativeLogin() {
         company_logo: op.companies?.logo_url,
         primary_colour: op.companies?.primary_colour || '#1B6FC8',
       }
-      sessionStorage.setItem('operative_session', JSON.stringify(sessionData))
+      setSession('operative_session', JSON.stringify(sessionData))
 
       // Check for return URL (e.g. from email invite link)
-      const returnUrl = sessionStorage.getItem('operative_return_url')
+      const returnUrl = getSession('operative_return_url')
       if (returnUrl) {
-        sessionStorage.removeItem('operative_return_url')
+        removeSession('operative_return_url')
         navigate(returnUrl)
       } else {
         navigate('/worker')
@@ -65,7 +66,7 @@ export default function OperativeLogin() {
   }
 
   return (
-    <div className="min-h-dvh bg-[#0D1526] flex flex-col items-center justify-center px-6">
+    <div className="min-h-dvh bg-[#1A2744] flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">

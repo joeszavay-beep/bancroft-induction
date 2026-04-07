@@ -1,5 +1,6 @@
 import { useCompany } from '../lib/CompanyContext'
 import { Eye, X } from 'lucide-react'
+import { removeSession } from '../lib/storage'
 
 export default function DemoBanner() {
   const { isDemo } = useCompany()
@@ -8,8 +9,8 @@ export default function DemoBanner() {
 
   function exitDemo() {
     sessionStorage.removeItem('sandbox_mode')
-    sessionStorage.removeItem('pm_auth')
-    sessionStorage.removeItem('manager_data')
+    removeSession('pm_auth')
+    removeSession('manager_data')
     window.location.href = '/'
   }
 

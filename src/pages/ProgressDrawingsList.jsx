@@ -7,6 +7,7 @@ import Modal from '../components/Modal'
 import LoadingButton from '../components/LoadingButton'
 import { Upload, Trash2, ChevronRight, Layers, BarChart3, Download, Edit3, Plus } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
+import { getSession } from '../lib/storage'
 
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Lighting', 'Other']
 const STATUS_COLORS = { green: '#2EA043', yellow: '#D29922', red: '#DA3633' }
@@ -14,7 +15,7 @@ const STATUS_COLORS = { green: '#2EA043', yellow: '#D29922', red: '#DA3633' }
 export default function ProgressDrawingsList() {
   const navigate = useNavigate()
   const { company } = useCompany()
-  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
+  const cid = JSON.parse(getSession('manager_data') || '{}').company_id
   const [drawings, setDrawings] = useState([])
   const [itemCounts, setItemCounts] = useState({})
   const [projects, setProjects] = useState([])
@@ -102,7 +103,7 @@ export default function ProgressDrawingsList() {
     if (upErr) { setSaving(false); toast.error('Upload failed'); return }
 
     const { data: urlData } = supabase.storage.from('progress-drawings').getPublicUrl(filePath)
-    const mgr = JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+    const mgr = JSON.parse(getSession('manager_data') || '{}')
 
     const { data: newDrawing, error: dbErr } = await supabase.from('progress_drawings').insert({
       company_id: cid,

@@ -102,7 +102,7 @@ export default function WhyCoreSite() {
       <div className="relative overflow-hidden">
         <div className="absolute inset-0">
           <img src="/hero.jpg" alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0D1526]/92 via-[#0D1526]/80 to-[#0D1526]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#1A2744]/92 via-[#1A2744]/80 to-[#1A2744]" />
         </div>
 
         <div className="relative z-10">
@@ -153,7 +153,7 @@ export default function WhyCoreSite() {
       </div>
 
       {/* ═══════════ STATS ═══════════ */}
-      <section className="bg-[#0D1526] py-14 px-6 -mt-1">
+      <section className="bg-[#1A2744] py-14 px-6 -mt-1">
         <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-8">
           {[
             { value: 14, suffix: '', label: 'Features built in' },
@@ -263,7 +263,7 @@ export default function WhyCoreSite() {
       </section>
 
       {/* ═══════════ SECURITY ═══════════ */}
-      <section className="py-20 px-6 bg-[#0D1526]">
+      <section className="py-20 px-6 bg-[#1A2744]">
         <div className="max-w-4xl mx-auto text-center">
           <FadeIn>
             <Lock size={28} className="text-[#3B7DD8] mx-auto mb-4" />
@@ -301,7 +301,7 @@ export default function WhyCoreSite() {
                 { name: 'Professional', price: 'Get in touch', period: '', desc: '5 projects, 50 workers', features: ['Everything in Starter', 'Priority support', 'Custom branding', 'API access'], highlight: true },
                 { name: 'Enterprise', price: 'Custom', period: '', desc: 'Unlimited everything', features: ['Everything in Pro', 'Dedicated account manager', 'SLA guarantee', 'SSO integration'] },
               ].map((plan, i) => (
-                <div key={i} className={`rounded-xl p-6 ${plan.highlight ? 'bg-[#0D1526] text-white ring-2 ring-[#3B7DD8] scale-[1.02]' : 'bg-white border border-[#E2E6EA]'}`}>
+                <div key={i} className={`rounded-xl p-6 ${plan.highlight ? 'bg-[#1A2744] text-white ring-2 ring-[#3B7DD8] scale-[1.02]' : 'bg-white border border-[#E2E6EA]'}`}>
                   <p className={`text-xs font-bold uppercase tracking-wider mb-3 ${plan.highlight ? 'text-[#3B7DD8]' : 'text-[#6B7A99]'}`}>{plan.name}</p>
                   <p className={`text-2xl font-bold mb-0.5 ${plan.highlight ? 'text-white' : 'text-[#1A1A2E]'}`}>{plan.price}</p>
                   {plan.period && <p className={`text-xs mb-3 ${plan.highlight ? 'text-white/50' : 'text-[#B0B8C9]'}`}>{plan.period}</p>}
@@ -344,7 +344,7 @@ export default function WhyCoreSite() {
       </section>
 
       {/* ═══════════ FOOTER ═══════════ */}
-      <footer className="bg-[#0D1526] py-12 px-6">
+      <footer className="bg-[#1A2744] py-12 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-8">
             <span className="text-lg text-white font-light tracking-[3px]">CORE<span className="font-bold tracking-normal">SITE</span></span>
@@ -380,7 +380,7 @@ export default function WhyCoreSite() {
               </div>
             ) : (
               <>
-                <div className="bg-[#0D1526] px-6 py-4 flex items-center justify-between">
+                <div className="bg-[#1A2744] px-6 py-4 flex items-center justify-between">
                   <div>
                     <h2 className="text-white font-semibold">Book a Demo</h2>
                     <p className="text-white/40 text-xs mt-0.5">See CoreSite in action — it takes 15 minutes</p>

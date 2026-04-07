@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
 import { BarChart3, Search, Check, X, Clock, RotateCcw } from 'lucide-react'
+import { getSession } from '../lib/storage'
 
 export default function InvitationsPipeline() {
   const { company } = useCompany()
-  const cid = JSON.parse(sessionStorage.getItem('manager_data') || '{}').company_id
+  const cid = JSON.parse(getSession('manager_data') || '{}').company_id
   const [operatives, setOperatives] = useState([])
   const [documents, setDocuments] = useState([])
   const [signatures, setSignatures] = useState([])

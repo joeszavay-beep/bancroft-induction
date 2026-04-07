@@ -11,6 +11,7 @@ import {
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
   Globe, Settings, User, Shield, Image, Layers, BookOpen, CheckSquare, Activity, Bell, Box
 } from 'lucide-react'
+import { getSession } from '../lib/storage'
 
 const NAV_SECTIONS = [
   {
@@ -91,7 +92,7 @@ export default function SidebarLayout({ children }) {
 
   const { company, user, logout: ctxLogout } = useCompany()
   const { isDark, toggleTheme } = useTheme()
-  const managerData = user || JSON.parse(sessionStorage.getItem('manager_data') || '{}')
+  const managerData = user || JSON.parse(getSession('manager_data') || '{}')
   const isAdmin = managerData.role === 'admin' || managerData.role === 'super_admin'
   // Only show super admin for the Bancroft admin (first company) or super_admin role
   const isSuperAdmin = managerData.role === 'super_admin' || (managerData.role === 'admin' && managerData.company_id === '00000000-0000-0000-0000-000000000001')
@@ -100,7 +101,7 @@ export default function SidebarLayout({ children }) {
   const companyName = company?.name || 'Company'
   const companyLogo = company?.logo_url || null
   const primaryColor = company?.primary_colour || '#1B6FC8'
-  const sidebarColor = company?.secondary_colour || '#0D1526'
+  const sidebarColor = company?.secondary_colour || '#1A2744'
 
   function toggleSection(title) {
     setExpandedSections(prev =>

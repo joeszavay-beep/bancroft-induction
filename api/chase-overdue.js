@@ -89,7 +89,7 @@ export default async function handler(req, res) {
 
       const html = `
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
-          <div style="background:#0D1526;padding:20px 24px;border-radius:12px 12px 0 0">
+          <div style="background:#1A2744;padding:20px 24px;border-radius:12px 12px 0 0">
             <span style="color:white;font-size:18px;font-weight:300;letter-spacing:2px">CORE<span style="font-weight:700">SITE</span></span>
           </div>
           <div style="padding:24px;background:white;border:1px solid #E2E6EA;border-top:none;border-radius:0 0 12px 12px">

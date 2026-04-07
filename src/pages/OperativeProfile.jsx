@@ -6,6 +6,7 @@ import LoadingButton from '../components/LoadingButton'
 import { ArrowLeft, User, Shield, Phone, Users, CreditCard, Camera, ZoomIn, X, CheckCircle2, ExternalLink } from 'lucide-react'
 import AddressLookup from '../components/AddressLookup'
 import DateOfBirthPicker from '../components/DateOfBirthPicker'
+import { getSession, setSession } from '../lib/storage'
 
 const inputCls = "w-full px-3.5 py-2.5 border border-[#E2E6EA] rounded-lg text-[#1A1A2E] placeholder-[#B0B8C9] text-sm focus:outline-none focus:border-[#1B6FC8] focus:ring-2 focus:ring-[#1B6FC8]/10 bg-white"
 const labelCls = "text-[11px] text-[#6B7A99] font-medium mb-1 block uppercase tracking-wider"
@@ -119,8 +120,8 @@ export default function OperativeProfile() {
     if (error) { toast.error('Failed to save'); return }
     toast.success('Profile saved')
 
-    if (!sessionStorage.getItem('operative_session')) {
-      sessionStorage.setItem('operative_session', JSON.stringify({
+    if (!getSession('operative_session')) {
+      setSession('operative_session', JSON.stringify({
         id: operative.id, name: operative.name, email: email.trim() || operative.email,
         role: (role === 'Other' ? otherRole.trim() : role.trim()) || operative.role,
         photo_url: operative.photo_url, project_id: operative.project_id,
@@ -134,11 +135,11 @@ export default function OperativeProfile() {
     }
   }
 
-  const goBack = () => navigate(sessionStorage.getItem('operative_session') ? '/worker' : `/operative/${operativeId}/documents`)
+  const goBack = () => navigate(getSession('operative_session') ? '/worker' : `/operative/${operativeId}/documents`)
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center" style={{ backgroundColor: '#0D1526' }}>
+      <div className="min-h-dvh flex items-center justify-center" style={{ backgroundColor: '#1A2744' }}>
         <div className="animate-spin w-8 h-8 border-2 border-white/30 border-t-white rounded-full" />
       </div>
     )
@@ -151,7 +152,7 @@ export default function OperativeProfile() {
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: '#F5F6F8' }}>
       {/* Dark header */}
-      <header className="bg-[#0D1526] text-white px-4 py-3 flex items-center gap-3 shrink-0">
+      <header className="bg-[#1A2744] text-white px-4 py-3 flex items-center gap-3 shrink-0">
         <button onClick={goBack} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
           <ArrowLeft size={20} />
         </button>
