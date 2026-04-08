@@ -77,6 +77,8 @@ export default function DXFViewer() {
   const [calibrating, setCalibrating] = useState(false)
   const [calPoints, setCalPoints] = useState([])
   const [calDistanceInput, setCalDistanceInput] = useState('')
+  const [calScale, setCalScale] = useState(100) // default 1:100
+  const [calDimInput, setCalDimInput] = useState('')
 
   // Track pointer for tap detection (avoid marking on pan)
   const tapRef = useRef(null)
@@ -221,6 +223,32 @@ export default function DXFViewer() {
     setCalPoints([])
     setCalDistanceInput('')
     toast.success(`Scale set: ${calcMetresPerPercent(cal)?.toFixed(4)} m/%`)
+  }
+
+  function confirmCalibrationWithScale() {
+    const dim = parseFloat(calDimInput)
+    if (!dim || dim <= 0 || !calScale || calPoints.length !== 2) {
+      toast.error('Pick a scale and enter the dimension shown on the drawing')
+      return
+    }
+    // Real distance = dimension on drawing (mm) × scale factor, converted to metres
+    // At 1:100, a 7200mm dimension on the drawing represents 7200mm in real life
+    // The dimension IS the real-world dimension (it's what's written on the drawing)
+    // So real distance = calDimInput mm / 1000 = metres
+    const realMetres = dim / 1000
+    const cal = {
+      point1: calPoints[0],
+      point2: calPoints[1],
+      distanceMetres: realMetres,
+      scale: calScale,
+      dimensionMm: dim,
+    }
+    saveCalibration(drawingId, cal)
+    setCalibration(cal)
+    setCalibrating(false)
+    setCalPoints([])
+    setCalDimInput('')
+    toast.success(`Scale set at 1:${calScale} — ${realMetres}m between calibration points`)
   }
 
   function cancelCalibration() {
@@ -441,42 +469,61 @@ export default function DXFViewer() {
             </p>
           ) : (
             <div className="flex flex-wrap items-center gap-2 flex-1">
-              <p className="text-xs text-blue-700 font-medium shrink-0">Distance between points:</p>
-
-              {/* Quick presets — common grid spacings */}
+              {/* Drawing scale presets */}
+              <p className="text-xs text-blue-700 font-medium shrink-0">Drawing scale:</p>
               <div className="flex items-center gap-1">
-                {['1.2', '1.5', '2.4', '3.0', '3.6', '5.0', '6.0', '7.2', '7.5', '8.4', '9.0', '10.0'].map(val => (
+                {[
+                  { label: '1:1', scale: 1 },
+                  { label: '1:5', scale: 5 },
+                  { label: '1:10', scale: 10 },
+                  { label: '1:20', scale: 20 },
+                  { label: '1:50', scale: 50 },
+                  { label: '1:100', scale: 100 },
+                  { label: '1:200', scale: 200 },
+                  { label: '1:500', scale: 500 },
+                ].map(preset => (
                   <button
-                    key={val}
-                    onClick={() => { setCalDistanceInput(val) }}
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
-                      calDistanceInput === val
+                    key={preset.label}
+                    onClick={() => setCalScale(preset.scale)}
+                    className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${
+                      calScale === preset.scale
                         ? 'bg-blue-500 text-white'
                         : 'bg-white border border-blue-200 text-blue-700 hover:bg-blue-100'
                     }`}
                   >
-                    {val}m
+                    {preset.label}
                   </button>
                 ))}
               </div>
 
-              <span className="text-[10px] text-blue-400 mx-1">or</span>
-
+              {/* Dimension input — what does the drawing say between your two points? */}
+              <p className="text-xs text-blue-700 font-medium shrink-0 ml-2">Dimension on drawing:</p>
               <input
                 type="number"
                 step="any"
-                min="0.01"
-                value={calDistanceInput}
-                onChange={e => setCalDistanceInput(e.target.value)}
-                placeholder="e.g. 7.2"
+                min="1"
+                value={calDimInput}
+                onChange={e => setCalDimInput(e.target.value)}
+                placeholder="e.g. 7200"
                 className="w-20 px-2 py-1 bg-white border border-blue-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-blue-400"
                 autoFocus
-                onKeyDown={e => { if (e.key === 'Enter') confirmCalibration() }}
+                onKeyDown={e => { if (e.key === 'Enter') confirmCalibrationWithScale() }}
               />
-              <span className="text-xs text-blue-600">m</span>
+              <span className="text-[10px] text-blue-600">mm</span>
+
+              {/* Calculated real distance */}
+              {calScale && calDimInput && (
+                <span className="text-xs text-green-600 font-semibold ml-1">
+                  = {(parseFloat(calDimInput) * calScale / 1000).toFixed(2)}m real
+                </span>
+              )}
+
               <button
-                onClick={confirmCalibration}
-                className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg transition-colors"
+                onClick={confirmCalibrationWithScale}
+                disabled={!calScale || !calDimInput}
+                className={`px-3 py-1.5 text-white text-xs font-semibold rounded-lg transition-colors ml-1 ${
+                  calScale && calDimInput ? 'bg-blue-500 hover:bg-blue-600' : 'bg-slate-300 cursor-not-allowed'
+                }`}
               >
                 Confirm
               </button>
