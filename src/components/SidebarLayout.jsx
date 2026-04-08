@@ -9,7 +9,7 @@ import DemoBanner from './DemoBanner'
 import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
-  Globe, Settings, User, Shield, Image, Layers, BookOpen, CheckSquare, Activity, Bell, Box
+  Globe, Settings, User, Shield, Image, Layers, BookOpen, CheckSquare, Activity, Bell, Box, CalendarRange
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
 
@@ -57,6 +57,7 @@ const NAV_SECTIONS = [
     title: 'Programme',
     items: [
       { label: 'Programme Dashboard', path: '/app/programme', icon: Activity },
+      { label: 'Master Programme', path: '/app/master-programme', icon: CalendarRange },
     ],
   },
   {

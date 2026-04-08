@@ -44,6 +44,7 @@ import SiteAttendance from './pages/SiteAttendance'
 import BIMModels from './pages/BIMModels'
 import BIMViewer3D from './pages/BIMViewer3D'
 import ProgrammeDashboard from './pages/ProgrammeDashboard'
+import MasterProgramme from './pages/MasterProgramme'
 import ProgrammeSetup from './pages/ProgrammeSetup'
 import DXFViewer from './pages/DXFViewer'
 import OperativeLogin from './pages/OperativeLogin'
@@ -95,6 +96,7 @@ function AppLayout() {
         <Route path="/progress" element={<ProgressDrawingsList />} />
         <Route path="/bim" element={<BIMModels />} />
         <Route path="/programme" element={<ProgrammeDashboard />} />
+        <Route path="/master-programme" element={<MasterProgramme />} />
         <Route path="/snags" element={<PMDashboard key="snags" initialTab="snags" />} />
         <Route path="/drawings" element={<PMDashboard key="drawings" initialTab="snags" />} />
         <Route path="/toolbox" element={<PMDashboard key="toolbox" initialTab="toolbox" />} />
