@@ -493,66 +493,50 @@ export default function DXFViewer() {
         )}
 
         <TransformWrapper
-          initialScale={1}
+          initialScale={0.3}
           minScale={0.1}
           maxScale={30}
-          wheel={{ step: 0.1 }}
+          centerOnInit
+          wheel={{ step: 0.08 }}
           panning={{ disabled: blockPan }}
         >
-          {({ zoomIn, zoomOut }) => {
-            // Wire zoom buttons via effect
-            useEffect(() => {
-              const inBtn = document.getElementById('prog-zoom-in')
-              const outBtn = document.getElementById('prog-zoom-out')
-              const handleIn = () => zoomIn()
-              const handleOut = () => zoomOut()
-              inBtn?.addEventListener('click', handleIn)
-              outBtn?.addEventListener('click', handleOut)
-              return () => {
-                inBtn?.removeEventListener('click', handleIn)
-                outBtn?.removeEventListener('click', handleOut)
-              }
-            }, [zoomIn, zoomOut])
-
-            return (
-              <TransformComponent
-                wrapperStyle={{ width: '100%', height: '100%' }}
-                contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <div
-                  className="relative inline-block"
-                  style={{ cursor: blockPan ? 'crosshair' : 'grab' }}
-                  onPointerDown={handlePointerDown}
-                  onPointerUp={handlePointerUp}
-                  onDoubleClick={handleDoubleClick}
-                >
-                  {imgError ? (
-                    <div className="w-[800px] h-[600px] bg-white flex items-center justify-center">
-                      <p className="text-slate-400 text-sm">Failed to load drawing</p>
-                    </div>
-                  ) : isPDF(visualUrl) ? (
-                    <PDFRenderer
-                      ref={imageRef}
-                      src={visualUrl}
-                      alt={drawing?.name}
-                      className="max-w-none select-none"
-                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-                      onLoad={() => setImageLoaded(true)}
-                      onError={() => setImgError(true)}
-                      draggable={false}
-                    />
-                  ) : (
-                    <img
-                      ref={imageRef}
-                      src={visualUrl}
-                      alt={drawing?.name}
-                      className="max-w-none select-none"
-                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-                      onLoad={() => setImageLoaded(true)}
-                      onError={() => setImgError(true)}
-                      draggable={false}
-                    />
-                  )}
+          <TransformComponent
+            wrapperStyle={{ width: '100%', height: '100%' }}
+            contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <div
+              className="relative inline-block"
+              style={{ cursor: blockPan ? 'crosshair' : 'grab' }}
+              onPointerDown={handlePointerDown}
+              onPointerUp={handlePointerUp}
+              onDoubleClick={handleDoubleClick}
+            >
+              {imgError ? (
+                <div className="w-[800px] h-[600px] bg-white flex items-center justify-center">
+                  <p className="text-slate-400 text-sm">Failed to load drawing</p>
+                </div>
+              ) : isPDF(visualUrl) ? (
+                <PDFRenderer
+                  ref={imageRef}
+                  src={visualUrl}
+                  alt={drawing?.name}
+                  className="select-none"
+                  style={{}}
+                  onLoad={() => setImageLoaded(true)}
+                  onError={() => setImgError(true)}
+                  draggable={false}
+                />
+              ) : (
+                <img
+                  ref={imageRef}
+                  src={visualUrl}
+                  alt={drawing?.name}
+                  className="select-none"
+                  onLoad={() => setImageLoaded(true)}
+                  onError={() => setImgError(true)}
+                  draggable={false}
+                />
+              )}
 
                   {/* SVG overlay for markup lines + calibration points */}
                   {imageLoaded && (
@@ -665,9 +649,7 @@ export default function DXFViewer() {
                     </svg>
                   )}
                 </div>
-              </TransformComponent>
-            )
-          }}
+          </TransformComponent>
         </TransformWrapper>
       </div>
 
