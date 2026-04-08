@@ -4,6 +4,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
 import { parseDXF, entitiesToSVGPaths, calculateLayerLength } from '../lib/dxfParser'
+import PDFRenderer, { isPDF } from '../components/PDFRenderer'
 import toast from 'react-hot-toast'
 import {
   ArrowLeft, Layers, Plus, Check, ChevronRight,
@@ -299,13 +300,13 @@ export default function ProgrammeSetup() {
 
                 {visualPreviewUrl ? (
                   <div className="space-y-2">
-                    {isVisualPdf ? (
-                      <div className="w-full h-24 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200">
-                        <div className="text-center">
-                          <p className="text-xs font-medium text-slate-600">PDF uploaded</p>
-                          <p className="text-[10px] text-slate-400">Convert to PNG for best results</p>
-                        </div>
-                      </div>
+                    {isPDF(visualPreviewUrl) ? (
+                      <PDFRenderer
+                        src={visualPreviewUrl}
+                        alt="Visual drawing preview"
+                        className="w-full h-auto max-h-40 object-contain rounded-lg border border-slate-200 bg-white"
+                        style={{ maxHeight: '160px' }}
+                      />
                     ) : (
                       <img
                         src={visualPreviewUrl}

@@ -4,6 +4,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
 import { calculateProgress } from '../lib/progressEngine'
+import PDFRenderer, { isPDF } from '../components/PDFRenderer'
 import toast from 'react-hot-toast'
 import {
   ArrowLeft, Pencil, Check, Undo2, Trash2, ZoomIn, ZoomOut,
@@ -527,8 +528,19 @@ export default function DXFViewer() {
                 >
                   {imgError ? (
                     <div className="w-[800px] h-[600px] bg-white flex items-center justify-center">
-                      <p className="text-slate-400 text-sm">Failed to load drawing image</p>
+                      <p className="text-slate-400 text-sm">Failed to load drawing</p>
                     </div>
+                  ) : isPDF(visualUrl) ? (
+                    <PDFRenderer
+                      ref={imageRef}
+                      src={visualUrl}
+                      alt={drawing?.name}
+                      className="max-w-none select-none"
+                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
+                      onLoad={() => setImageLoaded(true)}
+                      onError={() => setImgError(true)}
+                      draggable={false}
+                    />
                   ) : (
                     <img
                       ref={imageRef}
