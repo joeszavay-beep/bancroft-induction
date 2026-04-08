@@ -472,26 +472,6 @@ export default function DXFViewer() {
 
       {/* Main drawing area */}
       <div className="flex-1 relative overflow-hidden">
-        {/* Zoom controls */}
-        <div className="absolute top-3 right-3 z-10 flex flex-col gap-1">
-          <ZoomButton id="prog-zoom-in">
-            <ZoomIn size={16} className="text-slate-600" />
-          </ZoomButton>
-          <ZoomButton id="prog-zoom-out">
-            <ZoomOut size={16} className="text-slate-600" />
-          </ZoomButton>
-        </div>
-
-        {/* Calibration re-do button (when already calibrated) */}
-        {calibration && !calibrating && (
-          <button
-            onClick={() => { setCalibrating(true); setCalPoints([]) }}
-            className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1.5 bg-white/90 border border-slate-200 rounded-lg text-[10px] text-slate-600 font-medium hover:bg-white transition-colors shadow-sm"
-          >
-            <Ruler size={12} /> Re-calibrate
-          </button>
-        )}
-
         <TransformWrapper
           initialScale={0.3}
           minScale={0.1}
@@ -500,6 +480,36 @@ export default function DXFViewer() {
           wheel={{ step: 0.08 }}
           panning={{ disabled: blockPan }}
         >
+          {({ zoomIn, zoomOut }) => (
+          <>
+          {/* Zoom controls */}
+          <div className="absolute top-3 right-3 z-10 flex flex-col gap-1">
+            <button onClick={() => zoomIn()} className="p-2 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors">
+              <ZoomIn size={16} className="text-slate-600" />
+            </button>
+            <button onClick={() => zoomOut()} className="p-2 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors">
+              <ZoomOut size={16} className="text-slate-600" />
+            </button>
+          </div>
+
+          {/* Calibration re-do button */}
+          {calibration && !calibrating && (
+            <button
+              onClick={() => { setCalibrating(true); setCalPoints([]) }}
+              className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1.5 bg-white/90 border border-slate-200 rounded-lg text-[10px] text-slate-600 font-medium hover:bg-white transition-colors shadow-sm"
+            >
+              <Ruler size={12} /> Re-calibrate
+            </button>
+          )}
+
+          {/* Live measurement while drawing */}
+          {drawMode && currentPoints.length >= 1 && metresPerPercent && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 px-4 py-2 bg-slate-900/80 backdrop-blur rounded-lg text-white text-sm font-semibold shadow-lg">
+              Current line: {calcPolylineLengthMetres(currentPoints, metresPerPercent)}m
+              <span className="text-white/50 ml-2">({currentPoints.length} points — double-click to finish)</span>
+            </div>
+          )}
+
           <TransformComponent
             wrapperStyle={{ width: '100%', height: '100%' }}
             contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -650,6 +660,8 @@ export default function DXFViewer() {
                   )}
                 </div>
           </TransformComponent>
+          </>
+          )}
         </TransformWrapper>
       </div>
 
@@ -748,10 +760,3 @@ export default function DXFViewer() {
   )
 }
 
-function ZoomButton({ id, children }) {
-  return (
-    <button id={id} className="p-2 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors">
-      {children}
-    </button>
-  )
-}
