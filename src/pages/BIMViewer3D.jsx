@@ -173,7 +173,7 @@ function IFCModel({ meshes, shellMeshes, shellVisible, shellOpacity, selectedId,
 
       {/* MEP merged groups — keyed by xrayMode to force material rebuild */}
       {mergedGroups.map((g, i) => (
-        <mesh key={`${i}-${xrayMode}`} geometry={g.geometry} raycast={() => {}}>
+        <mesh key={`${i}-${xrayMode}`} geometry={g.geometry}>
           <meshStandardMaterial
             color={g.color}
             emissive={xrayMode ? g.color : '#000000'}
@@ -452,6 +452,29 @@ function PanelSection({ title, icon: Icon, children, defaultOpen = true }) {
 }
 
 /* ============================================================
+   SnapIndicator — camera-distance-aware snap preview dot
+   ============================================================ */
+
+function SnapIndicator({ position }) {
+  const ref = useRef()
+  const { camera } = useThree()
+
+  useFrame(() => {
+    if (!ref.current) return
+    const dist = camera.position.distanceTo(position)
+    const scale = Math.max(0.01, dist * 0.012)
+    ref.current.scale.setScalar(scale)
+  })
+
+  return (
+    <mesh ref={ref} position={position}>
+      <sphereGeometry args={[1, 16, 16]} />
+      <meshBasicMaterial color="#F59E0B" transparent opacity={0.9} depthTest={false} />
+    </mesh>
+  )
+}
+
+/* ============================================================
    MeasurementLine — renders dashed line + distance label
    ============================================================ */
 
@@ -475,16 +498,8 @@ function MeasurementLine({ start, end }) {
           {distance.toFixed(2)} m
         </div>
       </Html>
-      {/* Start dot */}
-      <mesh position={start}>
-        <sphereGeometry args={[0.06, 12, 12]} />
-        <meshBasicMaterial color="#F59E0B" />
-      </mesh>
-      {/* End dot */}
-      <mesh position={end}>
-        <sphereGeometry args={[0.06, 12, 12]} />
-        <meshBasicMaterial color="#F59E0B" />
-      </mesh>
+      <SnapIndicator position={start} />
+      <SnapIndicator position={end} />
     </>
   )
 }
@@ -1215,12 +1230,9 @@ export default function BIMViewer3D() {
 
               <MeasurementLine start={measureStart} end={measureEnd} />
               <MeasureClickHandler active={measureMode} onPoint={handleMeasurePoint} snap={measureSnap} onPreview={setMeasurePreview} />
-              {/* Snap preview indicator */}
+              {/* Snap preview indicator — scales with camera distance */}
               {measureMode && measurePreview && (
-                <mesh position={measurePreview}>
-                  <sphereGeometry args={[0.08, 16, 16]} />
-                  <meshBasicMaterial color="#F59E0B" transparent opacity={0.8} />
-                </mesh>
+                <SnapIndicator position={measurePreview} />
               )}
 
               {!xrayMode && <gridHelper args={[1000, 100, '#1E293B', '#1E293B']} position={[0, -0.1, 0]} />}
