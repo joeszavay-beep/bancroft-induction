@@ -43,6 +43,9 @@ import Chat from './pages/Chat'
 import SiteAttendance from './pages/SiteAttendance'
 import BIMModels from './pages/BIMModels'
 import BIMViewer3D from './pages/BIMViewer3D'
+import ProgrammeDashboard from './pages/ProgrammeDashboard'
+import ProgrammeSetup from './pages/ProgrammeSetup'
+import DXFViewer from './pages/DXFViewer'
 import OperativeLogin from './pages/OperativeLogin'
 import SandboxEntry from './pages/SandboxEntry'
 import OperativeDashboard from './pages/OperativeDashboard'
@@ -91,6 +94,7 @@ function AppLayout() {
         <Route path="/inspections" element={<Inspections />} />
         <Route path="/progress" element={<ProgressDrawingsList />} />
         <Route path="/bim" element={<BIMModels />} />
+        <Route path="/programme" element={<ProgrammeDashboard />} />
         <Route path="/snags" element={<PMDashboard key="snags" initialTab="snags" />} />
         <Route path="/drawings" element={<PMDashboard key="drawings" initialTab="snags" />} />
         <Route path="/toolbox" element={<PMDashboard key="toolbox" initialTab="toolbox" />} />
@@ -138,6 +142,8 @@ export default function App() {
       <Route path="/snags/:drawingId" element={<SnagDrawingView />} />
       <Route path="/progress/:drawingId" element={<ProgressViewer />} />
       <Route path="/bim-3d/:modelId" element={<BIMViewer3D />} />
+      <Route path="/programme/setup/:drawingId" element={<ProgrammeSetup />} />
+      <Route path="/programme/drawing/:drawingId" element={<DXFViewer />} />
 
       {/* Super admin (no sidebar) */}
       <Route path="/superadmin" element={<SuperAdminPanel />} />

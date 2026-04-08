@@ -54,6 +54,12 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    title: 'Programme',
+    items: [
+      { label: 'Programme Dashboard', path: '/app/programme', icon: Activity },
+    ],
+  },
+  {
     title: 'BIM',
     items: [
       { label: 'BIM Models', path: '/app/bim', icon: Box },
@@ -88,7 +94,7 @@ export default function SidebarLayout({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Progress', 'Snags', 'BIM', 'H&S', 'Portal', 'Admin'])
+  const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Progress', 'Snags', 'Programme', 'BIM', 'H&S', 'Portal', 'Admin'])
 
   const { company, user, logout: ctxLogout } = useCompany()
   const { isDark, toggleTheme } = useTheme()
