@@ -64,7 +64,34 @@ export default function ProgrammeSetup() {
 
       setDrawing(data)
       if (data.visual_url) setVisualPreviewUrl(data.visual_url)
-      await parseDXFFile(data.file_url)
+
+      // Check if layers already exist in DB
+      const { data: existingLayers } = await supabase
+        .from('drawing_layers')
+        .select('*')
+        .eq('drawing_id', drawingId)
+
+      if (existingLayers?.length > 0) {
+        // Restore from DB — no need to re-parse DXF
+        const lengths = {}
+        const vis = {}
+        for (const l of existingLayers) {
+          lengths[l.layer_name] = { totalLengthMetres: Number(l.total_length_metres), entityCount: l.entity_count }
+          vis[l.layer_name] = true
+        }
+        setLayerLengths(lengths)
+        setLayerVisibility(vis)
+        // Create a minimal dxfData structure for the UI
+        setDxfData({
+          layers: existingLayers.map(l => ({ name: l.layer_name, visible: true })),
+          entitiesByLayer: {},
+          allEntities: [],
+          scaleFactor: data.scale_factor || 0.001,
+          bounds: { minX: 0, minY: 0, maxX: 100, maxY: 100 },
+        })
+      } else {
+        await parseDXFFile(data)
+      }
     } catch (err) {
       console.error('loadDrawing error:', err)
       setError(err.message)
@@ -72,10 +99,10 @@ export default function ProgrammeSetup() {
     setLoading(false)
   }
 
-  async function parseDXFFile(fileUrl) {
+  async function parseDXFFile(drawingData) {
     setParsing(true)
     try {
-      const response = await fetch(fileUrl)
+      const response = await fetch(drawingData.file_url)
       if (!response.ok) throw new Error('Failed to fetch DXF file')
       const dxfText = await response.text()
       const parsed = parseDXF(dxfText)
@@ -95,6 +122,33 @@ export default function ProgrammeSetup() {
         lengths[layer.name] = calculateLayerLength(entities, parsed.scaleFactor)
       }
       setLayerLengths(lengths)
+
+      // Save layers to DB so they persist
+      const layerRows = parsed.layers.map(layer => {
+        const len = lengths[layer.name] || { totalLengthMetres: 0, entityCount: 0 }
+        return {
+          drawing_id: drawingData.id,
+          company_id: managerData.company_id,
+          layer_name: layer.name,
+          entity_count: len.entityCount,
+          total_length_metres: len.totalLengthMetres,
+        }
+      }).filter(l => l.entity_count > 0 || parsed.layers.length <= 100) // save all if reasonable count
+
+      if (layerRows.length > 0) {
+        await supabase.from('drawing_layers').delete().eq('drawing_id', drawingData.id)
+        const batchSize = 50
+        for (let i = 0; i < layerRows.length; i += batchSize) {
+          await supabase.from('drawing_layers').insert(layerRows.slice(i, i + batchSize))
+        }
+      }
+
+      // Update drawing scale factor
+      await supabase.from('design_drawings').update({
+        scale_factor: parsed.scaleFactor,
+        units: parsed.unitsLabel || 'mm',
+      }).eq('id', drawingData.id)
+
     } catch (err) {
       console.error('DXF parse error:', err)
       setError('Failed to parse DXF file: ' + err.message)
