@@ -192,7 +192,8 @@ export default function ProgrammeDashboard() {
         project_id: selectedProject,
         name: file.name.replace(/\.dxf$/i, ''),
         file_url: urlData.publicUrl,
-        file_type: 'dxf',
+        file_size: file.size,
+        status: 'ready',
         uploaded_by: managerData.name || 'Unknown',
       }).select().single()
 
