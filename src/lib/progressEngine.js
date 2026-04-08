@@ -53,11 +53,11 @@ export function calculateProgress(activity, markupLines) {
  * Positive = behind schedule, negative = ahead
  */
 function calculateVarianceDays(activity, percentage) {
-  if (!activity.planned_start || !activity.planned_completion) return 0
+  if (!activity.planned_start_date || !activity.planned_completion_date) return 0
 
   const now = new Date()
-  const start = new Date(activity.planned_start)
-  const end = new Date(activity.planned_completion)
+  const start = new Date(activity.planned_start_date)
+  const end = new Date(activity.planned_completion_date)
   const totalDuration = Math.max(1, (end - start) / (1000 * 60 * 60 * 24))
   const elapsed = Math.max(0, (now - start) / (1000 * 60 * 60 * 24))
   const expectedPct = Math.min(100, (elapsed / totalDuration) * 100)
@@ -134,8 +134,8 @@ export function calculateForecast(activity, installedLength, ratePerWeek) {
   let varianceDays = 0
   let status = 'on_track'
 
-  if (activity.planned_completion) {
-    const planned = new Date(activity.planned_completion)
+  if (activity.planned_completion_date) {
+    const planned = new Date(activity.planned_completion_date)
     varianceDays = Math.round((forecastDate - planned) / (1000 * 60 * 60 * 24))
 
     if (varianceDays > 7) status = 'critical'
@@ -172,7 +172,7 @@ export function generateCSVExport(activities) {
 
   const rows = (activities || []).map(a => [
     a.id || '',
-    csvEscape(a.activity_name || ''),
+    csvEscape(a.name || ''),
     csvEscape(a.package || ''),
     csvEscape(a.floor || ''),
     csvEscape(a.zone || ''),
@@ -182,8 +182,8 @@ export function generateCSVExport(activities) {
     a.percentage ?? '',
     a.status || '',
     a.rate_per_week ?? '',
-    a.planned_start || '',
-    a.planned_completion || '',
+    a.planned_start_date || '',
+    a.planned_completion_date || '',
     a.forecast_date || '',
     a.variance_days ?? '',
   ])

@@ -248,16 +248,15 @@ export default function ProgrammeSetup() {
       const { data, error: insertErr } = await supabase.from('programme_activities').insert({
         company_id: managerData.company_id,
         project_id: drawing.project_id,
-        drawing_id: drawingId,
-        activity_name: activityName.trim(),
+        design_drawing_id: drawingId,
+        name: activityName.trim(),
         package: packageName.trim() || null,
         floor: floor.trim() || null,
         zone: zone.trim() || null,
         subcontractor: subcontractor.trim() || null,
         baseline_length_metres: layerLen.totalLengthMetres,
-        baseline_layer: selectedLayer,
-        planned_start: plannedStart || null,
-        planned_completion: plannedCompletion || null,
+        planned_start_date: plannedStart || null,
+        planned_completion_date: plannedCompletion || null,
         created_by: managerData.name || 'Unknown',
       }).select().single()
 

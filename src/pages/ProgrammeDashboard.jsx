@@ -40,7 +40,7 @@ export default function ProgrammeDashboard() {
   const [showFilters, setShowFilters] = useState(false)
 
   // Sorting
-  const [sortField, setSortField] = useState('activity_name')
+  const [sortField, setSortField] = useState('name')
   const [sortDir, setSortDir] = useState('asc')
 
   useEffect(() => { loadProjects() }, [])
@@ -66,7 +66,7 @@ export default function ProgrammeDashboard() {
         .from('programme_activities')
         .select('*')
         .eq('project_id', selectedProject)
-        .order('activity_name')
+        .order('name')
       setActivities(acts || [])
 
       if (acts?.length) {
@@ -78,10 +78,10 @@ export default function ProgrammeDashboard() {
         setMarkupLines(lines || [])
 
         const { data: snaps } = await supabase
-          .from('programme_snapshots')
+          .from('progress_snapshots')
           .select('*')
           .in('programme_activity_id', actIds)
-          .order('date', { ascending: true })
+          .order('snapshot_date', { ascending: true })
         setSnapshots(snaps || [])
       } else {
         setMarkupLines([])
@@ -368,7 +368,7 @@ export default function ProgrammeDashboard() {
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   {[
-                    { key: 'activity_name', label: 'Activity Name' },
+                    { key: 'name', label: 'Activity Name' },
                     { key: 'package', label: 'Package' },
                     { key: 'floor', label: 'Floor' },
                     { key: 'baseline_length_metres', label: 'Baseline (m)' },
@@ -377,7 +377,7 @@ export default function ProgrammeDashboard() {
                     { key: 'status', label: 'Status' },
                     { key: 'rate_per_week', label: 'Rate (m/wk)' },
                     { key: 'forecast_date', label: 'Forecast' },
-                    { key: 'planned_completion', label: 'Planned' },
+                    { key: 'planned_completion_date', label: 'Planned' },
                     { key: 'variance_days', label: 'Variance' },
                   ].map(col => (
                     <th
@@ -400,12 +400,12 @@ export default function ProgrammeDashboard() {
                     <tr
                       key={act.id}
                       onClick={() => {
-                        if (act.drawing_id) navigate(`/programme/drawing/${act.drawing_id}`)
+                        if (act.design_drawing_id) navigate(`/programme/drawing/${act.design_drawing_id}`)
                       }}
                       className="hover:bg-slate-50 cursor-pointer transition-colors"
                     >
                       <td className="px-3 py-2.5 text-slate-800 font-medium max-w-[200px] truncate">
-                        {act.activity_name}
+                        {act.name}
                       </td>
                       <td className="px-3 py-2.5 text-slate-600">{act.package || '—'}</td>
                       <td className="px-3 py-2.5 text-slate-600">{act.floor || '—'}</td>
@@ -443,7 +443,7 @@ export default function ProgrammeDashboard() {
                         {act.forecast_date ? new Date(act.forecast_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}
                       </td>
                       <td className="px-3 py-2.5 text-slate-600 text-xs">
-                        {act.planned_completion ? new Date(act.planned_completion).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}
+                        {act.planned_completion_date ? new Date(act.planned_completion_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}
                       </td>
                       <td className="px-3 py-2.5">
                         {act.variance_days != null ? (

@@ -109,8 +109,8 @@ export default function DXFViewer() {
       const { data: acts } = await supabase
         .from('programme_activities')
         .select('*')
-        .eq('drawing_id', drawingId)
-        .order('activity_name')
+        .eq('design_drawing_id', drawingId)
+        .order('name')
       setActivities(acts || [])
       if (acts?.length > 0) setSelectedActivity(acts[0].id)
 
@@ -249,7 +249,7 @@ export default function DXFViewer() {
       const { data, error: insertErr } = await supabase.from('markup_lines').insert({
         company_id: managerData.company_id,
         programme_activity_id: selectedActivity,
-        drawing_id: drawingId,
+        design_drawing_id: drawingId,
         coordinates: currentPoints,
         colour: activeColour,
         real_world_length_metres: length,
@@ -378,7 +378,7 @@ export default function DXFViewer() {
               className="px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none focus:border-blue-400 max-w-[200px]"
             >
               {activities.map(a => (
-                <option key={a.id} value={a.id}>{a.activity_name}</option>
+                <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
           )}
@@ -388,7 +388,7 @@ export default function DXFViewer() {
       {/* Activity info bar */}
       {currentActivity && (
         <div className="h-10 flex items-center gap-4 px-4 bg-slate-50 border-b border-slate-200 shrink-0 text-xs">
-          <span className="font-medium text-slate-700">{currentActivity.activity_name}</span>
+          <span className="font-medium text-slate-700">{currentActivity.name}</span>
           <span className="text-slate-400">
             Baseline: <strong className="text-slate-600">{currentActivity.baseline_length_metres}m</strong>
           </span>
