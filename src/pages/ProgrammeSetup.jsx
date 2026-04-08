@@ -354,20 +354,22 @@ export default function ProgrammeSetup() {
 
                 {visualPreviewUrl ? (
                   <div className="space-y-2">
-                    {isPDF(visualPreviewUrl) ? (
-                      <PDFRenderer
-                        src={visualPreviewUrl}
-                        alt="Visual drawing preview"
-                        className="w-full h-auto max-h-40 object-contain rounded-lg border border-slate-200 bg-white"
-                        style={{ maxHeight: '160px' }}
-                      />
-                    ) : (
-                      <img
-                        src={visualPreviewUrl}
-                        alt="Visual drawing preview"
-                        className="w-full h-auto max-h-40 object-contain rounded-lg border border-slate-200 bg-white"
-                      />
-                    )}
+                    <div className="w-full h-28 rounded-lg border border-slate-200 bg-white overflow-hidden flex items-center justify-center">
+                      {isPDF(visualPreviewUrl) ? (
+                        <PDFRenderer
+                          src={visualPreviewUrl}
+                          alt="Visual drawing preview"
+                          className="max-w-full max-h-full object-contain"
+                          style={{ maxHeight: '112px', maxWidth: '100%' }}
+                        />
+                      ) : (
+                        <img
+                          src={visualPreviewUrl}
+                          alt="Visual drawing preview"
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       <span className="flex items-center gap-1 text-[10px] text-green-600 font-medium">
                         <Check size={10} /> Visual uploaded

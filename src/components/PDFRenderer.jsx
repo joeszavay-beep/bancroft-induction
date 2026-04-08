@@ -102,10 +102,10 @@ const PDFRenderer = forwardRef(function PDFRenderer({ src, alt, className, style
         draggable={draggable}
       />
       {!loaded && !error && (
-        <div className="w-[800px] h-[400px] bg-white flex items-center justify-center">
+        <div className="w-full h-full min-h-[100px] bg-white flex items-center justify-center">
           <div className="text-center">
-            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            <p className="text-slate-400 text-sm">Rendering PDF...</p>
+            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-1" />
+            <p className="text-slate-400 text-[10px]">Rendering PDF...</p>
           </div>
         </div>
       )}
