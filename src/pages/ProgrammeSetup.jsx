@@ -559,17 +559,17 @@ export default function ProgrammeSetup() {
           {layerPanelOpen ? <ChevronRight size={14} className="text-slate-400 rotate-180" /> : <ChevronRight size={14} className="text-slate-400" />}
         </button>
 
-        {/* Drawing area — small DXF preview */}
+        {/* Drawing area — shows visual PDF/PNG if uploaded, otherwise DXF wireframe */}
         <div className="flex-1 bg-slate-100 relative overflow-hidden">
           <TransformWrapper
-            initialScale={1}
+            initialScale={0.5}
             minScale={0.1}
-            maxScale={20}
-            wheel={{ step: 0.1 }}
+            maxScale={10}
+            centerOnInit
+            wheel={{ step: 0.08 }}
           >
             {({ zoomIn, zoomOut, resetTransform }) => (
               <>
-                {/* Zoom controls */}
                 <div className="absolute top-3 right-3 z-10 flex flex-col gap-1">
                   <button onClick={() => zoomIn()} className="p-2 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors">
                     <ZoomIn size={16} className="text-slate-600" />
@@ -582,44 +582,66 @@ export default function ProgrammeSetup() {
                   </button>
                 </div>
 
-                {/* Units info */}
                 {dxfData && (
                   <div className="absolute bottom-3 right-3 z-10 px-2 py-1 bg-white/90 border border-slate-200 rounded-lg text-[10px] text-slate-500">
                     Units: {dxfData.unitsLabel} · Scale: 1 unit = {dxfData.scaleFactor}m
                   </div>
                 )}
 
-                {/* DXF preview label */}
-                <div className="absolute top-3 left-3 z-10 px-2 py-1 bg-white/90 border border-slate-200 rounded-lg text-[10px] text-slate-500 font-medium">
-                  DXF Preview (data only)
-                </div>
-
-                <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
-                  {dxfData && (
-                    <svg
-                      viewBox={viewBox}
-                      className="w-full h-full"
-                      style={{ background: '#1a1a2e' }}
-                    >
-                      {Object.entries(svgPathsByLayer).map(([layerName, paths]) => {
-                        if (!layerVisibility[layerName]) return null
-                        const isHighlighted = selectedLayer === layerName
-                        return (
-                          <g key={layerName} opacity={isHighlighted ? 1 : 0.4}>
-                            {paths.map((p, i) => (
-                              <path
-                                key={i}
-                                d={p.d}
-                                fill="none"
-                                stroke={isHighlighted ? '#3B82F6' : (p.color || '#AAAAAA')}
-                                strokeWidth={isHighlighted ? 2 : 0.5}
-                                vectorEffect="non-scaling-stroke"
-                              />
-                            ))}
-                          </g>
-                        )
-                      })}
-                    </svg>
+                <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {drawing?.visual_url ? (
+                    /* Render the uploaded visual PDF/PNG as the main drawing */
+                    <div className="relative inline-block">
+                      {isPDF(drawing.visual_url) ? (
+                        <PDFRenderer
+                          src={drawing.visual_url}
+                          alt={drawing.name}
+                          className="max-w-none select-none"
+                          style={{ width: 'auto', height: 'auto' }}
+                        />
+                      ) : (
+                        <img
+                          src={drawing.visual_url}
+                          alt={drawing.name}
+                          className="max-w-none select-none"
+                          draggable={false}
+                        />
+                      )}
+                    </div>
+                  ) : dxfData ? (
+                    /* Fallback: DXF wireframe preview when no visual uploaded */
+                    <div className="relative">
+                      <div className="absolute top-2 left-2 z-10 px-2 py-1 bg-amber-100 border border-amber-300 rounded text-[10px] text-amber-700 font-medium">
+                        DXF wireframe — upload a PDF/PNG for the real drawing
+                      </div>
+                      <svg
+                        viewBox={viewBox}
+                        style={{ background: '#1a1a2e', width: '1200px', height: '800px' }}
+                      >
+                        {Object.entries(svgPathsByLayer).map(([layerName, paths]) => {
+                          if (!layerVisibility[layerName]) return null
+                          const isHighlighted = selectedLayer === layerName
+                          return (
+                            <g key={layerName} opacity={isHighlighted ? 1 : 0.4}>
+                              {paths.map((p, i) => (
+                                <path
+                                  key={i}
+                                  d={p.d}
+                                  fill="none"
+                                  stroke={isHighlighted ? '#3B82F6' : (p.color || '#AAAAAA')}
+                                  strokeWidth={isHighlighted ? 2 : 0.5}
+                                  vectorEffect="non-scaling-stroke"
+                                />
+                              ))}
+                            </g>
+                          )
+                        })}
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="text-center py-20">
+                      <p className="text-slate-400 text-sm">Upload a visual drawing to preview</p>
+                    </div>
                   )}
                 </TransformComponent>
               </>
