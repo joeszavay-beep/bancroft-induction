@@ -691,9 +691,19 @@ export default function MasterProgramme() {
                   return (
                     <div
                       key={act.id}
-                      className="absolute"
+                      className="absolute cursor-pointer hover:brightness-110 transition-all"
                       style={{ top: i * ROW_H + topOffset, left, width: Math.max(width, 4), height: barHeight }}
-                      title={`${act.name}: ${progress}% complete`}
+                      title={`${act.name}: ${progress}% — click to update`}
+                      onClick={() => {
+                        if (!act.is_summary && !act.isAutoLinked) {
+                          setEditingId(act.id)
+                          setEditValue(String(progress))
+                          // Scroll the left table to show this row
+                          if (tableBodyRef.current) {
+                            tableBodyRef.current.scrollTop = i * ROW_H - 100
+                          }
+                        }
+                      }}
                     >
                       {/* Background bar */}
                       <div className={`absolute inset-0 rounded-sm ${
