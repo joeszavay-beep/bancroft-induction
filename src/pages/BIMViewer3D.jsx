@@ -492,7 +492,7 @@ function MeasurementLine({ start, end }) {
    MeasureClickHandler — raycasts clicks to get 3D points
    ============================================================ */
 
-function MeasureClickHandler({ active, meshes, onPoint }) {
+function MeasureClickHandler({ active, meshes, onPoint, snap }) {
   const { camera, raycaster, scene } = useThree()
 
   useEffect(() => {
@@ -513,13 +513,38 @@ function MeasureClickHandler({ active, meshes, onPoint }) {
       })
       const hits = raycaster.intersectObjects(allMeshes, false)
       if (hits.length > 0) {
-        onPoint(hits[0].point.clone())
+        let point = hits[0].point.clone()
+
+        // Snap to nearest vertex if enabled
+        if (snap && hits[0].object?.geometry) {
+          const geo = hits[0].object.geometry
+          const posAttr = geo.getAttribute('position')
+          if (posAttr) {
+            let closestDist = Infinity
+            let closestVert = point.clone()
+            const vertex = new THREE.Vector3()
+            // Transform vertices to world space
+            const worldMatrix = hits[0].object.matrixWorld
+            for (let i = 0; i < posAttr.count; i++) {
+              vertex.fromBufferAttribute(posAttr, i)
+              vertex.applyMatrix4(worldMatrix)
+              const dist = vertex.distanceTo(point)
+              if (dist < closestDist) {
+                closestDist = dist
+                closestVert = vertex.clone()
+              }
+            }
+            point = closestVert
+          }
+        }
+
+        onPoint(point)
       }
     }
 
     canvas.addEventListener('click', handleClick)
     return () => canvas.removeEventListener('click', handleClick)
-  }, [active, camera, raycaster, scene, onPoint])
+  }, [active, camera, raycaster, scene, onPoint, snap])
 
   return null
 }
@@ -590,8 +615,12 @@ export default function BIMViewer3D() {
 
   // --- Measurement tool ---
   const [measureMode, setMeasureMode] = useState(false)
+  const [measureSnap, setMeasureSnap] = useState(true)
   const [measureStart, setMeasureStart] = useState(null)
   const [measureEnd, setMeasureEnd] = useState(null)
+
+  // --- Controls panel ---
+  const [controlsOpen, setControlsOpen] = useState(true)
 
   // --- Quick search ---
   const [quickSearch, setQuickSearch] = useState('')
@@ -1149,7 +1178,7 @@ export default function BIMViewer3D() {
                 onDone={() => setPlanCaptureTrigger(0)} onResult={handlePlanGenerated} />
 
               <MeasurementLine start={measureStart} end={measureEnd} />
-              <MeasureClickHandler active={measureMode} meshes={meshes} onPoint={handleMeasurePoint} />
+              <MeasureClickHandler active={measureMode} meshes={meshes} onPoint={handleMeasurePoint} snap={measureSnap} />
 
               {!xrayMode && <gridHelper args={[1000, 100, '#1E293B', '#1E293B']} position={[0, -0.1, 0]} />}
             </Canvas>
@@ -1249,8 +1278,19 @@ export default function BIMViewer3D() {
             )}
 
             {/* ========== LEFT FLOATING CONTROL PANEL ========== */}
-            <div className="absolute top-4 left-4 z-10 w-56">
-              <div className="bg-slate-800/90 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-2xl shadow-black/40 overflow-hidden">
+            <div className="absolute top-4 left-4 z-10">
+              {/* Collapse/expand toggle */}
+              <button
+                onClick={() => setControlsOpen(!controlsOpen)}
+                title={controlsOpen ? 'Hide controls' : 'Show controls'}
+                className="mb-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800/90 backdrop-blur-xl border border-white/[0.08] rounded-lg text-[11px] font-medium text-slate-400 hover:text-white transition-colors shadow-lg"
+              >
+                <ChevronRight size={12} className={`transition-transform ${controlsOpen ? 'rotate-180' : ''}`} />
+                {controlsOpen ? 'Hide' : 'Controls'}
+              </button>
+
+              {controlsOpen && (
+              <div className="w-56 bg-slate-800/90 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-2xl shadow-black/40 overflow-hidden">
 
                 {/* --- Quick Search --- */}
                 <div className="px-3 pt-3 pb-2 border-b border-white/[0.06]">
@@ -1408,9 +1448,25 @@ export default function BIMViewer3D() {
                   </button>
 
                   {measureMode && (
-                    <p className="text-[10px] text-slate-500 pl-1">
-                      {!measureStart ? 'Click first point' : !measureEnd ? 'Click second point' : 'Click to start new'}
-                    </p>
+                    <div className="space-y-1.5 pl-1">
+                      <p className="text-[10px] text-slate-500">
+                        {!measureStart ? 'Click first point' : !measureEnd ? 'Click second point' : 'Click to start new'}
+                      </p>
+                      <button
+                        onClick={() => setMeasureSnap(!measureSnap)}
+                        title="Snap to nearest vertex for precise measurements"
+                        className={`flex items-center gap-1.5 text-[10px] font-medium transition-colors ${
+                          measureSnap ? 'text-amber-300' : 'text-slate-500 hover:text-slate-300'
+                        }`}
+                      >
+                        <div className={`w-3 h-3 rounded border flex items-center justify-center ${
+                          measureSnap ? 'bg-amber-500 border-amber-500' : 'border-slate-500'
+                        }`}>
+                          {measureSnap && <span className="text-[7px] text-white font-bold">&#10003;</span>}
+                        </div>
+                        Snap to vertex
+                      </button>
+                    </div>
                   )}
 
                   {/* Show all hidden */}
@@ -1477,6 +1533,7 @@ export default function BIMViewer3D() {
                   </button>
                 </div>
               </div>
+              )}
             </div>
 
             {/* ========== SELECTED ELEMENT POPUP ========== */}
