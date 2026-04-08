@@ -38,10 +38,14 @@ const PDFRenderer = forwardRef(function PDFRenderer({ src, alt, className, style
       try {
         const pdfjsLib = await import('pdfjs-dist')
 
-        // Set worker source
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+        // Disable worker — runs in main thread. Simpler and avoids worker loading issues.
+        pdfjsLib.GlobalWorkerOptions.workerSrc = ''
 
-        const loadingTask = pdfjsLib.getDocument(src)
+        const loadingTask = pdfjsLib.getDocument({
+          url: src,
+          disableWorker: true,
+          isEvalSupported: false,
+        })
         const pdf = await loadingTask.promise
         if (cancelled) return
 
