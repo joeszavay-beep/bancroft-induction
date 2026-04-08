@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
+import { OrbitControls, Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
 import * as WebIfc from 'web-ifc'
 import { supabase } from '../lib/supabase'
@@ -13,7 +13,7 @@ import {
   ArrowLeft, Layers, Eye, EyeOff, Search, RotateCcw,
   X, AlertTriangle, MapPin, Camera, Zap, SplitSquareVertical,
   Scissors, Crosshair, PanelLeftClose, PanelLeft,
-  ChevronDown, ChevronRight
+  ChevronDown, ChevronRight, BarChart3, Ruler, Flag
 } from 'lucide-react'
 
 /* ============================================================
@@ -85,7 +85,7 @@ function mergeBufferGeometries(geometries) {
   return merged
 }
 
-function useMergedGeometries(meshes, categoryFilter, floorFilter, statusMap, hiddenIds) {
+function useMergedGeometries(meshes, categoryFilter, floorFilter, statusMap, hiddenIds, colorMode) {
   return useMemo(() => {
     const groups = {}
     const filtered = meshes.filter(m => {
@@ -96,7 +96,12 @@ function useMergedGeometries(meshes, categoryFilter, floorFilter, statusMap, hid
     })
     for (const m of filtered) {
       const status = statusMap[m.expressId]
-      const color = status ? STATUS_COLORS[status] : BIM_CATEGORIES[m.category]?.color || '#A78BFA'
+      let color
+      if (colorMode === 'status') {
+        color = STATUS_COLORS[status || 'not_verified']
+      } else {
+        color = status ? STATUS_COLORS[status] : BIM_CATEGORIES[m.category]?.color || '#A78BFA'
+      }
       if (!groups[color]) groups[color] = []
       groups[color].push(m.geometry)
     }
@@ -107,7 +112,7 @@ function useMergedGeometries(meshes, categoryFilter, floorFilter, statusMap, hid
       if (mergedGeom) merged.push({ geometry: mergedGeom, color })
     }
     return merged
-  }, [meshes, categoryFilter, floorFilter, statusMap, hiddenIds])
+  }, [meshes, categoryFilter, floorFilter, statusMap, hiddenIds, colorMode])
 }
 
 /* ============================================================
@@ -139,9 +144,9 @@ function ClippingPlane({ enabled, position, axis }) {
    ============================================================ */
 
 function IFCModel({ meshes, shellMeshes, shellVisible, shellOpacity, selectedId, onSelect,
-  categoryFilter, floorFilter, statusMap, xrayMode, hiddenIds }) {
+  categoryFilter, floorFilter, statusMap, xrayMode, hiddenIds, colorMode }) {
   const groupRef = useRef()
-  const mergedGroups = useMergedGeometries(meshes, categoryFilter, floorFilter, statusMap, hiddenIds)
+  const mergedGroups = useMergedGeometries(meshes, categoryFilter, floorFilter, statusMap, hiddenIds, colorMode)
 
   const mergedShell = useMemo(() => {
     if (!shellMeshes.length) return null
@@ -446,6 +451,80 @@ function PanelSection({ title, icon: Icon, children, defaultOpen = true }) {
 }
 
 /* ============================================================
+   MeasurementLine — renders dashed line + distance label
+   ============================================================ */
+
+function MeasurementLine({ start, end }) {
+  if (!start || !end) return null
+  const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5)
+  const distance = start.distanceTo(end)
+  return (
+    <>
+      <Line
+        points={[start, end]}
+        color="#F59E0B"
+        lineWidth={2}
+        dashed
+        dashScale={10}
+        dashSize={0.3}
+        gapSize={0.15}
+      />
+      <Html position={[mid.x, mid.y + 0.15, mid.z]} center>
+        <div className="px-2 py-0.5 bg-amber-500 text-white text-[11px] font-bold rounded shadow-lg whitespace-nowrap pointer-events-none">
+          {distance.toFixed(2)} m
+        </div>
+      </Html>
+      {/* Start dot */}
+      <mesh position={start}>
+        <sphereGeometry args={[0.06, 12, 12]} />
+        <meshBasicMaterial color="#F59E0B" />
+      </mesh>
+      {/* End dot */}
+      <mesh position={end}>
+        <sphereGeometry args={[0.06, 12, 12]} />
+        <meshBasicMaterial color="#F59E0B" />
+      </mesh>
+    </>
+  )
+}
+
+/* ============================================================
+   MeasureClickHandler — raycasts clicks to get 3D points
+   ============================================================ */
+
+function MeasureClickHandler({ active, meshes, onPoint }) {
+  const { camera, raycaster, scene } = useThree()
+
+  useEffect(() => {
+    if (!active) return
+    const canvas = document.querySelector('canvas')
+    if (!canvas) return
+
+    function handleClick(e) {
+      const rect = canvas.getBoundingClientRect()
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      )
+      raycaster.setFromCamera(mouse, camera)
+      const allMeshes = []
+      scene.traverse(obj => {
+        if (obj.isMesh && obj.visible) allMeshes.push(obj)
+      })
+      const hits = raycaster.intersectObjects(allMeshes, false)
+      if (hits.length > 0) {
+        onPoint(hits[0].point.clone())
+      }
+    }
+
+    canvas.addEventListener('click', handleClick)
+    return () => canvas.removeEventListener('click', handleClick)
+  }, [active, camera, raycaster, scene, onPoint])
+
+  return null
+}
+
+/* ============================================================
    MAIN COMPONENT
    ============================================================ */
 
@@ -497,6 +576,29 @@ export default function BIMViewer3D() {
   const [screenshotTrigger, setScreenshotTrigger] = useState(0)
   const [planCaptureTrigger, setPlanCaptureTrigger] = useState(0)
   const [generatingPlan, setGeneratingPlan] = useState(false)
+
+  // --- Color mode ---
+  const [colorMode, setColorMode] = useState('category')
+
+  // --- Commissioning workflow ---
+  const [statusUpdating, setStatusUpdating] = useState(false)
+  const [statusJustUpdated, setStatusJustUpdated] = useState(null)
+
+  // --- Progress dashboard ---
+  const [showDashboard, setShowDashboard] = useState(false)
+  const [dashboardCategoryOpen, setDashboardCategoryOpen] = useState(false)
+
+  // --- Measurement tool ---
+  const [measureMode, setMeasureMode] = useState(false)
+  const [measureStart, setMeasureStart] = useState(null)
+  const [measureEnd, setMeasureEnd] = useState(null)
+
+  // --- Quick search ---
+  const [quickSearch, setQuickSearch] = useState('')
+  const [quickSearchFocused, setQuickSearchFocused] = useState(false)
+
+  // --- Properties panel ---
+  const [propsExpanded, setPropsExpanded] = useState(false)
 
   // --- Derived ---
 
@@ -552,6 +654,32 @@ export default function BIMViewer3D() {
   }, [dbElements, searchTerm])
 
   const hasDrawings = drawings.length > 0
+
+  // --- Progress stats ---
+  const progressStats = useMemo(() => {
+    const total = dbElements.length
+    if (!total) return null
+    const counts = { not_verified: 0, installed: 0, snagged: 0, commissioned: 0 }
+    const catCounts = {}
+    for (const el of dbElements) {
+      const s = el.status || 'not_verified'
+      counts[s] = (counts[s] || 0) + 1
+      const cat = el.category || 'other'
+      if (!catCounts[cat]) catCounts[cat] = { not_verified: 0, installed: 0, snagged: 0, commissioned: 0, total: 0 }
+      catCounts[cat][s] = (catCounts[cat][s] || 0) + 1
+      catCounts[cat].total++
+    }
+    return { total, counts, catCounts }
+  }, [dbElements])
+
+  // --- Quick search results ---
+  const quickSearchResults = useMemo(() => {
+    if (!quickSearch.trim()) return []
+    const q = quickSearch.toLowerCase()
+    return dbElements.filter(el =>
+      el.name?.toLowerCase().includes(q) || el.ifc_type?.toLowerCase().includes(q) || el.floor_name?.toLowerCase().includes(q)
+    ).slice(0, 5)
+  }, [dbElements, quickSearch])
 
   // --- Effects ---
 
@@ -618,6 +746,31 @@ export default function BIMViewer3D() {
     }
     setGeneratingPlan(false)
   }
+
+  // --- Commissioning status update ---
+  async function handleStatusUpdate(elementId, newStatus) {
+    setStatusUpdating(true)
+    try {
+      const { error: err } = await supabase.from('bim_elements').update({ status: newStatus }).eq('id', elementId)
+      if (err) throw err
+      setDbElements(prev => prev.map(el => el.id === elementId ? { ...el, status: newStatus } : el))
+      setStatusJustUpdated(managerData.name || 'You')
+      setTimeout(() => setStatusJustUpdated(null), 5000)
+    } catch (err) {
+      console.error('Status update failed:', err)
+    }
+    setStatusUpdating(false)
+  }
+
+  // --- Measurement point handler ---
+  const handleMeasurePoint = useMemo(() => (point) => {
+    if (!measureStart || measureEnd) {
+      setMeasureStart(point)
+      setMeasureEnd(null)
+    } else {
+      setMeasureEnd(point)
+    }
+  }, [measureStart, measureEnd])
 
   // --- Data loading ---
 
@@ -985,6 +1138,7 @@ export default function BIMViewer3D() {
                 meshes={meshes} shellMeshes={shellMeshes} shellVisible={shellVisible} shellOpacity={shellOpacity}
                 selectedId={selectedId} onSelect={setSelectedId} categoryFilter={categoryFilter}
                 floorFilter={floorFilter} statusMap={statusMap} xrayMode={xrayMode} hiddenIds={hiddenIds}
+                colorMode={colorMode}
               />
 
               <CameraController resetTrigger={resetTrigger} boundingBox={boundingBox}
@@ -994,12 +1148,148 @@ export default function BIMViewer3D() {
               <PlanCapture trigger={planCaptureTrigger} boundingBox={boundingBox}
                 onDone={() => setPlanCaptureTrigger(0)} onResult={handlePlanGenerated} />
 
+              <MeasurementLine start={measureStart} end={measureEnd} />
+              <MeasureClickHandler active={measureMode} meshes={meshes} onPoint={handleMeasurePoint} />
+
               {!xrayMode && <gridHelper args={[1000, 100, '#1E293B', '#1E293B']} position={[0, -0.1, 0]} />}
             </Canvas>
+
+            {/* ========== PROGRESS DASHBOARD ========== */}
+            {progressStats && (
+              <div className="absolute top-4 right-4 z-10">
+                <button
+                  onClick={() => setShowDashboard(!showDashboard)}
+                  title="Toggle progress dashboard"
+                  className={`p-2 rounded-lg transition-colors ${
+                    showDashboard ? 'bg-blue-500 text-white' : 'bg-slate-800/90 backdrop-blur border border-white/[0.08] text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <BarChart3 size={16} />
+                </button>
+                {showDashboard && (
+                  <div className="mt-2 w-64 bg-slate-800/90 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-2xl shadow-black/40 overflow-hidden">
+                    <div className="px-3 py-2.5 border-b border-white/[0.06]">
+                      <p className="text-[11px] font-semibold text-white uppercase tracking-wider">Progress</p>
+                      <p className="text-[10px] text-slate-500">{progressStats.total} total elements</p>
+                    </div>
+                    <div className="px-3 py-2.5 space-y-2">
+                      {/* Stacked bar */}
+                      <div className="flex h-3 rounded-full overflow-hidden bg-slate-700">
+                        {[
+                          { key: 'commissioned', color: '#3B82F6' },
+                          { key: 'installed', color: '#22C55E' },
+                          { key: 'snagged', color: '#EF4444' },
+                          { key: 'not_verified', color: '#94A3B8' },
+                        ].map(({ key, color }) => {
+                          const pct = progressStats.total > 0 ? (progressStats.counts[key] / progressStats.total) * 100 : 0
+                          if (pct === 0) return null
+                          return (
+                            <div
+                              key={key}
+                              style={{ width: `${pct}%`, backgroundColor: color }}
+                              title={`${key.replace(/_/g, ' ')}: ${progressStats.counts[key]} (${pct.toFixed(1)}%)`}
+                            />
+                          )
+                        })}
+                      </div>
+
+                      {/* Status rows */}
+                      {[
+                        { key: 'installed', label: 'Installed', color: '#22C55E' },
+                        { key: 'commissioned', label: 'Commissioned', color: '#3B82F6' },
+                        { key: 'snagged', label: 'Snagged', color: '#EF4444' },
+                        { key: 'not_verified', label: 'Not Verified', color: '#94A3B8' },
+                      ].map(({ key, label, color }) => {
+                        const count = progressStats.counts[key] || 0
+                        const pct = progressStats.total > 0 ? ((count / progressStats.total) * 100).toFixed(1) : '0.0'
+                        return (
+                          <div key={key} className="flex items-center gap-2 text-[11px]">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                            <span className="flex-1 text-slate-300">{label}</span>
+                            <span className="text-slate-500 font-mono">{count}</span>
+                            <span className="text-slate-600 font-mono text-[10px] w-12 text-right">{pct}%</span>
+                          </div>
+                        )
+                      })}
+
+                      {/* Per-category breakdown */}
+                      <button
+                        onClick={() => setDashboardCategoryOpen(!dashboardCategoryOpen)}
+                        className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors mt-1"
+                      >
+                        {dashboardCategoryOpen ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+                        By Category
+                      </button>
+                      {dashboardCategoryOpen && (
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                          {Object.entries(progressStats.catCounts).map(([cat, counts]) => {
+                            const catInfo = BIM_CATEGORIES[cat]
+                            return (
+                              <div key={cat} className="text-[10px]">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: catInfo?.color || '#A78BFA' }} />
+                                  <span className="text-slate-400 font-medium">{catInfo?.label || cat}</span>
+                                  <span className="text-slate-600 ml-auto">{counts.total}</span>
+                                </div>
+                                <div className="flex h-1.5 rounded-full overflow-hidden bg-slate-700 ml-3">
+                                  {counts.commissioned > 0 && <div style={{ width: `${(counts.commissioned / counts.total) * 100}%`, backgroundColor: '#3B82F6' }} />}
+                                  {counts.installed > 0 && <div style={{ width: `${(counts.installed / counts.total) * 100}%`, backgroundColor: '#22C55E' }} />}
+                                  {counts.snagged > 0 && <div style={{ width: `${(counts.snagged / counts.total) * 100}%`, backgroundColor: '#EF4444' }} />}
+                                  {counts.not_verified > 0 && <div style={{ width: `${(counts.not_verified / counts.total) * 100}%`, backgroundColor: '#94A3B8' }} />}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ========== LEFT FLOATING CONTROL PANEL ========== */}
             <div className="absolute top-4 left-4 z-10 w-56">
               <div className="bg-slate-800/90 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-2xl shadow-black/40 overflow-hidden">
+
+                {/* --- Quick Search --- */}
+                <div className="px-3 pt-3 pb-2 border-b border-white/[0.06]">
+                  <div className="relative">
+                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type="text"
+                      value={quickSearch}
+                      onChange={e => setQuickSearch(e.target.value)}
+                      onFocus={() => setQuickSearchFocused(true)}
+                      onBlur={() => setTimeout(() => setQuickSearchFocused(false), 200)}
+                      placeholder="Find element..."
+                      className="w-full pl-7 pr-3 py-1.5 bg-slate-700/60 border border-transparent rounded-lg text-[11px] text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
+                    />
+                    {quickSearchFocused && quickSearchResults.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden">
+                        {quickSearchResults.map(el => (
+                          <button
+                            key={el.id}
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              handleFlyTo(el)
+                              setQuickSearch('')
+                              setQuickSearchFocused(false)
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-slate-700/60 transition-colors border-b border-white/[0.04] last:border-b-0"
+                          >
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: BIM_CATEGORIES[el.category]?.color || '#A78BFA' }} />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] text-white truncate">{el.name}</p>
+                              <p className="text-[9px] text-slate-500">{el.ifc_type} · {el.floor_name || '—'}</p>
+                            </div>
+                            <Crosshair size={10} className="text-slate-500 shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 {/* --- View Modes --- */}
                 <PanelSection title="View" icon={Eye}>
@@ -1042,6 +1332,26 @@ export default function BIMViewer3D() {
                       />
                     </div>
                   )}
+
+                  {/* Colour mode toggle */}
+                  <button
+                    onClick={() => setColorMode(prev => prev === 'category' ? 'status' : 'category')}
+                    title="Toggle colour mode between category and status"
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-all border bg-slate-700/60 border-transparent text-slate-400 hover:text-white hover:bg-slate-700"
+                  >
+                    <span className="flex gap-0.5">
+                      {colorMode === 'status' ? (
+                        Object.values(STATUS_COLORS).map((c, i) => (
+                          <span key={i} className="w-2 h-2 rounded-full" style={{ backgroundColor: c }} />
+                        ))
+                      ) : (
+                        Object.values(BIM_CATEGORIES).slice(0, 4).map((c, i) => (
+                          <span key={i} className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }} />
+                        ))
+                      )}
+                    </span>
+                    Colour: {colorMode === 'category' ? 'Category' : 'Status'}
+                  </button>
                 </PanelSection>
 
                 {/* --- Tools --- */}
@@ -1079,6 +1389,28 @@ export default function BIMViewer3D() {
                         className="w-full h-1 accent-orange-500 cursor-pointer"
                       />
                     </div>
+                  )}
+
+                  {/* Measure toggle */}
+                  <button
+                    onClick={() => {
+                      setMeasureMode(!measureMode)
+                      if (measureMode) { setMeasureStart(null); setMeasureEnd(null) }
+                    }}
+                    title="Measure distance between two points on surfaces"
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-all border ${
+                      measureMode
+                        ? 'bg-amber-500/20 border-amber-500/60 text-amber-300'
+                        : 'bg-slate-700/60 border-transparent text-slate-400 hover:text-white hover:bg-slate-700'
+                    }`}
+                  >
+                    <Ruler size={12} /> Measure
+                  </button>
+
+                  {measureMode && (
+                    <p className="text-[10px] text-slate-500 pl-1">
+                      {!measureStart ? 'Click first point' : !measureEnd ? 'Click second point' : 'Click to start new'}
+                    </p>
                   )}
 
                   {/* Show all hidden */}
@@ -1206,6 +1538,80 @@ export default function BIMViewer3D() {
                       </div>
                     )
                   })()}
+                  {/* Commissioning status buttons */}
+                  {selectedElement.id && (
+                    <div>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1.5">Update Status</p>
+                      <div className="flex gap-1">
+                        {[
+                          { key: 'not_verified', label: 'Not Verified' },
+                          { key: 'installed', label: 'Installed' },
+                          { key: 'snagged', label: 'Snagged' },
+                          { key: 'commissioned', label: 'Commissioned' },
+                        ].map(({ key, label }) => {
+                          const isCurrent = (selectedElement.status || 'not_verified') === key
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => !isCurrent && handleStatusUpdate(selectedElement.id, key)}
+                              disabled={statusUpdating || isCurrent}
+                              title={`Set status to ${label}`}
+                              className={`flex-1 px-1 py-1.5 rounded text-[9px] font-semibold transition-all border ${
+                                isCurrent
+                                  ? 'border-white/20 text-white'
+                                  : 'border-transparent text-slate-500 hover:text-white hover:bg-slate-700/60'
+                              }`}
+                              style={isCurrent ? { backgroundColor: STATUS_COLORS[key] + '30', color: STATUS_COLORS[key] } : {}}
+                            >
+                              {label.split(' ')[0]}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {statusJustUpdated && (
+                        <p className="text-[10px] text-green-400 mt-1">Updated by {statusJustUpdated} just now</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Properties (JSONB) expandable */}
+                  {selectedElement.properties && typeof selectedElement.properties === 'object' && Object.keys(selectedElement.properties).length > 0 && (
+                    <div>
+                      <button
+                        onClick={() => setPropsExpanded(!propsExpanded)}
+                        className="flex items-center gap-1 text-[10px] text-slate-400 uppercase tracking-wider hover:text-slate-200 transition-colors"
+                      >
+                        {propsExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+                        Properties ({Object.keys(selectedElement.properties).length})
+                      </button>
+                      {propsExpanded && (
+                        <div className="mt-1.5 max-h-32 overflow-y-auto">
+                          <table className="w-full text-[10px]">
+                            <tbody>
+                              {Object.entries(selectedElement.properties).map(([k, v]) => (
+                                <tr key={k} className="border-b border-white/[0.04]">
+                                  <td className="py-0.5 pr-2 text-slate-500 font-medium whitespace-nowrap">{k}</td>
+                                  <td className="py-0.5 text-slate-300 truncate max-w-[140px]">{String(v)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Raise Snag button */}
+                  {hasDrawings && selectedElement.id && (
+                    <button
+                      onClick={() => navigate('/snags/' + drawings[0].id + '?bim_element=' + selectedElement.id)}
+                      title="Raise a snag for this element"
+                      className="w-full py-2 bg-red-500/15 hover:bg-red-500/25 text-red-300 text-[11px] font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-red-500/30"
+                    >
+                      <Flag size={12} /> Raise Snag
+                    </button>
+                  )}
+
                   <button
                     onClick={() => {
                       setHiddenIds(prev => { const next = new Set(prev); next.add(selectedId); return next })
