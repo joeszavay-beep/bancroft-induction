@@ -38,14 +38,17 @@ const PDFRenderer = forwardRef(function PDFRenderer({ src, alt, className, style
       try {
         const pdfjsLib = await import('pdfjs-dist')
 
-        // Disable worker — runs in main thread. Simpler and avoids worker loading issues.
-        pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+        // Use CDN worker matching the installed version
+        const version = pdfjsLib.version || '5.6.205'
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`
 
-        const loadingTask = pdfjsLib.getDocument({
-          url: src,
-          disableWorker: true,
-          isEvalSupported: false,
-        })
+        // Fetch as ArrayBuffer first to avoid CORS/streaming issues
+        const response = await fetch(src)
+        if (!response.ok) throw new Error('Failed to fetch PDF')
+        const arrayBuffer = await response.arrayBuffer()
+        if (cancelled) return
+
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
         const pdf = await loadingTask.promise
         if (cancelled) return
 
