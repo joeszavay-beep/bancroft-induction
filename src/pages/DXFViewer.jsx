@@ -422,7 +422,7 @@ export default function DXFViewer() {
             Scale not set — calibrate before drawing markup so lengths are accurate.
           </p>
           <button
-            onClick={() => { setCalibrating(true); setCalPoints([]) }}
+            onClick={() => { setCalibrating(true); setCalPoints([]); setCalDistanceInput('') }}
             className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors"
           >
             Set Scale
@@ -432,30 +432,48 @@ export default function DXFViewer() {
 
       {/* Calibration mode bar */}
       {calibrating && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 border-b border-blue-200 shrink-0">
+        <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-blue-50 border-b border-blue-200 shrink-0">
           <Ruler size={14} className="text-blue-600 shrink-0" />
           {calPoints.length < 2 ? (
             <p className="text-xs text-blue-700 font-medium flex-1">
-              Click point {calPoints.length + 1} of 2 on a known dimension
+              Click point {calPoints.length + 1} of 2 on a known dimension (e.g. two gridlines)
               {calPoints.length === 1 && ' — click the second point'}
             </p>
           ) : (
-            <div className="flex items-center gap-2 flex-1">
-              <p className="text-xs text-blue-700 font-medium">
-                Enter the real distance between the two points:
-              </p>
+            <div className="flex flex-wrap items-center gap-2 flex-1">
+              <p className="text-xs text-blue-700 font-medium shrink-0">Distance between points:</p>
+
+              {/* Quick presets — common grid spacings */}
+              <div className="flex items-center gap-1">
+                {['1.2', '1.5', '2.4', '3.0', '3.6', '5.0', '6.0', '7.2', '7.5', '8.4', '9.0', '10.0'].map(val => (
+                  <button
+                    key={val}
+                    onClick={() => { setCalDistanceInput(val) }}
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                      calDistanceInput === val
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white border border-blue-200 text-blue-700 hover:bg-blue-100'
+                    }`}
+                  >
+                    {val}m
+                  </button>
+                ))}
+              </div>
+
+              <span className="text-[10px] text-blue-400 mx-1">or</span>
+
               <input
                 type="number"
                 step="any"
                 min="0.01"
                 value={calDistanceInput}
                 onChange={e => setCalDistanceInput(e.target.value)}
-                placeholder="e.g. 5.0"
-                className="w-24 px-2 py-1 bg-white border border-blue-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-blue-400"
+                placeholder="e.g. 7.2"
+                className="w-20 px-2 py-1 bg-white border border-blue-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-blue-400"
                 autoFocus
                 onKeyDown={e => { if (e.key === 'Enter') confirmCalibration() }}
               />
-              <span className="text-xs text-blue-600">metres</span>
+              <span className="text-xs text-blue-600">m</span>
               <button
                 onClick={confirmCalibration}
                 className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg transition-colors"
