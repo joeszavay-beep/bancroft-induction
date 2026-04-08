@@ -194,6 +194,7 @@ function IFCModel({ meshes, shellMeshes, shellVisible, shellOpacity, selectedId,
         if (floorFilter && m.floorName !== floorFilter) return null
         return (
           <mesh key={`pick-${i}`} geometry={m.geometry} visible={false}
+            userData={{ isPick: true }}
             onClick={(e) => { e.stopPropagation(); onSelect(m.expressId) }} />
         )
       })}
@@ -492,59 +493,93 @@ function MeasurementLine({ start, end }) {
    MeasureClickHandler — raycasts clicks to get 3D points
    ============================================================ */
 
-function MeasureClickHandler({ active, meshes, onPoint, snap }) {
-  const { camera, raycaster, scene } = useThree()
+function MeasureClickHandler({ active, onPoint, snap, onPreview }) {
+  const { camera, scene, gl } = useThree()
+  const raycasterRef = useRef(new THREE.Raycaster())
+
+  // Get only visible, non-pick meshes
+  const getVisibleMeshes = () => {
+    const meshes = []
+    scene.traverse(obj => {
+      if (obj.isMesh && obj.visible && !obj.userData?.isPick) meshes.push(obj)
+    })
+    return meshes
+  }
+
+  const getSnappedPoint = (hit) => {
+    let point = hit.point.clone()
+    if (!snap || !hit.object?.geometry) return point
+
+    const geo = hit.object.geometry
+    const posAttr = geo.getAttribute('position')
+    if (!posAttr) return point
+
+    // Only snap to vertices near the hit point (within 0.5m radius)
+    const SNAP_RADIUS = 0.5
+    let closestDist = SNAP_RADIUS
+    let closestVert = point.clone()
+    const vertex = new THREE.Vector3()
+    const worldMatrix = hit.object.matrixWorld
+
+    for (let i = 0; i < posAttr.count; i++) {
+      vertex.fromBufferAttribute(posAttr, i)
+      vertex.applyMatrix4(worldMatrix)
+      const dist = vertex.distanceTo(point)
+      if (dist < closestDist) {
+        closestDist = dist
+        closestVert = vertex.clone()
+      }
+    }
+    return closestVert
+  }
+
+  const castRay = (e) => {
+    const rect = gl.domElement.getBoundingClientRect()
+    const mouse = new THREE.Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1
+    )
+    raycasterRef.current.setFromCamera(mouse, camera)
+    const hits = raycasterRef.current.intersectObjects(getVisibleMeshes(), false)
+    return hits.length > 0 ? hits[0] : null
+  }
 
   useEffect(() => {
-    if (!active) return
-    const canvas = document.querySelector('canvas')
-    if (!canvas) return
+    if (!active) {
+      gl.domElement.style.cursor = ''
+      onPreview?.(null)
+      return
+    }
+    gl.domElement.style.cursor = 'crosshair'
 
-    function handleClick(e) {
-      const rect = canvas.getBoundingClientRect()
-      const mouse = new THREE.Vector2(
-        ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1
-      )
-      raycaster.setFromCamera(mouse, camera)
-      const allMeshes = []
-      scene.traverse(obj => {
-        if (obj.isMesh && obj.visible) allMeshes.push(obj)
-      })
-      const hits = raycaster.intersectObjects(allMeshes, false)
-      if (hits.length > 0) {
-        let point = hits[0].point.clone()
+    // Show snap preview on hover
+    const handleMove = (e) => {
+      const hit = castRay(e)
+      if (hit) {
+        const snapped = getSnappedPoint(hit)
+        onPreview?.(snapped)
+      } else {
+        onPreview?.(null)
+      }
+    }
 
-        // Snap to nearest vertex if enabled
-        if (snap && hits[0].object?.geometry) {
-          const geo = hits[0].object.geometry
-          const posAttr = geo.getAttribute('position')
-          if (posAttr) {
-            let closestDist = Infinity
-            let closestVert = point.clone()
-            const vertex = new THREE.Vector3()
-            // Transform vertices to world space
-            const worldMatrix = hits[0].object.matrixWorld
-            for (let i = 0; i < posAttr.count; i++) {
-              vertex.fromBufferAttribute(posAttr, i)
-              vertex.applyMatrix4(worldMatrix)
-              const dist = vertex.distanceTo(point)
-              if (dist < closestDist) {
-                closestDist = dist
-                closestVert = vertex.clone()
-              }
-            }
-            point = closestVert
-          }
-        }
-
+    const handleClick = (e) => {
+      const hit = castRay(e)
+      if (hit) {
+        const point = getSnappedPoint(hit)
         onPoint(point)
       }
     }
 
+    const canvas = gl.domElement
     canvas.addEventListener('click', handleClick)
-    return () => canvas.removeEventListener('click', handleClick)
-  }, [active, camera, raycaster, scene, onPoint, snap])
+    canvas.addEventListener('mousemove', handleMove)
+    return () => {
+      canvas.removeEventListener('click', handleClick)
+      canvas.removeEventListener('mousemove', handleMove)
+      canvas.style.cursor = ''
+    }
+  }, [active, camera, scene, onPoint, snap])
 
   return null
 }
@@ -618,6 +653,7 @@ export default function BIMViewer3D() {
   const [measureSnap, setMeasureSnap] = useState(true)
   const [measureStart, setMeasureStart] = useState(null)
   const [measureEnd, setMeasureEnd] = useState(null)
+  const [measurePreview, setMeasurePreview] = useState(null)
 
   // --- Controls panel ---
   const [controlsOpen, setControlsOpen] = useState(true)
@@ -1178,7 +1214,14 @@ export default function BIMViewer3D() {
                 onDone={() => setPlanCaptureTrigger(0)} onResult={handlePlanGenerated} />
 
               <MeasurementLine start={measureStart} end={measureEnd} />
-              <MeasureClickHandler active={measureMode} meshes={meshes} onPoint={handleMeasurePoint} snap={measureSnap} />
+              <MeasureClickHandler active={measureMode} onPoint={handleMeasurePoint} snap={measureSnap} onPreview={setMeasurePreview} />
+              {/* Snap preview indicator */}
+              {measureMode && measurePreview && (
+                <mesh position={measurePreview}>
+                  <sphereGeometry args={[0.08, 16, 16]} />
+                  <meshBasicMaterial color="#F59E0B" transparent opacity={0.8} />
+                </mesh>
+              )}
 
               {!xrayMode && <gridHelper args={[1000, 100, '#1E293B', '#1E293B']} position={[0, -0.1, 0]} />}
             </Canvas>
