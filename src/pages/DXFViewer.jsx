@@ -1,14 +1,13 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
-import { parseDXF, entitiesToSVGPaths, calculateMarkupLength } from '../lib/dxfParser'
 import { calculateProgress } from '../lib/progressEngine'
 import toast from 'react-hot-toast'
 import {
-  ArrowLeft, Layers, Pencil, Check, Undo2, Trash2, ZoomIn, ZoomOut,
-  ChevronRight, ChevronDown, Loader2, AlertCircle
+  ArrowLeft, Pencil, Check, Undo2, Trash2, ZoomIn, ZoomOut,
+  Loader2, AlertCircle, Ruler, X
 } from 'lucide-react'
 
 const MARKUP_COLORS = {
@@ -17,21 +16,50 @@ const MARKUP_COLORS = {
   red:   { hex: '#EF4444', label: 'Issue' },
 }
 
+// --- Calibration helpers (localStorage) ---
+
+function getCalibration(drawingId) {
+  try {
+    const raw = localStorage.getItem(`programme_cal_${drawingId}`)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function saveCalibration(drawingId, cal) {
+  localStorage.setItem(`programme_cal_${drawingId}`, JSON.stringify(cal))
+}
+
+function calcMetresPerPercent(cal) {
+  if (!cal?.point1 || !cal?.point2 || !cal?.distanceMetres) return null
+  const dx = cal.point2.x - cal.point1.x
+  const dy = cal.point2.y - cal.point1.y
+  const percentDist = Math.sqrt(dx * dx + dy * dy)
+  if (percentDist < 0.001) return null
+  return cal.distanceMetres / percentDist
+}
+
+function calcPolylineLengthMetres(points, metresPerPercent) {
+  if (!points || points.length < 2 || !metresPerPercent) return 0
+  let total = 0
+  for (let i = 0; i < points.length - 1; i++) {
+    const dx = points[i + 1].x - points[i].x
+    const dy = points[i + 1].y - points[i].y
+    total += Math.sqrt(dx * dx + dy * dy)
+  }
+  return Math.round(total * metresPerPercent * 100) / 100
+}
+
 export default function DXFViewer() {
   const { drawingId } = useParams()
   const navigate = useNavigate()
   const managerData = JSON.parse(getSession('manager_data') || '{}')
-  const svgRef = useRef(null)
+  const imageRef = useRef(null)
 
   const [drawing, setDrawing] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [parsing, setParsing] = useState(false)
   const [error, setError] = useState(null)
-
-  // DXF data
-  const [dxfData, setDxfData] = useState(null)
-  const [layerVisibility, setLayerVisibility] = useState({})
-  const [layerPanelOpen, setLayerPanelOpen] = useState(false)
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const [imgError, setImgError] = useState(false)
 
   // Activities
   const [activities, setActivities] = useState([])
@@ -43,10 +71,21 @@ export default function DXFViewer() {
   const [activeColour, setActiveColour] = useState('green')
   const [currentPoints, setCurrentPoints] = useState([])
 
-  // Transform ref for coordinate conversion
-  const transformRef = useRef(null)
+  // Calibration
+  const [calibration, setCalibration] = useState(null)
+  const [calibrating, setCalibrating] = useState(false)
+  const [calPoints, setCalPoints] = useState([])
+  const [calDistanceInput, setCalDistanceInput] = useState('')
+
+  // Track pointer for tap detection (avoid marking on pan)
+  const tapRef = useRef(null)
 
   useEffect(() => { loadData() }, [drawingId])
+
+  useEffect(() => {
+    const cal = getCalibration(drawingId)
+    if (cal) setCalibration(cal)
+  }, [drawingId])
 
   async function loadData() {
     setLoading(true)
@@ -84,9 +123,6 @@ export default function DXFViewer() {
           .order('created_at', { ascending: true })
         setMarkupLines(lines || [])
       }
-
-      // Parse DXF
-      await parseDXFFile(drawingData.file_url)
     } catch (err) {
       console.error('loadData error:', err)
       setError(err.message)
@@ -94,52 +130,8 @@ export default function DXFViewer() {
     setLoading(false)
   }
 
-  async function parseDXFFile(fileUrl) {
-    setParsing(true)
-    try {
-      const response = await fetch(fileUrl)
-      if (!response.ok) throw new Error('Failed to fetch DXF file')
-      const dxfText = await response.text()
-      const parsed = parseDXF(dxfText)
-      setDxfData(parsed)
-
-      const vis = {}
-      for (const layer of parsed.layers) {
-        vis[layer.name] = layer.visible
-      }
-      setLayerVisibility(vis)
-    } catch (err) {
-      console.error('DXF parse error:', err)
-      setError('Failed to parse DXF file: ' + err.message)
-    }
-    setParsing(false)
-  }
-
-  // SVG paths by layer
-  const svgPathsByLayer = useMemo(() => {
-    if (!dxfData) return {}
-    const result = {}
-    for (const [layerName, entities] of Object.entries(dxfData.entitiesByLayer)) {
-      result[layerName] = entitiesToSVGPaths(entities, dxfData.bounds)
-    }
-    return result
-  }, [dxfData])
-
-  // ViewBox
-  const viewBox = useMemo(() => {
-    if (!dxfData?.bounds) return '0 0 1000 1000'
-    const { minX, minY, maxX, maxY } = dxfData.bounds
-    const w = maxX - minX || 1000
-    const h = maxY - minY || 1000
-    const pad = Math.max(w, h) * 0.05
-    return `${minX - pad} ${-(maxY + pad)} ${w + pad * 2} ${h + pad * 2}`
-  }, [dxfData])
-
-  // Parse viewBox values
-  const vbValues = useMemo(() => {
-    const parts = viewBox.split(' ').map(Number)
-    return { x: parts[0], y: parts[1], w: parts[2], h: parts[3] }
-  }, [viewBox])
+  // Metres per percent from calibration
+  const metresPerPercent = useMemo(() => calcMetresPerPercent(calibration), [calibration])
 
   // Current activity + progress
   const currentActivity = useMemo(() =>
@@ -153,39 +145,44 @@ export default function DXFViewer() {
     return calculateProgress(currentActivity, activityLines)
   }, [currentActivity, activityLines])
 
-  // Layer entity counts
-  const layerInfo = useMemo(() => {
-    if (!dxfData) return []
-    return dxfData.layers.map(layer => ({
-      ...layer,
-      entityCount: (dxfData.entitiesByLayer[layer.name] || []).length,
-      isBaseline: activities.some(a => a.baseline_layer === layer.name),
-    }))
-  }, [dxfData, activities])
-
-  // Convert screen coordinates to SVG/DXF coordinates
-  function screenToDXF(clientX, clientY) {
-    if (!svgRef.current) return null
-    const svgEl = svgRef.current
-    const pt = svgEl.createSVGPoint()
-    pt.x = clientX
-    pt.y = clientY
-    const ctm = svgEl.getScreenCTM()
-    if (!ctm) return null
-    const svgPt = pt.matrixTransform(ctm.inverse())
-    return { x: svgPt.x, y: -svgPt.y } // flip Y back to DXF space
+  // Convert a pointer event to image percentage coordinates
+  function pointerToPercent(e) {
+    const img = imageRef.current
+    if (!img) return null
+    const rect = img.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+    return { x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100 }
   }
 
-  function handleSVGClick(e) {
-    if (!drawMode || !selectedActivity) return
+  function handlePointerDown(e) {
+    tapRef.current = { x: e.clientX, y: e.clientY, time: Date.now() }
+  }
 
-    const pt = screenToDXF(e.clientX, e.clientY)
+  function handlePointerUp(e) {
+    if (!tapRef.current) return
+    const dx = Math.abs(e.clientX - tapRef.current.x)
+    const dy = Math.abs(e.clientY - tapRef.current.y)
+    const dt = Date.now() - tapRef.current.time
+    tapRef.current = null
+
+    // Only count as a tap if minimal movement and quick
+    if (dx > 8 || dy > 8 || dt > 400) return
+
+    const pt = pointerToPercent(e)
     if (!pt) return
 
-    setCurrentPoints(prev => [...prev, pt])
+    if (calibrating) {
+      handleCalibrationClick(pt)
+      return
+    }
+
+    if (drawMode && selectedActivity) {
+      setCurrentPoints(prev => [...prev, pt])
+    }
   }
 
-  function handleSVGDoubleClick(e) {
+  function handleDoubleClick(e) {
     e.preventDefault()
     e.stopPropagation()
     if (drawMode && currentPoints.length >= 2) {
@@ -193,18 +190,59 @@ export default function DXFViewer() {
     }
   }
 
+  // --- Calibration ---
+
+  function handleCalibrationClick(pt) {
+    if (calPoints.length < 2) {
+      const next = [...calPoints, pt]
+      setCalPoints(next)
+      if (next.length === 2) {
+        // Now prompt for distance
+        toast.success('Two points set — enter the known distance')
+      }
+    }
+  }
+
+  function confirmCalibration() {
+    const dist = parseFloat(calDistanceInput)
+    if (!dist || dist <= 0 || calPoints.length !== 2) {
+      toast.error('Enter a valid distance in metres')
+      return
+    }
+    const cal = {
+      point1: calPoints[0],
+      point2: calPoints[1],
+      distanceMetres: dist,
+    }
+    saveCalibration(drawingId, cal)
+    setCalibration(cal)
+    setCalibrating(false)
+    setCalPoints([])
+    setCalDistanceInput('')
+    toast.success(`Scale set: ${calcMetresPerPercent(cal)?.toFixed(4)} m/%`)
+  }
+
+  function cancelCalibration() {
+    setCalibrating(false)
+    setCalPoints([])
+    setCalDistanceInput('')
+  }
+
+  // --- Markup drawing ---
+
   async function finishPolyline() {
     if (currentPoints.length < 2) {
       setCurrentPoints([])
       return
     }
 
-    if (!selectedActivity || !dxfData) {
+    if (!selectedActivity || !metresPerPercent) {
+      if (!metresPerPercent) toast.error('Set scale calibration first')
       setCurrentPoints([])
       return
     }
 
-    const length = calculateMarkupLength(currentPoints, dxfData.scaleFactor)
+    const length = calcPolylineLengthMetres(currentPoints, metresPerPercent)
 
     try {
       const { data, error: insertErr } = await supabase.from('markup_lines').insert({
@@ -230,7 +268,6 @@ export default function DXFViewer() {
   }
 
   async function handleUndo() {
-    // Remove most recent line for current activity
     const actLines = markupLines
       .filter(l => l.programme_activity_id === selectedActivity)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -269,11 +306,18 @@ export default function DXFViewer() {
     toast.success('All markup cleared')
   }
 
-  if (loading || parsing) {
+  // Visual URL — prefer visual_url, fall back to nothing (no raw DXF rendering)
+  const visualUrl = drawing?.visual_url || null
+  const hasVisual = !!visualUrl
+
+  // Determine if drawing mode or calibration mode should block panning
+  const blockPan = drawMode || calibrating
+
+  if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 gap-3">
         <Loader2 size={32} className="text-blue-500 animate-spin" />
-        <p className="text-sm text-slate-500">{parsing ? 'Parsing DXF file...' : 'Loading drawing...'}</p>
+        <p className="text-sm text-slate-500">Loading drawing...</p>
       </div>
     )
   }
@@ -290,6 +334,26 @@ export default function DXFViewer() {
     )
   }
 
+  if (!hasVisual) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 gap-4">
+        <AlertCircle size={32} className="text-amber-400" />
+        <p className="text-sm text-slate-600 font-medium">No visual drawing uploaded</p>
+        <p className="text-xs text-slate-400 max-w-sm text-center">
+          Go to Programme Setup and upload a PNG/JPG of the issued drawing before marking up progress.
+        </p>
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(`/programme/setup/${drawingId}`)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg">
+            Go to Setup
+          </button>
+          <button onClick={() => navigate('/app/programme')} className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-lg">
+            Dashboard
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col h-screen bg-slate-50">
       {/* Header */}
@@ -299,7 +363,7 @@ export default function DXFViewer() {
             <ArrowLeft size={18} className="text-slate-600" />
           </button>
           <div>
-            <h1 className="text-sm font-bold text-slate-900">{drawing?.name || 'DXF Viewer'}</h1>
+            <h1 className="text-sm font-bold text-slate-900">{drawing?.name || 'Drawing Viewer'}</h1>
             <p className="text-[11px] text-slate-400">Programme Drawing Viewer</p>
           </div>
         </div>
@@ -341,132 +405,206 @@ export default function DXFViewer() {
             </div>
             <span className="text-slate-600 font-semibold tabular-nums">{progress.percentage}%</span>
           </div>
+          {metresPerPercent && (
+            <span className="text-slate-400 ml-auto">
+              Scale: {metresPerPercent.toFixed(3)} m/%
+            </span>
+          )}
         </div>
       )}
 
-      <div className="flex-1 flex min-h-0">
-        {/* Layer panel (left) */}
-        {layerPanelOpen && (
-          <div className="w-64 bg-white border-r border-slate-200 flex flex-col overflow-hidden shrink-0">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
-              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <Layers size={13} /> Layers
-              </h2>
-              <button onClick={() => setLayerPanelOpen(false)} className="p-1 hover:bg-slate-100 rounded transition-colors">
-                <ChevronRight size={14} className="text-slate-400 rotate-180" />
+      {/* Calibration prompt bar */}
+      {!calibration && !calibrating && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-amber-50 border-b border-amber-200 shrink-0">
+          <Ruler size={14} className="text-amber-600 shrink-0" />
+          <p className="text-xs text-amber-700 font-medium flex-1">
+            Scale not set — calibrate before drawing markup so lengths are accurate.
+          </p>
+          <button
+            onClick={() => { setCalibrating(true); setCalPoints([]) }}
+            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors"
+          >
+            Set Scale
+          </button>
+        </div>
+      )}
+
+      {/* Calibration mode bar */}
+      {calibrating && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 border-b border-blue-200 shrink-0">
+          <Ruler size={14} className="text-blue-600 shrink-0" />
+          {calPoints.length < 2 ? (
+            <p className="text-xs text-blue-700 font-medium flex-1">
+              Click point {calPoints.length + 1} of 2 on a known dimension
+              {calPoints.length === 1 && ' — click the second point'}
+            </p>
+          ) : (
+            <div className="flex items-center gap-2 flex-1">
+              <p className="text-xs text-blue-700 font-medium">
+                Enter the real distance between the two points:
+              </p>
+              <input
+                type="number"
+                step="any"
+                min="0.01"
+                value={calDistanceInput}
+                onChange={e => setCalDistanceInput(e.target.value)}
+                placeholder="e.g. 5.0"
+                className="w-24 px-2 py-1 bg-white border border-blue-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-blue-400"
+                autoFocus
+                onKeyDown={e => { if (e.key === 'Enter') confirmCalibration() }}
+              />
+              <span className="text-xs text-blue-600">metres</span>
+              <button
+                onClick={confirmCalibration}
+                className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg transition-colors"
+              >
+                Confirm
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-              {layerInfo.map(layer => (
-                <label
-                  key={layer.name}
-                  className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors ${
-                    layer.isBaseline ? 'bg-blue-50' : ''
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={layerVisibility[layer.name] ?? true}
-                    onChange={() => setLayerVisibility(prev => ({ ...prev, [layer.name]: !prev[layer.name] }))}
-                    className="w-3.5 h-3.5 rounded border-slate-300 text-blue-500 focus:ring-blue-500 shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-xs truncate ${layer.isBaseline ? 'font-medium text-blue-700' : 'text-slate-700'}`}>
-                      {layer.name}
-                      {layer.isBaseline && <span className="ml-1 text-[9px] text-blue-500">(baseline)</span>}
-                    </p>
-                    <p className="text-[10px] text-slate-400">{layer.entityCount} entities</p>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
+          )}
+          <button onClick={cancelCalibration} className="p-1 text-blue-400 hover:text-blue-600 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Main drawing area */}
+      <div className="flex-1 relative overflow-hidden">
+        {/* Zoom controls */}
+        <div className="absolute top-3 right-3 z-10 flex flex-col gap-1">
+          <ZoomButton id="prog-zoom-in">
+            <ZoomIn size={16} className="text-slate-600" />
+          </ZoomButton>
+          <ZoomButton id="prog-zoom-out">
+            <ZoomOut size={16} className="text-slate-600" />
+          </ZoomButton>
+        </div>
+
+        {/* Calibration re-do button (when already calibrated) */}
+        {calibration && !calibrating && (
+          <button
+            onClick={() => { setCalibrating(true); setCalPoints([]) }}
+            className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1.5 bg-white/90 border border-slate-200 rounded-lg text-[10px] text-slate-600 font-medium hover:bg-white transition-colors shadow-sm"
+          >
+            <Ruler size={12} /> Re-calibrate
+          </button>
         )}
 
-        {/* Main drawing area */}
-        <div className="flex-1 relative overflow-hidden">
-          {/* Left toolbar toggle */}
-          {!layerPanelOpen && (
-            <button
-              onClick={() => setLayerPanelOpen(true)}
-              className="absolute top-3 left-3 z-10 p-2 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
-            >
-              <Layers size={16} className="text-slate-600" />
-            </button>
-          )}
+        <TransformWrapper
+          initialScale={1}
+          minScale={0.1}
+          maxScale={30}
+          wheel={{ step: 0.1 }}
+          panning={{ disabled: blockPan }}
+        >
+          {({ zoomIn, zoomOut }) => {
+            // Wire zoom buttons via effect
+            useEffect(() => {
+              const inBtn = document.getElementById('prog-zoom-in')
+              const outBtn = document.getElementById('prog-zoom-out')
+              const handleIn = () => zoomIn()
+              const handleOut = () => zoomOut()
+              inBtn?.addEventListener('click', handleIn)
+              outBtn?.addEventListener('click', handleOut)
+              return () => {
+                inBtn?.removeEventListener('click', handleIn)
+                outBtn?.removeEventListener('click', handleOut)
+              }
+            }, [zoomIn, zoomOut])
 
-          {/* Zoom controls */}
-          <div className="absolute top-3 right-3 z-10 flex flex-col gap-1">
-            <ZoomButton id="zoom-in">
-              <ZoomIn size={16} className="text-slate-600" />
-            </ZoomButton>
-            <ZoomButton id="zoom-out">
-              <ZoomOut size={16} className="text-slate-600" />
-            </ZoomButton>
-          </div>
-
-          <TransformWrapper
-            initialScale={1}
-            minScale={0.1}
-            maxScale={30}
-            wheel={{ step: 0.1 }}
-            panning={{ disabled: drawMode }}
-            ref={transformRef}
-          >
-            {({ zoomIn, zoomOut }) => {
-              // Wire zoom buttons
-              useEffect(() => {
-                const inBtn = document.getElementById('zoom-in')
-                const outBtn = document.getElementById('zoom-out')
-                const handleIn = () => zoomIn()
-                const handleOut = () => zoomOut()
-                inBtn?.addEventListener('click', handleIn)
-                outBtn?.addEventListener('click', handleOut)
-                return () => {
-                  inBtn?.removeEventListener('click', handleIn)
-                  outBtn?.removeEventListener('click', handleOut)
-                }
-              }, [zoomIn, zoomOut])
-
-              return (
-                <TransformComponent
-                  wrapperStyle={{ width: '100%', height: '100%' }}
-                  contentStyle={{ width: '100%', height: '100%' }}
+            return (
+              <TransformComponent
+                wrapperStyle={{ width: '100%', height: '100%' }}
+                contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <div
+                  className="relative inline-block"
+                  style={{ cursor: blockPan ? 'crosshair' : 'grab' }}
+                  onPointerDown={handlePointerDown}
+                  onPointerUp={handlePointerUp}
+                  onDoubleClick={handleDoubleClick}
                 >
-                  {dxfData && (
+                  {imgError ? (
+                    <div className="w-[800px] h-[600px] bg-white flex items-center justify-center">
+                      <p className="text-slate-400 text-sm">Failed to load drawing image</p>
+                    </div>
+                  ) : (
+                    <img
+                      ref={imageRef}
+                      src={visualUrl}
+                      alt={drawing?.name}
+                      className="max-w-none select-none"
+                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
+                      onLoad={() => setImageLoaded(true)}
+                      onError={() => setImgError(true)}
+                      draggable={false}
+                    />
+                  )}
+
+                  {/* SVG overlay for markup lines + calibration points */}
+                  {imageLoaded && (
                     <svg
-                      ref={svgRef}
-                      viewBox={viewBox}
-                      className="w-full h-full"
-                      style={{ background: '#1a1a2e', cursor: drawMode ? 'crosshair' : 'grab' }}
-                      onClick={handleSVGClick}
-                      onDoubleClick={handleSVGDoubleClick}
+                      className="absolute inset-0 w-full h-full"
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                      style={{ pointerEvents: 'none' }}
                     >
-                      {/* DXF layers */}
-                      {Object.entries(svgPathsByLayer).map(([layerName, paths]) => {
-                        if (!layerVisibility[layerName]) return null
-                        return (
-                          <g key={layerName}>
-                            {paths.map((p, i) => (
-                              <path
-                                key={i}
-                                d={p.d}
-                                fill="none"
-                                stroke={p.color || '#AAAAAA'}
-                                strokeWidth={0.5}
-                                vectorEffect="non-scaling-stroke"
-                              />
-                            ))}
-                          </g>
-                        )
-                      })}
+                      {/* Calibration points */}
+                      {calibrating && calPoints.map((pt, i) => (
+                        <g key={`cal-${i}`}>
+                          <circle
+                            cx={pt.x}
+                            cy={pt.y}
+                            r="0.6"
+                            fill="#3B82F6"
+                            stroke="white"
+                            strokeWidth="0.2"
+                          />
+                          <text
+                            x={pt.x + 1}
+                            y={pt.y - 1}
+                            fontSize="1.8"
+                            fill="#3B82F6"
+                            fontWeight="bold"
+                          >
+                            {i + 1}
+                          </text>
+                        </g>
+                      ))}
+                      {/* Calibration line */}
+                      {calibrating && calPoints.length === 2 && (
+                        <line
+                          x1={calPoints[0].x}
+                          y1={calPoints[0].y}
+                          x2={calPoints[1].x}
+                          y2={calPoints[1].y}
+                          stroke="#3B82F6"
+                          strokeWidth="0.3"
+                          strokeDasharray="1 0.5"
+                        />
+                      )}
+
+                      {/* Saved calibration indicator */}
+                      {!calibrating && calibration?.point1 && calibration?.point2 && (
+                        <line
+                          x1={calibration.point1.x}
+                          y1={calibration.point1.y}
+                          x2={calibration.point2.x}
+                          y2={calibration.point2.y}
+                          stroke="#3B82F6"
+                          strokeWidth="0.15"
+                          strokeDasharray="0.8 0.4"
+                          opacity="0.3"
+                        />
+                      )}
 
                       {/* Existing markup lines */}
                       {markupLines.map(line => {
                         const coords = line.coordinates || []
                         if (coords.length < 2) return null
                         const d = coords.map((pt, i) =>
-                          `${i === 0 ? 'M' : 'L'} ${pt.x} ${-pt.y}`
+                          `${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`
                         ).join(' ')
                         const color = MARKUP_COLORS[line.colour]?.hex || '#FFFFFF'
                         const isCurrentActivity = line.programme_activity_id === selectedActivity
@@ -476,10 +614,9 @@ export default function DXFViewer() {
                             d={d}
                             fill="none"
                             stroke={color}
-                            strokeWidth={isCurrentActivity ? 3 : 1.5}
+                            strokeWidth={isCurrentActivity ? 0.5 : 0.25}
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            vectorEffect="non-scaling-stroke"
                             opacity={isCurrentActivity ? 1 : 0.4}
                           />
                         )
@@ -490,38 +627,36 @@ export default function DXFViewer() {
                         <>
                           <path
                             d={currentPoints.map((pt, i) =>
-                              `${i === 0 ? 'M' : 'L'} ${pt.x} ${-pt.y}`
+                              `${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`
                             ).join(' ')}
                             fill="none"
                             stroke={MARKUP_COLORS[activeColour]?.hex || '#FFFFFF'}
-                            strokeWidth={3}
+                            strokeWidth="0.5"
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            strokeDasharray="8 4"
-                            vectorEffect="non-scaling-stroke"
+                            strokeDasharray="1 0.5"
                           />
                           {/* Vertex dots */}
                           {currentPoints.map((pt, i) => (
                             <circle
                               key={i}
                               cx={pt.x}
-                              cy={-pt.y}
-                              r={4}
+                              cy={pt.y}
+                              r="0.5"
                               fill={MARKUP_COLORS[activeColour]?.hex || '#FFFFFF'}
                               stroke="white"
-                              strokeWidth={1}
-                              vectorEffect="non-scaling-stroke"
+                              strokeWidth="0.15"
                             />
                           ))}
                         </>
                       )}
                     </svg>
                   )}
-                </TransformComponent>
-              )
-            }}
-          </TransformWrapper>
-        </div>
+                </div>
+              </TransformComponent>
+            )
+          }}
+        </TransformWrapper>
       </div>
 
       {/* Bottom toolbar */}
@@ -530,14 +665,22 @@ export default function DXFViewer() {
           {/* Draw toggle */}
           <button
             onClick={() => {
+              if (calibrating) {
+                toast.error('Finish calibration first')
+                return
+              }
               setDrawMode(d => !d)
               setCurrentPoints([])
             }}
+            disabled={!metresPerPercent}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
               drawMode
                 ? 'bg-blue-500 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                : !metresPerPercent
+                  ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
+            title={!metresPerPercent ? 'Set scale calibration first' : ''}
           >
             <Pencil size={14} /> {drawMode ? 'Drawing' : 'Draw'}
           </button>
@@ -567,7 +710,8 @@ export default function DXFViewer() {
               onClick={finishPolyline}
               className="flex items-center gap-1.5 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded-lg transition-colors ml-2"
             >
-              <Check size={14} /> Done ({currentPoints.length} pts)
+              <Check size={14} /> Done ({currentPoints.length} pts
+              {metresPerPercent ? ` · ${calcPolylineLengthMetres(currentPoints, metresPerPercent)}m` : ''})
             </button>
           )}
           {drawMode && currentPoints.length > 0 && (

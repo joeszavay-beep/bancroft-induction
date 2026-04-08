@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
@@ -6,8 +6,8 @@ import { getSession } from '../lib/storage'
 import { parseDXF, entitiesToSVGPaths, calculateLayerLength } from '../lib/dxfParser'
 import toast from 'react-hot-toast'
 import {
-  ArrowLeft, Layers, Plus, Check, ChevronDown, ChevronRight,
-  ZoomIn, ZoomOut, Loader2, AlertCircle, Trash2
+  ArrowLeft, Layers, Plus, Check, ChevronRight,
+  ZoomIn, ZoomOut, Loader2, AlertCircle, Trash2, Upload, Image as ImageIcon
 } from 'lucide-react'
 
 export default function ProgrammeSetup() {
@@ -25,6 +25,10 @@ export default function ProgrammeSetup() {
   const [layerVisibility, setLayerVisibility] = useState({})
   const [selectedLayer, setSelectedLayer] = useState(null)
   const [layerLengths, setLayerLengths] = useState({})
+
+  // Visual upload
+  const [uploadingVisual, setUploadingVisual] = useState(false)
+  const [visualPreviewUrl, setVisualPreviewUrl] = useState(null)
 
   // Activity form
   const [activityName, setActivityName] = useState('')
@@ -58,6 +62,7 @@ export default function ProgrammeSetup() {
       }
 
       setDrawing(data)
+      if (data.visual_url) setVisualPreviewUrl(data.visual_url)
       await parseDXFFile(data.file_url)
     } catch (err) {
       console.error('loadDrawing error:', err)
@@ -94,6 +99,49 @@ export default function ProgrammeSetup() {
       setError('Failed to parse DXF file: ' + err.message)
     }
     setParsing(false)
+  }
+
+  // Upload a visual drawing (PNG/JPG/PDF)
+  async function handleUploadVisual(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const ext = file.name.split('.').pop().toLowerCase()
+    if (!['png', 'jpg', 'jpeg', 'pdf'].includes(ext)) {
+      toast.error('Please upload a PNG, JPG or PDF file')
+      return
+    }
+
+    setUploadingVisual(true)
+    try {
+      const storagePath = `programme/${drawing.project_id}/${crypto.randomUUID()}.${ext}`
+      const contentType = ext === 'pdf' ? 'application/pdf' : `image/${ext === 'jpg' ? 'jpeg' : ext}`
+
+      const { error: upErr } = await supabase.storage
+        .from('documents')
+        .upload(storagePath, file, { contentType })
+      if (upErr) throw new Error(`Upload failed: ${upErr.message}`)
+
+      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(storagePath)
+      const publicUrl = urlData.publicUrl
+
+      // Save to design_drawings.visual_url
+      const { error: updateErr } = await supabase
+        .from('design_drawings')
+        .update({ visual_url: publicUrl })
+        .eq('id', drawingId)
+
+      if (updateErr) throw new Error(updateErr.message)
+
+      setVisualPreviewUrl(publicUrl)
+      setDrawing(prev => ({ ...prev, visual_url: publicUrl }))
+      toast.success('Visual drawing uploaded')
+    } catch (err) {
+      console.error(err)
+      toast.error(err.message || 'Failed to upload visual drawing')
+    }
+    setUploadingVisual(false)
+    e.target.value = ''
   }
 
   // Compute SVG paths grouped by layer
@@ -210,6 +258,8 @@ export default function ProgrammeSetup() {
     )
   }
 
+  const isVisualPdf = visualPreviewUrl?.toLowerCase().endsWith('.pdf')
+
   return (
     <div className="flex flex-col h-screen bg-slate-50">
       {/* Header */}
@@ -234,14 +284,71 @@ export default function ProgrammeSetup() {
       </header>
 
       <div className="flex-1 flex min-h-0">
-        {/* Left panel — layers + form */}
+        {/* Left panel — visual upload + layers + form */}
         <div className={`${layerPanelOpen ? 'w-80' : 'w-0'} shrink-0 bg-white border-r border-slate-200 flex flex-col overflow-hidden transition-all`}>
           {layerPanelOpen && (
             <>
+              {/* Visual drawing upload section */}
+              <div className="border-b border-slate-200 p-3 space-y-2 shrink-0">
+                <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <ImageIcon size={13} /> Visual Drawing
+                </h2>
+                <p className="text-[10px] text-slate-400">
+                  Upload the issued drawing (PNG/JPG/PDF) for markup
+                </p>
+
+                {visualPreviewUrl ? (
+                  <div className="space-y-2">
+                    {isVisualPdf ? (
+                      <div className="w-full h-24 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200">
+                        <div className="text-center">
+                          <p className="text-xs font-medium text-slate-600">PDF uploaded</p>
+                          <p className="text-[10px] text-slate-400">Convert to PNG for best results</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <img
+                        src={visualPreviewUrl}
+                        alt="Visual drawing preview"
+                        className="w-full h-auto max-h-40 object-contain rounded-lg border border-slate-200 bg-white"
+                      />
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-1 text-[10px] text-green-600 font-medium">
+                        <Check size={10} /> Visual uploaded
+                      </span>
+                      <label className="text-[10px] text-blue-500 hover:text-blue-700 cursor-pointer font-medium">
+                        Replace
+                        <input type="file" accept=".png,.jpg,.jpeg,.pdf" onChange={handleUploadVisual} className="hidden" />
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  <label className={`flex items-center justify-center gap-2 w-full px-3 py-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
+                    uploadingVisual
+                      ? 'border-blue-300 bg-blue-50 text-blue-500'
+                      : 'border-slate-300 hover:border-blue-400 hover:bg-blue-50 text-slate-500'
+                  }`}>
+                    {uploadingVisual ? (
+                      <span className="flex items-center gap-2 text-xs font-medium">
+                        <Loader2 size={14} className="animate-spin" /> Uploading...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2 text-xs font-medium">
+                        <Upload size={14} /> Upload PNG / JPG / PDF
+                      </span>
+                    )}
+                    <input type="file" accept=".png,.jpg,.jpeg,.pdf" onChange={handleUploadVisual} disabled={uploadingVisual} className="hidden" />
+                  </label>
+                )}
+              </div>
+
               {/* Layer list */}
               <div className="flex-1 overflow-y-auto p-3 space-y-1">
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Layers</h2>
+                  <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <Layers size={13} /> DXF Layers
+                  </h2>
                   <span className="text-[10px] text-slate-400">{dxfData?.layers.length || 0} layers</span>
                 </div>
 
@@ -395,7 +502,7 @@ export default function ProgrammeSetup() {
           {layerPanelOpen ? <ChevronRight size={14} className="text-slate-400 rotate-180" /> : <ChevronRight size={14} className="text-slate-400" />}
         </button>
 
-        {/* Drawing area */}
+        {/* Drawing area — small DXF preview */}
         <div className="flex-1 bg-slate-100 relative overflow-hidden">
           <TransformWrapper
             initialScale={1}
@@ -424,6 +531,11 @@ export default function ProgrammeSetup() {
                     Units: {dxfData.unitsLabel} · Scale: 1 unit = {dxfData.scaleFactor}m
                   </div>
                 )}
+
+                {/* DXF preview label */}
+                <div className="absolute top-3 left-3 z-10 px-2 py-1 bg-white/90 border border-slate-200 rounded-lg text-[10px] text-slate-500 font-medium">
+                  DXF Preview (data only)
+                </div>
 
                 <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
                   {dxfData && (

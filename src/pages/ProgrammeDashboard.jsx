@@ -470,8 +470,10 @@ export default function ProgrammeDashboard() {
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <p className="text-xs font-bold text-blue-700 mb-1">How the Programme Pipeline Works</p>
         <ol className="text-xs text-blue-600 space-y-1 list-decimal ml-4">
-          <li>Upload a DXF drawing and create activities from layers (each layer = a baseline)</li>
-          <li>Open a drawing and mark up installed lengths with green/amber/red polylines</li>
+          <li><strong>Upload DXF</strong> for data — extracts layers and baseline lengths for each activity</li>
+          <li><strong>Upload Visual Drawing</strong> (PDF/PNG) on the setup page — the actual issued drawing people can read</li>
+          <li>Open a drawing and mark up installed lengths on the visual with green/amber/red polylines</li>
+          <li>Set a scale calibration so markup lengths are calculated in real-world metres</li>
           <li>The dashboard automatically calculates progress, rates and forecasts</li>
           <li>Export to CSV for Asta Power Project or MS Project import</li>
         </ol>
