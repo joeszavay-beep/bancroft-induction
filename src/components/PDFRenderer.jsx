@@ -1,19 +1,15 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
+import * as pdfjsLib from 'pdfjs-dist'
 
-/**
- * Renders a PDF URL as a canvas image. Exposes the same interface as an <img>:
- * - onLoad callback when rendered
- * - onError callback on failure
- * - ref gives access to the canvas element (like imageRef)
- * - clientWidth/clientHeight/naturalWidth/naturalHeight available on ref
- */
+// Set worker from public folder — same origin, no CORS issues
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+
 const PDFRenderer = forwardRef(function PDFRenderer({ src, alt, className, style, onLoad, onError, draggable }, ref) {
   const canvasRef = useRef(null)
   const [loaded, setLoaded] = useState(false)
-  const [error, setError] = useState(false)
+  const [error, setError] = useState(null)
   const sizeRef = useRef({ width: 0, height: 0 })
 
-  // Expose canvas as ref with img-like properties
   useImperativeHandle(ref, () => {
     const canvas = canvasRef.current
     if (!canvas) return {}
@@ -30,32 +26,27 @@ const PDFRenderer = forwardRef(function PDFRenderer({ src, alt, className, style
   useEffect(() => {
     if (!src) return
     setLoaded(false)
-    setError(false)
+    setError(null)
 
     let cancelled = false
 
     async function renderPDF() {
       try {
-        const pdfjsLib = await import('pdfjs-dist')
-
-        // Use CDN worker matching the installed version
-        const version = pdfjsLib.version || '5.6.205'
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`
-
-        // Fetch as ArrayBuffer first to avoid CORS/streaming issues
+        // Fetch the PDF as ArrayBuffer
         const response = await fetch(src)
-        if (!response.ok) throw new Error('Failed to fetch PDF')
-        const arrayBuffer = await response.arrayBuffer()
+        if (!response.ok) throw new Error(`HTTP ${response.status} fetching PDF`)
+        const data = await response.arrayBuffer()
         if (cancelled) return
 
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
-        const pdf = await loadingTask.promise
+        // Load the PDF document
+        const pdf = await pdfjsLib.getDocument({ data }).promise
         if (cancelled) return
 
+        // Get first page
         const page = await pdf.getPage(1)
         if (cancelled) return
 
-        // Render at 2x for sharpness
+        // Render at 2x scale for sharpness on retina displays
         const scale = 2
         const viewport = page.getViewport({ scale })
 
@@ -75,7 +66,7 @@ const PDFRenderer = forwardRef(function PDFRenderer({ src, alt, className, style
       } catch (err) {
         console.error('PDF render error:', err)
         if (!cancelled) {
-          setError(true)
+          setError(err.message || 'Unknown error')
           onError?.(err)
         }
       }
@@ -87,8 +78,8 @@ const PDFRenderer = forwardRef(function PDFRenderer({ src, alt, className, style
 
   if (error) {
     return (
-      <div className="w-[800px] h-[600px] bg-white flex items-center justify-center">
-        <p className="text-slate-400 text-sm">Failed to load PDF</p>
+      <div className={className} style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 100, background: '#f8fafc' }}>
+        <p className="text-slate-400 text-xs text-center px-2">PDF failed: {error}</p>
       </div>
     )
   }
@@ -104,8 +95,8 @@ const PDFRenderer = forwardRef(function PDFRenderer({ src, alt, className, style
         }}
         draggable={draggable}
       />
-      {!loaded && !error && (
-        <div className="w-full h-full min-h-[100px] bg-white flex items-center justify-center">
+      {!loaded && (
+        <div className={className} style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 100, background: '#f8fafc' }}>
           <div className="text-center">
             <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-1" />
             <p className="text-slate-400 text-[10px]">Rendering PDF...</p>
@@ -118,9 +109,6 @@ const PDFRenderer = forwardRef(function PDFRenderer({ src, alt, className, style
 
 export default PDFRenderer
 
-/**
- * Check if a URL points to a PDF
- */
 export function isPDF(url) {
   if (!url) return false
   const lower = url.toLowerCase()
