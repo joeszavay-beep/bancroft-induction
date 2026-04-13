@@ -48,10 +48,17 @@ export default function AgencyOperatives() {
 
   async function lookupAgency() {
     try {
+      let email = managerData.email
+      if (!email) {
+        const { data: { session } } = await supabase.auth.getSession()
+        email = session?.user?.email
+      }
+      if (!email) { setLoading(false); return }
+
       const { data: agencyUser } = await supabase
         .from('agency_users')
         .select('agency_id')
-        .eq('email', managerData.email)
+        .eq('email', email)
         .single()
 
       if (!agencyUser) {
