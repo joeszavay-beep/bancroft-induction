@@ -55,8 +55,10 @@ export default function Signup() {
       if (!authUser) throw new Error('Account creation failed. Please try again.')
 
       // 2. Create company
+      const slug = companyName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36)
       const { data: company, error: compError } = await supabase.from('companies').insert({
         name: companyName.trim(),
+        slug,
         contact_name: name.trim(),
         contact_email: email.trim().toLowerCase(),
         subscription_plan: 'trial',
@@ -127,8 +129,10 @@ export default function Signup() {
       if (!authUser) throw new Error('Account creation failed. Please try again.')
 
       // 2. Create company
+      const agencySlug = companyName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36)
       const { data: company, error: compError } = await supabase.from('companies').insert({
         name: companyName.trim(),
+        slug: agencySlug,
         contact_name: name.trim(),
         contact_email: email.trim().toLowerCase(),
         subscription_plan: 'trial',
