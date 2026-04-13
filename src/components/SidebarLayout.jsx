@@ -137,8 +137,7 @@ export default function SidebarLayout({ children }) {
   const { isDark, toggleTheme } = useTheme()
   const managerData = user || JSON.parse(getSession('manager_data') || '{}')
   const isAdmin = managerData.role === 'admin' || managerData.role === 'super_admin'
-  // Only show super admin for the Bancroft admin (first company) or super_admin role
-  const isSuperAdmin = managerData.role === 'super_admin' || (managerData.role === 'admin' && managerData.company_id === '00000000-0000-0000-0000-000000000001')
+  const isSuperAdmin = managerData.role === 'super_admin'
   const userName = managerData.name || 'User'
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   const companyName = company?.name || 'Company'
