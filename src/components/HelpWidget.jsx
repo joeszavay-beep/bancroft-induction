@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { MessageCircle, X, Send, Loader2, Sparkles } from 'lucide-react'
 
 const SUGGESTIONS_MAP = {
@@ -120,7 +121,7 @@ export default function HelpWidget() {
     sendMessage(text)
   }
 
-  return (
+  return createPortal(
     <div id="coresite-help-widget">
       {/* Chat panel */}
       <div
@@ -242,6 +243,7 @@ export default function HelpWidget() {
           <span className="absolute inset-0 rounded-full bg-[#1B6FC8] animate-ping opacity-30" />
         )}
       </button>
-    </div>
+    </div>,
+    document.body
   )
 }
