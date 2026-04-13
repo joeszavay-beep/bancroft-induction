@@ -45,11 +45,20 @@ import BIMModels from './pages/BIMModels'
 import BIMViewer3D from './pages/BIMViewer3D'
 import ProgrammeDashboard from './pages/ProgrammeDashboard'
 import MasterProgramme from './pages/MasterProgramme'
+import LabourRequests from './pages/LabourRequests'
+import LabourRequestForm from './pages/LabourRequestForm'
+import LabourRequestDetail from './pages/LabourRequestDetail'
+import Bookings from './pages/Bookings'
 import ProgrammeSetup from './pages/ProgrammeSetup'
 import DXFViewer from './pages/DXFViewer'
 import OperativeLogin from './pages/OperativeLogin'
 import SandboxEntry from './pages/SandboxEntry'
 import OperativeDashboard from './pages/OperativeDashboard'
+import AgencyDashboard from './pages/AgencyDashboard'
+import AgencyOperatives from './pages/AgencyOperatives'
+import AgencyOperativeDetail from './pages/AgencyOperativeDetail'
+import AgencyRequests from './pages/AgencyRequests'
+import AgencyRegister from './pages/AgencyRegister'
 import OperativeGuard from './components/OperativeGuard'
 import { getSession } from './lib/storage'
 
@@ -104,6 +113,14 @@ function AppLayout() {
         <Route path="/hs-reports" element={<PMDashboard key="hs" initialTab="hsreport" />} />
         <Route path="/portal" element={<PMDashboard key="portal" initialTab="portal" />} />
         <Route path="/account" element={<PMDashboard key="settings" initialTab="settings" />} />
+        <Route path="/labour-requests" element={<LabourRequests />} />
+        <Route path="/labour-requests/new" element={<LabourRequestForm />} />
+        <Route path="/labour-requests/:id" element={<LabourRequestDetail />} />
+        <Route path="/bookings" element={<Bookings />} />
+        <Route path="/agency" element={<AgencyDashboard />} />
+        <Route path="/agency/operatives" element={<AgencyOperatives />} />
+        <Route path="/agency/operatives/:id" element={<AgencyOperativeDetail />} />
+        <Route path="/agency/requests" element={<AgencyRequests />} />
         <Route path="/toolbox-live/:talkId" element={<ToolboxTalkLive />} />
       </Routes>
     </SidebarLayout>
@@ -139,6 +156,9 @@ export default function App() {
       <Route path="/worker-login" element={<Navigate to="/login" replace />} />
       <Route path="/try" element={<SandboxEntry />} />
       <Route path="/worker/*" element={<OperativeDashboard />} />
+
+      {/* Agency registration (no sidebar) */}
+      <Route path="/agency/register" element={<AgencyRegister />} />
 
       {/* Full screen viewers (no sidebar) */}
       <Route path="/snags/:drawingId" element={<SnagDrawingView />} />

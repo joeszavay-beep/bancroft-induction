@@ -9,7 +9,8 @@ import DemoBanner from './DemoBanner'
 import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
-  Globe, Settings, User, Shield, Image, Layers, BookOpen, CheckSquare, Activity, Bell, Box, CalendarRange
+  Globe, Settings, User, Shield, Image, Layers, BookOpen, CheckSquare, Activity, Bell, Box, CalendarRange,
+  Briefcase, PlusCircle, CalendarCheck, Building2, Calendar
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
 
@@ -61,6 +62,23 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    title: 'Labour',
+    items: [
+      { label: 'Requests', path: '/app/labour-requests', icon: Briefcase },
+      { label: 'New Request', path: '/app/labour-requests/new', icon: PlusCircle },
+      { label: 'Bookings', path: '/app/bookings', icon: CalendarCheck },
+    ],
+  },
+  {
+    title: 'Agency',
+    items: [
+      { label: 'Dashboard', path: '/app/agency', icon: Building2 },
+      { label: 'Operatives', path: '/app/agency/operatives', icon: Users },
+      { label: 'Requests', path: '/app/agency/requests', icon: FileText },
+      { label: 'Bookings', path: '/app/bookings', icon: Calendar },
+    ],
+  },
+  {
     title: 'BIM',
     items: [
       { label: 'BIM Models', path: '/app/bim', icon: Box },
@@ -95,7 +113,7 @@ export default function SidebarLayout({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Progress', 'Snags', 'Programme', 'BIM', 'H&S', 'Portal', 'Admin'])
+  const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Progress', 'Snags', 'Programme', 'Labour', 'Agency', 'BIM', 'H&S', 'Portal', 'Admin'])
 
   const { company, user, logout: ctxLogout } = useCompany()
   const { isDark, toggleTheme } = useTheme()
