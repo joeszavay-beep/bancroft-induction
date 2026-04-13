@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 import {
   Shield, FileCheck, MapPin, Layers, QrCode, Users, Clock, Download, CheckCircle2,
   ArrowRight, Zap, Lock, Globe, Smartphone, X, Send, BookOpen, CheckSquare,
-  Bell, BarChart3, WifiOff, HardHat, Activity, MessageSquare, CreditCard, ChevronRight, Eye
+  Bell, BarChart3, WifiOff, HardHat, Activity, MessageSquare, CreditCard, ChevronRight, Eye,
+  Cuboid, CalendarRange, Ruler, Pencil
 } from 'lucide-react'
 
 function AnimatedCounter({ end, suffix = '', duration = 2000 }) {
@@ -48,19 +49,23 @@ function FadeIn({ children, delay = 0, className = '' }) {
 }
 
 const features = [
-  { icon: FileCheck, title: 'RAMS & Document Sign-Off', desc: 'Digital signatures with IP logging, timestamps, and automatic PDF generation. No more chasing paper.', color: '#3B7DD8' },
-  { icon: MapPin, title: 'Snagging & Defects', desc: 'Pin snags on drawings, attach photos, assign to trades, auto-chase overdue items, track resolution times.', color: '#DA3633' },
-  { icon: Layers, title: 'Progress Drawings', desc: 'Traffic-light system for installation progress. Dots, lines, polylines on drawings. Export to PDF.', color: '#2EA043' },
-  { icon: QrCode, title: 'QR Site Sign-In', desc: 'Print a QR poster for the gate. Live headcount, fire muster roll call, time tracking, auto sign-out.', color: '#D29922' },
-  { icon: BookOpen, title: 'Daily Site Diary', desc: 'Weather auto-fill from location, workforce count, deliveries, delays, incidents. The log every site needs.', color: '#0891B2' },
-  { icon: CheckSquare, title: 'Inspection Checklists', desc: 'Reusable templates for void closure, fire stopping, pre-handover. Pass/fail with photo evidence.', color: '#059669' },
-  { icon: Users, title: 'Worker Management', desc: 'Full profiles with CSCS/ECS card verification, certification expiry alerts, and UK postcode address lookup.', color: '#7C3AED' },
-  { icon: HardHat, title: 'Worker Portal', desc: 'Operatives get their own login. Sign documents, view assigned snags, chat with managers, track compliance.', color: '#EA580C' },
+  { icon: Cuboid, title: '3D BIM Viewer', desc: 'Upload IFC models and explore them in full 3D. X-ray mode, clipping planes, fly-to elements, colour by status. Click any element to see properties, raise snags, or update commissioning status.', color: '#7C3AED' },
+  { icon: CalendarRange, title: 'Master Programme', desc: 'Import your Asta Powerproject programme as a live Gantt chart. Click-to-update progress, auto-status tracking, colour-coded bars, today line, CSV export back to Asta.', color: '#3B7DD8' },
+  { icon: Pencil, title: 'DXF Programme Tracking', desc: 'Upload DXF design drawings, extract M&E routes by layer, auto-calculate baseline lengths. Draw progress markup on the PDF and watch percentages update live.', color: '#059669' },
+  { icon: MapPin, title: 'Snagging & Defects', desc: 'Pin snags on drawings, attach photos, assign to trades, auto-chase overdue items, track resolution times. Link snags directly to BIM elements.', color: '#DA3633' },
+  { icon: Layers, title: 'Progress Drawings', desc: 'Traffic-light system for installation progress. Dots, lines, polylines on drawings with real-world measurement. Export to PDF.', color: '#2EA043' },
+  { icon: FileCheck, title: 'RAMS & Document Sign-Off', desc: 'Digital signatures with IP logging, timestamps, and automatic PDF generation. Sequential signing. No more chasing paper.', color: '#1B6FC8' },
+  { icon: QrCode, title: 'QR Site Sign-In', desc: 'Print a QR poster for the gate. Live headcount, fire muster roll call, GPS capture, time tracking, auto sign-out at midnight.', color: '#D29922' },
+  { icon: CheckSquare, title: 'Inspection Checklists', desc: 'Reusable templates for void closure, fire stopping, pre-handover, M&E commissioning. Pass/fail with photo evidence.', color: '#0891B2' },
+  { icon: BookOpen, title: 'Daily Site Diary', desc: 'Weather auto-fill from location, workforce count, deliveries, delays, incidents. The log every site needs.', color: '#EA580C' },
+  { icon: Users, title: 'Worker Management', desc: 'Full profiles with CSCS/ECS card verification, certification expiry alerts, and UK postcode address lookup.', color: '#4F46E5' },
+  { icon: HardHat, title: 'Worker Portal', desc: 'Operatives get their own login. Sign documents, view assigned snags, chat with managers, track compliance.', color: '#F59E0B' },
   { icon: MessageSquare, title: 'Site Chat', desc: 'Real-time messaging between managers and operatives. Photo sharing, quick templates for material requests.', color: '#2563EB' },
-  { icon: BarChart3, title: 'Contractor Performance', desc: 'Resolution times by trade, operative league tables, on-time percentages. Data for every sub meeting.', color: '#4F46E5' },
+  { icon: Ruler, title: '3D Measurement Tool', desc: 'Measure distances between any two points on a 3D BIM model. Snap-to-vertex for precision. Screenshot exports with CoreSite watermark.', color: '#6366F1' },
+  { icon: BarChart3, title: 'Contractor Performance', desc: 'Resolution times by trade, operative league tables, on-time percentages. Data for every sub meeting.', color: '#0D9488' },
   { icon: Bell, title: 'Auto-Chase & Alerts', desc: 'Overdue snag emails every morning. Cert expiry warnings. In-app notifications. Escalation after 14 days.', color: '#DC2626' },
-  { icon: Activity, title: 'Aftercare Portal', desc: 'Public defect reporting for clients during the 12-month liability period. Track alongside your snags.', color: '#0D9488' },
-  { icon: WifiOff, title: 'Works Offline', desc: 'Create snags, take photos, place pins with no signal. Everything syncs automatically when back online.', color: '#6366F1' },
+  { icon: Activity, title: 'Aftercare Portal', desc: 'Public defect reporting for clients during the 12-month liability period. Track alongside your snags.', color: '#F97316' },
+  { icon: WifiOff, title: 'Works Offline', desc: 'Create snags, take photos, place pins with no signal. Everything syncs automatically when back online.', color: '#8B5CF6' },
   { icon: Shield, title: 'H&S Archive & Reports', desc: 'One-click PDF export: signatures, toolbox talks, snags, inspections, diary entries. Full project pack.', color: '#1B2A3D' },
 ]
 
@@ -123,7 +128,7 @@ export default function WhyCoreSite() {
             <div className="max-w-4xl mx-auto text-center">
               <FadeIn>
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 backdrop-blur-sm text-white/80 text-xs font-medium rounded-full mb-8 border border-white/10">
-                  <Zap size={12} className="text-[#3B7DD8]" /> 14 features. One platform. Zero paper.
+                  <Zap size={12} className="text-[#3B7DD8]" /> 18 features. One platform. Zero paper.
                 </div>
               </FadeIn>
               <FadeIn delay={100}>
@@ -134,7 +139,7 @@ export default function WhyCoreSite() {
               </FadeIn>
               <FadeIn delay={200}>
                 <p className="text-lg text-white/50 max-w-2xl mx-auto mb-10 leading-relaxed">
-                  Inductions, RAMS, snagging, progress drawings, toolbox talks, inspections, site diary, QR sign-in, worker management, chat — all in one place. Works on any device. Works offline.
+                  3D BIM viewer, live programme tracking, DXF progress markup, snagging, RAMS, inspections, site diary, QR sign-in, worker management, chat — all in one place. Works on any device. Works offline.
                 </p>
               </FadeIn>
               <FadeIn delay={300}>
@@ -156,7 +161,7 @@ export default function WhyCoreSite() {
       <section className="bg-[#1A2744] py-14 px-6 -mt-1">
         <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-8">
           {[
-            { value: 14, suffix: '', label: 'Features built in' },
+            { value: 18, suffix: '', label: 'Features built in' },
             { value: 50, suffix: '%', label: 'Less admin time' },
             { value: 100, suffix: '%', label: 'Digital audit trail' },
             { value: 0, suffix: '', label: 'Paper forms', display: 'Zero' },
