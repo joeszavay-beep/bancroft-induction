@@ -122,7 +122,7 @@ export default function SidebarLayout({ children }) {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [favourites, setFavourites] = useState(loadFavourites)
-  const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Progress', 'Snags', 'Programme', 'Labour', 'Agency', 'BIM', 'H&S', 'Portal', 'Admin'])
+  const [expandedSections, setExpandedSections] = useState(['Workers', 'Projects', 'Snags', 'H&S'])
 
   function toggleFavourite(path) {
     setFavourites(prev => {
@@ -203,7 +203,7 @@ export default function SidebarLayout({ children }) {
   const allSections = filteredSections
 
   const sidebar = (
-    <aside className="w-[280px] sm:w-[280px] lg:w-[220px] flex flex-col h-full shrink-0 overflow-y-auto" style={{ backgroundColor: sidebarColor }}>
+    <aside className="w-[280px] sm:w-[280px] lg:w-[220px] flex flex-col h-full shrink-0" style={{ backgroundColor: sidebarColor }}>
       {/* Logo */}
       <div
         onClick={() => { navigate('/app'); setMobileOpen(false) }}
@@ -229,8 +229,8 @@ export default function SidebarLayout({ children }) {
         </div>
       </div>
 
-      {/* Nav sections */}
-      <nav className="flex-1 py-2 px-2 space-y-0.5">
+      {/* Nav sections — scrollable independently */}
+      <nav className="flex-1 py-2 px-2 space-y-0.5 overflow-y-auto min-h-0">
         {/* Home */}
         <button
           onClick={() => { navigate('/app'); setMobileOpen(false) }}
