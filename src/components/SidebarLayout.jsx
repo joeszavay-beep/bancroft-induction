@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
 import { useTheme } from '../lib/ThemeContext'
 import OfflineIndicator from './OfflineIndicator'
@@ -71,6 +72,7 @@ const NAV_SECTIONS = [
   },
   {
     title: 'Agency',
+    role: 'agency',
     items: [
       { label: 'Dashboard', path: '/app/agency', icon: Building2 },
       { label: 'Operatives', path: '/app/agency/operatives', icon: Users },
@@ -128,6 +130,8 @@ export default function SidebarLayout({ children }) {
     })
   }
 
+  const [isAgencyUser, setIsAgencyUser] = useState(false)
+
   const { company, user, logout: ctxLogout } = useCompany()
   const { isDark, toggleTheme } = useTheme()
   const managerData = user || JSON.parse(getSession('manager_data') || '{}')
@@ -140,6 +144,26 @@ export default function SidebarLayout({ children }) {
   const companyLogo = company?.logo_url || null
   const primaryColor = company?.primary_colour || '#1B6FC8'
   const sidebarColor = company?.secondary_colour || '#1A2744'
+
+  // Check if user is linked to an agency
+  useEffect(() => {
+    async function checkAgency() {
+      const email = managerData.email
+      if (!email) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user?.email) {
+          const { data } = await supabase.from('agency_users').select('id').eq('email', session.user.email).limit(1)
+          setIsAgencyUser(data?.length > 0)
+          return
+        }
+      }
+      if (email) {
+        const { data } = await supabase.from('agency_users').select('id').eq('email', email).limit(1)
+        setIsAgencyUser(data?.length > 0)
+      }
+    }
+    checkAgency()
+  }, [managerData.email])
 
   function toggleSection(title) {
     setExpandedSections(prev =>
@@ -157,9 +181,17 @@ export default function SidebarLayout({ children }) {
   }
 
   const companyFeatures = company?.features || {}
-  // Filter sections and items by enabled features
+  const isDemo = typeof window !== 'undefined' && sessionStorage.getItem('sandbox_mode') === 'true'
+  // Filter sections by enabled features and user role (agency vs subcontractor)
   const filteredSections = (isAdmin ? [...NAV_SECTIONS, ADMIN_SECTION] : NAV_SECTIONS)
     .filter(section => !section.feature || companyFeatures[section.feature] !== false)
+    .filter(section => {
+      if (!section.role) return true // no role restriction
+      if (isDemo) return true // demo users see everything
+      if (section.role === 'agency') return isAgencyUser
+      if (section.role === 'subcontractor') return !isAgencyUser
+      return true
+    })
     .map(section => ({
       ...section,
       items: section.items.filter(item => !item.feature || companyFeatures[item.feature] !== false),
