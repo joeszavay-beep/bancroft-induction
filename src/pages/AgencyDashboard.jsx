@@ -54,14 +54,23 @@ export default function AgencyDashboard() {
 
   async function loadDashboardData(aid) {
     try {
-      const [opsRes, certsRes, reqsRes, bookRes] = await Promise.all([
-        supabase.from('agency_operatives').select('*').eq('agency_id', aid),
-        supabase.from('operative_certifications').select('*').eq('agency_id', aid),
+      const opsRes = await supabase.from('agency_operatives').select('*').eq('agency_id', aid)
+      const ops = opsRes.data || []
+      setOperatives(ops)
+
+      // Load certs for all operatives
+      let certs = []
+      if (ops.length > 0) {
+        const opIds = ops.map(o => o.id)
+        const { data: certsData } = await supabase.from('operative_certifications').select('*').in('operative_id', opIds)
+        certs = certsData || []
+      }
+      setCertifications(certs)
+
+      const [reqsRes, bookRes] = await Promise.all([
         supabase.from('labour_requests').select('*').eq('status', 'open').order('created_at', { ascending: false }).limit(10),
         supabase.from('labour_bookings').select('*').eq('agency_id', aid).order('start_date', { ascending: false }).limit(10),
       ])
-      setOperatives(opsRes.data || [])
-      setCertifications(certsRes.data || [])
       setRequests(reqsRes.data || [])
       setBookings(bookRes.data || [])
     } catch (err) {
