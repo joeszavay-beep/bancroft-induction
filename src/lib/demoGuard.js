@@ -8,16 +8,15 @@ import { getSession } from './storage'
  * Usage: if (isDemoBlock()) return
  */
 export function isDemoBlock() {
-  try {
-    const data = JSON.parse(getSession('manager_data') || '{}')
-    if (data.email === 'demo@coresite.io') {
-      toast('This is a demo — request your own account to save changes', {
-        icon: '👁️',
-        style: { background: '#EFF6FF', color: '#1E40AF', border: '1px solid #93C5FD' },
-        duration: 3000,
-      })
-      return true
-    }
-  } catch {}
+  // Only block in sandbox/demo mode — NOT based on email
+  if (sessionStorage.getItem('sandbox_mode') === 'true') {
+    toast('This is a demo — request your own account to save changes', {
+      icon: '👁️',
+      style: { background: '#EFF6FF', color: '#1E40AF', border: '1px solid #93C5FD' },
+      duration: 3000,
+      id: 'demo-block',
+    })
+    return true
+  }
   return false
 }
