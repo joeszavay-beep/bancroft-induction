@@ -437,6 +437,9 @@ export default function SidebarLayout({ children }) {
       </div>
       </div>
       <HelpWidget />
+      <div style={{ position: 'fixed', bottom: 16, right: 16, zIndex: 99999, width: 56, height: 56, borderRadius: '50%', backgroundColor: '#1B6FC8', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+        <span style={{ color: 'white', fontSize: 24 }}>?</span>
+      </div>
     </div>
   )
 }
