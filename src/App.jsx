@@ -181,7 +181,6 @@ export default function App() {
       {/* App routes (with sidebar) */}
       <Route path="/app/*" element={<AppLayout />} />
     </Routes>
-    <HelpWidget />
     </BiometricGate>
   )
 }

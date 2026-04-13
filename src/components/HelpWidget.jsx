@@ -65,24 +65,8 @@ export default function HelpWidget() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPulse, setShowPulse] = useState(true)
-  const [visible, setVisible] = useState(false)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
-
-  // Check route visibility
-  useEffect(() => {
-    function check() {
-      setVisible(isAppRoute())
-    }
-    check()
-    window.addEventListener('popstate', check)
-    // Also listen for pushState/replaceState via a periodic check
-    const interval = setInterval(check, 500)
-    return () => {
-      window.removeEventListener('popstate', check)
-      clearInterval(interval)
-    }
-  }, [])
 
   // Pulse for first 10 seconds
   useEffect(() => {
@@ -136,10 +120,8 @@ export default function HelpWidget() {
     sendMessage(text)
   }
 
-  if (!visible) return null
-
   return (
-    <>
+    <div id="coresite-help-widget">
       {/* Chat panel */}
       <div
         className={`fixed z-50 transition-all duration-300 ${
@@ -260,6 +242,6 @@ export default function HelpWidget() {
           <span className="absolute inset-0 rounded-full bg-[#1B6FC8] animate-ping opacity-30" />
         )}
       </button>
-    </>
+    </div>
   )
 }

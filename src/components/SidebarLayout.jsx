@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
 import { useTheme } from '../lib/ThemeContext'
 import OfflineIndicator from './OfflineIndicator'
+import HelpWidget from './HelpWidget'
 import SyncBadge from './SyncBadge'
 import NotificationBell from './NotificationBell'
 import DemoBanner from './DemoBanner'
@@ -435,6 +436,7 @@ export default function SidebarLayout({ children }) {
         </footer>
       </div>
       </div>
+      <HelpWidget />
     </div>
   )
 }
