@@ -283,11 +283,11 @@ export default function Bookings() {
                               <User size={14} className="text-slate-400" />
                             )}
                           </div>
-                          {op.full_name || '—'}
+                          {`${op.first_name || ''} ${op.last_name || ''}`.trim() || '—'}
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-slate-600 text-xs">{agency.name || '—'}</td>
-                      <td className="px-3 py-2.5 text-slate-600 text-xs">{TRADES[booking.trade]?.label || booking.trade || '—'}</td>
+                      <td className="px-3 py-2.5 text-slate-600 text-xs">{agency.company_name || '—'}</td>
+                      <td className="px-3 py-2.5 text-slate-600 text-xs">{TRADES[booking.agency_operatives?.primary_trade]?.label || booking.agency_operatives?.primary_trade || '—'}</td>
                       <td className="px-3 py-2.5 text-slate-600 text-xs">{project.name || '—'}</td>
                       <td className="px-3 py-2.5 text-slate-600 text-xs whitespace-nowrap">
                         {formatDate(booking.start_date)} — {formatDate(booking.end_date)}
@@ -333,13 +333,13 @@ export default function Bookings() {
                   )}
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-800">{selectedBooking.agency_operatives?.full_name || 'Operative'}</h3>
+                  <h3 className="text-sm font-semibold text-slate-800">{`${selectedBooking.agency_operatives?.first_name || ''} ${selectedBooking.agency_operatives?.last_name || ''}`.trim() || 'Operative'}</h3>
                   <p className="text-xs text-slate-500">
-                    {selectedBooking.agencies?.name || 'Agency'} &middot; {TRADES[selectedBooking.trade]?.label || selectedBooking.trade}
+                    {selectedBooking.agencies?.company_name || 'Agency'} &middot; {TRADES[selectedBooking.trade]?.label || selectedBooking.trade}
                   </p>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {formatDate(selectedBooking.start_date)} — {formatDate(selectedBooking.end_date)}
-                    {' '}&middot;{' '}Rate: {formatDayRate(selectedBooking.day_rate)}
+                    {' '}&middot;{' '}Rate: {formatDayRate(selectedBooking.agreed_day_rate)}
                   </p>
                 </div>
               </div>

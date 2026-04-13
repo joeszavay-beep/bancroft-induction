@@ -59,16 +59,27 @@ export default function AgencyRequests() {
 
   async function loadData(aid) {
     try {
-      const [reqRes, opsRes, certsRes, availRes] = await Promise.all([
+      // Load requests and operatives in parallel
+      const [reqRes, opsRes] = await Promise.all([
         supabase.from('labour_requests').select('*').eq('status', 'open').order('created_at', { ascending: false }),
         supabase.from('agency_operatives').select('*').eq('agency_id', aid),
-        supabase.from('operative_certifications').select('*').eq('agency_id', aid),
-        supabase.from('operative_availability').select('*').eq('agency_id', aid),
       ])
       setRequests(reqRes.data || [])
       setOperatives(opsRes.data || [])
-      setCertifications(certsRes.data || [])
-      setAvailability(availRes.data || [])
+
+      // Get operative IDs, then load certs and availability by operative_id
+      const opIds = (opsRes.data || []).map(op => op.id)
+      if (opIds.length > 0) {
+        const [certsRes, availRes] = await Promise.all([
+          supabase.from('operative_certifications').select('*').in('operative_id', opIds),
+          supabase.from('operative_availability').select('*').in('operative_id', opIds),
+        ])
+        setCertifications(certsRes.data || [])
+        setAvailability(availRes.data || [])
+      } else {
+        setCertifications([])
+        setAvailability([])
+      }
     } catch (err) {
       console.error('Load error:', err)
     }
@@ -201,10 +212,10 @@ export default function AgencyRequests() {
                         )}
                       </div>
                       <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-                        <span className="flex items-center gap-1"><Users size={12} /> {req.number_required} needed</span>
+                        <span className="flex items-center gap-1"><Users size={12} /> {req.number_of_operatives} needed</span>
                         <span className="flex items-center gap-1"><Calendar size={12} /> {formatDate(req.start_date)} - {formatDate(req.end_date)}</span>
                         {req.site_postcode && <span className="flex items-center gap-1"><MapPin size={12} /> {req.site_postcode}</span>}
-                        <span className="flex items-center gap-1"><Clock size={12} /> {formatDayRate(req.day_rate_pence)}/day</span>
+                        <span className="flex items-center gap-1"><Clock size={12} /> {formatDayRate(req.day_rate_offered)}/day</span>
                       </div>
                       {req.certifications_required?.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">

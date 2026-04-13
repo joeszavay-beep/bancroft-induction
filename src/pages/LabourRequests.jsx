@@ -43,11 +43,46 @@ export default function LabourRequests() {
     try {
       const { data, error } = await supabase
         .from('labour_requests')
-        .select('*, labour_proposals(count)')
+        .select('*')
         .eq('project_id', selectedProject)
         .order('created_at', { ascending: false })
       if (error) throw error
-      setRequests(data || [])
+
+      // Count proposals per request
+      const requestIds = (data || []).map(r => r.id)
+      let proposalCounts = {}
+      if (requestIds.length > 0) {
+        const { data: proposals } = await supabase
+          .from('labour_proposals')
+          .select('labour_request_id')
+          .in('labour_request_id', requestIds)
+        if (proposals) {
+          for (const p of proposals) {
+            proposalCounts[p.labour_request_id] = (proposalCounts[p.labour_request_id] || 0) + 1
+          }
+        }
+      }
+
+      // Count accepted bookings per request for filled count
+      let filledCounts = {}
+      if (requestIds.length > 0) {
+        const { data: bookings } = await supabase
+          .from('labour_bookings')
+          .select('labour_request_id')
+          .in('labour_request_id', requestIds)
+          .eq('status', 'confirmed')
+        if (bookings) {
+          for (const b of bookings) {
+            filledCounts[b.labour_request_id] = (filledCounts[b.labour_request_id] || 0) + 1
+          }
+        }
+      }
+
+      setRequests((data || []).map(r => ({
+        ...r,
+        _proposalCount: proposalCounts[r.id] || 0,
+        _filledCount: filledCounts[r.id] || 0,
+      })))
     } catch (err) {
       console.error('loadRequests error:', err)
       toast.error('Failed to load requests')
@@ -118,7 +153,7 @@ export default function LabourRequests() {
                 {requests.map(req => {
                   const sc = REQUEST_STATUS[req.status] || REQUEST_STATUS.open
                   const urg = URGENCY_LABELS[req.urgency] || URGENCY_LABELS.standard
-                  const proposalCount = req.labour_proposals?.[0]?.count || 0
+                  const proposalCount = req._proposalCount || 0
                   return (
                     <tr
                       key={req.id}
@@ -135,7 +170,7 @@ export default function LabourRequests() {
                         {formatDate(req.start_date)} — {formatDate(req.end_date)}
                       </td>
                       <td className="px-3 py-2.5 text-slate-600 tabular-nums">
-                        {req.filled_count || 0} / {req.number_of_operatives}
+                        {req._filledCount || 0} / {req.number_of_operatives}
                       </td>
                       <td className="px-3 py-2.5">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${sc.bg} ${sc.text}`}>

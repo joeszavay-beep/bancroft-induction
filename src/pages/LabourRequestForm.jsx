@@ -61,7 +61,7 @@ export default function LabourRequestForm() {
     try {
       const { data, error } = await supabase
         .from('agency_connections')
-        .select('agency_id, agencies(id, name, contact_name, contact_email)')
+        .select('agency_id, agencies(id, company_name, primary_contact_name, primary_contact_email)')
         .eq('company_id', managerData.company_id)
         .eq('status', 'active')
       if (error) throw error
@@ -74,17 +74,16 @@ export default function LabourRequestForm() {
 
   async function loadProjects() {
     try {
-      let query = supabase.from('projects').select('id, name, site_name, site_address, site_postcode').order('name')
+      let query = supabase.from('projects').select('id, name, location').order('name')
       if (managerData.company_id) query = query.eq('company_id', managerData.company_id)
       const { data } = await query
       setProjects(data || [])
-      // Pre-fill site info from initial project
+      // Pre-fill site name from project name/location if available
       if (initialProjectId && data) {
         const proj = data.find(p => p.id === initialProjectId)
         if (proj) {
-          if (proj.site_name) setSiteName(proj.site_name)
-          if (proj.site_address) setSiteAddress(proj.site_address)
-          if (proj.site_postcode) setSitePostcode(proj.site_postcode)
+          if (proj.name) setSiteName(proj.name)
+          if (proj.location) setSiteAddress(proj.location)
         }
       }
     } catch (err) {
@@ -96,9 +95,8 @@ export default function LabourRequestForm() {
     setSelectedProject(projectId)
     const proj = projects.find(p => p.id === projectId)
     if (proj) {
-      if (proj.site_name) setSiteName(proj.site_name)
-      if (proj.site_address) setSiteAddress(proj.site_address)
-      if (proj.site_postcode) setSitePostcode(proj.site_postcode)
+      if (proj.name) setSiteName(proj.name)
+      if (proj.location) setSiteAddress(proj.location)
     }
   }
 
@@ -150,7 +148,6 @@ export default function LabourRequestForm() {
         visibility,
         preferred_agency_ids: visibility === 'preferred_only' ? preferredAgencyIds : null,
         status: 'open',
-        filled_count: 0,
       }
 
       const { error } = await supabase.from('labour_requests').insert(payload)
@@ -535,8 +532,8 @@ export default function LabourRequestForm() {
                             onChange={() => togglePreferredAgency(agency.id)}
                             className="rounded border-slate-300 text-blue-500 focus:ring-blue-400"
                           />
-                          <span className="font-medium">{agency.name}</span>
-                          {agency.contact_name && <span className="text-slate-400 text-xs">({agency.contact_name})</span>}
+                          <span className="font-medium">{agency.company_name}</span>
+                          {agency.primary_contact_name && <span className="text-slate-400 text-xs">({agency.primary_contact_name})</span>}
                         </label>
                       ))}
                     </div>

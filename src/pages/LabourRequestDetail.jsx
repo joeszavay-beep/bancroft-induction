@@ -41,7 +41,7 @@ export default function LabourRequestDetail() {
 
       const { data: props, error: propErr } = await supabase
         .from('labour_proposals')
-        .select('*, agency_operatives(*, agency:agencies(name))')
+        .select('*, agency_operatives(*, agency:agencies(company_name))')
         .eq('labour_request_id', id)
         .order('match_score', { ascending: false })
       if (propErr) throw propErr
@@ -81,12 +81,17 @@ export default function LabourRequestDetail() {
         .eq('id', proposal.id)
       if (propErr) throw propErr
 
-      // 3. Update request filled count and status
-      const newFilledCount = (req.filled_count || 0) + 1
-      const newStatus = newFilledCount >= req.number_of_operatives ? 'filled' : 'partially_filled'
+      // 3. Count confirmed bookings to determine new status
+      const { data: confirmedBookings } = await supabase
+        .from('labour_bookings')
+        .select('id')
+        .eq('labour_request_id', req.id)
+        .eq('status', 'confirmed')
+      const filledCount = (confirmedBookings?.length || 0)
+      const newStatus = filledCount >= req.number_of_operatives ? 'filled' : 'partially_filled'
       const { error: reqErr } = await supabase
         .from('labour_requests')
-        .update({ filled_count: newFilledCount, status: newStatus })
+        .update({ status: newStatus })
         .eq('id', req.id)
       if (reqErr) throw reqErr
 
@@ -113,7 +118,7 @@ export default function LabourRequestDetail() {
         await supabase.from('operative_availability').upsert(availRecords, { onConflict: 'operative_id,date' })
       }
 
-      toast.success(`${op.full_name || 'Operative'} accepted and booking confirmed`)
+      toast.success(`${`${op.first_name} ${op.last_name}` || 'Operative'} accepted and booking confirmed`)
       loadRequest() // Refresh
     } catch (err) {
       console.error('Accept error:', err)
@@ -190,7 +195,7 @@ export default function LabourRequestDetail() {
         <h2 className="text-sm font-semibold text-slate-800">Request Details</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
           <InfoItem label="Trade" value={TRADES[request.trade_required]?.label} />
-          <InfoItem label="Needed" value={`${request.filled_count || 0} / ${request.number_of_operatives} filled`} />
+          <InfoItem label="Needed" value={`${request.number_of_operatives} operative${request.number_of_operatives !== 1 ? 's' : ''}`} />
           <InfoItem label="Skill level" value={SKILL_LEVELS.find(s => s.value === request.skill_level_minimum)?.label || 'Any'} />
           <InfoItem label="Card" value={request.cscs_card_type_required ? CARD_TYPES[request.cscs_card_type_required] : 'Any'} />
           <InfoItem label="Working days" value={request.working_days === 'mon_fri' ? 'Mon-Fri' : request.working_days === 'mon_sat' ? 'Mon-Sat' : '7 days'} />
@@ -257,7 +262,7 @@ export default function LabourRequestDetail() {
                     {/* Photo / avatar */}
                     <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden">
                       {op.photo_url ? (
-                        <img src={op.photo_url} alt={op.full_name} className="w-full h-full object-cover" />
+                        <img src={op.photo_url} alt={`${op.first_name} ${op.last_name}`} className="w-full h-full object-cover" />
                       ) : (
                         <User size={24} className="text-slate-400" />
                       )}
@@ -266,13 +271,13 @@ export default function LabourRequestDetail() {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-sm font-semibold text-slate-800">{op.full_name || 'Unknown Operative'}</h3>
+                        <h3 className="text-sm font-semibold text-slate-800">{`${op.first_name} ${op.last_name}` || 'Unknown Operative'}</h3>
                         <span className={`w-3 h-3 rounded-full ${matchColor.dot}`} title={matchColor.label} />
                         {isAccepted && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Accepted</span>}
                         {isDeclined && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">Declined</span>}
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        {agency.name || 'Agency'} &middot; {TRADES[op.primary_trade]?.label || op.primary_trade || '—'}
+                        {agency.company_name || 'Agency'} &middot; {TRADES[op.primary_trade]?.label || op.primary_trade || '—'}
                       </p>
 
                       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-600">

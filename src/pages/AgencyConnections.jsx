@@ -32,7 +32,7 @@ export default function AgencyConnections() {
     try {
       const { data, error } = await supabase
         .from('agency_connections')
-        .select('id, agency_id, notes, created_at, agencies(id, name, contact_name, contact_email, contact_phone)')
+        .select('id, agency_id, notes, created_at, agencies(id, company_name, primary_contact_name, primary_contact_email, primary_contact_phone)')
         .eq('company_id', companyId)
         .eq('status', 'active')
         .order('created_at', { ascending: false })
@@ -82,9 +82,9 @@ export default function AgencyConnections() {
     try {
       const { data, error } = await supabase
         .from('agencies')
-        .select('id, name, contact_name, contact_email')
+        .select('id, company_name, primary_contact_name, primary_contact_email')
         .eq('status', 'active')
-        .ilike('name', `%${term}%`)
+        .ilike('company_name', `%${term}%`)
         .limit(20)
       if (error) throw error
 
@@ -112,7 +112,7 @@ export default function AgencyConnections() {
         connected_by: managerData.id || managerData.name,
       }, { onConflict: 'company_id,agency_id' })
       if (error) throw error
-      toast.success(`Connected with ${agency.name}`)
+      toast.success(`Connected with ${agency.company_name}`)
       setShowConnectModal(false)
       setSearchTerm('')
       setSearchResults([])
@@ -125,7 +125,7 @@ export default function AgencyConnections() {
   }
 
   async function handleRemove(connection) {
-    if (!confirm(`Remove connection with ${connection.agency?.name}? They will no longer see your preferred-only requests.`)) return
+    if (!confirm(`Remove connection with ${connection.agency?.company_name}? They will no longer see your preferred-only requests.`)) return
     setRemoving(connection.id)
     try {
       const { error } = await supabase
@@ -207,9 +207,9 @@ export default function AgencyConnections() {
             <div key={conn.id} className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">{conn.agency?.name || 'Agency'}</h3>
-                  {conn.agency?.contact_name && (
-                    <p className="text-xs text-slate-500 mt-0.5">{conn.agency.contact_name}</p>
+                  <h3 className="text-sm font-bold text-slate-800">{conn.agency?.company_name || 'Agency'}</h3>
+                  {conn.agency?.primary_contact_name && (
+                    <p className="text-xs text-slate-500 mt-0.5">{conn.agency.primary_contact_name}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full font-medium">
@@ -219,14 +219,14 @@ export default function AgencyConnections() {
 
               {/* Contact info */}
               <div className="space-y-1">
-                {conn.agency?.contact_phone && (
+                {conn.agency?.primary_contact_phone && (
                   <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <Phone size={12} /> {conn.agency.contact_phone}
+                    <Phone size={12} /> {conn.agency.primary_contact_phone}
                   </div>
                 )}
-                {conn.agency?.contact_email && (
+                {conn.agency?.primary_contact_email && (
                   <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <Mail size={12} /> {conn.agency.contact_email}
+                    <Mail size={12} /> {conn.agency.primary_contact_email}
                   </div>
                 )}
               </div>
@@ -303,12 +303,12 @@ export default function AgencyConnections() {
                   {searchResults.map(agency => (
                     <div key={agency.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                       <div>
-                        <p className="text-sm font-medium text-slate-800">{agency.name}</p>
-                        {agency.contact_name && (
-                          <p className="text-xs text-slate-500">{agency.contact_name}</p>
+                        <p className="text-sm font-medium text-slate-800">{agency.company_name}</p>
+                        {agency.primary_contact_name && (
+                          <p className="text-xs text-slate-500">{agency.primary_contact_name}</p>
                         )}
-                        {agency.contact_email && (
-                          <p className="text-xs text-slate-400">{agency.contact_email}</p>
+                        {agency.primary_contact_email && (
+                          <p className="text-xs text-slate-400">{agency.primary_contact_email}</p>
                         )}
                       </div>
                       <button
@@ -335,7 +335,7 @@ export default function AgencyConnections() {
           <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
               <div>
-                <h2 className="text-base font-bold text-slate-900">{viewingAgency.agency?.name}</h2>
+                <h2 className="text-base font-bold text-slate-900">{viewingAgency.agency?.company_name}</h2>
                 <p className="text-xs text-slate-500">Available operatives</p>
               </div>
               <button onClick={() => { setViewingAgency(null); setAgencyOperatives([]) }} className="p-1 text-slate-400 hover:text-slate-600">

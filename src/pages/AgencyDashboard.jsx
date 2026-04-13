@@ -217,7 +217,7 @@ export default function AgencyDashboard() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-500">
-                    {req.number_required} needed &middot; {formatDate(req.start_date)} - {formatDate(req.end_date)} &middot; {formatDayRate(req.day_rate_pence)}/day
+                    {req.number_of_operatives} needed &middot; {formatDate(req.start_date)} - {formatDate(req.end_date)} &middot; {formatDayRate(req.day_rate_offered)}/day
                   </p>
                 </button>
               ))}
