@@ -27,7 +27,13 @@ function getSuggestions() {
 function isAppRoute() {
   try {
     const path = window.location.pathname
-    return path === '/app' || path.startsWith('/app/')
+    // Show on any app route, BIM viewer, programme, snags viewer
+    if (path === '/app' || path.startsWith('/app/')) return true
+    if (path.startsWith('/bim-3d/')) return true
+    if (path.startsWith('/programme/')) return true
+    if (path.startsWith('/snags/')) return true
+    if (path.startsWith('/progress/')) return true
+    return false
   } catch {
     return false
   }
@@ -59,7 +65,7 @@ export default function HelpWidget() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPulse, setShowPulse] = useState(true)
-  const [visible, setVisible] = useState(isAppRoute)
+  const [visible, setVisible] = useState(false)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
 

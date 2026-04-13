@@ -60,7 +60,7 @@ export default function SandboxEntry() {
         id: profile?.id || data.user.id,
         name: profile?.name || 'Demo User',
         email: 'demo@coresite.io',
-        role: profile?.role || 'manager',
+        role: 'manager', // Always manager in sandbox — no admin/superadmin access
         company_id: profile?.company_id,
       }
 
