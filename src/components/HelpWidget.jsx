@@ -25,7 +25,8 @@ function getSuggestions() {
 }
 
 function isAppRoute() {
-  return window.location.pathname.startsWith('/app/')
+  const path = window.location.pathname
+  return path === '/app' || path.startsWith('/app/')
 }
 
 function renderMarkdown(text) {
