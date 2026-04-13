@@ -147,6 +147,9 @@ export default function WhyCoreSite() {
                   <button onClick={() => setShowDemo(true)} className="w-full sm:w-auto px-8 py-4 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-xl transition-all text-base flex items-center justify-center gap-2 shadow-lg shadow-[#3B7DD8]/20">
                     Book a Free Demo <ArrowRight size={16} />
                   </button>
+                  <button onClick={() => navigate('/signup')} className="w-full sm:w-auto px-8 py-4 bg-[#2EA043] hover:bg-[#27903A] text-white font-semibold rounded-xl transition-all text-base flex items-center justify-center gap-2 shadow-lg shadow-[#2EA043]/20">
+                    Sign Up Free <ArrowRight size={16} />
+                  </button>
                   <button onClick={() => navigate('/try')} className="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-medium rounded-xl border border-white/15 transition-all text-base flex items-center justify-center gap-2">
                     <Eye size={16} /> Try it Yourself
                   </button>

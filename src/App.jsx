@@ -19,6 +19,8 @@ import Policies from './pages/Policies'
 import SnagReply from './pages/SnagReply'
 import ResetPassword from './pages/ResetPassword'
 import WhyCoreSite from './pages/WhyCoreSite'
+import Signup from './pages/Signup'
+import Onboarding from './pages/Onboarding'
 
 // App pages (inside sidebar layout)
 import AppHome from './pages/AppHome'
@@ -135,6 +137,8 @@ export default function App() {
       {/* Public routes */}
       <Route path="/" element={isNative ? <NativeEntry /> : <WhyCoreSite />} />
       <Route path="/login" element={<LoginGuard />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/onboarding" element={<Onboarding />} />
       <Route path="/why" element={<WhyCoreSite />} />
       <Route path="/old-landing" element={<LandingPage />} />
       {/* Legacy redirect */}

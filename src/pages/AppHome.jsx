@@ -7,6 +7,8 @@ import {
   AlertTriangle, Clock, CheckCircle2, ChevronRight, Shield, Activity,
   LogIn, TrendingUp, FolderOpen, Layers
 } from 'lucide-react'
+import OnboardingChecklist from '../components/OnboardingChecklist'
+import TrialBanner from '../components/TrialBanner'
 
 export default function AppHome() {
   const navigate = useNavigate()
@@ -90,6 +92,10 @@ export default function AppHome() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+
+      {/* ── Trial Banner + Onboarding Checklist ── */}
+      <TrialBanner />
+      <OnboardingChecklist />
 
       {/* ── Header ── */}
       <div className="flex items-end justify-between">

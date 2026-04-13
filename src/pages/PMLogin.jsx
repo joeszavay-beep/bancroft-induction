@@ -329,6 +329,11 @@ export default function PMLogin() {
           </button>
         )}
 
+        <p className="text-center text-sm text-white/40 mt-5">
+          Don't have an account?{' '}
+          <a href="/signup" className="text-white/70 hover:text-white underline transition-colors">Sign up free</a>
+        </p>
+
         <div className="text-center mt-6 space-y-2">
           <p className="text-xs text-white/20">Powered by CoreSite</p>
           <div className="flex items-center justify-center gap-3 text-[10px]">
