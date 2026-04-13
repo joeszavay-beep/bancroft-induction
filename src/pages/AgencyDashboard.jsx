@@ -108,7 +108,8 @@ export default function AgencyDashboard() {
     const agencyTrades = new Set()
     for (const op of operatives) {
       if (op.primary_trade) agencyTrades.add(op.primary_trade)
-      if (op.secondary_trades) op.secondary_trades.forEach(t => agencyTrades.add(t))
+      const secTrades = Array.isArray(op.secondary_trades) ? op.secondary_trades : []
+      secTrades.forEach(t => agencyTrades.add(t))
     }
     return requests.filter(r => agencyTrades.has(r.trade_required))
   }, [operatives, requests])

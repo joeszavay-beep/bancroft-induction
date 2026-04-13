@@ -227,7 +227,8 @@ export function matchOperatives(request, operatives, certifications, availabilit
     let status = 'green'
 
     // 1. Trade match
-    const trades = [op.primary_trade, ...(op.secondary_trades || [])]
+    const secTrades = Array.isArray(op.secondary_trades) ? op.secondary_trades : []
+    const trades = [op.primary_trade, ...secTrades]
     if (!trades.includes(request.trade_required)) {
       issues.push({ type: 'trade', message: `Trade mismatch: has ${TRADES[op.primary_trade]?.label || op.primary_trade}, needs ${TRADES[request.trade_required]?.label || request.trade_required}` })
       status = 'grey'

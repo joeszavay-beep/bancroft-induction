@@ -44,7 +44,7 @@ export default function Bookings() {
     try {
       let bookQuery = supabase
         .from('labour_bookings')
-        .select('*, agency_operatives(full_name, photo_url, primary_trade, rating), agencies(name), projects(name)')
+        .select('*, agency_operatives(first_name, last_name, photo_url, primary_trade, rating), agencies(company_name), projects(name)')
         .order('start_date', { ascending: false })
       if (managerData.company_id) bookQuery = bookQuery.eq('company_id', managerData.company_id)
       const { data: bookData, error: bookErr } = await bookQuery
@@ -75,16 +75,18 @@ export default function Bookings() {
     setFeedbackRating(0)
     setFeedbackComment('')
     try {
-      // Load attendance records
-      const { data: att } = await supabase
-        .from('site_sign_ins')
-        .select('*')
-        .eq('operative_id', booking.operative_id)
-        .eq('project_id', booking.project_id)
-        .gte('signed_in_at', booking.start_date)
-        .lte('signed_in_at', booking.end_date)
-        .order('signed_in_at', { ascending: true })
-      setAttendance(att || [])
+      // Load attendance records (if attendance table exists)
+      try {
+        const { data: att } = await supabase
+          .from('site_sign_ins')
+          .select('*')
+          .eq('operative_id', booking.operative_id)
+          .eq('project_id', booking.project_id)
+          .gte('signed_in_at', booking.start_date)
+          .lte('signed_in_at', booking.end_date)
+          .order('signed_in_at', { ascending: true })
+        setAttendance(att || [])
+      } catch { setAttendance([]) }
     } catch (err) {
       console.error('loadAttendance error:', err)
     }
