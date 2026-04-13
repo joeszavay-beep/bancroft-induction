@@ -48,10 +48,24 @@ export default function Signup() {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password: password.trim(),
-        options: { data: { name: name.trim(), role: 'admin' } },
+        options: {
+          data: { name: name.trim(), role: 'admin' },
+          emailRedirectTo: window.location.origin + '/onboarding',
+        },
       })
       if (authError) throw authError
-      const authUser = authData.user
+
+      // If email confirmation is required, signUp returns user but no session
+      // Sign in immediately to get a session for DB operations
+      let authUser = authData.user
+      if (!authData.session) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password: password.trim(),
+        })
+        if (signInError) throw signInError
+        authUser = signInData.user
+      }
       if (!authUser) throw new Error('Account creation failed. Please try again.')
 
       // 2. Create company
@@ -122,10 +136,22 @@ export default function Signup() {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password: password.trim(),
-        options: { data: { name: name.trim(), role: 'admin' } },
+        options: {
+          data: { name: name.trim(), role: 'admin' },
+          emailRedirectTo: window.location.origin + '/onboarding',
+        },
       })
       if (authError) throw authError
-      const authUser = authData.user
+
+      let authUser = authData.user
+      if (!authData.session) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password: password.trim(),
+        })
+        if (signInError) throw signInError
+        authUser = signInData.user
+      }
       if (!authUser) throw new Error('Account creation failed. Please try again.')
 
       // 2. Create company
