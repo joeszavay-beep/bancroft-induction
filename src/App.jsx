@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core'
 import { useCompany } from './lib/CompanyContext'
 import SidebarLayout from './components/SidebarLayout'
 import BiometricGate from './components/BiometricGate'
+import HelpWidget from './components/HelpWidget'
 
 const isNative = Capacitor.isNativePlatform()
 
@@ -180,6 +181,7 @@ export default function App() {
       {/* App routes (with sidebar) */}
       <Route path="/app/*" element={<AppLayout />} />
     </Routes>
+    <HelpWidget />
     </BiometricGate>
   )
 }
