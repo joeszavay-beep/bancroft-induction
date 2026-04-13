@@ -11,7 +11,7 @@ import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
   Globe, Settings, User, Shield, Image, Layers, BookOpen, CheckSquare, Activity, Bell, Box, CalendarRange,
-  Briefcase, PlusCircle, CalendarCheck, Building2, Calendar, Star
+  Briefcase, PlusCircle, CalendarCheck, Building2, Calendar, Star, Link2
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
 
@@ -67,6 +67,7 @@ const NAV_SECTIONS = [
     items: [
       { label: 'Requests', path: '/app/labour-requests', icon: Briefcase },
       { label: 'New Request', path: '/app/labour-requests/new', icon: PlusCircle },
+      { label: 'Agency Network', path: '/app/agency-connections', icon: Link2, hideForAgency: true },
       { label: 'Bookings', path: '/app/bookings', icon: CalendarCheck },
     ],
   },
@@ -194,7 +195,9 @@ export default function SidebarLayout({ children }) {
     })
     .map(section => ({
       ...section,
-      items: section.items.filter(item => !item.feature || companyFeatures[item.feature] !== false),
+      items: section.items
+        .filter(item => !item.feature || companyFeatures[item.feature] !== false)
+        .filter(item => !item.hideForAgency || !isAgencyUser),
     }))
     .filter(section => section.items.length > 0)
   const allSections = filteredSections

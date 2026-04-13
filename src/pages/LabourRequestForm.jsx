@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
 import { TRADES, TRADE_OPTIONS, TRADE_CATEGORIES, SKILL_LEVELS, CARD_TYPES, CERT_TYPES, URGENCY_LABELS, formatDayRate } from '../lib/marketplace'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ArrowRight, Check, Loader2, Send } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Loader2, Send, Link2 } from 'lucide-react'
 
 const STEPS = ['What do you need?', 'When and where?', 'Rates and details', 'Review']
 
@@ -36,6 +36,10 @@ export default function LabourRequestForm() {
   const [selectedProject, setSelectedProject] = useState(initialProjectId)
 
   // Step 3 — Rates and details
+  const [visibility, setVisibility] = useState('public')
+  const [preferredAgencyIds, setPreferredAgencyIds] = useState([])
+  const [connectedAgencies, setConnectedAgencies] = useState([])
+  const [loadingAgencies, setLoadingAgencies] = useState(false)
   const [dayRateOffered, setDayRateOffered] = useState('')
   const [overtimeRate, setOvertimeRate] = useState('')
   const [accommodationProvided, setAccommodationProvided] = useState(false)
@@ -45,6 +49,28 @@ export default function LabourRequestForm() {
   const [urgency, setUrgency] = useState('standard')
 
   useEffect(() => { loadProjects() }, [])
+
+  // Load connected agencies when entering Step 3
+  useEffect(() => {
+    if (step === 2 && connectedAgencies.length === 0) loadConnectedAgencies()
+  }, [step])
+
+  async function loadConnectedAgencies() {
+    if (!managerData.company_id) return
+    setLoadingAgencies(true)
+    try {
+      const { data, error } = await supabase
+        .from('agency_connections')
+        .select('agency_id, agencies(id, name, contact_name, contact_email)')
+        .eq('company_id', managerData.company_id)
+        .eq('status', 'active')
+      if (error) throw error
+      setConnectedAgencies((data || []).map(c => c.agencies).filter(Boolean))
+    } catch (err) {
+      console.error('loadConnectedAgencies error:', err)
+    }
+    setLoadingAgencies(false)
+  }
 
   async function loadProjects() {
     try {
@@ -82,6 +108,12 @@ export default function LabourRequestForm() {
     )
   }
 
+  function togglePreferredAgency(agencyId) {
+    setPreferredAgencyIds(prev =>
+      prev.includes(agencyId) ? prev.filter(id => id !== agencyId) : [...prev, agencyId]
+    )
+  }
+
   function canProceed() {
     if (step === 0) return tradeRequired && numberOfOperatives >= 1
     if (step === 1) return startDate && endDate && siteName
@@ -115,6 +147,8 @@ export default function LabourRequestForm() {
         description: description || null,
         ppe_requirements: ppeRequirements || null,
         urgency,
+        visibility,
+        preferred_agency_ids: visibility === 'preferred_only' ? preferredAgencyIds : null,
         status: 'open',
         filled_count: 0,
       }
@@ -442,6 +476,74 @@ export default function LabourRequestForm() {
                 ))}
               </div>
             </div>
+
+            {/* Request Visibility */}
+            <div className="border-t border-slate-200 pt-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Link2 size={16} className="text-slate-500" />
+                <label className="text-sm font-medium text-slate-700">Request Visibility</label>
+              </div>
+              <div className="space-y-2">
+                <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer p-2 rounded-lg hover:bg-slate-50">
+                  <input
+                    type="radio"
+                    name="visibility"
+                    value="public"
+                    checked={visibility === 'public'}
+                    onChange={e => setVisibility(e.target.value)}
+                    className="text-blue-500 focus:ring-blue-400 mt-0.5"
+                  />
+                  <div>
+                    <span className="font-medium">Public</span>
+                    <span className="text-slate-500"> — all verified agencies can see this</span>
+                  </div>
+                </label>
+                <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer p-2 rounded-lg hover:bg-slate-50">
+                  <input
+                    type="radio"
+                    name="visibility"
+                    value="preferred_only"
+                    checked={visibility === 'preferred_only'}
+                    onChange={e => setVisibility(e.target.value)}
+                    className="text-blue-500 focus:ring-blue-400 mt-0.5"
+                  />
+                  <div>
+                    <span className="font-medium">Preferred agencies only</span>
+                    <span className="text-slate-500"> — only your connected agencies</span>
+                  </div>
+                </label>
+              </div>
+
+              {visibility === 'preferred_only' && (
+                <div className="mt-3">
+                  {loadingAgencies ? (
+                    <div className="flex items-center gap-2 text-sm text-slate-400 py-3">
+                      <Loader2 size={14} className="animate-spin" /> Loading agencies...
+                    </div>
+                  ) : connectedAgencies.length === 0 ? (
+                    <div className="text-sm text-slate-400 bg-slate-50 rounded-lg p-4 text-center">
+                      No connected agencies. <button onClick={() => window.open('/app/agency-connections', '_blank')} className="text-blue-500 hover:text-blue-700 font-medium">Connect agencies</button> first.
+                    </div>
+                  ) : (
+                    <div className="border border-slate-200 rounded-lg p-3 space-y-1.5 max-h-48 overflow-y-auto">
+                      <p className="text-xs text-slate-500 mb-2">Select which agencies should see this request:</p>
+                      {connectedAgencies.map(agency => (
+                        <label key={agency.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-50 px-1 py-1 rounded">
+                          <input
+                            type="checkbox"
+                            checked={preferredAgencyIds.includes(agency.id)}
+                            onChange={() => togglePreferredAgency(agency.id)}
+                            className="rounded border-slate-300 text-blue-500 focus:ring-blue-400"
+                          />
+                          <span className="font-medium">{agency.name}</span>
+                          {agency.contact_name && <span className="text-slate-400 text-xs">({agency.contact_name})</span>}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </>
         )}
 
@@ -477,6 +579,11 @@ export default function LabourRequestForm() {
                 <ReviewRow label="Urgency" value={URGENCY_LABELS[urgency]?.label || urgency} />
                 {description && <ReviewRow label="Description" value={description} />}
                 {ppeRequirements && <ReviewRow label="PPE" value={ppeRequirements} />}
+                <ReviewRow label="Visibility" value={
+                  visibility === 'public'
+                    ? 'Public — all agencies'
+                    : `Preferred only — ${preferredAgencyIds.length} ${preferredAgencyIds.length === 1 ? 'agency' : 'agencies'} selected`
+                } />
               </ReviewSection>
             </div>
           </>

@@ -60,6 +60,7 @@ import AgencyDashboard from './pages/AgencyDashboard'
 import AgencyOperatives from './pages/AgencyOperatives'
 import AgencyOperativeDetail from './pages/AgencyOperativeDetail'
 import AgencyRequests from './pages/AgencyRequests'
+import AgencyConnections from './pages/AgencyConnections'
 import AgencyRegister from './pages/AgencyRegister'
 import OperativeGuard from './components/OperativeGuard'
 import { getSession } from './lib/storage'
@@ -118,6 +119,7 @@ function AppLayout() {
         <Route path="/labour-requests" element={<LabourRequests />} />
         <Route path="/labour-requests/new" element={<LabourRequestForm />} />
         <Route path="/labour-requests/:id" element={<LabourRequestDetail />} />
+        <Route path="/agency-connections" element={<AgencyConnections />} />
         <Route path="/bookings" element={<Bookings />} />
         <Route path="/agency" element={<AgencyDashboard />} />
         <Route path="/agency/operatives" element={<AgencyOperatives />} />

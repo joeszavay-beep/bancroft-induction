@@ -75,11 +75,18 @@ export default function AgencyRequests() {
   }
 
   const filtered = useMemo(() => {
-    let list = requests
+    // Filter by visibility: only show public requests or preferred requests that include this agency
+    let list = requests.filter(r => {
+      if (!r.visibility || r.visibility === 'public') return true
+      if (r.visibility === 'preferred_only' && Array.isArray(r.preferred_agency_ids)) {
+        return r.preferred_agency_ids.includes(agencyId)
+      }
+      return false
+    })
     if (tradeFilter) list = list.filter(r => r.trade_required === tradeFilter)
     if (urgencyFilter) list = list.filter(r => r.urgency === urgencyFilter)
     return list
-  }, [requests, tradeFilter, urgencyFilter])
+  }, [requests, tradeFilter, urgencyFilter, agencyId])
 
   function getMatchedOperatives(request) {
     return matchOperatives(request, operatives, certifications, availability)
@@ -187,6 +194,11 @@ export default function AgencyRequests() {
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold bg-${urgency.color}-100 text-${urgency.color}-700`}>
                           {urgency.label}
                         </span>
+                        {req.visibility === 'preferred_only' && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700">
+                            Preferred
+                          </span>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-3 text-xs text-slate-500">
                         <span className="flex items-center gap-1"><Users size={12} /> {req.number_required} needed</span>
