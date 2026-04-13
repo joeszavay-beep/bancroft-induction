@@ -57,7 +57,7 @@ const NAV_SECTIONS = [
   {
     title: 'Programme',
     items: [
-      { label: 'Programme Dashboard', path: '/app/programme', icon: Activity },
+      { label: 'Dashboard', path: '/app/programme', icon: Activity },
       { label: 'Master Programme', path: '/app/master-programme', icon: CalendarRange },
     ],
   },
@@ -75,7 +75,7 @@ const NAV_SECTIONS = [
       { label: 'Dashboard', path: '/app/agency', icon: Building2 },
       { label: 'Operatives', path: '/app/agency/operatives', icon: Users },
       { label: 'Requests', path: '/app/agency/requests', icon: FileText },
-      { label: 'Bookings', path: '/app/bookings', icon: Calendar },
+      { label: 'Bookings', path: '/app/agency/bookings', icon: Calendar },
     ],
   },
   {

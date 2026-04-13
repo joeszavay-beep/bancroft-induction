@@ -121,6 +121,7 @@ function AppLayout() {
         <Route path="/agency/operatives" element={<AgencyOperatives />} />
         <Route path="/agency/operatives/:id" element={<AgencyOperativeDetail />} />
         <Route path="/agency/requests" element={<AgencyRequests />} />
+        <Route path="/agency/bookings" element={<Bookings />} />
         <Route path="/toolbox-live/:talkId" element={<ToolboxTalkLive />} />
       </Routes>
     </SidebarLayout>
