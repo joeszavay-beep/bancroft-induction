@@ -343,7 +343,7 @@ export default function SidebarLayout({ children }) {
 
       {/* Bottom */}
       <div className="px-2 py-3 border-t border-white/10 space-y-1">
-        {(isAdmin || isSuperAdmin) && (
+        {isSuperAdmin && (
           <button
             onClick={() => { navigate('/superadmin'); setMobileOpen(false) }}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[12.5px] text-amber-400/70 hover:text-amber-400 hover:bg-white/5 transition-colors"

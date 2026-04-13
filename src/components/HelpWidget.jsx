@@ -25,8 +25,12 @@ function getSuggestions() {
 }
 
 function isAppRoute() {
-  const path = window.location.pathname
-  return path === '/app' || path.startsWith('/app/')
+  try {
+    const path = window.location.pathname
+    return path === '/app' || path.startsWith('/app/')
+  } catch {
+    return false
+  }
 }
 
 function renderMarkdown(text) {
@@ -134,16 +138,12 @@ export default function HelpWidget() {
       <div
         className={`fixed z-50 transition-all duration-300 ${
           open
-            ? 'opacity-100 translate-y-0'
-            : 'opacity-0 translate-y-4 pointer-events-none'
-        } ${
-          'bottom-20 right-4 sm:bottom-20 sm:right-4'
-        } ${
-          'inset-0 sm:inset-auto'
+            ? 'opacity-100 translate-y-0 inset-0 sm:inset-auto sm:bottom-20 sm:right-4'
+            : 'opacity-0 translate-y-4 pointer-events-none bottom-20 right-4'
         }`}
       >
         <div className={`flex flex-col bg-white dark:bg-slate-900 shadow-2xl overflow-hidden ${
-          'w-full h-full sm:w-[380px] sm:h-[520px] sm:rounded-xl rounded-none'
+          open ? 'w-full h-full sm:w-[380px] sm:h-[520px] sm:rounded-xl rounded-none' : 'w-[380px] h-[520px] rounded-xl'
         }`}>
           {/* Header */}
           <div className="bg-[#1B6FC8] px-4 py-3 flex items-center justify-between shrink-0">
