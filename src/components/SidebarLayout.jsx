@@ -10,7 +10,7 @@ import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
   Globe, Settings, User, Shield, Image, Layers, BookOpen, CheckSquare, Activity, Bell, Box, CalendarRange,
-  Briefcase, PlusCircle, CalendarCheck, Building2, Calendar
+  Briefcase, PlusCircle, CalendarCheck, Building2, Calendar, Star
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
 
@@ -109,11 +109,24 @@ const ADMIN_SECTION = {
   ],
 }
 
+function loadFavourites() {
+  try { return JSON.parse(localStorage.getItem('coresite_nav_favourites') || '[]') } catch { return [] }
+}
+
 export default function SidebarLayout({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [favourites, setFavourites] = useState(loadFavourites)
   const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Progress', 'Snags', 'Programme', 'Labour', 'Agency', 'BIM', 'H&S', 'Portal', 'Admin'])
+
+  function toggleFavourite(path) {
+    setFavourites(prev => {
+      const next = prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path]
+      localStorage.setItem('coresite_nav_favourites', JSON.stringify(next))
+      return next
+    })
+  }
 
   const { company, user, logout: ctxLogout } = useCompany()
   const { isDark, toggleTheme } = useTheme()
@@ -209,6 +222,36 @@ export default function SidebarLayout({ children }) {
           <span>Messages</span>
         </button>
 
+        {/* Favourites section */}
+        {favourites.length > 0 && (() => {
+          const favItems = allSections.flatMap(s => s.items).filter(i => favourites.includes(i.path))
+          if (favItems.length === 0) return null
+          return (
+            <div className="mb-1">
+              <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-400/70 flex items-center gap-1.5">
+                <Star size={10} className="fill-amber-400/70" /> Favourites
+              </div>
+              <div className="space-y-0.5 ml-1">
+                {favItems.map(item => (
+                  <button
+                    key={`fav-${item.path}`}
+                    onClick={() => { navigate(item.path); setMobileOpen(false) }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[12.5px] transition-colors ${
+                      isActive(item.path)
+                        ? 'bg-white/10 text-white border-l-2 border-[#1B6FC8]'
+                        : 'text-white/60 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <item.icon size={14} />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="border-b border-white/10 mx-3 mt-1.5 mb-0.5" />
+            </div>
+          )
+        })()}
+
         {allSections.map(section => {
           const expanded = expandedSections.includes(section.title)
           const sectionActive = section.items.some(i => isActive(i.path))
@@ -225,20 +268,35 @@ export default function SidebarLayout({ children }) {
               </button>
               {expanded && (
                 <div className="space-y-0.5 ml-1">
-                  {section.items.map(item => (
-                    <button
-                      key={item.path}
-                      onClick={() => { navigate(item.path); setMobileOpen(false) }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[12.5px] transition-colors ${
-                        isActive(item.path)
-                          ? 'bg-white/10 text-white border-l-2 border-[#1B6FC8] ml-0'
-                          : 'text-white/50 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      <item.icon size={14} />
-                      <span>{item.label}</span>
-                    </button>
-                  ))}
+                  {section.items.map(item => {
+                    const isFav = favourites.includes(item.path)
+                    return (
+                      <div key={item.path} className="flex items-center group">
+                        <button
+                          onClick={() => { navigate(item.path); setMobileOpen(false) }}
+                          className={`flex-1 flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[12.5px] transition-colors ${
+                            isActive(item.path)
+                              ? 'bg-white/10 text-white border-l-2 border-[#1B6FC8] ml-0'
+                              : 'text-white/50 hover:text-white hover:bg-white/5'
+                          }`}
+                        >
+                          <item.icon size={14} />
+                          <span>{item.label}</span>
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleFavourite(item.path) }}
+                          className={`p-1 rounded transition-all shrink-0 ${
+                            isFav
+                              ? 'text-amber-400 opacity-100'
+                              : 'text-white/20 opacity-0 group-hover:opacity-100 hover:text-amber-400'
+                          }`}
+                          title={isFav ? 'Remove from favourites' : 'Add to favourites'}
+                        >
+                          <Star size={11} className={isFav ? 'fill-amber-400' : ''} />
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
