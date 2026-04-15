@@ -12,7 +12,7 @@ import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
   Globe, Settings, User, Shield, Image, Layers, BookOpen, CheckSquare, Activity, Bell, Box, CalendarRange,
-  Briefcase, PlusCircle, CalendarCheck, Building2, Calendar, Star, Link2
+  Briefcase, PlusCircle, CalendarCheck, Building2, Calendar, Star, Link2, PoundSterling
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
 
@@ -73,6 +73,13 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    title: 'Commercial',
+    items: [
+      { label: 'Dashboard', path: '/app/sub-dashboard', icon: PoundSterling },
+      { label: 'Jobs', path: '/app/jobs', icon: Briefcase },
+    ],
+  },
+  {
     title: 'Agency',
     role: 'agency',
     items: [
@@ -122,7 +129,7 @@ export default function SidebarLayout({ children }) {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [favourites, setFavourites] = useState(loadFavourites)
-  const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Progress', 'Snags', 'Programme', 'Labour', 'Agency', 'BIM', 'H&S', 'Portal', 'Admin'])
+  const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Progress', 'Snags', 'Programme', 'Labour', 'Commercial', 'Agency', 'BIM', 'H&S', 'Portal', 'Admin'])
 
   function toggleFavourite(path) {
     setFavourites(prev => {
