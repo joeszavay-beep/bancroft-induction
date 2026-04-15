@@ -143,14 +143,45 @@ export default function SuperAdminPanel() {
 
   async function deleteCompany(co) {
     if (!confirm(`Delete ${co.name} and ALL its data? This cannot be undone.`)) return
-    // Delete in order of dependencies
-    const tables = ['snag_comments', 'snags', 'toolbox_signatures', 'toolbox_talks', 'signatures', 'documents', 'drawings', 'operatives', 'projects', 'managers', 'settings']
-    for (const table of tables) {
-      await supabase.from(table).delete().eq('company_id', co.id)
+    try {
+      // Delete in dependency order — deepest children first
+      const companyTables = [
+        'audit_logs', 'cis_records', 'timesheet_entries', 'sub_invoices',
+        'job_variations', 'job_operatives', 'subcontractor_jobs',
+        'operative_invoices', 'markup_lines', 'progress_snapshots',
+        'programme_activities', 'drawing_layers', 'design_drawings',
+        'master_activities', 'master_programme',
+        'labour_proposals', 'labour_bookings', 'labour_requests',
+        'agency_connections',
+        'snag_comments', 'snags',
+        'toolbox_signatures', 'toolbox_talks',
+        'signatures', 'documents', 'drawings',
+        'site_attendance', 'notifications',
+        'inspection_templates', 'inspections',
+        'aftercare_defects', 'chat_messages',
+        'progress_items', 'progress_item_history', 'progress_zones', 'progress_drawings',
+        'bim_drawing_calibration', 'bim_elements', 'bim_models',
+        'operatives', 'projects', 'profiles', 'managers', 'settings',
+      ]
+      let errors = []
+      for (const table of companyTables) {
+        const { error } = await supabase.from(table).delete().eq('company_id', co.id)
+        if (error && !error.message?.includes('does not exist')) {
+          errors.push(`${table}: ${error.message}`)
+        }
+      }
+      // Finally delete the company itself
+      const { error: delErr } = await supabase.from('companies').delete().eq('id', co.id)
+      if (delErr) {
+        toast.error(`Failed to delete ${co.name}: ${delErr.message}`)
+        if (errors.length) console.error('Cleanup errors:', errors)
+        return
+      }
+      toast.success(`${co.name} deleted`)
+      loadData()
+    } catch (err) {
+      toast.error(`Delete failed: ${err.message}`)
     }
-    await supabase.from('companies').delete().eq('id', co.id)
-    toast.success(`${co.name} deleted`)
-    loadData()
   }
 
   function resetForm() {
