@@ -48,7 +48,7 @@ export default async function handler(req, res) {
         const existingUser = existing?.users?.find(u => u.email === adminEmail)
         if (existingUser) {
           // Update their password and metadata
-          await supabase.auth.admin.updateUser(existingUser.id, {
+          await supabase.auth.admin.updateUserById(existingUser.id, {
             password: tempPassword,
             user_metadata: { name: adminName, role: 'admin' },
           })
