@@ -48,7 +48,8 @@
       "Bash(for f:*)",
       "Bash(do grep:*)",
       "Bash(grep:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(find /Users/SzavayProperty/bancroft-induction/scripts -name *.js)"
     ]
   }
 }
