@@ -103,17 +103,42 @@ export default function SuperAdminPanel() {
       return
     }
 
-    // Create admin user for the company
-    const tempPassword = `Welcome${Math.random().toString(36).slice(2, 8)}`
+    // Create Supabase Auth account
+    const tempPassword = `Welcome${Math.random().toString(36).slice(2, 8)}!A1`
+    const adminName = contactName.trim() || name.trim() + ' Admin'
+    const adminEmail = contactEmail.trim().toLowerCase()
+
+    const { data: authData, error: authErr } = await supabase.auth.signUp({
+      email: adminEmail,
+      password: tempPassword,
+      options: { data: { name: adminName, role: 'admin', company_id: co.id } },
+    })
+
+    if (authErr) {
+      console.error('Auth signup error:', authErr)
+      // Still continue — company is created, they can use password reset
+    }
+
+    // Create profile record (linked to auth user if created)
+    await supabase.from('profiles').insert({
+      id: authData?.user?.id || crypto.randomUUID(),
+      company_id: co.id,
+      name: adminName,
+      email: adminEmail,
+      role: 'admin',
+      is_active: true,
+    }).catch(() => {})
+
+    // Also create legacy managers record for backwards compatibility
     await supabase.from('managers').insert({
-      name: contactName.trim() || name.trim() + ' Admin',
-      email: contactEmail.trim(),
+      name: adminName,
+      email: adminEmail,
       password: tempPassword,
       role: 'admin',
       company_id: co.id,
       is_active: true,
       must_change_password: true,
-    })
+    }).catch(() => {})
 
     // Send welcome email with login credentials
     await authFetch('/api/welcome', {
