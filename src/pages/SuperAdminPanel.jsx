@@ -132,29 +132,23 @@ export default function SuperAdminPanel() {
       must_change_password: true,
     }).catch(() => {})
 
-    // Send welcome email
-    try {
-      await authFetch('/api/welcome', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyName: name.trim(),
-          contactName: contactName.trim() || 'Admin',
-          email: adminEmail,
-          tempPassword,
-        }),
-      })
-    } catch (err) {
-      console.error('Welcome email error:', err)
-    }
+    // Send welcome email (fire and forget — don't block on it)
+    const emailPromise = fetch('/api/welcome', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${(await supabase.auth.getSession())?.data?.session?.access_token || ''}`,
+      },
+      body: JSON.stringify({
+        companyName: name.trim(),
+        contactName: contactName.trim() || 'Admin',
+        email: adminEmail,
+        tempPassword,
+      }),
+    }).catch(() => {})
 
-    // Send password setup link so the new user can create their own Supabase Auth account
-    // They'll use the signup page or the invite link to set up their auth
-    try {
-      await supabase.auth.resetPasswordForEmail(adminEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      })
-    } catch {}
+    // Don't await — let it send in background
+    emailPromise.then(() => console.log('Welcome email sent')).catch(() => {})
 
     setSaving(false)
     toast.success(`${name.trim()} created — temp password: ${tempPassword}`)
