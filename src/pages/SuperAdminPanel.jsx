@@ -118,6 +118,7 @@ export default function SuperAdminPanel() {
         },
         body: JSON.stringify({
           companyId: co.id,
+          companyName: name.trim(),
           adminName,
           adminEmail,
         }),
@@ -131,24 +132,6 @@ export default function SuperAdminPanel() {
       }
 
       const tempPassword = adminData.tempPassword
-
-      // Send welcome email (fire and forget)
-      fetch('/api/welcome', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          companyName: name.trim(),
-          contactName: contactName.trim() || 'Admin',
-          email: adminEmail,
-          tempPassword,
-        }),
-      }).then(r => {
-        if (!r.ok) toast.error('Welcome email may not have sent')
-      }).catch(() => toast.error('Welcome email failed to send'))
-
       toast.success(`${name.trim()} created — temp password: ${tempPassword}`)
       setShowCreate(false)
       resetForm()
