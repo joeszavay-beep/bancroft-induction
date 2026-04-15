@@ -98,8 +98,8 @@ export default function SuperAdminPanel() {
         logo_url: logoUrl,
       }).select().single()
 
-      if (coErr) {
-        toast.error(coErr.code === '23505' ? 'Slug already exists' : 'Failed to create company')
+      if (coErr || !co) {
+        toast.error(coErr?.code === '23505' ? 'Slug already exists' : (coErr?.message || 'Failed to create company'))
         return
       }
 
@@ -108,6 +108,10 @@ export default function SuperAdminPanel() {
       // Instead, we create the profile and send a password reset link so the new user sets their own password.
       const adminName = contactName.trim() || name.trim() + ' Admin'
       const adminEmail = contactEmail.trim().toLowerCase()
+
+      // Clean up any orphaned records from a previous deletion of this email
+      await supabase.from('profiles').delete().eq('email', adminEmail)
+      await supabase.from('managers').delete().eq('email', adminEmail)
 
       // Create profile record
       const profileId = crypto.randomUUID()
