@@ -134,7 +134,7 @@ export default function SuperAdminPanel() {
 
     // Send welcome email
     try {
-      await fetch('/api/welcome', {
+      await authFetch('/api/welcome', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -144,7 +144,9 @@ export default function SuperAdminPanel() {
           tempPassword,
         }),
       })
-    } catch {}
+    } catch (err) {
+      console.error('Welcome email error:', err)
+    }
 
     // Send password setup link so the new user can create their own Supabase Auth account
     // They'll use the signup page or the invite link to set up their auth
