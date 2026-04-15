@@ -1,14 +1,13 @@
-import { createClient } from '@supabase/supabase-js'
-import { verifyAuth } from './_auth.js'
+import { verifySuperAdmin } from './_superAdminAuth.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { user, error: authErr } = await verifyAuth(req)
-  if (!user) {
-    return res.status(401).json({ error: authErr || 'Unauthorized' })
+  const { verified, supabase, error: authErr } = await verifySuperAdmin(req)
+  if (!verified) {
+    return res.status(401).json({ error: authErr })
   }
 
   const { companyId } = req.body
@@ -16,19 +15,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing companyId' })
   }
 
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!supabaseUrl || !serviceKey) {
-    return res.status(500).json({ error: 'Missing server config' })
-  }
-
-  const supabase = createClient(supabaseUrl, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-
   try {
-    // Get admin emails before deleting so we can clean up auth users
+    // Get admin profiles before deleting so we can clean up auth users
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, email')
@@ -75,7 +63,7 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ success: true, cleanupErrors: errors.length ? errors : undefined })
+    return res.status(200).json({ success: true })
   } catch (err) {
     console.error('Delete company error:', err)
     return res.status(500).json({ error: err.message })

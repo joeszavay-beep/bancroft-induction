@@ -32,6 +32,23 @@ export default function SuperAdminPanel() {
   const [primaryColour, setPrimaryColour] = useState('#1B6FC8')
   const [logo, setLogo] = useState(null)
 
+  // Helper: call server-side API with auth token + fallback manager email
+  async function adminApi(path, body) {
+    const session = await supabase.auth.getSession()
+    const token = session?.data?.session?.access_token || ''
+    const mgr = JSON.parse(getSession('manager_data') || '{}')
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ ...body, managerEmail: mgr.email }),
+    })
+    const data = await res.json()
+    return { ok: res.ok, data }
+  }
+
   useEffect(() => {
     const mgr = JSON.parse(getSession('manager_data') || '{}')
     if (mgr.role !== 'admin' && mgr.role !== 'super_admin') {
@@ -107,25 +124,15 @@ export default function SuperAdminPanel() {
       // and create the Supabase auth user without logging out the current super admin)
       const adminName = contactName.trim() || name.trim() + ' Admin'
       const adminEmail = contactEmail.trim().toLowerCase()
-      const session = await supabase.auth.getSession()
-      const token = session?.data?.session?.access_token || ''
 
-      const adminRes = await fetch('/api/create-company-admin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          companyId: co.id,
-          companyName: name.trim(),
-          adminName,
-          adminEmail,
-        }),
+      const { ok: adminOk, data: adminData } = await adminApi('/api/create-company-admin', {
+        companyId: co.id,
+        companyName: name.trim(),
+        adminName,
+        adminEmail,
       })
 
-      const adminData = await adminRes.json()
-      if (!adminRes.ok) {
+      if (!adminOk) {
         toast.error(`Company created but admin setup failed: ${adminData.error}`)
         loadData()
         return
@@ -154,18 +161,8 @@ export default function SuperAdminPanel() {
   async function deleteCompany(co) {
     if (!confirm(`Delete ${co.name} and ALL its data? This cannot be undone.`)) return
     try {
-      const session = await supabase.auth.getSession()
-      const token = session?.data?.session?.access_token || ''
-      const res = await fetch('/api/delete-company', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ companyId: co.id }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
+      const { ok, data } = await adminApi('/api/delete-company', { companyId: co.id })
+      if (!ok) {
         toast.error(`Failed to delete ${co.name}: ${data.error}`)
         return
       }
