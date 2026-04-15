@@ -6,9 +6,10 @@ import WorkerSidebarLayout from '../components/WorkerSidebarLayout'
 import {
   Home, FileText, MapPin, MessageSquare, User, LogOut, Bell,
   CheckCircle2, Clock, AlertTriangle, ChevronRight, Camera, X,
-  Send, ZoomIn, Upload, ArrowLeft, Paperclip
+  Send, ZoomIn, Upload, ArrowLeft, Paperclip, PoundSterling, Shield, Briefcase
 } from 'lucide-react'
 import { getSession, removeSession } from '../lib/storage'
+import { formatMoney, calculateCIS } from '../lib/subcontractor'
 
 const QUICK_MESSAGES = [
   { icon: 'Package', label: 'Material Request', text: 'Material needed: ' },
@@ -30,6 +31,9 @@ export default function OperativeDashboard() {
   const [talks, setTalks] = useState([])
   const [talkSigs, setTalkSigs] = useState([])
   const [notifications, setNotifications] = useState([])
+  const [jobOps, setJobOps] = useState([])
+  const [weekEntries, setWeekEntries] = useState([])
+  const [operative, setOperative] = useState(null)
 
   // Chat
   const [chatMessages, setChatMessages] = useState([])
@@ -96,6 +100,37 @@ export default function OperativeDashboard() {
     setTalks(talkData.data || [])
     setTalkSigs(talkSigData.data || [])
     setNotifications(notifData.data || [])
+
+    // Load job assignments and this week's timesheet for enhanced dashboard
+    const [joRes, opDetailRes] = await Promise.all([
+      supabase.from('job_operatives').select('*, subcontractor_jobs(id, name, status)').eq('operative_id', opData.id),
+      supabase.from('operatives').select('*').eq('id', opData.id).single(),
+    ])
+    const joList = joRes.data || []
+    setJobOps(joList)
+    setOperative(opDetailRes.data)
+
+    // Update op with self-employed flag for sidebar
+    const isSelfEmployed = joList.some(jo => jo.employment_status === 'self_employed')
+    setOp(prev => prev ? { ...prev, _isSelfEmployed: isSelfEmployed } : prev)
+
+    // This week's timesheet entries
+    const now = new Date()
+    const day = now.getDay()
+    const mondayOffset = day === 0 ? -6 : 1 - day
+    const monday = new Date(now)
+    monday.setDate(now.getDate() + mondayOffset)
+    monday.setHours(0, 0, 0, 0)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    const weekFrom = monday.toISOString().split('T')[0]
+    const weekTo = sunday.toISOString().split('T')[0]
+
+    const { data: weekTs } = await supabase.from('timesheet_entries')
+      .select('*').eq('operative_id', opData.id)
+      .gte('date', weekFrom).lte('date', weekTo)
+    setWeekEntries(weekTs || [])
+
     setLoading(false)
   }
 
@@ -245,7 +280,7 @@ export default function OperativeDashboard() {
   return (
     <WorkerSidebarLayout op={op}>
       <Routes>
-        <Route path="/" element={<HomeTab op={op} unsignedDocs={unsignedDocs} unsignedTalks={unsignedTalks} snags={snags} overdueSnags={overdueSnags} pendingActions={pendingActions} navigate={navigate} primaryColor={primaryColor} />} />
+        <Route path="/" element={<HomeTab op={op} unsignedDocs={unsignedDocs} unsignedTalks={unsignedTalks} snags={snags} overdueSnags={overdueSnags} pendingActions={pendingActions} navigate={navigate} primaryColor={primaryColor} jobOps={jobOps} weekEntries={weekEntries} operative={operative} />} />
         <Route path="/documents" element={<DocumentsTab op={op} documents={documents} signatures={signatures} signedDocIds={signedDocIds} navigate={navigate} primaryColor={primaryColor} />} />
         <Route path="/snags" element={<SnagsTab snags={snags} overdueSnags={overdueSnags} navigate={navigate} primaryColor={primaryColor} openSnag={openSnag} />} />
         <Route path="/chat" element={<OperativeChatTab op={op} messages={chatMessages} chatMsg={chatMsg} setChatMsg={setChatMsg} sendChat={sendChat} chatSending={chatSending} chatEndRef={chatEndRef} markChatRead={markChatRead} primaryColor={primaryColor} managers={managers} selectedManager={selectedManager} setSelectedManager={setSelectedManager} />} />
@@ -402,7 +437,37 @@ export default function OperativeDashboard() {
 }
 
 /* ========== HOME TAB ========== */
-function HomeTab({ op, unsignedDocs, unsignedTalks, snags, overdueSnags, pendingActions, setTab, navigate, primaryColor }) {
+function HomeTab({ op, unsignedDocs, unsignedTalks, snags, overdueSnags, pendingActions, setTab, navigate, primaryColor, jobOps, weekEntries, operative }) {
+  // Current job info
+  const activeJob = (jobOps || []).find(jo => jo.subcontractor_jobs?.status === 'active') || (jobOps || [])[0]
+  const isSelfEmployed = activeJob?.employment_status === 'self_employed'
+
+  // This week summary
+  const weekHours = (weekEntries || []).reduce((s, e) => s + (e.hours_adjusted ?? e.hours_calculated ?? 0), 0)
+  const weekDays = (weekEntries || []).filter(e => (e.hours_adjusted ?? e.hours_calculated ?? 0) > 0).length
+  const weekEarnings = (weekEntries || []).reduce((s, e) => s + (e.cost_calculated || 0), 0)
+
+  // Cert expiries within 60 days
+  const certChecks = operative ? [
+    { name: 'CSCS', expiry: operative.cscs_expiry },
+    { name: 'IPAF', expiry: operative.ipaf_expiry },
+    { name: 'PASMA', expiry: operative.pasma_expiry },
+    { name: 'SSSTS', expiry: operative.sssts_expiry },
+    { name: 'SMSTS', expiry: operative.smsts_expiry },
+    { name: 'First Aid', expiry: operative.first_aid_expiry },
+  ] : []
+  const now = new Date()
+  const expiringCerts = certChecks.filter(c => {
+    if (!c.expiry) return false
+    const d = new Date(c.expiry)
+    const days = Math.ceil((d - now) / (1000 * 60 * 60 * 24))
+    return days <= 60
+  }).map(c => {
+    const d = new Date(c.expiry)
+    const days = Math.ceil((d - now) / (1000 * 60 * 60 * 24))
+    return { ...c, days, expired: days < 0 }
+  })
+
   return (
     <div className="p-4 space-y-4">
       {/* Welcome */}
@@ -422,10 +487,106 @@ function HomeTab({ op, unsignedDocs, unsignedTalks, snags, overdueSnags, pending
         )}
       </div>
 
+      {/* Current job card */}
+      {activeJob && (
+        <div className="bg-white border border-[#E2E6EA] rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Briefcase size={14} style={{ color: primaryColor }} />
+            <p className="text-[10px] font-bold text-[#6B7A99] uppercase tracking-wider">Current Assignment</p>
+          </div>
+          <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+            {activeJob.subcontractor_jobs?.name || 'Active Job'}
+          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
+            {activeJob.trade_role && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded">{activeJob.trade_role}</span>}
+            {isSelfEmployed && activeJob.pay_rate && (
+              <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded font-medium">
+                {formatMoney(activeJob.pay_rate)}/{activeJob.pay_type === 'daily' ? 'day' : activeJob.pay_type === 'hourly' ? 'hr' : 'wk'}
+              </span>
+            )}
+            <span className={`px-2 py-0.5 rounded font-medium ${
+              activeJob.subcontractor_jobs?.status === 'active' ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-500'
+            }`}>
+              {activeJob.subcontractor_jobs?.status || activeJob.status || 'Active'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* This week summary */}
+      <div>
+        <p className="text-[11px] font-bold text-[#6B7A99] uppercase tracking-wider mb-2">This Week</p>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-white border border-[#E2E6EA] rounded-xl p-3 text-center">
+            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{weekDays}</p>
+            <p className="text-[10px] text-[#6B7A99] uppercase font-semibold">Days</p>
+          </div>
+          <div className="bg-white border border-[#E2E6EA] rounded-xl p-3 text-center">
+            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{weekHours.toFixed(1)}</p>
+            <p className="text-[10px] text-[#6B7A99] uppercase font-semibold">Hours</p>
+          </div>
+          <div className="bg-white border border-[#E2E6EA] rounded-xl p-3 text-center">
+            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{formatMoney(weekEarnings)}</p>
+            <p className="text-[10px] text-[#6B7A99] uppercase font-semibold">Earned</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick links */}
+      <div>
+        <p className="text-[11px] font-bold text-[#6B7A99] uppercase tracking-wider mb-2">Quick Links</p>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: 'Timesheet', icon: Clock, path: '/worker/timesheet' },
+            { label: 'Earnings', icon: PoundSterling, path: '/worker/earnings' },
+            { label: 'My Certs', icon: Shield, path: '/worker/certs' },
+          ].map(link => (
+            <button key={link.path} onClick={() => navigate(link.path)}
+              className="bg-white border border-[#E2E6EA] rounded-xl p-3 flex flex-col items-center gap-1.5 hover:border-[#1B6FC8]/30 transition-colors">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}10` }}>
+                <link.icon size={16} style={{ color: primaryColor }} />
+              </div>
+              <p className="text-[11px] font-medium" style={{ color: 'var(--text-primary)' }}>{link.label}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Upcoming cert expiries */}
+      {expiringCerts.length > 0 && (
+        <div>
+          <p className="text-[11px] font-bold text-[#6B7A99] uppercase tracking-wider mb-2">Certification Alerts</p>
+          <div className="space-y-1.5">
+            {expiringCerts.map(cert => (
+              <button key={cert.name} onClick={() => navigate('/worker/certs')}
+                className={`w-full bg-white border rounded-xl p-3 flex items-center gap-3 text-left ${
+                  cert.expired ? 'border-[#DA3633]/30' : cert.days <= 30 ? 'border-amber-300' : 'border-[#E2E6EA]'
+                }`}>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                  cert.expired ? 'bg-red-100' : cert.days <= 30 ? 'bg-amber-100' : 'bg-yellow-50'
+                }`}>
+                  {cert.expired
+                    ? <AlertTriangle size={16} className="text-red-500" />
+                    : <Shield size={16} className={cert.days <= 30 ? 'text-amber-500' : 'text-yellow-500'} />
+                  }
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{cert.name}</p>
+                  <p className={`text-xs font-medium ${cert.expired ? 'text-[#DA3633]' : cert.days <= 30 ? 'text-amber-600' : 'text-yellow-600'}`}>
+                    {cert.expired ? `Expired ${Math.abs(cert.days)} days ago` : `Expires in ${cert.days} days`}
+                  </p>
+                </div>
+                <ChevronRight size={14} className="text-[#B0B8C9]" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Unsigned documents */}
       {unsignedDocs.length > 0 && (
         <div>
-          <p className="text-[11px] font-bold text-[#6B7A99] uppercase tracking-wider mb-2">Documents to Sign</p>
+          <p className="text-[11px] font-bold text-[#6B7A99] uppercase tracking-wider mb-2">Documents to Sign ({unsignedDocs.length})</p>
           <div className="space-y-1.5">
             {unsignedDocs.slice(0, 3).map(doc => (
               <button key={doc.id} onClick={() => navigate(`/operative/${op.id}/sign/${doc.id}`)}

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Menu, X, ChevronDown, ChevronRight, LogOut, Home, FileText,
-  MapPin, MessageSquare, User, Sun, Moon
+  MapPin, MessageSquare, User, Sun, Moon, Clock, PoundSterling, Shield, Receipt
 } from 'lucide-react'
 import { useTheme } from '../lib/ThemeContext'
 import { removeSession } from '../lib/storage'
@@ -24,9 +24,16 @@ export default function WorkerSidebarLayout({ children, op }) {
   const userName = op.name || 'Worker'
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
+  // Check for self-employed status from session (stored in op object if available)
+  const showInvoices = op._isSelfEmployed
+
   const navItems = [
     { label: 'Home', path: '/worker', icon: Home },
+    { label: 'My Timesheet', path: '/worker/timesheet', icon: Clock },
+    { label: 'My Earnings', path: '/worker/earnings', icon: PoundSterling },
+    ...(showInvoices ? [{ label: 'My Invoices', path: '/worker/invoices', icon: Receipt }] : []),
     { label: 'Documents', path: '/worker/documents', icon: FileText },
+    { label: 'My Certs', path: '/worker/certs', icon: Shield },
     { label: 'Snags', path: '/worker/snags', icon: MapPin },
     { label: 'Chat', path: '/worker/chat', icon: MessageSquare },
     { label: 'Profile', path: '/worker/profile', icon: User },

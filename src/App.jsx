@@ -55,6 +55,10 @@ import Bookings from './pages/Bookings'
 import ProgrammeSetup from './pages/ProgrammeSetup'
 import DXFViewer from './pages/DXFViewer'
 import OperativeLogin from './pages/OperativeLogin'
+import OperativeTimesheet from './pages/OperativeTimesheet'
+import OperativeEarnings from './pages/OperativeEarnings'
+import OperativeInvoices from './pages/OperativeInvoices'
+import OperativeCerts from './pages/OperativeCerts'
 import SandboxEntry from './pages/SandboxEntry'
 import OperativeDashboard from './pages/OperativeDashboard'
 import AgencyDashboard from './pages/AgencyDashboard'
@@ -167,8 +171,12 @@ export default function App() {
       <Route path="/snag-reply/:token" element={<SnagReply />} />
       <Route path="/aftercare/:projectId" element={<AftercarePage />} />
       <Route path="/site/:projectId" element={<SiteSignIn />} />
-      <Route path="/worker-login" element={<Navigate to="/login" replace />} />
+      <Route path="/worker-login" element={<OperativeLogin />} />
       <Route path="/try" element={<SandboxEntry />} />
+      <Route path="/worker/timesheet" element={<OperativeTimesheet />} />
+      <Route path="/worker/earnings" element={<OperativeEarnings />} />
+      <Route path="/worker/invoices" element={<OperativeInvoices />} />
+      <Route path="/worker/certs" element={<OperativeCerts />} />
       <Route path="/worker/*" element={<OperativeDashboard />} />
 
       {/* Agency registration (no sidebar) */}
