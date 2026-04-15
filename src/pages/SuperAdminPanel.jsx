@@ -103,33 +103,25 @@ export default function SuperAdminPanel() {
       return
     }
 
-    // Create Supabase Auth account
-    const tempPassword = `Welcome${Math.random().toString(36).slice(2, 8)}!A1`
+    // Create admin user for the company
+    // NOTE: We don't call supabase.auth.signUp here because it would sign out the current super admin.
+    // Instead, we create the profile and send a password reset link so the new user sets their own password.
     const adminName = contactName.trim() || name.trim() + ' Admin'
     const adminEmail = contactEmail.trim().toLowerCase()
 
-    const { data: authData, error: authErr } = await supabase.auth.signUp({
-      email: adminEmail,
-      password: tempPassword,
-      options: { data: { name: adminName, role: 'admin', company_id: co.id } },
-    })
-
-    if (authErr) {
-      console.error('Auth signup error:', authErr)
-      // Still continue — company is created, they can use password reset
-    }
-
-    // Create profile record (linked to auth user if created)
+    // Create profile record
+    const profileId = crypto.randomUUID()
     await supabase.from('profiles').insert({
-      id: authData?.user?.id || crypto.randomUUID(),
+      id: profileId,
       company_id: co.id,
       name: adminName,
       email: adminEmail,
       role: 'admin',
       is_active: true,
-    }).catch(() => {})
+    }).catch(err => console.error('Profile insert error:', err))
 
-    // Also create legacy managers record for backwards compatibility
+    // Create legacy managers record
+    const tempPassword = `Welcome${Math.random().toString(36).slice(2, 8)}!A1`
     await supabase.from('managers').insert({
       name: adminName,
       email: adminEmail,
@@ -140,17 +132,27 @@ export default function SuperAdminPanel() {
       must_change_password: true,
     }).catch(() => {})
 
-    // Send welcome email with login credentials
-    await authFetch('/api/welcome', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        companyName: name.trim(),
-        contactName: contactName.trim() || 'Admin',
-        email: contactEmail.trim(),
-        tempPassword,
-      }),
-    }).catch(() => {})
+    // Send welcome email
+    try {
+      await fetch('/api/welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyName: name.trim(),
+          contactName: contactName.trim() || 'Admin',
+          email: adminEmail,
+          tempPassword,
+        }),
+      })
+    } catch {}
+
+    // Send password setup link so the new user can create their own Supabase Auth account
+    // They'll use the signup page or the invite link to set up their auth
+    try {
+      await supabase.auth.resetPasswordForEmail(adminEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+    } catch {}
 
     setSaving(false)
     toast.success(`${name.trim()} created — temp password: ${tempPassword}`)
