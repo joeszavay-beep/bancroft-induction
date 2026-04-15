@@ -75,86 +75,94 @@ export default function SuperAdminPanel() {
     if (!name.trim() || !slug.trim() || !contactEmail.trim()) return
     setSaving(true)
 
-    let logoUrl = null
-    if (logo) {
-      const path = `${slug}/${Date.now()}.${logo.name.split('.').pop()}`
-      const { error: upErr } = await supabase.storage.from('company-assets').upload(path, logo)
-      if (!upErr) {
-        const { data: urlData } = supabase.storage.from('company-assets').getPublicUrl(path)
-        logoUrl = urlData.publicUrl
+    try {
+      let logoUrl = null
+      if (logo) {
+        const path = `${slug}/${Date.now()}.${logo.name.split('.').pop()}`
+        const { error: upErr } = await supabase.storage.from('company-assets').upload(path, logo)
+        if (!upErr) {
+          const { data: urlData } = supabase.storage.from('company-assets').getPublicUrl(path)
+          logoUrl = urlData.publicUrl
+        }
       }
-    }
 
-    const { data: co, error: coErr } = await supabase.from('companies').insert({
-      name: name.trim(),
-      slug: slug.trim(),
-      contact_name: contactName.trim() || null,
-      contact_email: contactEmail.trim(),
-      subscription_plan: plan,
-      trial_ends_at: plan === 'trial' && trialEnds ? trialEnds : null,
-      max_operatives: maxOps ? parseInt(maxOps) : null,
-      primary_colour: primaryColour,
-      logo_url: logoUrl,
-    }).select().single()
+      const { data: co, error: coErr } = await supabase.from('companies').insert({
+        name: name.trim(),
+        slug: slug.trim(),
+        contact_name: contactName.trim() || null,
+        contact_email: contactEmail.trim(),
+        subscription_plan: plan,
+        trial_ends_at: plan === 'trial' && trialEnds ? trialEnds : null,
+        max_operatives: maxOps ? parseInt(maxOps) : null,
+        primary_colour: primaryColour,
+        logo_url: logoUrl,
+      }).select().single()
 
-    if (coErr) {
-      setSaving(false)
-      toast.error(coErr.code === '23505' ? 'Slug already exists' : 'Failed to create company')
-      return
-    }
+      if (coErr) {
+        toast.error(coErr.code === '23505' ? 'Slug already exists' : 'Failed to create company')
+        return
+      }
 
-    // Create admin user for the company
-    // NOTE: We don't call supabase.auth.signUp here because it would sign out the current super admin.
-    // Instead, we create the profile and send a password reset link so the new user sets their own password.
-    const adminName = contactName.trim() || name.trim() + ' Admin'
-    const adminEmail = contactEmail.trim().toLowerCase()
+      // Create admin user for the company
+      // NOTE: We don't call supabase.auth.signUp here because it would sign out the current super admin.
+      // Instead, we create the profile and send a password reset link so the new user sets their own password.
+      const adminName = contactName.trim() || name.trim() + ' Admin'
+      const adminEmail = contactEmail.trim().toLowerCase()
 
-    // Create profile record
-    const profileId = crypto.randomUUID()
-    await supabase.from('profiles').insert({
-      id: profileId,
-      company_id: co.id,
-      name: adminName,
-      email: adminEmail,
-      role: 'admin',
-      is_active: true,
-    }).catch(err => console.error('Profile insert error:', err))
-
-    // Create legacy managers record
-    const tempPassword = `Welcome${Math.random().toString(36).slice(2, 8)}!A1`
-    await supabase.from('managers').insert({
-      name: adminName,
-      email: adminEmail,
-      password: tempPassword,
-      role: 'admin',
-      company_id: co.id,
-      is_active: true,
-      must_change_password: true,
-    }).catch(() => {})
-
-    // Send welcome email (fire and forget — don't block on it)
-    const emailPromise = fetch('/api/welcome', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${(await supabase.auth.getSession())?.data?.session?.access_token || ''}`,
-      },
-      body: JSON.stringify({
-        companyName: name.trim(),
-        contactName: contactName.trim() || 'Admin',
+      // Create profile record
+      const profileId = crypto.randomUUID()
+      const { error: profileErr } = await supabase.from('profiles').insert({
+        id: profileId,
+        company_id: co.id,
+        name: adminName,
         email: adminEmail,
-        tempPassword,
-      }),
-    }).catch(() => {})
+        role: 'admin',
+        is_active: true,
+      })
+      if (profileErr) console.error('Profile insert error:', profileErr)
 
-    // Don't await — let it send in background
-    emailPromise.then(() => console.log('Welcome email sent')).catch(() => {})
+      // Create legacy managers record
+      const tempPassword = `Welcome${Math.random().toString(36).slice(2, 8)}!A1`
+      const { error: mgrErr } = await supabase.from('managers').insert({
+        name: adminName,
+        email: adminEmail,
+        password: tempPassword,
+        role: 'admin',
+        company_id: co.id,
+        is_active: true,
+        must_change_password: true,
+      })
+      if (mgrErr) console.error('Manager insert error:', mgrErr)
 
-    setSaving(false)
-    toast.success(`${name.trim()} created — temp password: ${tempPassword}`)
-    setShowCreate(false)
-    resetForm()
-    loadData()
+      // Send welcome email (fire and forget — don't block on it)
+      const session = await supabase.auth.getSession()
+      const token = session?.data?.session?.access_token || ''
+      fetch('/api/welcome', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          companyName: name.trim(),
+          contactName: contactName.trim() || 'Admin',
+          email: adminEmail,
+          tempPassword,
+        }),
+      }).then(r => {
+        if (!r.ok) toast.error('Welcome email may not have sent — use resend option if needed')
+      }).catch(() => toast.error('Welcome email failed to send'))
+
+      toast.success(`${name.trim()} created — temp password: ${tempPassword}`)
+      setShowCreate(false)
+      resetForm()
+      loadData()
+    } catch (err) {
+      console.error('Create company error:', err)
+      toast.error('Something went wrong — check console for details')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function toggleActive(co) {
