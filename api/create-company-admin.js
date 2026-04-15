@@ -16,10 +16,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing companyId or adminEmail' })
   }
 
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  )
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: `Missing env: URL=${!!supabaseUrl} KEY=${!!serviceKey}` })
+  }
+
+  const supabase = createClient(supabaseUrl, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
 
   try {
     // Clean up any orphaned records from a previous deletion
@@ -102,6 +108,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ tempPassword })
   } catch (err) {
     console.error('Create company admin error:', err)
-    return res.status(500).json({ error: 'Failed to create admin user' })
+    return res.status(500).json({ error: err.message || 'Failed to create admin user' })
   }
 }
