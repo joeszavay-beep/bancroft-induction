@@ -103,44 +103,36 @@ export default function SuperAdminPanel() {
         return
       }
 
-      // Create admin user for the company
-      // NOTE: We don't call supabase.auth.signUp here because it would sign out the current super admin.
-      // Instead, we create the profile and send a password reset link so the new user sets their own password.
+      // Create admin user via server-side API (uses service role key to bypass RLS
+      // and create the Supabase auth user without logging out the current super admin)
       const adminName = contactName.trim() || name.trim() + ' Admin'
       const adminEmail = contactEmail.trim().toLowerCase()
-
-      // Clean up any orphaned records from a previous deletion of this email
-      await supabase.from('profiles').delete().eq('email', adminEmail)
-      await supabase.from('managers').delete().eq('email', adminEmail)
-
-      // Create profile record
-      const profileId = crypto.randomUUID()
-      const { error: profileErr } = await supabase.from('profiles').insert({
-        id: profileId,
-        company_id: co.id,
-        name: adminName,
-        email: adminEmail,
-        role: 'admin',
-        is_active: true,
-      })
-      if (profileErr) console.error('Profile insert error:', profileErr)
-
-      // Create legacy managers record
-      const tempPassword = `Welcome${Math.random().toString(36).slice(2, 8)}!A1`
-      const { error: mgrErr } = await supabase.from('managers').insert({
-        name: adminName,
-        email: adminEmail,
-        password: tempPassword,
-        role: 'admin',
-        company_id: co.id,
-        is_active: true,
-        must_change_password: true,
-      })
-      if (mgrErr) console.error('Manager insert error:', mgrErr)
-
-      // Send welcome email (fire and forget — don't block on it)
       const session = await supabase.auth.getSession()
       const token = session?.data?.session?.access_token || ''
+
+      const adminRes = await fetch('/api/create-company-admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          companyId: co.id,
+          adminName,
+          adminEmail,
+        }),
+      })
+
+      const adminData = await adminRes.json()
+      if (!adminRes.ok) {
+        toast.error(`Company created but admin setup failed: ${adminData.error}`)
+        loadData()
+        return
+      }
+
+      const tempPassword = adminData.tempPassword
+
+      // Send welcome email (fire and forget)
       fetch('/api/welcome', {
         method: 'POST',
         headers: {
@@ -154,7 +146,7 @@ export default function SuperAdminPanel() {
           tempPassword,
         }),
       }).then(r => {
-        if (!r.ok) toast.error('Welcome email may not have sent — use resend option if needed')
+        if (!r.ok) toast.error('Welcome email may not have sent')
       }).catch(() => toast.error('Welcome email failed to send'))
 
       toast.success(`${name.trim()} created — temp password: ${tempPassword}`)
