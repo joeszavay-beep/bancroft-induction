@@ -1525,7 +1525,7 @@ function TimesheetTab({
                   <tr key={row.jop.id} className="hover:bg-slate-50/50">
                     <td className="px-3 py-2 font-medium text-slate-800 sticky left-0 bg-white truncate max-w-[140px]">
                       {row.op.name || '—'}
-                      <span className="block text-[10px] text-slate-400 font-normal">{row.jop.trade_role || row.op.role || ''}</span>
+                      <span className="block text-[10px] text-slate-400 font-normal">{row.jop.trade_role || row.op.role || ''} · {formatMoney(row.jop.pay_rate)}/{row.jop.pay_type === 'hourly' ? 'hr' : row.jop.pay_type === 'weekly' ? 'wk' : 'day'}</span>
                     </td>
                     {row.days.map((entry, i) => {
                       const isEditing = editingCell === entry?.id
@@ -1549,7 +1549,7 @@ function TimesheetTab({
                             <button
                               onClick={() => { setEditingCell(entry.id); setEditHours(String(hours)) }}
                               className={`inline-block px-1.5 py-0.5 rounded border text-[11px] tabular-nums ${sc}`}
-                              title={`${hours}h · ${formatMoney(entry.cost_calculated)} · ${entry.status}`}
+                              title={`${hours}h · ${formatMoney(entry.cost_calculated)}${entry.cost_calculated === 0 && hours > 0 ? ' (< half day)' : ''} · ${entry.status}`}
                             >
                               {hours > 0 ? hours.toFixed(1) : '—'}
                             </button>
