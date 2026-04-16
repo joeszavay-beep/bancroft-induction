@@ -18,9 +18,8 @@ export default function AllWorkers() {
 
   async function loadData() {
     setLoading(true)
-    const { data } = cid
-      ? await supabase.from('operatives').select('*, projects(name)').eq('company_id', cid).order('name')
-      : await supabase.from('operatives').select('*, projects(name)').order('name')
+    if (!cid) { setLoading(false); return }
+    const { data } = await supabase.from('operatives').select('*, projects(name)').eq('company_id', cid).order('name')
     setOperatives(data || [])
     setLoading(false)
   }

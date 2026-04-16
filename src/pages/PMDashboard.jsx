@@ -47,32 +47,16 @@ export default function PMDashboard({ initialTab }) {
   async function loadData() {
     setLoading(true)
     const cid = managerData.company_id
+    if (!cid) { setLoading(false); return }
 
     const [pData, oData, dData, sData] = await Promise.all([
-      fetchAndCache('projects', (sb) => {
-        let q = sb.from('projects').select('*')
-        if (cid) q = q.eq('company_id', cid)
-        return q.order('created_at', { ascending: false })
-      }),
-      fetchAndCache('operatives', (sb) => {
-        let q = sb.from('operatives').select('*')
-        if (cid) q = q.eq('company_id', cid)
-        return q.order('name')
-      }),
-      fetchAndCache('documents', (sb) => {
-        let q = sb.from('documents').select('*')
-        if (cid) q = q.eq('company_id', cid)
-        return q.order('created_at', { ascending: false })
-      }),
-      fetchAndCache('signatures', (sb) => {
-        let q = sb.from('signatures').select('*')
-        if (cid) q = q.eq('company_id', cid)
-        return q.order('signed_at', { ascending: false })
-      }),
+      fetchAndCache('projects', (sb) => sb.from('projects').select('*').eq('company_id', cid).order('created_at', { ascending: false })),
+      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*').eq('company_id', cid).order('name')),
+      fetchAndCache('documents', (sb) => sb.from('documents').select('*').eq('company_id', cid).order('created_at', { ascending: false })),
+      fetchAndCache('signatures', (sb) => sb.from('signatures').select('*').eq('company_id', cid).order('signed_at', { ascending: false })),
     ])
 
     let filteredProjects = pData || []
-    if (cid) filteredProjects = filteredProjects.filter(proj => proj.company_id === cid)
     if (!isAdmin && managerProjectIds.length > 0) {
       filteredProjects = filteredProjects.filter(proj => managerProjectIds.includes(proj.id))
     }
@@ -1062,26 +1046,15 @@ function SnagsTab({ projects, navigate }) {
 
   async function loadAll() {
     setLoading(true)
+    if (!cid) { setLoading(false); return }
     const [dData, sData, oData] = await Promise.all([
-      fetchAndCache('drawings', (sb) => {
-        let q = sb.from('drawings').select('*')
-        if (cid) q = q.eq('company_id', cid)
-        return q.order('uploaded_at', { ascending: false })
-      }),
-      fetchAndCache('snags', (sb) => {
-        let q = sb.from('snags').select('*')
-        if (cid) q = q.eq('company_id', cid)
-        return q.order('snag_number')
-      }),
-      fetchAndCache('operatives', (sb) => {
-        let q = sb.from('operatives').select('*')
-        if (cid) q = q.eq('company_id', cid)
-        return q.order('name')
-      }),
+      fetchAndCache('drawings', (sb) => sb.from('drawings').select('*').eq('company_id', cid).order('uploaded_at', { ascending: false })),
+      fetchAndCache('snags', (sb) => sb.from('snags').select('*').eq('company_id', cid).order('snag_number')),
+      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*').eq('company_id', cid).order('name')),
     ])
-    setDrawings((dData || []).filter(d => !cid || d.company_id === cid))
-    setAllSnags((sData || []).filter(s => !cid || s.company_id === cid))
-    setAllOperatives((oData || []).filter(o => !cid || o.company_id === cid))
+    setDrawings(dData || [])
+    setAllSnags(sData || [])
+    setAllOperatives(oData || [])
     setLoading(false)
   }
 
@@ -1751,13 +1724,12 @@ function ToolboxTab({ projects, navigate }) {
 
   async function loadTalks() {
     setLoading(true)
-    const tData = await fetchAndCache('toolbox_talks', (sb) => {
-      let q = sb.from('toolbox_talks').select('*')
-      if (cid) q = q.eq('company_id', cid)
-      return q.order('created_at', { ascending: false })
-    })
+    if (!cid) { setLoading(false); return }
+    const tData = await fetchAndCache('toolbox_talks', (sb) =>
+      sb.from('toolbox_talks').select('*').eq('company_id', cid).order('created_at', { ascending: false })
+    )
 
-    const allTalks = (tData || []).filter(t => !cid || t.company_id === cid)
+    const allTalks = tData || []
     setTalks(allTalks)
 
     // Load signature counts — scoped to this company's talks
