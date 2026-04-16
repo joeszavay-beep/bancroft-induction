@@ -438,6 +438,50 @@ export default function SiteSignIn() {
           </span>
         </div>
 
+        {/* Currently on site — tap to sign out */}
+        {!searchQuery && currentlyOnSite.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 8px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Tap your name to sign out
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {currentlyOnSite.map((record) => {
+                const op = operatives.find(o => o.id === record.operative_id) || { id: record.operative_id, name: record.operative_name }
+                return (
+                  <button
+                    key={record.operative_id}
+                    onClick={() => setSelectedOperative(op)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+                      background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10,
+                      cursor: 'pointer', textAlign: 'left', width: '100%',
+                    }}
+                  >
+                    {op.photo_url ? (
+                      <img src={op.photo_url} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{
+                        width: 40, height: 40, borderRadius: '50%', background: '#2EA043',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#fff', fontSize: 14, fontWeight: 700,
+                      }}>
+                        {getInitials(op.name)}
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#166534' }}>{op.name}</p>
+                      <p style={{ margin: 0, fontSize: 12, color: '#4ade80' }}>
+                        On site since {formatTime(record.recorded_at)}
+                      </p>
+                    </div>
+                    <LogOut size={18} color="#DA3633" />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Operatives list (search results) */}
         {searchQuery.length > 0 && (
           <div style={{ marginBottom: 20 }}>
