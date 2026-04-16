@@ -348,6 +348,16 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
         await supabase.from('toolbox_talks').delete().eq('project_id', id)
       }
 
+      // Delete labour cascade (proposals → bookings → requests)
+      const { data: labourReqs } = await supabase.from('labour_requests').select('id').eq('project_id', id)
+      const reqIds = labourReqs?.map(r => r.id) || []
+      if (reqIds.length > 0) {
+        await supabase.from('labour_proposals').delete().in('request_id', reqIds).catch(() => {})
+        await supabase.from('labour_bookings').delete().in('request_id', reqIds).catch(() => {})
+      }
+      await supabase.from('labour_bookings').delete().eq('project_id', id).catch(() => {})
+      await supabase.from('labour_requests').delete().eq('project_id', id).catch(() => {})
+
       // Delete all other project-linked tables
       await Promise.all([
         supabase.from('documents').delete().eq('project_id', id),
@@ -360,7 +370,10 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
         supabase.from('inspection_results').delete().eq('project_id', id),
         supabase.from('aftercare_defects').delete().eq('project_id', id),
         supabase.from('programme_activities').delete().eq('project_id', id),
-        supabase.from('labour_requests').delete().eq('project_id', id),
+        supabase.from('bim_models').delete().eq('project_id', id),
+        supabase.from('design_drawings').delete().eq('project_id', id),
+        supabase.from('master_programme').delete().eq('project_id', id),
+        supabase.from('subcontractor_jobs').delete().eq('project_id', id),
       ].map(p => p.catch(() => {})))
 
       // Unassign operatives
