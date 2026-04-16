@@ -13,14 +13,19 @@ import {
   ArrowLeft, Users, Clock, FileText, Eye, Plus, X, Loader2,
   ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Download,
   Edit2, Save, RefreshCw, PoundSterling, Calendar, Briefcase,
-  Paperclip, Image, Trash2
+  Paperclip, Image, Trash2, Receipt, Ban, Hammer, FolderOpen, Calculator, TrendingUp, Bell
 } from 'lucide-react'
 
 const TABS = [
   { key: 'overview', label: 'Overview', icon: Eye },
   { key: 'operatives', label: 'Operatives', icon: Users },
   { key: 'timesheet', label: 'Timesheet', icon: Clock },
+  { key: 'applications', label: 'Applications', icon: Receipt },
+  { key: 'contras', label: 'Contras', icon: Ban },
+  { key: 'dayworks', label: 'Dayworks', icon: Hammer },
+  { key: 'documents', label: 'Documents', icon: FolderOpen },
   { key: 'invoices', label: 'Invoices', icon: FileText },
+  { key: 'final-account', label: 'Final Account', icon: Calculator },
 ]
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -100,6 +105,31 @@ export default function SubcontractorJobDetail() {
   const [savingInvoice, setSavingInvoice] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState(null)
 
+  // Payment applications
+  const [applications, setApplications] = useState([])
+  const [showAppForm, setShowAppForm] = useState(false)
+  const [appForm, setAppForm] = useState({ valuation_date: '', period_from: '', period_to: '', gross_amount: '', retention_held: '', notes: '' })
+  const [savingApp, setSavingApp] = useState(false)
+
+  // Contra charges
+  const [contras, setContras] = useState([])
+  const [showContraForm, setShowContraForm] = useState(false)
+  const [contraForm, setContraForm] = useState({ description: '', amount: '', date_raised: '', raised_by: '', status: 'pending' })
+  const [savingContra, setSavingContra] = useState(false)
+
+  // Daywork sheets
+  const [dayworks, setDayworks] = useState([])
+  const [showDayworkForm, setShowDayworkForm] = useState(false)
+  const [dayworkForm, setDayworkForm] = useState({ date: '', description: '', labour: [], plant: [], materials: [], signed_by: '' })
+  const [savingDaywork, setSavingDaywork] = useState(false)
+
+  // Job documents
+  const [jobDocs, setJobDocs] = useState([])
+  const [showDocForm, setShowDocForm] = useState(false)
+  const [docForm, setDocForm] = useState({ category: 'subcontract', title: '', notes: '' })
+  const [docFile, setDocFile] = useState(null)
+  const [savingDoc, setSavingDoc] = useState(false)
+
   // Stats for overview
   const [totalSpend, setTotalSpend] = useState(0)
   const [weeklySpends, setWeeklySpends] = useState([])
@@ -119,6 +149,18 @@ export default function SubcontractorJobDetail() {
       setVariations(varRes.data || [])
       setJobOperatives(opRes.data || [])
       setCompanyOperatives(compOpRes.data || [])
+
+      // Load commercial data
+      const [appRes, contraRes, dayworkRes, docRes] = await Promise.all([
+        supabase.from('payment_applications').select('*').eq('job_id', jobId).order('application_number', { ascending: false }),
+        supabase.from('contra_charges').select('*').eq('job_id', jobId).order('created_at', { ascending: false }),
+        supabase.from('daywork_sheets').select('*').eq('job_id', jobId).order('date', { ascending: false }),
+        supabase.from('job_documents').select('*').eq('job_id', jobId).order('created_at', { ascending: false }),
+      ])
+      setApplications(appRes.data || [])
+      setContras(contraRes.data || [])
+      setDayworks(dayworkRes.data || [])
+      setJobDocs(docRes.data || [])
 
       // Load spend data
       const { data: entries } = await supabase.from('timesheet_entries')
@@ -223,6 +265,233 @@ export default function SubcontractorJobDetail() {
     if (!error) {
       toast.success('File removed')
       loadJob()
+    }
+  }
+
+  // ── Payment Applications ──
+  async function handleAddApplication(e) {
+    e.preventDefault()
+    setSavingApp(true)
+    try {
+      const gross = parseMoney(appForm.gross_amount)
+      const retention = parseMoney(appForm.retention_held)
+      const net = gross - retention
+      const existingCount = applications.length
+      const { error } = await supabase.from('payment_applications').insert({
+        job_id: jobId,
+        company_id: cid,
+        application_number: existingCount + 1,
+        valuation_date: appForm.valuation_date || null,
+        period_from: appForm.period_from || null,
+        period_to: appForm.period_to || null,
+        gross_amount: gross,
+        retention_held: retention,
+        net_amount: net,
+        notes: appForm.notes.trim(),
+        status: 'draft',
+      })
+      if (error) throw error
+      toast.success('Application added')
+      setShowAppForm(false)
+      setAppForm({ valuation_date: '', period_from: '', period_to: '', gross_amount: '', retention_held: '', notes: '' })
+      loadJob()
+    } catch (err) {
+      toast.error(err.message)
+    }
+    setSavingApp(false)
+  }
+
+  async function handleUpdateApplicationStatus(id, status) {
+    try {
+      const updates = { status }
+      const now = new Date().toISOString()
+      if (status === 'submitted') updates.submitted_at = now
+      if (status === 'certified') {
+        updates.certified_at = now
+        const app = applications.find(a => a.id === id)
+        if (app) updates.amount_certified = app.net_amount
+      }
+      if (status === 'paid') {
+        updates.paid_at = now
+        const app = applications.find(a => a.id === id)
+        if (app) updates.amount_paid = app.amount_certified || app.net_amount
+      }
+      const { error } = await supabase.from('payment_applications').update(updates).eq('id', id)
+      if (error) throw error
+      toast.success(`Application ${status}`)
+      loadJob()
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  // ── Contra Charges ──
+  async function handleAddContra(e) {
+    e.preventDefault()
+    setSavingContra(true)
+    try {
+      const { error } = await supabase.from('contra_charges').insert({
+        job_id: jobId,
+        company_id: cid,
+        description: contraForm.description.trim(),
+        amount: parseMoney(contraForm.amount),
+        date_raised: contraForm.date_raised || null,
+        raised_by: contraForm.raised_by.trim(),
+        status: 'pending',
+        attachments: [],
+      })
+      if (error) throw error
+      toast.success('Contra charge logged')
+      setShowContraForm(false)
+      setContraForm({ description: '', amount: '', date_raised: '', raised_by: '', status: 'pending' })
+      loadJob()
+    } catch (err) {
+      toast.error(err.message)
+    }
+    setSavingContra(false)
+  }
+
+  async function handleUpdateContraStatus(id, status) {
+    try {
+      const { error } = await supabase.from('contra_charges').update({ status }).eq('id', id)
+      if (error) throw error
+      toast.success(`Contra ${status}`)
+      loadJob()
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  async function handleAddContraEvidence(contraId, files) {
+    const existing = contras.find(c => c.id === contraId)?.attachments || []
+    const uploaded = []
+    for (const file of files) {
+      const ext = file.name.split('.').pop()
+      const path = `contras/${contraId}/${crypto.randomUUID()}.${ext}`
+      const { error } = await supabase.storage.from('documents').upload(path, file, { contentType: file.type })
+      if (!error) {
+        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+        uploaded.push({ name: file.name, url: urlData.publicUrl, type: file.type, size: file.size })
+      }
+    }
+    if (uploaded.length > 0) {
+      const updated = [...existing, ...uploaded]
+      const { error } = await supabase.from('contra_charges').update({ attachments: updated }).eq('id', contraId)
+      if (!error) {
+        toast.success(`${uploaded.length} file${uploaded.length > 1 ? 's' : ''} uploaded`)
+        loadJob()
+      } else {
+        toast.error('Failed to save attachments')
+      }
+    }
+  }
+
+  async function handleRemoveContraAttachment(contraId, fileUrl) {
+    const existing = contras.find(c => c.id === contraId)?.attachments || []
+    const updated = existing.filter(a => a.url !== fileUrl)
+    const { error } = await supabase.from('contra_charges').update({ attachments: updated }).eq('id', contraId)
+    if (!error) { toast.success('File removed'); loadJob() }
+  }
+
+  // ── Daywork Sheets ──
+  async function handleAddDaywork(e) {
+    e.preventDefault()
+    setSavingDaywork(true)
+    try {
+      const labourCost = dayworkForm.labour.reduce((s, l) => s + ((parseFloat(l.hours) || 0) * parseMoney(l.rate)), 0)
+      const plantCost = dayworkForm.plant.reduce((s, p) => s + ((parseFloat(p.hours) || 0) * parseMoney(p.rate)), 0)
+      const materialsCost = dayworkForm.materials.reduce((s, m) => s + ((parseFloat(m.quantity) || 0) * parseMoney(m.unit_cost)), 0)
+      const totalCost = labourCost + plantCost + materialsCost
+      const existingCount = dayworks.length
+      const { error } = await supabase.from('daywork_sheets').insert({
+        job_id: jobId,
+        company_id: cid,
+        sheet_number: existingCount + 1,
+        date: dayworkForm.date || null,
+        description: dayworkForm.description.trim(),
+        labour: dayworkForm.labour,
+        plant: dayworkForm.plant,
+        materials: dayworkForm.materials,
+        total_cost: totalCost,
+        signed_by: dayworkForm.signed_by.trim(),
+        status: 'draft',
+      })
+      if (error) throw error
+      toast.success('Daywork sheet added')
+      setShowDayworkForm(false)
+      setDayworkForm({ date: '', description: '', labour: [], plant: [], materials: [], signed_by: '' })
+      loadJob()
+    } catch (err) {
+      toast.error(err.message)
+    }
+    setSavingDaywork(false)
+  }
+
+  async function handleUpdateDayworkStatus(id, status) {
+    try {
+      const { error } = await supabase.from('daywork_sheets').update({ status }).eq('id', id)
+      if (error) throw error
+      toast.success(`Daywork ${status}`)
+      loadJob()
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  // ── Job Documents ──
+  async function handleUploadJobDoc(e) {
+    e.preventDefault()
+    if (!docFile) { toast.error('Select a file'); return }
+    setSavingDoc(true)
+    try {
+      const ext = docFile.name.split('.').pop()
+      const path = `job-docs/${jobId}/${crypto.randomUUID()}.${ext}`
+      const { error: uploadErr } = await supabase.storage.from('documents').upload(path, docFile, { contentType: docFile.type })
+      if (uploadErr) throw uploadErr
+      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+      const { error } = await supabase.from('job_documents').insert({
+        job_id: jobId,
+        company_id: cid,
+        category: docForm.category,
+        title: docForm.title.trim() || docFile.name,
+        file_url: urlData.publicUrl,
+        file_name: docFile.name,
+        file_type: docFile.type,
+        file_size: docFile.size,
+        notes: docForm.notes.trim(),
+      })
+      if (error) throw error
+      toast.success('Document uploaded')
+      setShowDocForm(false)
+      setDocForm({ category: 'subcontract', title: '', notes: '' })
+      setDocFile(null)
+      loadJob()
+    } catch (err) {
+      toast.error(err.message)
+    }
+    setSavingDoc(false)
+  }
+
+  async function handleDeleteJobDoc(id) {
+    if (!confirm('Delete this document?')) return
+    try {
+      const { error } = await supabase.from('job_documents').delete().eq('id', id)
+      if (error) throw error
+      toast.success('Document deleted')
+      loadJob()
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  async function handleUpdateFinalAccount(updates) {
+    try {
+      const { error } = await supabase.from('subcontractor_jobs').update(updates).eq('id', jobId)
+      if (error) throw error
+      toast.success('Final account updated')
+      loadJob()
+    } catch (err) {
+      toast.error(err.message)
     }
   }
 
@@ -683,6 +952,49 @@ export default function SubcontractorJobDetail() {
         />
       )}
 
+      {activeTab === 'applications' && (
+        <PaymentApplicationsTab
+          applications={applications}
+          showAppForm={showAppForm} setShowAppForm={setShowAppForm}
+          appForm={appForm} setAppForm={setAppForm}
+          handleAddApplication={handleAddApplication} savingApp={savingApp}
+          handleUpdateApplicationStatus={handleUpdateApplicationStatus}
+        />
+      )}
+
+      {activeTab === 'contras' && (
+        <ContraChargesTab
+          contras={contras}
+          showContraForm={showContraForm} setShowContraForm={setShowContraForm}
+          contraForm={contraForm} setContraForm={setContraForm}
+          handleAddContra={handleAddContra} savingContra={savingContra}
+          handleUpdateContraStatus={handleUpdateContraStatus}
+          handleAddContraEvidence={handleAddContraEvidence}
+          handleRemoveContraAttachment={handleRemoveContraAttachment}
+        />
+      )}
+
+      {activeTab === 'dayworks' && (
+        <DayworkSheetsTab
+          dayworks={dayworks}
+          showDayworkForm={showDayworkForm} setShowDayworkForm={setShowDayworkForm}
+          dayworkForm={dayworkForm} setDayworkForm={setDayworkForm}
+          handleAddDaywork={handleAddDaywork} savingDaywork={savingDaywork}
+          handleUpdateDayworkStatus={handleUpdateDayworkStatus}
+        />
+      )}
+
+      {activeTab === 'documents' && (
+        <DocumentsTab
+          jobDocs={jobDocs}
+          showDocForm={showDocForm} setShowDocForm={setShowDocForm}
+          docForm={docForm} setDocForm={setDocForm}
+          docFile={docFile} setDocFile={setDocFile}
+          handleUploadJobDoc={handleUploadJobDoc} savingDoc={savingDoc}
+          handleDeleteJobDoc={handleDeleteJobDoc}
+        />
+      )}
+
       {activeTab === 'invoices' && (
         <InvoicesTab
           invoices={invoices} job={job}
@@ -692,6 +1004,14 @@ export default function SubcontractorJobDetail() {
           invoicePeriodTotal={invoicePeriodTotal}
           editingInvoice={editingInvoice} setEditingInvoice={setEditingInvoice}
           jobOperatives={jobOperatives}
+        />
+      )}
+
+      {activeTab === 'final-account' && (
+        <FinalAccountTab
+          job={job} variations={variations} contras={contras}
+          applications={applications}
+          handleUpdateFinalAccount={handleUpdateFinalAccount}
         />
       )}
 
@@ -1479,6 +1799,880 @@ function InvoicesTab({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Payment Applications Tab ──
+const APP_STATUS_COLORS = { draft: 'slate', submitted: 'blue', certified: 'amber', paid: 'green' }
+
+function PaymentApplicationsTab({
+  applications, showAppForm, setShowAppForm, appForm, setAppForm,
+  handleAddApplication, savingApp, handleUpdateApplicationStatus,
+}) {
+  const totalApplied = applications.reduce((s, a) => s + (a.gross_amount || 0), 0)
+  const totalCertified = applications.reduce((s, a) => s + (a.amount_certified || 0), 0)
+  const totalPaid = applications.reduce((s, a) => s + (a.amount_paid || 0), 0)
+  const outstanding = totalCertified - totalPaid
+
+  const netPreview = parseMoney(appForm.gross_amount) - parseMoney(appForm.retention_held)
+
+  return (
+    <div className="space-y-4">
+      {/* Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard label="Total Applied" value={formatMoney(totalApplied)} />
+        <StatCard label="Total Certified" value={formatMoney(totalCertified)} />
+        <StatCard label="Total Paid" value={formatMoney(totalPaid)} color="green" />
+        <StatCard label="Outstanding" value={formatMoney(outstanding)} color={outstanding > 0 ? 'amber' : 'slate'} />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500">{applications.length} application{applications.length !== 1 ? 's' : ''}</p>
+        <button
+          onClick={() => setShowAppForm(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition-colors"
+        >
+          <Plus size={16} /> New Application
+        </button>
+      </div>
+
+      {applications.length === 0 ? (
+        <div className="text-center py-12 bg-white border border-slate-200 rounded-xl">
+          <Receipt size={36} className="text-slate-300 mx-auto mb-2" />
+          <p className="text-slate-500 text-sm">No payment applications yet</p>
+        </div>
+      ) : (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">#</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Period</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Gross</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Retention</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Net</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Certified</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Paid</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Status</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {applications.map(app => {
+                  const sc = APP_STATUS_COLORS[app.status] || 'slate'
+                  return (
+                    <tr key={app.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-3 text-slate-700 font-medium">{app.application_number}</td>
+                      <td className="px-4 py-3 text-slate-600 text-xs">
+                        {app.period_from && app.period_to
+                          ? `${new Date(app.period_from).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} — ${new Date(app.period_to).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums text-slate-700">{formatMoney(app.gross_amount)}</td>
+                      <td className="px-4 py-3 tabular-nums text-slate-500">{formatMoney(app.retention_held)}</td>
+                      <td className="px-4 py-3 tabular-nums font-semibold text-slate-800">{formatMoney(app.net_amount)}</td>
+                      <td className="px-4 py-3 tabular-nums text-slate-600">{app.amount_certified ? formatMoney(app.amount_certified) : '—'}</td>
+                      <td className="px-4 py-3 tabular-nums text-slate-600">{app.amount_paid ? formatMoney(app.amount_paid) : '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium bg-${sc}-100 text-${sc}-700`}>
+                          {app.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          {app.status === 'draft' && (
+                            <button onClick={() => handleUpdateApplicationStatus(app.id, 'submitted')} className="px-2 py-0.5 text-xs font-medium text-blue-600 border border-blue-200 rounded hover:bg-blue-50">Submit</button>
+                          )}
+                          {app.status === 'submitted' && (
+                            <button onClick={() => handleUpdateApplicationStatus(app.id, 'certified')} className="px-2 py-0.5 text-xs font-medium text-amber-600 border border-amber-200 rounded hover:bg-amber-50">Certify</button>
+                          )}
+                          {app.status === 'certified' && (
+                            <button onClick={() => handleUpdateApplicationStatus(app.id, 'paid')} className="px-2 py-0.5 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50">Mark Paid</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* New Application form modal */}
+      {showAppForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+              <h2 className="text-lg font-bold text-slate-900">New Payment Application</h2>
+              <button onClick={() => setShowAppForm(false)} className="p-1 hover:bg-slate-100 rounded-lg"><X size={20} className="text-slate-400" /></button>
+            </div>
+            <form onSubmit={handleAddApplication} className="p-5 space-y-4">
+              <Field label="Valuation Date">
+                <input type="date" value={appForm.valuation_date} onChange={e => setAppForm(f => ({ ...f, valuation_date: e.target.value }))} className="input-field" />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Period From">
+                  <input type="date" value={appForm.period_from} onChange={e => setAppForm(f => ({ ...f, period_from: e.target.value }))} className="input-field" />
+                </Field>
+                <Field label="Period To">
+                  <input type="date" value={appForm.period_to} onChange={e => setAppForm(f => ({ ...f, period_to: e.target.value }))} className="input-field" />
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Gross Amount *">
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">£</span>
+                    <input type="text" value={appForm.gross_amount} onChange={e => setAppForm(f => ({ ...f, gross_amount: e.target.value }))} className="input-field" style={{ paddingLeft: '1.75rem' }} placeholder="0.00" required />
+                  </div>
+                </Field>
+                <Field label="Retention Held">
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">£</span>
+                    <input type="text" value={appForm.retention_held} onChange={e => setAppForm(f => ({ ...f, retention_held: e.target.value }))} className="input-field" style={{ paddingLeft: '1.75rem' }} placeholder="0.00" />
+                  </div>
+                </Field>
+              </div>
+              {(appForm.gross_amount || appForm.retention_held) && (
+                <div className="bg-slate-50 rounded-lg p-3 text-xs">
+                  <div className="flex justify-between"><span className="text-slate-500">Net Amount</span><span className="text-slate-900 font-bold tabular-nums">{formatMoney(netPreview)}</span></div>
+                </div>
+              )}
+              <Field label="Notes">
+                <textarea value={appForm.notes} onChange={e => setAppForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="input-field" />
+              </Field>
+              <div className="flex gap-2 justify-end pt-2">
+                <button type="button" onClick={() => setShowAppForm(false)} className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+                <button type="submit" disabled={savingApp} className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 font-semibold">
+                  {savingApp && <Loader2 size={14} className="animate-spin" />} Add Application
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Contra Charges Tab ──
+const CONTRA_STATUS_COLORS = { pending: 'amber', disputed: 'red', accepted: 'slate', rejected: 'red' }
+
+function ContraChargesTab({
+  contras, showContraForm, setShowContraForm, contraForm, setContraForm,
+  handleAddContra, savingContra, handleUpdateContraStatus,
+  handleAddContraEvidence, handleRemoveContraAttachment,
+}) {
+  const totalContras = contras.reduce((s, c) => s + (c.amount || 0), 0)
+  const disputedAmount = contras.filter(c => c.status === 'disputed').reduce((s, c) => s + (c.amount || 0), 0)
+  const acceptedAmount = contras.filter(c => c.status === 'accepted').reduce((s, c) => s + (c.amount || 0), 0)
+
+  return (
+    <div className="space-y-4">
+      {/* Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <StatCard label="Total Contras" value={formatMoney(totalContras)} />
+        <StatCard label="Disputed" value={formatMoney(disputedAmount)} color="red" />
+        <StatCard label="Accepted" value={formatMoney(acceptedAmount)} color="amber" />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500">{contras.length} contra charge{contras.length !== 1 ? 's' : ''}</p>
+        <button
+          onClick={() => setShowContraForm(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition-colors"
+        >
+          <Plus size={16} /> Log Contra Charge
+        </button>
+      </div>
+
+      {contras.length === 0 ? (
+        <div className="text-center py-12 bg-white border border-slate-200 rounded-xl">
+          <Ban size={36} className="text-slate-300 mx-auto mb-2" />
+          <p className="text-slate-500 text-sm">No contra charges yet</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {contras.map(contra => {
+            const sc = CONTRA_STATUS_COLORS[contra.status] || 'slate'
+            const attachments = Array.isArray(contra.attachments) ? contra.attachments : []
+            return (
+              <Card key={contra.id}>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium text-slate-800 ${contra.status === 'rejected' ? 'line-through' : ''}`}>{contra.description}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {contra.date_raised ? new Date(contra.date_raised).toLocaleDateString('en-GB') : '—'}
+                      {contra.raised_by ? ` · Raised by: ${contra.raised_by}` : ''}
+                    </p>
+                  </div>
+                  <div className="text-right ml-4">
+                    <p className={`text-sm font-semibold tabular-nums ${contra.status === 'rejected' ? 'text-slate-400 line-through' : 'text-red-600'}`}>
+                      {formatMoney(contra.amount)}
+                    </p>
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-${sc}-100 text-${sc}-700`}>{contra.status}</span>
+                  </div>
+                </div>
+
+                {/* Attachments */}
+                {attachments.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-slate-50 flex flex-wrap gap-2">
+                    {attachments.map((att, i) => {
+                      const isImage = att.type?.startsWith('image/')
+                      return (
+                        <div key={i} className="group relative">
+                          {isImage ? (
+                            <a href={att.url} target="_blank" rel="noopener noreferrer" className="block w-16 h-16 rounded-lg overflow-hidden border border-slate-200 hover:border-blue-300 transition-colors">
+                              <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                            </a>
+                          ) : (
+                            <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg hover:border-blue-300 transition-colors">
+                              <FileText size={14} className="text-slate-400 shrink-0" />
+                              <span className="text-xs text-slate-600 truncate max-w-[120px]">{att.name}</span>
+                            </a>
+                          )}
+                          <button onClick={() => handleRemoveContraAttachment(contra.id, att.url)}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Remove file">
+                            <X size={10} />
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Actions row */}
+                <div className="mt-2 pt-2 border-t border-slate-50 flex items-center justify-between">
+                  <label className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-500 cursor-pointer transition-colors">
+                    <Paperclip size={12} />
+                    <span>Attach evidence</span>
+                    <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" multiple className="hidden"
+                      onChange={e => {
+                        const files = Array.from(e.target.files || [])
+                        if (files.some(f => f.size > 25 * 1024 * 1024)) { toast.error('Max file size is 25MB'); return }
+                        if (files.length) handleAddContraEvidence(contra.id, files)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    {contra.status === 'pending' && (
+                      <>
+                        <button onClick={() => handleUpdateContraStatus(contra.id, 'disputed')} className="px-2 py-0.5 text-xs font-medium text-red-600 border border-red-200 rounded hover:bg-red-50">Dispute</button>
+                        <button onClick={() => handleUpdateContraStatus(contra.id, 'accepted')} className="px-2 py-0.5 text-xs font-medium text-slate-600 border border-slate-200 rounded hover:bg-slate-50">Accept</button>
+                      </>
+                    )}
+                    {contra.status === 'disputed' && (
+                      <>
+                        <button onClick={() => handleUpdateContraStatus(contra.id, 'accepted')} className="px-2 py-0.5 text-xs font-medium text-slate-600 border border-slate-200 rounded hover:bg-slate-50">Accept</button>
+                        <button onClick={() => handleUpdateContraStatus(contra.id, 'rejected')} className="px-2 py-0.5 text-xs font-medium text-red-600 border border-red-200 rounded hover:bg-red-50">Reject</button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+
+      {/* New Contra form modal */}
+      {showContraForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+              <h2 className="text-lg font-bold text-slate-900">Log Contra Charge</h2>
+              <button onClick={() => setShowContraForm(false)} className="p-1 hover:bg-slate-100 rounded-lg"><X size={20} className="text-slate-400" /></button>
+            </div>
+            <form onSubmit={handleAddContra} className="p-5 space-y-4">
+              <Field label="Description *">
+                <input type="text" value={contraForm.description} onChange={e => setContraForm(f => ({ ...f, description: e.target.value }))} className="input-field" required />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Amount *">
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">£</span>
+                    <input type="text" value={contraForm.amount} onChange={e => setContraForm(f => ({ ...f, amount: e.target.value }))} className="input-field" style={{ paddingLeft: '1.75rem' }} placeholder="0.00" required />
+                  </div>
+                </Field>
+                <Field label="Date Raised">
+                  <input type="date" value={contraForm.date_raised} onChange={e => setContraForm(f => ({ ...f, date_raised: e.target.value }))} className="input-field" />
+                </Field>
+              </div>
+              <Field label="Raised By">
+                <input type="text" value={contraForm.raised_by} onChange={e => setContraForm(f => ({ ...f, raised_by: e.target.value }))} className="input-field" placeholder="e.g. Main Contractor" />
+              </Field>
+              <div className="flex gap-2 justify-end pt-2">
+                <button type="button" onClick={() => setShowContraForm(false)} className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+                <button type="submit" disabled={savingContra} className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 font-semibold">
+                  {savingContra && <Loader2 size={14} className="animate-spin" />} Log Contra
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Daywork Sheets Tab ──
+const DAYWORK_STATUS_COLORS = { draft: 'slate', submitted: 'blue', approved: 'green', rejected: 'red' }
+
+function DayworkSheetsTab({
+  dayworks, showDayworkForm, setShowDayworkForm, dayworkForm, setDayworkForm,
+  handleAddDaywork, savingDaywork, handleUpdateDayworkStatus,
+}) {
+  function addLabourRow() {
+    setDayworkForm(f => ({ ...f, labour: [...f.labour, { name: '', hours: '', rate: '' }] }))
+  }
+  function updateLabourRow(idx, field, val) {
+    setDayworkForm(f => ({ ...f, labour: f.labour.map((r, i) => i === idx ? { ...r, [field]: val } : r) }))
+  }
+  function removeLabourRow(idx) {
+    setDayworkForm(f => ({ ...f, labour: f.labour.filter((_, i) => i !== idx) }))
+  }
+  function addPlantRow() {
+    setDayworkForm(f => ({ ...f, plant: [...f.plant, { item: '', hours: '', rate: '' }] }))
+  }
+  function updatePlantRow(idx, field, val) {
+    setDayworkForm(f => ({ ...f, plant: f.plant.map((r, i) => i === idx ? { ...r, [field]: val } : r) }))
+  }
+  function removePlantRow(idx) {
+    setDayworkForm(f => ({ ...f, plant: f.plant.filter((_, i) => i !== idx) }))
+  }
+  function addMaterialRow() {
+    setDayworkForm(f => ({ ...f, materials: [...f.materials, { item: '', quantity: '', unit_cost: '' }] }))
+  }
+  function updateMaterialRow(idx, field, val) {
+    setDayworkForm(f => ({ ...f, materials: f.materials.map((r, i) => i === idx ? { ...r, [field]: val } : r) }))
+  }
+  function removeMaterialRow(idx) {
+    setDayworkForm(f => ({ ...f, materials: f.materials.filter((_, i) => i !== idx) }))
+  }
+
+  const formLabourTotal = dayworkForm.labour.reduce((s, l) => s + ((parseFloat(l.hours) || 0) * parseMoney(l.rate)), 0)
+  const formPlantTotal = dayworkForm.plant.reduce((s, p) => s + ((parseFloat(p.hours) || 0) * parseMoney(p.rate)), 0)
+  const formMaterialsTotal = dayworkForm.materials.reduce((s, m) => s + ((parseFloat(m.quantity) || 0) * parseMoney(m.unit_cost)), 0)
+  const formTotal = formLabourTotal + formPlantTotal + formMaterialsTotal
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500">{dayworks.length} daywork sheet{dayworks.length !== 1 ? 's' : ''}</p>
+        <button
+          onClick={() => setShowDayworkForm(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition-colors"
+        >
+          <Plus size={16} /> New Daywork Sheet
+        </button>
+      </div>
+
+      {dayworks.length === 0 ? (
+        <div className="text-center py-12 bg-white border border-slate-200 rounded-xl">
+          <Hammer size={36} className="text-slate-300 mx-auto mb-2" />
+          <p className="text-slate-500 text-sm">No daywork sheets yet</p>
+        </div>
+      ) : (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Sheet #</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Date</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Description</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Total Cost</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Signed By</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Status</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {dayworks.map(dw => {
+                const sc = DAYWORK_STATUS_COLORS[dw.status] || 'slate'
+                return (
+                  <tr key={dw.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 font-medium text-slate-700">{dw.sheet_number || '—'}</td>
+                    <td className="px-4 py-3 text-slate-600">{dw.date ? new Date(dw.date).toLocaleDateString('en-GB') : '—'}</td>
+                    <td className="px-4 py-3 text-slate-700 max-w-[200px] truncate">{dw.description || '—'}</td>
+                    <td className="px-4 py-3 tabular-nums font-semibold text-slate-800">{formatMoney(dw.total_cost)}</td>
+                    <td className="px-4 py-3 text-slate-600">{dw.signed_by || '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium bg-${sc}-100 text-${sc}-700`}>{dw.status}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        {dw.status === 'draft' && (
+                          <button onClick={() => handleUpdateDayworkStatus(dw.id, 'submitted')} className="px-2 py-0.5 text-xs font-medium text-blue-600 border border-blue-200 rounded hover:bg-blue-50">Submit</button>
+                        )}
+                        {dw.status === 'submitted' && (
+                          <>
+                            <button onClick={() => handleUpdateDayworkStatus(dw.id, 'approved')} className="px-2 py-0.5 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50">Approve</button>
+                            <button onClick={() => handleUpdateDayworkStatus(dw.id, 'rejected')} className="px-2 py-0.5 text-xs font-medium text-red-600 border border-red-200 rounded hover:bg-red-50">Reject</button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* New Daywork form modal */}
+      {showDayworkForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+              <h2 className="text-lg font-bold text-slate-900">New Daywork Sheet</h2>
+              <button onClick={() => setShowDayworkForm(false)} className="p-1 hover:bg-slate-100 rounded-lg"><X size={20} className="text-slate-400" /></button>
+            </div>
+            <form onSubmit={handleAddDaywork} className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Date *">
+                  <input type="date" value={dayworkForm.date} onChange={e => setDayworkForm(f => ({ ...f, date: e.target.value }))} className="input-field" required />
+                </Field>
+                <Field label="Signed By">
+                  <input type="text" value={dayworkForm.signed_by} onChange={e => setDayworkForm(f => ({ ...f, signed_by: e.target.value }))} className="input-field" placeholder="Site manager" />
+                </Field>
+              </div>
+              <Field label="Description *">
+                <textarea value={dayworkForm.description} onChange={e => setDayworkForm(f => ({ ...f, description: e.target.value }))} rows={2} className="input-field" required />
+              </Field>
+
+              {/* Labour section */}
+              <div className="border border-slate-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-slate-700">Labour</p>
+                  <button type="button" onClick={addLabourRow} className="text-xs text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1"><Plus size={12} /> Add Row</button>
+                </div>
+                {dayworkForm.labour.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-2">No labour rows</p>
+                ) : (
+                  <div className="space-y-2">
+                    {dayworkForm.labour.map((row, i) => (
+                      <div key={i} className="grid grid-cols-[1fr_60px_80px_24px] gap-2 items-center">
+                        <input type="text" value={row.name} onChange={e => updateLabourRow(i, 'name', e.target.value)} className="input-field" placeholder="Name" />
+                        <input type="number" step="0.5" value={row.hours} onChange={e => updateLabourRow(i, 'hours', e.target.value)} className="input-field" placeholder="Hrs" />
+                        <input type="text" value={row.rate} onChange={e => updateLabourRow(i, 'rate', e.target.value)} className="input-field" placeholder="£/hr" />
+                        <button type="button" onClick={() => removeLabourRow(i)} className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
+                      </div>
+                    ))}
+                    <p className="text-xs text-slate-500 text-right tabular-nums">Subtotal: {formatMoney(formLabourTotal)}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Plant section */}
+              <div className="border border-slate-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-slate-700">Plant</p>
+                  <button type="button" onClick={addPlantRow} className="text-xs text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1"><Plus size={12} /> Add Row</button>
+                </div>
+                {dayworkForm.plant.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-2">No plant rows</p>
+                ) : (
+                  <div className="space-y-2">
+                    {dayworkForm.plant.map((row, i) => (
+                      <div key={i} className="grid grid-cols-[1fr_60px_80px_24px] gap-2 items-center">
+                        <input type="text" value={row.item} onChange={e => updatePlantRow(i, 'item', e.target.value)} className="input-field" placeholder="Item" />
+                        <input type="number" step="0.5" value={row.hours} onChange={e => updatePlantRow(i, 'hours', e.target.value)} className="input-field" placeholder="Hrs" />
+                        <input type="text" value={row.rate} onChange={e => updatePlantRow(i, 'rate', e.target.value)} className="input-field" placeholder="£/hr" />
+                        <button type="button" onClick={() => removePlantRow(i)} className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
+                      </div>
+                    ))}
+                    <p className="text-xs text-slate-500 text-right tabular-nums">Subtotal: {formatMoney(formPlantTotal)}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Materials section */}
+              <div className="border border-slate-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-slate-700">Materials</p>
+                  <button type="button" onClick={addMaterialRow} className="text-xs text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1"><Plus size={12} /> Add Row</button>
+                </div>
+                {dayworkForm.materials.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-2">No materials rows</p>
+                ) : (
+                  <div className="space-y-2">
+                    {dayworkForm.materials.map((row, i) => (
+                      <div key={i} className="grid grid-cols-[1fr_60px_80px_24px] gap-2 items-center">
+                        <input type="text" value={row.item} onChange={e => updateMaterialRow(i, 'item', e.target.value)} className="input-field" placeholder="Item" />
+                        <input type="number" step="1" value={row.quantity} onChange={e => updateMaterialRow(i, 'quantity', e.target.value)} className="input-field" placeholder="Qty" />
+                        <input type="text" value={row.unit_cost} onChange={e => updateMaterialRow(i, 'unit_cost', e.target.value)} className="input-field" placeholder="£/unit" />
+                        <button type="button" onClick={() => removeMaterialRow(i)} className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
+                      </div>
+                    ))}
+                    <p className="text-xs text-slate-500 text-right tabular-nums">Subtotal: {formatMoney(formMaterialsTotal)}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Total */}
+              <div className="bg-slate-50 rounded-lg p-3 text-sm">
+                <div className="flex justify-between font-semibold">
+                  <span className="text-slate-700">Total Cost</span>
+                  <span className="text-slate-900 tabular-nums">{formatMoney(formTotal)}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <button type="button" onClick={() => setShowDayworkForm(false)} className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+                <button type="submit" disabled={savingDaywork} className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 font-semibold">
+                  {savingDaywork && <Loader2 size={14} className="animate-spin" />} Add Daywork
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Documents Tab ──
+const DOC_CATEGORIES = [
+  { value: 'subcontract', label: 'Subcontract' },
+  { value: 'payment_notice', label: 'Payment Notice' },
+  { value: 'pay_less_notice', label: 'Pay-Less Notice' },
+  { value: 'cis_statement', label: 'CIS Statement' },
+  { value: 'correspondence', label: 'Correspondence' },
+  { value: 'other', label: 'Other' },
+]
+
+function DocumentsTab({
+  jobDocs, showDocForm, setShowDocForm, docForm, setDocForm,
+  docFile, setDocFile, handleUploadJobDoc, savingDoc, handleDeleteJobDoc,
+}) {
+  const grouped = DOC_CATEGORIES.map(cat => ({
+    ...cat,
+    docs: jobDocs.filter(d => d.category === cat.value),
+  })).filter(g => g.docs.length > 0)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500">{jobDocs.length} document{jobDocs.length !== 1 ? 's' : ''}</p>
+        <button
+          onClick={() => { setShowDocForm(true); setDocFile(null); setDocForm({ category: 'subcontract', title: '', notes: '' }) }}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition-colors"
+        >
+          <Plus size={16} /> Upload Document
+        </button>
+      </div>
+
+      {jobDocs.length === 0 ? (
+        <div className="text-center py-12 bg-white border border-slate-200 rounded-xl">
+          <FolderOpen size={36} className="text-slate-300 mx-auto mb-2" />
+          <p className="text-slate-500 text-sm">No documents yet</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {grouped.map(group => (
+            <Card key={group.value} title={group.label}>
+              <div className="space-y-2">
+                {group.docs.map(doc => (
+                  <div key={doc.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <FileText size={16} className="text-slate-400 shrink-0" />
+                      <div className="min-w-0">
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline truncate block">
+                          {doc.title || doc.file_name}
+                        </a>
+                        <p className="text-xs text-slate-400">
+                          {doc.created_at ? new Date(doc.created_at).toLocaleDateString('en-GB') : ''}
+                          {doc.notes ? ` · ${doc.notes}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <button onClick={() => handleDeleteJobDoc(doc.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ))}
+
+          {/* Show uncategorised docs if any */}
+          {jobDocs.filter(d => !DOC_CATEGORIES.some(c => c.value === d.category)).length > 0 && (
+            <Card title="Other">
+              <div className="space-y-2">
+                {jobDocs.filter(d => !DOC_CATEGORIES.some(c => c.value === d.category)).map(doc => (
+                  <div key={doc.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <FileText size={16} className="text-slate-400 shrink-0" />
+                      <div className="min-w-0">
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline truncate block">
+                          {doc.title || doc.file_name}
+                        </a>
+                        <p className="text-xs text-slate-400">
+                          {doc.created_at ? new Date(doc.created_at).toLocaleDateString('en-GB') : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <button onClick={() => handleDeleteJobDoc(doc.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Upload document modal */}
+      {showDocForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+              <h2 className="text-lg font-bold text-slate-900">Upload Document</h2>
+              <button onClick={() => setShowDocForm(false)} className="p-1 hover:bg-slate-100 rounded-lg"><X size={20} className="text-slate-400" /></button>
+            </div>
+            <form onSubmit={handleUploadJobDoc} className="p-5 space-y-4">
+              <Field label="Category">
+                <select value={docForm.category} onChange={e => setDocForm(f => ({ ...f, category: e.target.value }))} className="input-field">
+                  {DOC_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              </Field>
+              <Field label="Title">
+                <input type="text" value={docForm.title} onChange={e => setDocForm(f => ({ ...f, title: e.target.value }))} className="input-field" placeholder="Optional — defaults to file name" />
+              </Field>
+              <Field label="File *">
+                <label className="flex items-center gap-2 px-3 py-2.5 border border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
+                  <Paperclip size={14} className="text-slate-400" />
+                  <span className="text-sm text-slate-500">{docFile ? docFile.name : 'Select file...'}</span>
+                  <input type="file" className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0]
+                      if (file && file.size > 25 * 1024 * 1024) { toast.error('Max file size is 25MB'); return }
+                      setDocFile(file || null)
+                    }}
+                  />
+                </label>
+              </Field>
+              <Field label="Notes">
+                <textarea value={docForm.notes} onChange={e => setDocForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="input-field" />
+              </Field>
+              <div className="flex gap-2 justify-end pt-2">
+                <button type="button" onClick={() => setShowDocForm(false)} className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+                <button type="submit" disabled={savingDoc || !docFile} className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 font-semibold">
+                  {savingDoc && <Loader2 size={14} className="animate-spin" />} Upload
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Final Account Tab ──
+const FINAL_ACCOUNT_STATUSES = [
+  { value: 'open', label: 'Open', color: 'slate' },
+  { value: 'submitted', label: 'Submitted', color: 'blue' },
+  { value: 'under_review', label: 'Under Review', color: 'amber' },
+  { value: 'agreed', label: 'Agreed', color: 'green' },
+]
+
+function FinalAccountTab({ job, variations, contras, applications, handleUpdateFinalAccount }) {
+  const [editingRetention, setEditingRetention] = useState(false)
+  const [retentionForm, setRetentionForm] = useState({
+    practical_completion_date: job?.practical_completion_date || '',
+    defects_end_date: job?.defects_end_date || '',
+    first_half_retention_status: job?.first_half_retention_status || 'held',
+    second_half_retention_status: job?.second_half_retention_status || 'held',
+  })
+  const [faStatus, setFaStatus] = useState(job?.final_account_status || 'open')
+  const [faNotes, setFaNotes] = useState(job?.final_account_notes || '')
+
+  const originalContract = job?.contract_value || 0
+  const approvedVariations = variations.filter(v => v.status === 'approved').reduce((s, v) => s + (v.value || 0), 0)
+  const acceptedContras = contras.filter(c => c.status === 'accepted').reduce((s, c) => s + (c.amount || 0), 0)
+  const finalAccountValue = originalContract + approvedVariations - acceptedContras
+
+  const totalPaid = applications.filter(a => a.status === 'paid').reduce((s, a) => s + (a.amount_paid || 0), 0)
+  const balanceOutstanding = finalAccountValue - totalPaid
+
+  const retentionPct = job?.retention_pct || 5
+  const totalRetention = Math.round(finalAccountValue * (retentionPct / 100))
+  const halfRetention = Math.round(totalRetention / 2)
+
+  function handleSaveRetention() {
+    handleUpdateFinalAccount({
+      practical_completion_date: retentionForm.practical_completion_date || null,
+      defects_end_date: retentionForm.defects_end_date || null,
+      first_half_retention_status: retentionForm.first_half_retention_status,
+      second_half_retention_status: retentionForm.second_half_retention_status,
+    })
+    setEditingRetention(false)
+  }
+
+  function handleSaveFaStatus() {
+    handleUpdateFinalAccount({
+      final_account_status: faStatus,
+      final_account_notes: faNotes,
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Summary */}
+      <Card title="Final Account Summary">
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between py-1.5">
+            <span className="text-slate-600">Original Contract Value</span>
+            <span className="font-semibold text-slate-800 tabular-nums">{formatMoney(originalContract)}</span>
+          </div>
+          <div className="flex justify-between py-1.5">
+            <span className="text-slate-600">Approved Variations ({variations.filter(v => v.status === 'approved').length})</span>
+            <span className={`font-semibold tabular-nums ${approvedVariations >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {approvedVariations >= 0 ? '+' : ''}{formatMoney(approvedVariations)}
+            </span>
+          </div>
+          <div className="flex justify-between py-1.5">
+            <span className="text-slate-600">Contra Charges Accepted ({contras.filter(c => c.status === 'accepted').length})</span>
+            <span className="font-semibold text-red-600 tabular-nums">-{formatMoney(acceptedContras)}</span>
+          </div>
+          <div className="flex justify-between py-2 border-t-2 border-slate-200 mt-1">
+            <span className="font-bold text-slate-900">Final Account Value</span>
+            <span className="font-bold text-slate-900 tabular-nums text-lg">{formatMoney(finalAccountValue)}</span>
+          </div>
+          <div className="flex justify-between py-1.5 border-t border-slate-100">
+            <span className="text-slate-600">Total Paid to Date</span>
+            <span className="font-semibold text-green-600 tabular-nums">{formatMoney(totalPaid)}</span>
+          </div>
+          <div className="flex justify-between py-1.5">
+            <span className="font-semibold text-slate-800">Balance Outstanding</span>
+            <span className={`font-bold tabular-nums ${balanceOutstanding > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+              {formatMoney(balanceOutstanding)}
+            </span>
+          </div>
+        </div>
+      </Card>
+
+      {/* Retention */}
+      <Card
+        title={`Retention (${retentionPct}% = ${formatMoney(totalRetention)})`}
+        action={
+          !editingRetention ? (
+            <button onClick={() => setEditingRetention(true)} className="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-700 font-medium">
+              <Edit2 size={12} /> Edit
+            </button>
+          ) : null
+        }
+      >
+        <div className="space-y-4">
+          {/* First half */}
+          <div className="border border-slate-100 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-semibold text-slate-700">First Half Retention</p>
+              <p className="text-sm font-semibold text-slate-800 tabular-nums">{formatMoney(halfRetention)}</p>
+            </div>
+            {editingRetention ? (
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <Field label="Practical Completion Date">
+                  <input type="date" value={retentionForm.practical_completion_date} onChange={e => setRetentionForm(f => ({ ...f, practical_completion_date: e.target.value }))} className="input-field" />
+                </Field>
+                <Field label="Status">
+                  <select value={retentionForm.first_half_retention_status} onChange={e => setRetentionForm(f => ({ ...f, first_half_retention_status: e.target.value }))} className="input-field">
+                    <option value="held">Held</option>
+                    <option value="due">Due for Release</option>
+                    <option value="released">Released</option>
+                  </select>
+                </Field>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4 text-xs text-slate-500">
+                <span>Release: {job?.practical_completion_date ? new Date(job.practical_completion_date).toLocaleDateString('en-GB') : 'Not set'}</span>
+                <span className={`px-1.5 py-0.5 rounded-full font-medium ${
+                  (job?.first_half_retention_status || 'held') === 'released' ? 'bg-green-100 text-green-700' :
+                  (job?.first_half_retention_status || 'held') === 'due' ? 'bg-amber-100 text-amber-700' :
+                  'bg-slate-100 text-slate-600'
+                }`}>{job?.first_half_retention_status || 'held'}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Second half */}
+          <div className="border border-slate-100 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-semibold text-slate-700">Second Half Retention</p>
+              <p className="text-sm font-semibold text-slate-800 tabular-nums">{formatMoney(halfRetention)}</p>
+            </div>
+            {editingRetention ? (
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <Field label="Defects End Date">
+                  <input type="date" value={retentionForm.defects_end_date} onChange={e => setRetentionForm(f => ({ ...f, defects_end_date: e.target.value }))} className="input-field" />
+                </Field>
+                <Field label="Status">
+                  <select value={retentionForm.second_half_retention_status} onChange={e => setRetentionForm(f => ({ ...f, second_half_retention_status: e.target.value }))} className="input-field">
+                    <option value="held">Held</option>
+                    <option value="due">Due for Release</option>
+                    <option value="released">Released</option>
+                  </select>
+                </Field>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4 text-xs text-slate-500">
+                <span>Release: {job?.defects_end_date ? new Date(job.defects_end_date).toLocaleDateString('en-GB') : 'Not set'}</span>
+                <span className={`px-1.5 py-0.5 rounded-full font-medium ${
+                  (job?.second_half_retention_status || 'held') === 'released' ? 'bg-green-100 text-green-700' :
+                  (job?.second_half_retention_status || 'held') === 'due' ? 'bg-amber-100 text-amber-700' :
+                  'bg-slate-100 text-slate-600'
+                }`}>{job?.second_half_retention_status || 'held'}</span>
+              </div>
+            )}
+          </div>
+
+          {editingRetention && (
+            <div className="flex gap-2 justify-end">
+              <button type="button" onClick={() => setEditingRetention(false)} className="px-3 py-1.5 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+              <button type="button" onClick={handleSaveRetention} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold">
+                <Save size={14} /> Save
+              </button>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Final Account Status */}
+      <Card title="Final Account Status">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            {FINAL_ACCOUNT_STATUSES.map(s => (
+              <button
+                key={s.value}
+                onClick={() => setFaStatus(s.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  faStatus === s.value
+                    ? `bg-${s.color}-100 text-${s.color}-700 border-${s.color}-300`
+                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <Field label="Notes / Timeline">
+            <textarea value={faNotes} onChange={e => setFaNotes(e.target.value)} rows={3} className="input-field" placeholder="Add notes about the final account..." />
+          </Field>
+          <div className="flex justify-end">
+            <button onClick={handleSaveFaStatus} className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold">
+              <Save size={14} /> Save Status
+            </button>
+          </div>
+        </div>
+      </Card>
     </div>
   )
 }
