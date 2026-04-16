@@ -6,7 +6,7 @@ async function sendWelcomeEmail(companyName, contactName, email, tempPassword) {
     console.log(`[Welcome] ${contactName} at ${companyName} — email: ${email} (no RESEND_API_KEY)`)
     return
   }
-  const loginUrl = `${process.env.APP_URL || 'https://app.coresite.io'}/login`
+  const loginUrl = `${process.env.APP_URL || `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || 'bancroft-induction.vercel.app'}`}/login`
   try {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',

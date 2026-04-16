@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields' })
   }
 
-  const baseUrl = process.env.APP_URL || 'https://app.coresite.io'
+  const baseUrl = process.env.APP_URL || `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || 'bancroft-induction.vercel.app'}`
 
   const profileLink = `${baseUrl}/operative/${operativeId}/profile`
   const documentsLink = `${baseUrl}/operative/${operativeId}/documents`

@@ -708,7 +708,7 @@ export default function SiteAttendance() {
               </div>
               <div className="flex justify-center">
                 <QRCodeSVG
-                  value={`https://www.coresite.io/site/${qrProject.id}`}
+                  value={`${window.location.origin}/site/${qrProject.id}`}
                   size={220}
                   level="H"
                   includeMargin

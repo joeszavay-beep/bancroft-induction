@@ -23,7 +23,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const loginUrl = `${process.env.APP_URL || 'https://app.coresite.io'}/login`
+    const loginUrl = `${process.env.APP_URL || `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || 'bancroft-induction.vercel.app'}`}/login`
 
     const emailRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
