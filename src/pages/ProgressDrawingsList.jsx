@@ -50,11 +50,10 @@ export default function ProgressDrawingsList() {
 
   async function loadAll() {
     setLoading(true)
+    if (!cid) { setLoading(false); return }
     const [d, p] = await Promise.all([
-      cid ? supabase.from('progress_drawings').select('*').eq('company_id', cid).order('created_at', { ascending: false })
-           : supabase.from('progress_drawings').select('*').order('created_at', { ascending: false }),
-      cid ? supabase.from('projects').select('*').eq('company_id', cid).order('name')
-           : supabase.from('projects').select('*').order('name'),
+      supabase.from('progress_drawings').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
+      supabase.from('projects').select('*').eq('company_id', cid).order('name'),
     ])
     setDrawings(d.data || [])
     setProjects(p.data || [])

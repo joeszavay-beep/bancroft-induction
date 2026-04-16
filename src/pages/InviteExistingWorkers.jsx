@@ -15,9 +15,10 @@ export default function InviteExistingWorkers() {
   const [sending, setSending] = useState(null)
 
   async function loadData() {
+    if (!cid) { setLoading(false); return }
     const [o, p] = await Promise.all([
-      cid ? supabase.from('operatives').select('*, projects(name)').eq('company_id', cid).order('name') : supabase.from('operatives').select('*, projects(name)').order('name'),
-      cid ? supabase.from('projects').select('*').eq('company_id', cid).order('name') : supabase.from('projects').select('*').order('name'),
+      supabase.from('operatives').select('*, projects(name)').eq('company_id', cid).order('name'),
+      supabase.from('projects').select('*').eq('company_id', cid).order('name'),
     ])
     setOperatives(o.data || [])
     setProjects(p.data || [])

@@ -37,11 +37,10 @@ export default function AdminDashboard() {
 
   async function loadData() {
     setLoading(true)
+    if (!cid) { setLoading(false); return }
     const [m, p] = await Promise.all([
-      cid ? supabase.from('managers').select('*').eq('company_id', cid).order('created_at', { ascending: false })
-           : supabase.from('managers').select('*').order('created_at', { ascending: false }),
-      cid ? supabase.from('projects').select('*').eq('company_id', cid).order('name')
-           : supabase.from('projects').select('*').order('name'),
+      supabase.from('managers').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
+      supabase.from('projects').select('*').eq('company_id', cid).order('name'),
     ])
     setManagers(m.data || [])
     setProjects(p.data || [])

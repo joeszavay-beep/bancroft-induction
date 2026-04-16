@@ -52,8 +52,9 @@ export default function AddNewWorker() {
   const [projects, setProjects] = useState([])
 
   useEffect(() => {
-    const q = cid ? supabase.from('projects').select('*').eq('company_id', cid).order('name') : supabase.from('projects').select('*').order('name')
-    q.then(({ data }) => setProjects(data || []))
+    if (!cid) return
+    supabase.from('projects').select('*').eq('company_id', cid).order('name')
+      .then(({ data }) => setProjects(data || []))
   }, [cid])
 
   function handlePhotoChange(e) {

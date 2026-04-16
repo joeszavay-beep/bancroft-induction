@@ -17,15 +17,12 @@ export default function InvitationsPipeline() {
 
   async function loadData() {
     setLoading(true)
+    if (!cid) { setLoading(false); return }
     const [o, d, s, p] = await Promise.all([
-      cid ? supabase.from('operatives').select('*, projects(name)').eq('company_id', cid).order('created_at', { ascending: false })
-           : supabase.from('operatives').select('*, projects(name)').order('created_at', { ascending: false }),
-      cid ? supabase.from('documents').select('*').eq('company_id', cid)
-           : supabase.from('documents').select('*'),
-      cid ? supabase.from('signatures').select('*').eq('company_id', cid).eq('invalidated', false)
-           : supabase.from('signatures').select('*').eq('invalidated', false),
-      cid ? supabase.from('projects').select('*').eq('company_id', cid).order('name')
-           : supabase.from('projects').select('*').order('name'),
+      supabase.from('operatives').select('*, projects(name)').eq('company_id', cid).order('created_at', { ascending: false }),
+      supabase.from('documents').select('*').eq('company_id', cid),
+      supabase.from('signatures').select('*').eq('company_id', cid).eq('invalidated', false),
+      supabase.from('projects').select('*').eq('company_id', cid).order('name'),
     ])
     setOperatives(o.data || [])
     setDocuments(d.data || [])
