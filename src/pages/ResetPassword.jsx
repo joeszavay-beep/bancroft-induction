@@ -12,14 +12,60 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    // Supabase puts the token in the URL hash — listen for the auth event
-    supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        // User arrived via password reset link — ready to set new password
+    // Supabase sends reset links with hash fragments (#access_token=...&type=recovery)
+    // or with query params (?code=...) depending on PKCE flow.
+    // We need to exchange these for a session before updateUser will work.
+
+    async function handleRecovery() {
+      // Check for PKCE code in query params
+      const params = new URLSearchParams(window.location.search)
+      const code = params.get('code')
+      if (code) {
+        const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code)
+        if (exchangeErr) {
+          setError('Reset link has expired. Please request a new one.')
+          return
+        }
+        setReady(true)
+        return
       }
-    })
+
+      // Check for hash fragment tokens (implicit flow)
+      const hash = window.location.hash
+      if (hash && hash.includes('access_token')) {
+        // Supabase client auto-detects hash tokens via onAuthStateChange
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+          if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+            setReady(true)
+            subscription.unsubscribe()
+          }
+        })
+        // Give it a moment to process
+        setTimeout(() => {
+          if (!ready) {
+            // Try getting session directly
+            supabase.auth.getSession().then(({ data }) => {
+              if (data.session) setReady(true)
+              else setError('Reset link has expired. Please request a new one.')
+            })
+          }
+        }, 3000)
+        return
+      }
+
+      // No token at all — check if there's already an active session
+      const { data } = await supabase.auth.getSession()
+      if (data.session) {
+        setReady(true)
+      } else {
+        setError('No reset token found. Please use the link from your email, or request a new one.')
+      }
+    }
+
+    handleRecovery()
   }, [])
 
   async function handleReset(e) {
@@ -49,8 +95,11 @@ export default function ResetPassword() {
           </div>
           <h2 className="text-xl font-bold text-white mb-2">Password Updated</h2>
           <p className="text-sm text-white/50 mb-6">Your password has been changed successfully.</p>
-          <button onClick={() => navigate('/login')} className="w-full py-3 bg-[#1B6FC8] hover:bg-[#1558A0] text-white font-semibold rounded-lg transition-colors">
-            Sign In
+          <button onClick={() => navigate('/worker-login')} className="w-full py-3 bg-[#1B6FC8] hover:bg-[#1558A0] text-white font-semibold rounded-lg transition-colors mb-3">
+            Worker Login
+          </button>
+          <button onClick={() => navigate('/login')} className="w-full py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-lg transition-colors">
+            Manager Login
           </button>
         </div>
       </div>
@@ -66,9 +115,14 @@ export default function ResetPassword() {
 
         <div className="bg-white rounded-xl p-6 shadow-xl">
           <h2 className="text-xl font-bold text-[#1A1A2E] mb-1">Set New Password</h2>
-          <p className="text-sm text-[#6B7A99] mb-6">Enter your new password below</p>
+          <p className="text-sm text-[#6B7A99] mb-6">{ready ? 'Enter your new password below' : 'Verifying reset link...'}</p>
 
           <form onSubmit={handleReset} className="space-y-4">
+            {!ready && !error && (
+              <div className="flex justify-center py-4">
+                <div className="animate-spin w-6 h-6 border-2 border-[#1B6FC8] border-t-transparent rounded-full" />
+              </div>
+            )}
             <div>
               <label className="text-xs text-[#6B7A99] font-medium mb-1 block">New Password</label>
               <div className="relative">
@@ -96,9 +150,18 @@ export default function ResetPassword() {
               />
             </div>
 
-            {error && <p className="text-sm text-[#DA3633]">{error}</p>}
+            {error && (
+              <div>
+                <p className="text-sm text-[#DA3633]">{error}</p>
+                {!ready && (
+                  <button type="button" onClick={() => navigate('/worker-login')} className="text-sm text-[#1B6FC8] hover:underline mt-2">
+                    Back to login
+                  </button>
+                )}
+              </div>
+            )}
 
-            <LoadingButton loading={loading} type="submit" className="w-full bg-[#1B6FC8] hover:bg-[#1558A0] text-white rounded-lg text-sm font-semibold">
+            <LoadingButton loading={loading} disabled={!ready} type="submit" className="w-full bg-[#1B6FC8] hover:bg-[#1558A0] text-white rounded-lg text-sm font-semibold disabled:opacity-40">
               Update Password
             </LoadingButton>
           </form>
