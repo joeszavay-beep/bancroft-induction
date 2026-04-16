@@ -306,7 +306,7 @@ export default function SubcontractorJobs() {
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">£</span>
                     <input type="text" value={form.contract_value} onChange={e => setForm(f => ({ ...f, contract_value: e.target.value }))}
-                      className="input-field pl-7" placeholder="0.00" />
+                      className="input-field" style={{ paddingLeft: '1.75rem' }} placeholder="0.00" />
                   </div>
                 </Field>
                 <Field label="Retention %">

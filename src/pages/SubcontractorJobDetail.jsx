@@ -764,7 +764,7 @@ function OverviewTab({ job, variations, projections, revisedValue, totalSpend, j
               <Field label="Value">
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">£</span>
-                  <input type="text" value={varForm.value} onChange={e => setVarForm(f => ({ ...f, value: e.target.value }))} className="input-field pl-7" placeholder="0.00" />
+                  <input type="text" value={varForm.value} onChange={e => setVarForm(f => ({ ...f, value: e.target.value }))} className="input-field" style={{ paddingLeft: '1.75rem' }} placeholder="0.00" />
                 </div>
               </Field>
               <Field label="Date Agreed">
@@ -948,7 +948,7 @@ function OperativesTab({
                 <Field label="Pay Rate">
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">£</span>
-                    <input type="text" value={assignForm.pay_rate} onChange={e => setAssignForm(f => ({ ...f, pay_rate: e.target.value }))} className="input-field pl-7" placeholder="0.00" />
+                    <input type="text" value={assignForm.pay_rate} onChange={e => setAssignForm(f => ({ ...f, pay_rate: e.target.value }))} className="input-field" style={{ paddingLeft: '1.75rem' }} placeholder="0.00" />
                   </div>
                 </Field>
               </div>
@@ -1313,7 +1313,7 @@ function InvoicesTab({
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">£</span>
                   <input type="text" value={invoiceForm.gross_amount}
                     onChange={e => setInvoiceForm(f => ({ ...f, gross_amount: e.target.value }))}
-                    className="input-field pl-7"
+                    className="input-field" style={{ paddingLeft: '1.75rem' }}
                     placeholder={invoicePeriodTotal > 0 ? `Auto: ${(invoicePeriodTotal / 100).toFixed(2)}` : '0.00'}
                   />
                 </div>
