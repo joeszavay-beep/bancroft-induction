@@ -12,7 +12,8 @@ import toast from 'react-hot-toast'
 import {
   ArrowLeft, Users, Clock, FileText, Eye, Plus, X, Loader2,
   ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Download,
-  Edit2, Save, RefreshCw, PoundSterling, Calendar, Briefcase
+  Edit2, Save, RefreshCw, PoundSterling, Calendar, Briefcase,
+  Paperclip, Image, Trash2
 } from 'lucide-react'
 
 const TABS = [
@@ -61,6 +62,8 @@ export default function SubcontractorJobDetail() {
   const [variations, setVariations] = useState([])
   const [showVarForm, setShowVarForm] = useState(false)
   const [varForm, setVarForm] = useState({ description: '', value: '', date_agreed: '', status: 'pending', reference_number: '' })
+  const [varFiles, setVarFiles] = useState([])
+  const [uploadingVarFiles, setUploadingVarFiles] = useState(false)
   const [savingVar, setSavingVar] = useState(false)
 
   // Operatives data
@@ -147,27 +150,80 @@ export default function SubcontractorJobDetail() {
   }
 
   // ── Variations ──
+  async function uploadVariationFiles(variationId, files) {
+    const uploaded = []
+    for (const file of files) {
+      const ext = file.name.split('.').pop()
+      const path = `variations/${variationId}/${crypto.randomUUID()}.${ext}`
+      const { error } = await supabase.storage.from('documents').upload(path, file, { contentType: file.type })
+      if (!error) {
+        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+        uploaded.push({ name: file.name, url: urlData.publicUrl, type: file.type, size: file.size })
+      }
+    }
+    return uploaded
+  }
+
   async function handleAddVariation(e) {
     e.preventDefault()
     setSavingVar(true)
     try {
-      const { error } = await supabase.from('job_variations').insert({
+      // Insert variation first to get the ID
+      const { data: inserted, error } = await supabase.from('job_variations').insert({
         job_id: jobId,
         description: varForm.description.trim(),
         value: parseMoney(varForm.value),
         date_agreed: varForm.date_agreed || null,
         status: varForm.status,
         reference_number: varForm.reference_number.trim(),
-      })
+        attachments: [],
+      }).select().single()
       if (error) throw error
+
+      // Upload files if any
+      if (varFiles.length > 0 && inserted) {
+        setUploadingVarFiles(true)
+        const uploaded = await uploadVariationFiles(inserted.id, varFiles)
+        if (uploaded.length > 0) {
+          await supabase.from('job_variations').update({ attachments: uploaded }).eq('id', inserted.id)
+        }
+        setUploadingVarFiles(false)
+      }
+
       toast.success('Variation added')
       setShowVarForm(false)
       setVarForm({ description: '', value: '', date_agreed: '', status: 'pending', reference_number: '' })
+      setVarFiles([])
       loadJob()
     } catch (err) {
       toast.error(err.message)
     }
     setSavingVar(false)
+  }
+
+  async function handleAddFilesToVariation(variationId, files) {
+    const existing = variations.find(v => v.id === variationId)?.attachments || []
+    const uploaded = await uploadVariationFiles(variationId, files)
+    if (uploaded.length > 0) {
+      const updated = [...existing, ...uploaded]
+      const { error } = await supabase.from('job_variations').update({ attachments: updated }).eq('id', variationId)
+      if (!error) {
+        toast.success(`${uploaded.length} file${uploaded.length > 1 ? 's' : ''} uploaded`)
+        loadJob()
+      } else {
+        toast.error('Failed to save attachments')
+      }
+    }
+  }
+
+  async function handleRemoveAttachment(variationId, fileUrl) {
+    const existing = variations.find(v => v.id === variationId)?.attachments || []
+    const updated = existing.filter(a => a.url !== fileUrl)
+    const { error } = await supabase.from('job_variations').update({ attachments: updated }).eq('id', variationId)
+    if (!error) {
+      toast.success('File removed')
+      loadJob()
+    }
   }
 
   // ── Operatives ──
@@ -587,8 +643,9 @@ export default function SubcontractorJobDetail() {
           revisedValue={revisedValue} totalSpend={totalSpend}
           jobOperatives={jobOperatives}
           showVarForm={showVarForm} setShowVarForm={setShowVarForm}
-          varForm={varForm} setVarForm={setVarForm}
-          handleAddVariation={handleAddVariation} savingVar={savingVar}
+          varForm={varForm} setVarForm={setVarForm} varFiles={varFiles} setVarFiles={setVarFiles}
+          handleAddVariation={handleAddVariation} savingVar={savingVar} uploadingVarFiles={uploadingVarFiles}
+          handleAddFilesToVariation={handleAddFilesToVariation} handleRemoveAttachment={handleRemoveAttachment}
         />
       )}
 
@@ -687,7 +744,7 @@ function Card({ title, action, children }) {
 }
 
 // ── Overview Tab ──
-function OverviewTab({ job, variations, projections, revisedValue, totalSpend, jobOperatives, showVarForm, setShowVarForm, varForm, setVarForm, handleAddVariation, savingVar }) {
+function OverviewTab({ job, variations, projections, revisedValue, totalSpend, jobOperatives, showVarForm, setShowVarForm, varForm, setVarForm, varFiles, setVarFiles, handleAddVariation, savingVar, uploadingVarFiles, handleAddFilesToVariation, handleRemoveAttachment }) {
   return (
     <div className="space-y-6">
       {/* Quick stats */}
@@ -733,25 +790,74 @@ function OverviewTab({ job, variations, projections, revisedValue, totalSpend, j
         {variations.length === 0 ? (
           <p className="text-sm text-slate-400 text-center py-4">No variations yet</p>
         ) : (
-          <div className="space-y-2">
-            {variations.map(v => (
-              <div key={v.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                <div>
-                  <p className="text-sm font-medium text-slate-800">{v.description}</p>
-                  <p className="text-xs text-slate-400">{v.reference_number && `Ref: ${v.reference_number} · `}{v.date_agreed ? new Date(v.date_agreed).toLocaleDateString('en-GB') : ''}</p>
+          <div className="space-y-3">
+            {variations.map(v => {
+              const attachments = Array.isArray(v.attachments) ? v.attachments : []
+              return (
+                <div key={v.id} className="border border-slate-100 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">{v.description}</p>
+                      <p className="text-xs text-slate-400">{v.reference_number && `Ref: ${v.reference_number} · `}{v.date_agreed ? new Date(v.date_agreed).toLocaleDateString('en-GB') : ''}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-semibold tabular-nums ${v.value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatMoney(v.value)}
+                      </p>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                        v.status === 'approved' ? 'bg-green-100 text-green-700' :
+                        v.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>{v.status}</span>
+                    </div>
+                  </div>
+
+                  {/* Attachments */}
+                  {attachments.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-slate-50 flex flex-wrap gap-2">
+                      {attachments.map((att, i) => {
+                        const isImage = att.type?.startsWith('image/')
+                        return (
+                          <div key={i} className="group relative">
+                            {isImage ? (
+                              <a href={att.url} target="_blank" rel="noopener noreferrer" className="block w-16 h-16 rounded-lg overflow-hidden border border-slate-200 hover:border-blue-300 transition-colors">
+                                <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                              </a>
+                            ) : (
+                              <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg hover:border-blue-300 transition-colors">
+                                <FileText size={14} className="text-slate-400 shrink-0" />
+                                <span className="text-xs text-slate-600 truncate max-w-[120px]">{att.name}</span>
+                              </a>
+                            )}
+                            <button onClick={() => handleRemoveAttachment(v.id, att.url)}
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Remove file">
+                              <X size={10} />
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Add files button */}
+                  <div className="mt-2 pt-2 border-t border-slate-50">
+                    <label className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-500 cursor-pointer transition-colors">
+                      <Paperclip size={12} />
+                      <span>Attach file</span>
+                      <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" multiple className="hidden"
+                        onChange={e => {
+                          const files = Array.from(e.target.files || [])
+                          if (files.some(f => f.size > 25 * 1024 * 1024)) { toast.error('Max file size is 25MB'); return }
+                          if (files.length) handleAddFilesToVariation(v.id, files)
+                          e.target.value = ''
+                        }}
+                      />
+                    </label>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className={`text-sm font-semibold tabular-nums ${v.value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatMoney(v.value)}
-                  </p>
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                    v.status === 'approved' ? 'bg-green-100 text-green-700' :
-                    v.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                    'bg-amber-100 text-amber-700'
-                  }`}>{v.status}</span>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
@@ -781,10 +887,36 @@ function OverviewTab({ job, variations, projections, revisedValue, totalSpend, j
             <Field label="Reference Number">
               <input type="text" value={varForm.reference_number} onChange={e => setVarForm(f => ({ ...f, reference_number: e.target.value }))} className="input-field" />
             </Field>
+            <Field label="Attachments">
+              <label className="flex items-center gap-2 px-3 py-2.5 border border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
+                <Paperclip size={14} className="text-slate-400" />
+                <span className="text-sm text-slate-500">{varFiles.length ? `${varFiles.length} file${varFiles.length > 1 ? 's' : ''} selected` : 'Attach photos or documents...'}</span>
+                <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" multiple className="hidden"
+                  onChange={e => {
+                    const files = Array.from(e.target.files || [])
+                    if (files.some(f => f.size > 25 * 1024 * 1024)) { toast.error('Max file size is 25MB'); return }
+                    setVarFiles(prev => [...prev, ...files])
+                  }}
+                />
+              </label>
+              {varFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {varFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600">
+                      {f.type?.startsWith('image/') ? <Image size={12} /> : <FileText size={12} />}
+                      <span className="truncate max-w-[120px]">{f.name}</span>
+                      <button type="button" onClick={() => setVarFiles(prev => prev.filter((_, j) => j !== i))} className="text-slate-400 hover:text-red-500">
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Field>
             <div className="flex gap-2 justify-end">
-              <button type="button" onClick={() => setShowVarForm(false)} className="px-3 py-1.5 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
-              <button type="submit" disabled={savingVar} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50">
-                {savingVar && <Loader2 size={14} className="animate-spin" />} Add
+              <button type="button" onClick={() => { setShowVarForm(false); setVarFiles([]) }} className="px-3 py-1.5 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+              <button type="submit" disabled={savingVar || uploadingVarFiles} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50">
+                {(savingVar || uploadingVarFiles) && <Loader2 size={14} className="animate-spin" />} {uploadingVarFiles ? 'Uploading...' : 'Add'}
               </button>
             </div>
           </form>
