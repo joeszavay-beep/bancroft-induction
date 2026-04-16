@@ -113,16 +113,23 @@ export default function OperativeProfile() {
 
     setSaving(true)
 
-    // Create Supabase Auth account on first-time setup
+    // Create Supabase Auth account on first-time setup (server-side to bypass email confirmation)
     if (isFirstTime && password.trim()) {
       const opEmail = (email.trim() || operative.email).toLowerCase()
-      const { error: signUpErr } = await supabase.auth.signUp({
-        email: opEmail,
-        password: password.trim(),
-        options: { data: { role: 'operative', operative_id: operativeId } },
-      })
-      if (signUpErr && !signUpErr.message?.includes('already registered')) {
-        toast.error(`Account creation failed: ${signUpErr.message}`)
+      try {
+        const resp = await fetch('/api/create-operative-account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: opEmail, password: password.trim(), operativeId }),
+        })
+        const result = await resp.json()
+        if (!resp.ok) {
+          toast.error(result.error || 'Account creation failed')
+          setSaving(false)
+          return
+        }
+      } catch {
+        toast.error('Failed to create login account. Please try again.')
         setSaving(false)
         return
       }
