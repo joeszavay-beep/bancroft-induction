@@ -313,17 +313,68 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
   }
 
   async function deleteProject(id) {
-    if (!confirm('Delete this project and all its documents, operatives and signatures?')) return
-    await supabase.from('documents').delete().eq('project_id', id)
-    await supabase.from('signatures').delete().eq('project_id', id)
-    await supabase.from('operatives').update({ project_id: null }).eq('project_id', id)
-    const { error } = await supabase.from('projects').delete().eq('id', id)
-    if (error) {
-      toast.error('Failed to delete project')
-      return
+    if (!confirm('Delete this project and all its documents, operatives and signatures? This cannot be undone.')) return
+    try {
+      // Delete all related records across every table that references project_id
+      await Promise.all([
+        supabase.from('snag_comments').delete().in('snag_id',
+          (await supabase.from('snags').select('id').in('drawing_id',
+            (await supabase.from('drawings').select('id').eq('project_id', id)).data?.map(d => d.id) || []
+          )).data?.map(s => s.id) || []
+        ),
+      ]).catch(() => {})
+
+      // Get drawing IDs for cascade
+      const { data: drawings } = await supabase.from('drawings').select('id').eq('project_id', id)
+      const drawingIds = drawings?.map(d => d.id) || []
+      if (drawingIds.length > 0) {
+        await supabase.from('snags').delete().in('drawing_id', drawingIds)
+        await supabase.from('drawings').delete().eq('project_id', id)
+      }
+
+      // Get progress drawing IDs
+      const { data: progDrawings } = await supabase.from('progress_drawings').select('id').eq('project_id', id)
+      const progIds = progDrawings?.map(d => d.id) || []
+      if (progIds.length > 0) {
+        await supabase.from('progress_items').delete().in('drawing_id', progIds)
+        await supabase.from('progress_drawings').delete().eq('project_id', id)
+      }
+
+      // Get toolbox talk IDs
+      const { data: talks } = await supabase.from('toolbox_talks').select('id').eq('project_id', id)
+      const talkIds = talks?.map(t => t.id) || []
+      if (talkIds.length > 0) {
+        await supabase.from('toolbox_signatures').delete().in('talk_id', talkIds)
+        await supabase.from('toolbox_talks').delete().eq('project_id', id)
+      }
+
+      // Delete all other project-linked tables
+      await Promise.all([
+        supabase.from('documents').delete().eq('project_id', id),
+        supabase.from('signatures').delete().eq('project_id', id),
+        supabase.from('site_attendance').delete().eq('project_id', id),
+        supabase.from('site_diary').delete().eq('project_id', id),
+        supabase.from('chat_messages').delete().eq('project_id', id),
+        supabase.from('notifications').delete().eq('project_id', id),
+        supabase.from('inspections').delete().eq('project_id', id),
+        supabase.from('inspection_results').delete().eq('project_id', id),
+        supabase.from('aftercare_defects').delete().eq('project_id', id),
+        supabase.from('programme_activities').delete().eq('project_id', id),
+        supabase.from('labour_requests').delete().eq('project_id', id),
+      ].map(p => p.catch(() => {})))
+
+      // Unassign operatives
+      await supabase.from('operatives').update({ project_id: null }).eq('project_id', id)
+
+      // Finally delete the project
+      const { error } = await supabase.from('projects').delete().eq('id', id)
+      if (error) throw error
+
+      toast.success('Project deleted')
+      onRefresh()
+    } catch {
+      toast.error('Failed to delete project — some linked data may remain')
     }
-    toast.success('Project deleted')
-    onRefresh()
   }
 
   async function deleteDocument(id) {
