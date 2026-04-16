@@ -13,11 +13,8 @@ export default function OperativeLogin() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showReset, setShowReset] = useState(false)
-  const [resetDone, setResetDone] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
   const [resetEmail, setResetEmail] = useState('')
-  const [resetDob, setResetDob] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmNewPassword, setConfirmNewPassword] = useState('')
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -102,32 +99,17 @@ export default function OperativeLogin() {
 
   async function handleResetPassword(e) {
     e.preventDefault()
-    if (!resetEmail.trim() || !resetDob || !newPassword) {
-      setError('All fields are required')
-      return
-    }
-    if (newPassword.length < 8) { setError('Password must be at least 8 characters'); return }
-    if (newPassword !== confirmNewPassword) { setError('Passwords do not match'); return }
+    if (!resetEmail.trim()) return
     setLoading(true)
     setError('')
     try {
-      const resp = await fetch('/api/reset-operative-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: resetEmail.trim().toLowerCase(),
-          dateOfBirth: resetDob,
-          newPassword: newPassword.trim(),
-        }),
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim().toLowerCase(), {
+        redirectTo: `${window.location.origin}/reset-password`,
       })
-      const result = await resp.json()
-      if (!resp.ok) {
-        setError(result.error || 'Reset failed')
-      } else {
-        setResetDone(true)
-      }
-    } catch {
-      setError('Something went wrong. Please try again.')
+      if (error) throw error
+      setResetSent(true)
+    } catch (err) {
+      setError(err.message || 'Failed to send reset email')
     }
     setLoading(false)
   }
@@ -157,70 +139,37 @@ export default function OperativeLogin() {
 
           {showReset ? (
             // Password reset form
-            resetDone ? (
+            resetSent ? (
               <div className="text-center">
                 <div className="w-14 h-14 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Lock size={24} className="text-green-400" />
+                  <Mail size={24} className="text-green-400" />
                 </div>
-                <p className="text-white font-medium mb-2">Password updated</p>
-                <p className="text-white/40 text-sm mb-6">You can now sign in with your new password.</p>
-                <button onClick={() => { setShowReset(false); setResetDone(false); setPassword('') }}
-                  className="w-full py-3 bg-[#1B6FC8] hover:bg-[#155ba3] text-white font-semibold rounded-xl text-sm transition-colors">
-                  Sign In
+                <p className="text-white font-medium mb-2">Reset email sent</p>
+                <p className="text-white/40 text-sm mb-6">Check your inbox for a password reset link. It may take a minute to arrive.</p>
+                <button onClick={() => { setShowReset(false); setResetSent(false) }}
+                  className="text-sm text-[#1B6FC8] hover:text-[#3B8FE8] transition-colors">
+                  Back to login
                 </button>
               </div>
             ) : (
               <form onSubmit={handleResetPassword} className="space-y-4">
-                <p className="text-sm text-white/50 text-center mb-4">Verify your identity with your date of birth, then set a new password.</p>
+                <p className="text-sm text-white/50 text-center mb-4">Enter your email and we'll send you a reset link.</p>
                 <div>
                   <div className="relative">
                     <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
                     <input
                       type="email"
                       value={resetEmail}
-                      onChange={e => { setResetEmail(e.target.value); setError('') }}
+                      onChange={e => setResetEmail(e.target.value)}
                       placeholder="Your email address"
                       className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-[#1B6FC8] text-sm"
                       autoFocus
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="text-xs text-white/40 mb-1 block">Date of Birth (to verify your identity)</label>
-                  <input
-                    type="date"
-                    value={resetDob}
-                    onChange={e => { setResetDob(e.target.value); setError('') }}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-[#1B6FC8] text-sm"
-                  />
-                </div>
-                <div>
-                  <div className="relative">
-                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
-                    <input
-                      type="password"
-                      value={newPassword}
-                      onChange={e => { setNewPassword(e.target.value); setError('') }}
-                      placeholder="New password (min 8 characters)"
-                      className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-[#1B6FC8] text-sm"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <div className="relative">
-                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
-                    <input
-                      type="password"
-                      value={confirmNewPassword}
-                      onChange={e => { setConfirmNewPassword(e.target.value); setError('') }}
-                      placeholder="Confirm new password"
-                      className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-[#1B6FC8] text-sm"
-                    />
-                  </div>
-                </div>
                 {error && <p className="text-red-400 text-xs text-center">{error}</p>}
                 <LoadingButton loading={loading} className="w-full py-3 bg-[#1B6FC8] hover:bg-[#155ba3] text-white font-semibold rounded-xl text-sm transition-colors">
-                  Reset Password
+                  Send Reset Link
                 </LoadingButton>
                 <button type="button" onClick={() => { setShowReset(false); setError('') }}
                   className="w-full flex items-center justify-center gap-1.5 text-sm text-white/40 hover:text-white/70 transition-colors">
