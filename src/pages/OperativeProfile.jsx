@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
-import { ArrowLeft, User, Shield, Phone, Users, CreditCard, Camera, ZoomIn, X, CheckCircle2, ExternalLink } from 'lucide-react'
+import { ArrowLeft, User, Shield, Phone, Users, CreditCard, Camera, ZoomIn, X, CheckCircle2, ExternalLink, Lock, Eye, EyeOff } from 'lucide-react'
 import AddressLookup from '../components/AddressLookup'
 import DateOfBirthPicker from '../components/DateOfBirthPicker'
 import { getSession, setSession } from '../lib/storage'
@@ -27,6 +27,11 @@ export default function OperativeProfile() {
   const [email, setEmail] = useState('')
   const [nextOfKin, setNextOfKin] = useState('')
   const [nextOfKinPhone, setNextOfKinPhone] = useState('')
+
+  // Password (first-time setup only)
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   // Card
   const [cardType, setCardType] = useState('')
@@ -98,7 +103,31 @@ export default function OperativeProfile() {
     if (!cardNumber.trim()) { toast.error('Please enter your card number'); return }
     if (!cardFrontUrl) { toast.error('Please upload a photo of the front of your card'); return }
     if (!dob) { toast.error('Date of birth is required'); return }
+
+    // Password required on first-time setup
+    if (isFirstTime) {
+      if (!password.trim()) { toast.error('Please create a password so you can log back in'); return }
+      if (password.length < 8) { toast.error('Password must be at least 8 characters'); return }
+      if (password !== confirmPassword) { toast.error('Passwords do not match'); return }
+    }
+
     setSaving(true)
+
+    // Create Supabase Auth account on first-time setup
+    if (isFirstTime && password.trim()) {
+      const opEmail = (email.trim() || operative.email).toLowerCase()
+      const { error: signUpErr } = await supabase.auth.signUp({
+        email: opEmail,
+        password: password.trim(),
+        options: { data: { role: 'operative', operative_id: operativeId } },
+      })
+      if (signUpErr && !signUpErr.message?.includes('already registered')) {
+        toast.error(`Account creation failed: ${signUpErr.message}`)
+        setSaving(false)
+        return
+      }
+    }
+
     const { error } = await supabase.from('operatives').update({
       role: (role === 'Other' ? otherRole.trim() : role.trim()) || null,
       date_of_birth: dob || null,
@@ -295,7 +324,52 @@ export default function OperativeProfile() {
             </div>
           </Section>
 
-          {/* ─── SECTION 4: Emergency Contact ─── */}
+          {/* ─── SECTION 4: Create Password (first-time only) ─── */}
+          {isFirstTime && (
+            <Section icon={Lock} title="Create Password" colour="#059669" required>
+              <div className="bg-[#ECFDF5] border border-[#A7F3D0] rounded-lg p-2.5 mb-1">
+                <p className="text-[11px] text-[#065F46]">Create a password so you can sign back in at <strong>worker login</strong>. Minimum 8 characters.</p>
+              </div>
+              <div>
+                <label className={labelCls}>Password *</label>
+                <div className="relative">
+                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#B0B8C9]" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Create a password"
+                    className={`${inputCls} !pl-10 !pr-10`}
+                  />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B0B8C9] hover:text-[#6B7A99]">
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Confirm Password *</label>
+                <div className="relative">
+                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#B0B8C9]" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm your password"
+                    className={`${inputCls} !pl-10`}
+                  />
+                </div>
+                {confirmPassword && password !== confirmPassword && (
+                  <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+                )}
+                {password.length > 0 && password.length < 8 && (
+                  <p className="text-xs text-amber-600 mt-1">Must be at least 8 characters</p>
+                )}
+              </div>
+            </Section>
+          )}
+
+          {/* ─── SECTION 5: Emergency Contact ─── */}
           <Section icon={Users} title="Emergency Contact" colour="#DC2626">
             <div>
               <label className={labelCls}>Next of Kin Name *</label>
