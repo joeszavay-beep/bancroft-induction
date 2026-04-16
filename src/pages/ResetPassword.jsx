@@ -15,38 +15,52 @@ export default function ResetPassword() {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    // Listen for Supabase to process the recovery token (hash or PKCE)
-    // The Supabase client automatically detects tokens in the URL on init
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
-        setReady(true)
+    let cancelled = false
+
+    async function init() {
+      // 1. Try PKCE code exchange first (Supabase sends ?code= in newer versions)
+      const params = new URLSearchParams(window.location.search)
+      const code = params.get('code')
+      if (code) {
+        const { error: err } = await supabase.auth.exchangeCodeForSession(code)
+        if (!cancelled) {
+          if (err) setError('Reset link has expired. Please request a new one.')
+          else setReady(true)
+        }
+        return
       }
-    })
 
-    // Also try PKCE code exchange if present
-    const params = new URLSearchParams(window.location.search)
-    const code = params.get('code')
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ error: err }) => {
-        if (err) setError('Reset link has expired. Please request a new one.')
-        else setReady(true)
-      })
-    }
-
-    // Fallback: check after a delay if Supabase already processed the token
-    const timer = setTimeout(async () => {
+      // 2. Check if Supabase already processed hash tokens during client init
+      //    (PASSWORD_RECOVERY event fires before React mounts, so we check session directly)
       const { data } = await supabase.auth.getSession()
-      if (data.session) {
+      if (!cancelled && data.session) {
         setReady(true)
-      } else if (!code) {
-        setError('Reset link has expired or is invalid. Please request a new one.')
+        return
       }
-    }, 2000)
 
-    return () => {
-      subscription.unsubscribe()
-      clearTimeout(timer)
+      // 3. Listen for the event in case it hasn't fired yet
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (!cancelled && (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session))) {
+          setReady(true)
+          subscription.unsubscribe()
+        }
+      })
+
+      // 4. Final timeout — if nothing has worked after 5s, show error
+      setTimeout(async () => {
+        if (cancelled) return
+        const { data: retryData } = await supabase.auth.getSession()
+        if (retryData.session) {
+          setReady(true)
+        } else {
+          setError('Reset link has expired or is invalid. Please request a new one.')
+        }
+        subscription.unsubscribe()
+      }, 5000)
     }
+
+    init()
+    return () => { cancelled = true }
   }, [])
 
   async function handleReset(e) {
