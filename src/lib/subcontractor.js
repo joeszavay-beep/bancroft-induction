@@ -158,22 +158,26 @@ export function checkCompliance(operative) {
   const issues = []
   const now = new Date()
 
-  // CSCS card check
-  if (operative.cscs_expiry) {
-    const expiry = new Date(operative.cscs_expiry)
+  // CSCS/ECS card check — uses the generic card fields from operative profile
+  const cardExpiry = operative.card_expiry || operative.cscs_expiry
+  const cardType = operative.card_type
+  const cardLabel = cardType?.startsWith('ECS') ? 'ECS' : 'CSCS'
+
+  if (cardExpiry) {
+    const expiry = new Date(cardExpiry)
     if (expiry < now) {
-      issues.push('CSCS card expired')
+      issues.push(`${cardLabel} card expired`)
     } else {
       const daysUntil = (expiry - now) / (1000 * 60 * 60 * 24)
-      if (daysUntil < 30) issues.push(`CSCS card expires in ${Math.round(daysUntil)} days`)
+      if (daysUntil < 30) issues.push(`${cardLabel} card expires in ${Math.round(daysUntil)} days`)
     }
-  } else {
-    issues.push('No CSCS card on file')
+  } else if (!operative.card_front_url) {
+    issues.push('No CSCS/ECS card on file')
   }
 
   // Card verification
-  if (!operative.card_verified) {
-    issues.push('ID card not verified')
+  if (operative.card_front_url && operative.card_verified !== true) {
+    issues.push('ID card not yet verified')
   }
 
   // Check other cert expiries
@@ -191,7 +195,7 @@ export function checkCompliance(operative) {
     }
   }
 
-  const blocking = issues.filter(i => i.includes('expired') || i.includes('No CSCS') || i.includes('not verified'))
+  const blocking = issues.filter(i => i.includes('expired') || i.includes('No CSCS') || i.includes('No ECS') || i.includes('card on file'))
 
   return {
     canAssign: blocking.length === 0,
