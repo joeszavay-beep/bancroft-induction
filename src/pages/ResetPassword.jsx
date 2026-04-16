@@ -15,57 +15,38 @@ export default function ResetPassword() {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    // Supabase sends reset links with hash fragments (#access_token=...&type=recovery)
-    // or with query params (?code=...) depending on PKCE flow.
-    // We need to exchange these for a session before updateUser will work.
-
-    async function handleRecovery() {
-      // Check for PKCE code in query params
-      const params = new URLSearchParams(window.location.search)
-      const code = params.get('code')
-      if (code) {
-        const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code)
-        if (exchangeErr) {
-          setError('Reset link has expired. Please request a new one.')
-          return
-        }
+    // Listen for Supabase to process the recovery token (hash or PKCE)
+    // The Supabase client automatically detects tokens in the URL on init
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
         setReady(true)
-        return
       }
+    })
 
-      // Check for hash fragment tokens (implicit flow)
-      const hash = window.location.hash
-      if (hash && hash.includes('access_token')) {
-        // Supabase client auto-detects hash tokens via onAuthStateChange
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-          if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
-            setReady(true)
-            subscription.unsubscribe()
-          }
-        })
-        // Give it a moment to process
-        setTimeout(() => {
-          if (!ready) {
-            // Try getting session directly
-            supabase.auth.getSession().then(({ data }) => {
-              if (data.session) setReady(true)
-              else setError('Reset link has expired. Please request a new one.')
-            })
-          }
-        }, 3000)
-        return
-      }
+    // Also try PKCE code exchange if present
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('code')
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error: err }) => {
+        if (err) setError('Reset link has expired. Please request a new one.')
+        else setReady(true)
+      })
+    }
 
-      // No token at all — check if there's already an active session
+    // Fallback: check after a delay if Supabase already processed the token
+    const timer = setTimeout(async () => {
       const { data } = await supabase.auth.getSession()
       if (data.session) {
         setReady(true)
-      } else {
-        setError('No reset token found. Please use the link from your email, or request a new one.')
+      } else if (!code) {
+        setError('Reset link has expired or is invalid. Please request a new one.')
       }
-    }
+    }, 2000)
 
-    handleRecovery()
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timer)
+    }
   }, [])
 
   async function handleReset(e) {
