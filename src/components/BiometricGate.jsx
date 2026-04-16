@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Capacitor } from '@capacitor/core'
-import { hasStoredSession } from '../lib/storage'
+import { hasStoredSession, removeSession } from '../lib/storage'
 
 export default function BiometricGate({ children }) {
   const [status, setStatus] = useState('checking')
@@ -78,9 +78,10 @@ export default function BiometricGate({ children }) {
         <button
           onClick={() => {
             // Clear all sessions and let user through to login screen
-            localStorage.removeItem('pm_auth')
-            localStorage.removeItem('manager_data')
-            localStorage.removeItem('operative_session')
+            removeSession('pm_auth')
+            removeSession('manager_data')
+            removeSession('operative_session')
+            removeSession('operative_return_url')
             setStatus('unlocked')
           }}
           className="text-sm text-white/30 hover:text-white/50 transition-colors"

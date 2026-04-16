@@ -61,7 +61,7 @@ export function useOfflineData(table, options = {}) {
           setData(arr)
         }
       }
-    } catch (err) {
+    } catch {
       // IDB might not have data yet, that's fine
     }
 
@@ -102,7 +102,7 @@ export function useOfflineData(table, options = {}) {
           await putRecords(table, toCache).catch(() => {})
         }
       }
-    } catch (err) {
+    } catch {
       // Network failed — we already have IDB data, so just use that
       console.log(`[offline] Using cached ${table} data`)
     }

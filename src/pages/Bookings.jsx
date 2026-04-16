@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
 import { TRADES, BOOKING_STATUSES, formatDate, formatDayRate } from '../lib/marketplace'
@@ -17,7 +16,6 @@ const ONBOARDING_STEPS = [
 ]
 
 export default function Bookings() {
-  const navigate = useNavigate()
   const managerData = JSON.parse(getSession('manager_data') || '{}')
 
   const [bookings, setBookings] = useState([])
@@ -36,8 +34,6 @@ export default function Bookings() {
   const [feedbackRating, setFeedbackRating] = useState(0)
   const [feedbackComment, setFeedbackComment] = useState('')
   const [submittingFeedback, setSubmittingFeedback] = useState(false)
-
-  useEffect(() => { loadData() }, [])
 
   async function loadData() {
     setLoading(true)
@@ -62,6 +58,8 @@ export default function Bookings() {
     setLoading(false)
   }
 
+  useEffect(() => { loadData() }, [])
+
   const filteredBookings = useMemo(() => {
     let result = bookings
     if (statusFilter) result = result.filter(b => b.status === statusFilter)
@@ -76,19 +74,23 @@ export default function Bookings() {
     setFeedbackComment('')
     try {
       // Load attendance records (if attendance table exists)
-      try {
-        const { data: att } = await supabase
-          .from('site_sign_ins')
-          .select('*')
-          .eq('operative_id', booking.operative_id)
-          .eq('project_id', booking.project_id)
-          .gte('signed_in_at', booking.start_date)
-          .lte('signed_in_at', booking.end_date)
-          .order('signed_in_at', { ascending: true })
+      const { data: att, error: attError } = await supabase
+        .from('site_sign_ins')
+        .select('*')
+        .eq('operative_id', booking.operative_id)
+        .eq('project_id', booking.project_id)
+        .gte('signed_in_at', booking.start_date)
+        .lte('signed_in_at', booking.end_date)
+        .order('signed_in_at', { ascending: true })
+      if (attError) {
+        console.warn('site_sign_ins query failed (table may not exist):', attError.message)
+        setAttendance([])
+      } else {
         setAttendance(att || [])
-      } catch { setAttendance([]) }
+      }
     } catch (err) {
-      console.error('loadAttendance error:', err)
+      console.warn('loadAttendance error:', err)
+      setAttendance([])
     }
     setDetailLoading(false)
   }
@@ -109,7 +111,7 @@ export default function Bookings() {
       // Update local state
       setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, onboarding_status: newStatus } : b))
       setSelectedBooking(prev => prev ? { ...prev, onboarding_status: newStatus } : prev)
-    } catch (err) {
+    } catch {
       toast.error('Failed to update onboarding')
     }
   }
@@ -135,7 +137,7 @@ export default function Bookings() {
       toast.success('Booking cancelled')
       setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, status: 'cancelled' } : b))
       setSelectedBooking(prev => prev ? { ...prev, status: 'cancelled' } : prev)
-    } catch (err) {
+    } catch {
       toast.error('Failed to cancel booking')
     }
   }
@@ -153,7 +155,7 @@ export default function Bookings() {
       toast.success('Feedback submitted')
       setFeedbackRating(0)
       setFeedbackComment('')
-    } catch (err) {
+    } catch {
       toast.error('Failed to submit feedback')
     }
     setSubmittingFeedback(false)
@@ -363,7 +365,7 @@ export default function Bookings() {
                   {ONBOARDING_STEPS.map((step, i) => {
                     const currentIdx = ONBOARDING_STEPS.findIndex(s => s.key === selectedBooking.onboarding_status)
                     const isComplete = i <= currentIdx
-                    const isCurrent = i === currentIdx
+                    const _isCurrent = i === currentIdx
                     const isNext = i === currentIdx + 1
                     const Icon = step.icon
                     return (

@@ -12,10 +12,10 @@ import {
 function wmoToWeather(code) {
   if (code <= 1) return 'sunny'
   if (code <= 3) return 'cloudy'
-  if (code >= 51 && code <= 55) return 'rain'       // drizzle
-  if (code >= 56 && code <= 67) return 'heavy_rain'  // freezing rain / rain
-  if (code >= 61 && code <= 65) return 'rain'
-  if (code >= 66 && code <= 67) return 'heavy_rain'
+  if (code >= 51 && code <= 55) return 'rain'        // drizzle
+  if (code >= 56 && code <= 57) return 'heavy_rain'  // freezing drizzle
+  if (code >= 61 && code <= 65) return 'rain'        // rain
+  if (code >= 66 && code <= 67) return 'heavy_rain'  // freezing rain
   if (code >= 71 && code <= 77) return 'snow'
   if (code >= 80 && code <= 82) return 'rain'        // showers
   if (code >= 85 && code <= 86) return 'snow'
@@ -23,6 +23,7 @@ function wmoToWeather(code) {
   return 'cloudy'
 }
 
+// eslint-disable-next-line no-unused-vars
 async function fetchWeatherForLocation(location) {
   // Step 1: Geocode the location
   const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=en&format=json`)
@@ -57,7 +58,7 @@ const WEATHER_OPTIONS = [
 ]
 
 export default function DailySiteDiary() {
-  const { user, company } = useCompany()
+  const { user } = useCompany()
   const cid = user?.company_id
   const [entries, setEntries] = useState([])
   const [projects, setProjects] = useState([])
@@ -89,8 +90,6 @@ export default function DailySiteDiary() {
   const [fetchingWeather, setFetchingWeather] = useState(false)
   const debounceRef = useRef(null)
 
-  useEffect(() => { loadData() }, [])
-
   async function loadData() {
     setLoading(true)
     const [e, p] = await Promise.all([
@@ -102,6 +101,9 @@ export default function DailySiteDiary() {
     if (p.data?.length > 0 && !projectId) setProjectId(p.data[0].id)
     setLoading(false)
   }
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (cid) loadData() }, [cid])
 
   function resetForm() {
     setDate(new Date().toISOString().split('T')[0])

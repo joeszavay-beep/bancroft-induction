@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
 import { TRADES, CERT_TYPES, formatDayRate, formatDate } from '../lib/marketplace'
-import toast from 'react-hot-toast'
 import {
   Users, UserCheck, CalendarClock, AlertTriangle, Clock, Plus,
   FileText, Calendar, Building2, Loader2, ArrowRight, ShieldAlert
@@ -19,9 +18,33 @@ export default function AgencyDashboard() {
   const [operatives, setOperatives] = useState([])
   const [certifications, setCertifications] = useState([])
   const [requests, setRequests] = useState([])
-  const [bookings, setBookings] = useState([])
+  const [, setBookings] = useState([])
 
-  useEffect(() => { lookupAgency() }, [])
+  async function loadDashboardData(aid) {
+    try {
+      const opsRes = await supabase.from('agency_operatives').select('*').eq('agency_id', aid)
+      const ops = opsRes.data || []
+      setOperatives(ops)
+
+      // Load certs for all operatives
+      let certs = []
+      if (ops.length > 0) {
+        const opIds = ops.map(o => o.id)
+        const { data: certsData } = await supabase.from('operative_certifications').select('*').in('operative_id', opIds)
+        certs = certsData || []
+      }
+      setCertifications(certs)
+
+      const [reqsRes, bookRes] = await Promise.all([
+        supabase.from('labour_requests').select('*').eq('status', 'open').order('created_at', { ascending: false }).limit(10),
+        supabase.from('labour_bookings').select('*').eq('agency_id', aid).order('start_date', { ascending: false }).limit(10),
+      ])
+      setRequests(reqsRes.data || [])
+      setBookings(bookRes.data || [])
+    } catch (err) {
+      console.error('Dashboard data error:', err)
+    }
+  }
 
   async function lookupAgency() {
     try {
@@ -60,31 +83,8 @@ export default function AgencyDashboard() {
     setLoading(false)
   }
 
-  async function loadDashboardData(aid) {
-    try {
-      const opsRes = await supabase.from('agency_operatives').select('*').eq('agency_id', aid)
-      const ops = opsRes.data || []
-      setOperatives(ops)
-
-      // Load certs for all operatives
-      let certs = []
-      if (ops.length > 0) {
-        const opIds = ops.map(o => o.id)
-        const { data: certsData } = await supabase.from('operative_certifications').select('*').in('operative_id', opIds)
-        certs = certsData || []
-      }
-      setCertifications(certs)
-
-      const [reqsRes, bookRes] = await Promise.all([
-        supabase.from('labour_requests').select('*').eq('status', 'open').order('created_at', { ascending: false }).limit(10),
-        supabase.from('labour_bookings').select('*').eq('agency_id', aid).order('start_date', { ascending: false }).limit(10),
-      ])
-      setRequests(reqsRes.data || [])
-      setBookings(bookRes.data || [])
-    } catch (err) {
-      console.error('Dashboard data error:', err)
-    }
-  }
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { lookupAgency() }, [])
 
   const stats = useMemo(() => {
     const total = operatives.length
@@ -266,6 +266,7 @@ export default function AgencyDashboard() {
   )
 }
 
+// eslint-disable-next-line no-unused-vars
 function StatCard({ icon: Icon, label, value, color }) {
   const colors = {
     blue: 'bg-blue-50 text-blue-600 border-blue-100',

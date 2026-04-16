@@ -12,16 +12,7 @@ export default function OperativeEarnings() {
   const [loading, setLoading] = useState(true)
   const [entries, setEntries] = useState([])
   const [jobOps, setJobOps] = useState([])
-  const [jobs, setJobs] = useState([])
   const [tab, setTab] = useState('summary') // summary | monthly | by-job
-
-  useEffect(() => {
-    const session = getSession('operative_session')
-    if (!session) { navigate('/worker-login'); return }
-    const data = JSON.parse(session)
-    setOp(data)
-    loadEarnings(data)
-  }, [])
 
   async function loadEarnings(opData) {
     setLoading(true)
@@ -35,9 +26,6 @@ export default function OperativeEarnings() {
     const joList = joData || []
     setJobOps(joList)
 
-    const jobIds = [...new Set(joList.map(j => j.job_id).filter(Boolean))]
-    setJobs(joList.map(j => j.subcontractor_jobs).filter(Boolean))
-
     // Get all approved timesheet entries
     const { data: tsData } = await supabase
       .from('timesheet_entries')
@@ -49,6 +37,14 @@ export default function OperativeEarnings() {
     setEntries(tsData || [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    const session = getSession('operative_session')
+    if (!session) { navigate('/worker-login'); return }
+    const data = JSON.parse(session)
+    setOp(data)
+    loadEarnings(data)
+  }, [])
 
   if (!op) return null
 
@@ -215,7 +211,7 @@ export default function OperativeEarnings() {
                         <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatMoney(totalGross)}</span>
                       </div>
                       <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
-                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>CIS Deduction ({jobOps[0]?.cis_rate || 20}%)</span>
+                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>CIS Deduction{jobOps.length === 1 ? ` (${jobOps[0]?.cis_rate || 20}%)` : ''}</span>
                         <span className="text-sm font-bold text-red-600">-{formatMoney(totalCIS)}</span>
                       </div>
                       <div className="flex justify-between items-center py-1.5">
@@ -300,6 +296,7 @@ export default function OperativeEarnings() {
   )
 }
 
+// eslint-disable-next-line no-unused-vars
 function SummaryCard({ icon: Icon, label, value, color }) {
   return (
     <div className="bg-white border border-[#E2E6EA] rounded-xl p-3.5">

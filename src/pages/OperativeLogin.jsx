@@ -27,7 +27,7 @@ export default function OperativeLogin() {
 
     try {
       // First try Supabase Auth login
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      const { data: authData } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password: password.trim(),
       })
@@ -91,7 +91,7 @@ export default function OperativeLogin() {
       } else {
         navigate('/worker')
       }
-    } catch (err) {
+    } catch {
       setError('Something went wrong. Please try again.')
       setLoading(false)
     }

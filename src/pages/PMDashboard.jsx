@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { authFetch } from '../lib/authFetch'
@@ -18,7 +18,7 @@ import { generateArchivePDF } from '../lib/generateArchivePDF'
 import SnagDetail from '../components/SnagDetail'
 import { generateSnagPDF } from '../lib/generateSnagPDF'
 import { generateToolboxPDF } from '../lib/generateToolboxPDF'
-import { getSession, removeSession } from '../lib/storage'
+import { getSession } from '../lib/storage'
 
 const TABS = [
   { id: 'home', label: 'Home', icon: Home },
@@ -43,10 +43,6 @@ export default function PMDashboard({ initialTab }) {
   const managerData = JSON.parse(getSession('manager_data') || '{}')
   const managerProjectIds = managerData.project_ids || []
   const isAdmin = managerData.role === 'admin'
-
-  useEffect(() => {
-    loadData()
-  }, [])
 
   async function loadData() {
     setLoading(true)
@@ -89,11 +85,9 @@ export default function PMDashboard({ initialTab }) {
     setLoading(false)
   }
 
-  const handleLogout = () => {
-    removeSession('pm_auth')
-    removeSession('manager_data')
-    navigate('/')
-  }
+  useEffect(() => {
+    loadData() // eslint-disable-line react-hooks/set-state-in-effect
+  }, [])
 
   if (loading) {
     return (
@@ -127,7 +121,8 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
   ]
 
   // Needs attention: operatives with unsigned documents
-  const now = Date.now()
+  // eslint-disable-next-line react-hooks/purity
+  const now = useMemo(() => Date.now(), [operatives])
   const needsAttention = operatives
     .filter(op => op.project_id)
     .map(op => {
@@ -334,9 +329,10 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
   }
 
   async function deleteProject(id) {
-    if (!confirm('Delete this project and all its documents?')) return
+    if (!confirm('Delete this project and all its documents, operatives and signatures?')) return
     await supabase.from('documents').delete().eq('project_id', id)
     await supabase.from('signatures').delete().eq('project_id', id)
+    await supabase.from('operatives').update({ project_id: null }).eq('project_id', id)
     const { error } = await supabase.from('projects').delete().eq('id', id)
     if (error) {
       toast.error('Failed to delete project')
@@ -549,7 +545,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                                       setDownloading(d.id)
                                       try {
                                         await generateSignOffSheet({ projectName: p.name, documentTitle: d.title, signatures: docSigs, companyName: document.title.split('|')[0]?.trim() || 'CoreSite' })
-                                      } catch {}
+                                      } catch { /* ignore */ }
                                       setDownloading(null)
                                     }} className="p-1 transition-colors" style={{ color: 'var(--primary-color)' }} title="Download sign-off sheet">
                                       {downloading === d.id ? <div className="w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--primary-color)' }} /> : <Download size={14} />}
@@ -926,15 +922,16 @@ function SettingsTab() {
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
-  useEffect(() => {
-    loadSettings()
-  }, [])
-
   async function loadSettings() {
     const { data } = await supabase.from('settings').select('*').eq('key', 'pm_email').single()
     if (data) setEmail(data.value)
     setLoaded(true)
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadSettings()
+  }, [])
 
   async function saveEmail(e) {
     e.preventDefault()
@@ -1090,10 +1087,11 @@ function SnagsTab({ projects, navigate }) {
 
   async function deleteDrawing(drawingId, drawingName) {
     if (!confirm(`Delete "${drawingName}" and all its snags? This cannot be undone.`)) return
-    // Delete snags first (cascade should handle it but let's be safe)
-    await supabase.from('snag_comments').delete().in('snag_id',
-      (await supabase.from('snags').select('id').eq('drawing_id', drawingId)).data?.map(s => s.id) || []
-    )
+    // Delete snag comments first, then snags
+    const snagIds = (await supabase.from('snags').select('id').eq('drawing_id', drawingId)).data?.map(s => s.id) || []
+    if (snagIds.length > 0) {
+      await supabase.from('snag_comments').delete().in('snag_id', snagIds)
+    }
     await supabase.from('snags').delete().eq('drawing_id', drawingId)
     const { error } = await supabase.from('drawings').delete().eq('id', drawingId)
     if (error) {
@@ -1447,7 +1445,7 @@ function SnagsTab({ projects, navigate }) {
           <label className="text-[10px] text-slate-400 shrink-0">Status:</label>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
             className="flex-1 sm:flex-none px-2 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-400">
-            <option value="all">All Active</option>
+            <option value="all">All Statuses</option>
             <option value="open">Open</option>
             <option value="completed">Completed</option>
             <option value="closed">Closed</option>
@@ -1483,7 +1481,6 @@ function SnagsTab({ projects, navigate }) {
           {drawings.map(d => {
             const dSnags = snagsByDrawing[d.id] || []
             const dAllSnags = allSnags.filter(s => s.drawing_id === d.id)
-            const proj = projects.find(p => p.id === d.project_id)
             const expanded = expandedDrawing === d.id
             const dOpen = dAllSnags.filter(s => s.status === 'open').length
             const dCompleted = dAllSnags.filter(s => s.status === 'completed').length
@@ -1537,9 +1534,15 @@ function SnagsTab({ projects, navigate }) {
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="bg-slate-50 text-slate-500 text-left">
-                          <th className="px-3 py-2 w-10 text-center"><input type="checkbox" className="w-4 h-4 rounded accent-[#1B6FC8] cursor-pointer" onChange={e => {
-                            if (e.target.checked) setCheckedSnags(new Set(dSnags.map(s => s.id)))
-                            else setCheckedSnags(new Set())
+                          <th className="px-3 py-2 w-10 text-center"><input type="checkbox" className="w-4 h-4 rounded accent-[#1B6FC8] cursor-pointer"
+                            checked={dSnags.length > 0 && dSnags.every(s => checkedSnags.has(s.id))}
+                            onChange={e => {
+                            setCheckedSnags(prev => {
+                              const next = new Set(prev)
+                              if (e.target.checked) dSnags.forEach(s => next.add(s.id))
+                              else dSnags.forEach(s => next.delete(s.id))
+                              return next
+                            })
                           }} /></th>
                           <th onClick={() => toggleSort('snag_number')} className="px-3 py-2 font-semibold cursor-pointer hover:text-[#1B6FC8] select-none">No. {sortCol === 'snag_number' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
                           <th className="px-3 py-2 font-semibold">Photo</th>
@@ -1746,10 +1749,6 @@ function ToolboxTab({ projects, navigate }) {
   const [talkSigs, setTalkSigs] = useState({})
   const [exporting, setExporting] = useState(null)
 
-  useEffect(() => {
-    loadTalks()
-  }, [])
-
   async function loadTalks() {
     setLoading(true)
     const tData = await fetchAndCache('toolbox_talks', (sb) => {
@@ -1761,10 +1760,11 @@ function ToolboxTab({ projects, navigate }) {
     const allTalks = (tData || []).filter(t => !cid || t.company_id === cid)
     setTalks(allTalks)
 
-    // Load signature counts
+    // Load signature counts — scoped to this company's talks
     if (allTalks.length > 0) {
+      const talkIds = allTalks.map(t => t.id)
       const sigsData = await fetchAndCache('toolbox_signatures', (sb) =>
-        sb.from('toolbox_signatures').select('talk_id, operative_name, signed_at')
+        sb.from('toolbox_signatures').select('talk_id, operative_name, signed_at').in('talk_id', talkIds)
       )
       const grouped = {}
       ;(sigsData || []).forEach(s => {
@@ -1775,6 +1775,11 @@ function ToolboxTab({ projects, navigate }) {
     }
     setLoading(false)
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadTalks()
+  }, [])
 
   async function createTalk(e) {
     e.preventDefault()

@@ -5,6 +5,7 @@ import { BIM_CATEGORIES } from '../lib/bimUtils'
 /**
  * Map IFC type strings to human-readable names
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function readableIfcType(typeName) {
   if (!typeName) return 'Unknown Type'
   const map = {
@@ -240,7 +241,7 @@ export default function BIMElementPopup({ element, position, onClose, onRaiseSna
                 className="truncate"
                 style={{ fontSize: 14, fontWeight: 600, color: '#1F2937' }}
               >
-                {element.element_name || 'Unnamed Element'}
+                {element.name || 'Unnamed Element'}
               </span>
             </div>
             <button

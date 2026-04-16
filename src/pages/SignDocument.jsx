@@ -15,7 +15,6 @@ export default function SignDocument() {
   const sigRef = useRef(null)
   const [document, setDocument] = useState(null)
   const [operative, setOperative] = useState(null)
-  const [allDocs, setAllDocs] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [typedDob, setTypedDob] = useState('')
@@ -23,20 +22,26 @@ export default function SignDocument() {
   const [hasReadDoc, setHasReadDoc] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [allComplete, setAllComplete] = useState(false)
-
-  useEffect(() => {
-    loadData()
-  }, [])
+  const [alreadySigned, setAlreadySigned] = useState(false)
 
   async function loadData() {
-    const [docRes, opRes] = await Promise.all([
+    const [docRes, opRes, existingSigRes] = await Promise.all([
       supabase.from('documents').select('*, projects(name)').eq('id', documentId).single(),
       supabase.from('operatives').select('*').eq('id', operativeId).single(),
+      supabase.from('signatures').select('id').eq('operative_id', operativeId).eq('document_id', documentId).eq('invalidated', false).limit(1),
     ])
     setDocument(docRes.data)
     setOperative(opRes.data)
+    if (existingSigRes.data && existingSigRes.data.length > 0) {
+      setAlreadySigned(true)
+    }
     setLoading(false)
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData()
+  }, [])
 
   function clearSignature() {
     sigRef.current?.clear()
@@ -160,7 +165,7 @@ export default function SignDocument() {
         operative_name: operative.name,
         document_title: document.title,
         signature_url: urlData.publicUrl,
-        typed_name: typedDob.trim(),
+        typed_name: operative.name,
         ip_address: ipAddress,
       })
 
@@ -191,6 +196,26 @@ export default function SignDocument() {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50">
         <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
+  if (alreadySigned) {
+    return (
+      <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col items-center justify-center p-6">
+        <div className="w-20 h-20 bg-success/10 rounded-full flex items-center justify-center mb-6">
+          <CheckCircle2 size={44} className="text-success" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">Already Signed</h2>
+        <p className="text-slate-500 text-center mb-2">
+          You have already signed <span className="text-slate-900 font-medium">{document?.title}</span>
+        </p>
+        <button
+          onClick={() => navigate(getSession('operative_session') ? '/worker' : `/operative/${operativeId}/documents`)}
+          className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors mt-4"
+        >
+          {getSession('operative_session') ? 'Back to Dashboard' : 'Back to Documents'}
+        </button>
       </div>
     )
   }
@@ -244,7 +269,7 @@ export default function SignDocument() {
             <PDFViewer
               url={document.file_url}
               title={document.title}
-              onConfirmRead={() => setHasReadDoc(true)}
+              onConfirmRead={(checked) => setHasReadDoc(checked)}
             />
           </div>
         )}

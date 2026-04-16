@@ -27,9 +27,6 @@ export default function BIMModels() {
 
   const managerData = JSON.parse(getSession('manager_data') || '{}')
 
-  useEffect(() => { loadProjects() }, [])
-  useEffect(() => { if (selectedProject) loadModels() }, [selectedProject])
-
   async function loadProjects() {
     try {
       let query = supabase.from('projects').select('id, name').order('name')
@@ -63,11 +60,18 @@ export default function BIMModels() {
     }
   }
 
+  useEffect(() => { loadProjects() }, [])
+  useEffect(() => { if (selectedProject) loadModels() }, [selectedProject])
+
   async function handleUpload(e) {
     const file = e.target.files?.[0]
     if (!file || !selectedProject) return
     if (!file.name.toLowerCase().endsWith('.ifc')) {
       toast.error('Please upload an IFC file')
+      return
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error('IFC file must be under 100MB')
       return
     }
 

@@ -277,7 +277,7 @@ export default function OperativeCerts() {
                           {cert.expiry ? new Date(cert.expiry).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not recorded'}
                         </p>
                       </div>
-                      {operative.card_verified !== undefined && (
+                      {operative.card_verified != null && (
                         <div>
                           <p className="text-[10px] text-slate-400 uppercase font-semibold">Verification</p>
                           <p className={`text-sm font-semibold flex items-center gap-1 ${operative.card_verified ? 'text-green-700' : 'text-amber-600'}`}>

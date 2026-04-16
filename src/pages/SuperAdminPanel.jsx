@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { authFetch } from '../lib/authFetch'
 import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
 import LoadingButton from '../components/LoadingButton'
@@ -18,7 +17,6 @@ export default function SuperAdminPanel() {
   const [stats, setStats] = useState({})
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
-  const [showEdit, setShowEdit] = useState(null)
   const [saving, setSaving] = useState(false)
 
   // Create form
@@ -49,15 +47,6 @@ export default function SuperAdminPanel() {
     return { ok: res.ok, data }
   }
 
-  useEffect(() => {
-    const mgr = JSON.parse(getSession('manager_data') || '{}')
-    if (mgr.role !== 'admin' && mgr.role !== 'super_admin') {
-      navigate('/app')
-      return
-    }
-    loadData()
-  }, [])
-
   async function loadData() {
     setLoading(true)
     const { data: cos } = await supabase.from('companies').select('*').order('created_at', { ascending: false })
@@ -83,6 +72,15 @@ export default function SuperAdminPanel() {
     setLoading(false)
   }
 
+  useEffect(() => {
+    const mgr = JSON.parse(getSession('manager_data') || '{}')
+    if (mgr.role !== 'admin' && mgr.role !== 'super_admin') {
+      navigate('/app')
+      return
+    }
+    loadData()
+  }, [])
+
   function autoSlug(n) {
     return n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   }
@@ -95,6 +93,11 @@ export default function SuperAdminPanel() {
     try {
       let logoUrl = null
       if (logo) {
+        if (logo.size > 5 * 1024 * 1024) {
+          toast.error('Logo must be under 5MB')
+          setSaving(false)
+          return
+        }
         const path = `${slug}/${Date.now()}.${logo.name.split('.').pop()}`
         const { error: upErr } = await supabase.storage.from('company-assets').upload(path, logo)
         if (!upErr) {
@@ -352,8 +355,6 @@ function CompanyDetailView({ company: initialCompany, onBack }) {
   const [resetting, setResetting] = useState(null)
   const features = company.features || {}
 
-  useEffect(() => { loadAll() }, [company.id])
-
   async function loadAll() {
     setLoading(true)
     const [u, w, p] = await Promise.all([
@@ -367,7 +368,10 @@ function CompanyDetailView({ company: initialCompany, onBack }) {
     setLoading(false)
   }
 
+  useEffect(() => { loadAll() }, [company.id])
+
   async function resetPassword(user) {
+    // eslint-disable-next-line react-hooks/purity
     const newPw = `Reset${Math.random().toString(36).slice(2, 8)}`
     setResetting(user.id)
     await supabase.from('managers').update({ password: newPw, must_change_password: true }).eq('id', user.id)
@@ -426,7 +430,7 @@ function CompanyDetailView({ company: initialCompany, onBack }) {
               tab === t.id ? 'border-[#1B6FC8] text-[#1B6FC8]' : 'border-transparent text-[#6B7A99] hover:text-[#1A1A2E]'
             }`}
           >
-            {t.label} ({t.count})
+            {t.label}{t.count != null ? ` (${t.count})` : ''}
           </button>
         ))}
       </div>

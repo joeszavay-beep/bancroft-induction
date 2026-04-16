@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
@@ -49,16 +49,6 @@ export default function ProgressViewer() {
   const [project, setProject] = useState(null)
   const [isLive, setIsLive] = useState(false)
 
-  useEffect(() => {
-    loadData()
-    const channel = supabase
-      .channel(`progress-${drawingId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'progress_items', filter: `drawing_id=eq.${drawingId}` },
-        () => { if (skipNextReload.current) { skipNextReload.current = false } else { loadItems() } }
-      ).subscribe((status) => { setIsLive(status === 'SUBSCRIBED') })
-    return () => { supabase.removeChannel(channel) }
-  }, [drawingId])
-
   async function loadData() {
     setLoading(true)
 
@@ -85,6 +75,17 @@ export default function ProgressViewer() {
     const filtered = Array.isArray(itemsData) ? itemsData.filter(i => i.drawing_id === drawingId) : (itemsData || [])
     setItems(filtered.sort((a, b) => (a.item_number || 0) - (b.item_number || 0)))
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData()
+    const channel = supabase
+      .channel(`progress-${drawingId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'progress_items', filter: `drawing_id=eq.${drawingId}` },
+        () => { if (skipNextReload.current) { skipNextReload.current = false } else { loadItems() } }
+      ).subscribe((status) => { setIsLive(status === 'SUBSCRIBED') })
+    return () => { supabase.removeChannel(channel) }
+  }, [drawingId])
 
   // Place item on tap
   async function handleDrawingTap(e) {
@@ -220,7 +221,7 @@ export default function ProgressViewer() {
           created_by: mgr.name, updated_by: mgr.name,
         }).select().single()
         if (!error) { setUndoStack(prev => [...prev, data.id]); setRedoStack([]) }
-      } catch {}
+      } catch { /* ignore */ }
     } else if (clipboard.label === 'polyline' && clipboard.notes) {
       // For polylines, shift all points so centroid is at tap position, keep original width
       try {
@@ -237,11 +238,11 @@ export default function ProgressViewer() {
           created_by: mgr.name, updated_by: mgr.name,
         }).select().single()
         if (!error) { setUndoStack(prev => [...prev, data.id]); setRedoStack([]) }
-      } catch {}
+      } catch { /* ignore */ }
     } else {
       // Dot — just place at tap position, keep original size
       let pasteSize = dotSize
-      try { const p = JSON.parse(clipboard.notes || '{}'); if (p.size) pasteSize = p.size } catch {}
+      try { const p = JSON.parse(clipboard.notes || '{}'); if (p.size) pasteSize = p.size } catch { /* ignore */ }
       const { data, error } = await supabase.from('progress_items').insert({
         company_id: cid, drawing_id: drawingId, item_number: nextNum,
         pin_x: x, pin_y: y, status: clipboard.status,
@@ -764,7 +765,7 @@ export default function ProgressViewer() {
                         if (parsed.size) itemSize = parsed.size
                         if (parsed.width) itemWidth = parsed.width
                       }
-                    } catch {}
+                    } catch { /* ignore */ }
                     itemSize = Math.max(2, itemSize * renderScale)
                     itemWidth = Math.max(1, itemWidth * renderScale)
 
@@ -818,7 +819,7 @@ export default function ProgressViewer() {
                     // Circle
                     if (item.label === 'circle') {
                       let radius = 16, annoColor = color
-                      try { const p = JSON.parse(item.notes || '{}'); if (p.radius) radius = p.radius; if (p.color) annoColor = p.color } catch {}
+                      try { const p = JSON.parse(item.notes || '{}'); if (p.radius) radius = p.radius; if (p.color) annoColor = p.color } catch { /* ignore */ }
                       const scaledRadius = Math.max(4, radius * renderScale)
                       return (
                         <button key={item.id} onClick={clickHandler}
@@ -833,7 +834,7 @@ export default function ProgressViewer() {
                     // Text
                     if (item.label === 'text') {
                       let text = '', fontSize = 12, annoColor = color
-                      try { const p = JSON.parse(item.notes || '{}'); text = p.text || ''; fontSize = p.fontSize || 12; if (p.color) annoColor = p.color } catch {}
+                      try { const p = JSON.parse(item.notes || '{}'); text = p.text || ''; fontSize = p.fontSize || 12; if (p.color) annoColor = p.color } catch { /* ignore */ }
                       const scaledFont = Math.max(6, Math.min(fontSize, 32) * renderScale)
                       return (
                         <div key={item.id} onClick={clickHandler}
@@ -849,7 +850,7 @@ export default function ProgressViewer() {
                     // Comment / Note
                     if (item.label === 'comment') {
                       let text = '', annoColor = color
-                      try { const p = JSON.parse(item.notes || '{}'); text = p.text || ''; if (p.color) annoColor = p.color } catch {}
+                      try { const p = JSON.parse(item.notes || '{}'); text = p.text || ''; if (p.color) annoColor = p.color } catch { /* ignore */ }
                       return (
                         <div key={item.id} onClick={clickHandler}
                           className="absolute z-10 -translate-x-1/2"

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { getSession } from '../lib/storage'
 import {
   TRADES, SKILL_LEVELS, CARD_TYPES, CERT_TYPES, URGENCY_LABELS,
   STATUS_COLORS, formatDayRate, formatDate
@@ -19,14 +18,11 @@ const REQUEST_STATUS = {
 export default function LabourRequestDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const managerData = JSON.parse(getSession('manager_data') || '{}')
-
   const [request, setRequest] = useState(null)
   const [proposals, setProposals] = useState([])
+  const [operativeCerts, setOperativeCerts] = useState({})
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(null)
-
-  useEffect(() => { loadRequest() }, [id])
 
   async function loadRequest() {
     setLoading(true)
@@ -46,12 +42,31 @@ export default function LabourRequestDetail() {
         .order('match_score', { ascending: false })
       if (propErr) throw propErr
       setProposals(props || [])
+
+      // Load certifications for all proposed operatives
+      const opIds = (props || []).map(p => p.agency_operatives?.id).filter(Boolean)
+      if (opIds.length > 0) {
+        const { data: certs } = await supabase
+          .from('operative_certifications')
+          .select('operative_id, certification_type')
+          .in('operative_id', opIds)
+        const certsByOp = {}
+        for (const c of (certs || [])) {
+          if (!certsByOp[c.operative_id]) certsByOp[c.operative_id] = []
+          certsByOp[c.operative_id].push(c.certification_type)
+        }
+        setOperativeCerts(certsByOp)
+      } else {
+        setOperativeCerts({})
+      }
     } catch (err) {
       console.error('loadRequest error:', err)
       toast.error('Failed to load request')
     }
     setLoading(false)
   }
+
+  useEffect(() => { loadRequest() }, [id])
 
   async function handleAccept(proposal) {
     setActionLoading(proposal.id)
@@ -108,9 +123,9 @@ export default function LabourRequestDetail() {
       while (d <= end) {
         availRecords.push({
           operative_id: op.id,
+          agency_id: op.agency_id,
           date: d.toISOString().split('T')[0],
           status: 'booked',
-          booking_id: null, // will be filled by trigger or manually
         })
         d.setDate(d.getDate() + 1)
       }
@@ -118,7 +133,7 @@ export default function LabourRequestDetail() {
         await supabase.from('operative_availability').upsert(availRecords, { onConflict: 'operative_id,date' })
       }
 
-      toast.success(`${`${op.first_name} ${op.last_name}` || 'Operative'} accepted and booking confirmed`)
+      toast.success(`${op.first_name && op.last_name ? `${op.first_name} ${op.last_name}` : 'Operative'} accepted and booking confirmed`)
       loadRequest() // Refresh
     } catch (err) {
       console.error('Accept error:', err)
@@ -271,7 +286,7 @@ export default function LabourRequestDetail() {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-sm font-semibold text-slate-800">{`${op.first_name} ${op.last_name}` || 'Unknown Operative'}</h3>
+                        <h3 className="text-sm font-semibold text-slate-800">{op.first_name && op.last_name ? `${op.first_name} ${op.last_name}` : 'Unknown Operative'}</h3>
                         <span className={`w-3 h-3 rounded-full ${matchColor.dot}`} title={matchColor.label} />
                         {isAccepted && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Accepted</span>}
                         {isDeclined && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">Declined</span>}
@@ -289,7 +304,7 @@ export default function LabourRequestDetail() {
                             {op.rating.toFixed(1)}
                           </span>
                         )}
-                        <span>Rate: {formatDayRate(proposal.day_rate_proposed)}</span>
+                        <span>Rate: {formatDayRate(proposal.proposed_day_rate || op.day_rate)}</span>
                         {proposal.match_score != null && (
                           <span>Match: {proposal.match_score}%</span>
                         )}
@@ -299,7 +314,7 @@ export default function LabourRequestDetail() {
                       {requiredCerts.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {requiredCerts.map(cert => {
-                            const hasCert = (proposal.operative_certifications || []).includes(cert)
+                            const hasCert = (operativeCerts[op.id] || []).includes(cert)
                             return (
                               <span
                                 key={cert}

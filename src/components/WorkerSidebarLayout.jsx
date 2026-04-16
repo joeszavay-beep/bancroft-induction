@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
-  Menu, X, ChevronDown, ChevronRight, LogOut, Home, FileText,
+  Menu, LogOut, Home, FileText,
   MapPin, MessageSquare, User, Sun, Moon, Clock, PoundSterling, Shield, Receipt
 } from 'lucide-react'
 import { useTheme } from '../lib/ThemeContext'

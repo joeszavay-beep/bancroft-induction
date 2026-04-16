@@ -1,11 +1,10 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
 import {
   formatMoney, parseMoney, calculateHoursWorked, calculateCost,
-  calculateProjections, calculateBurnRate, checkCompliance, calculateInvoiceTotals,
-  getInvoiceDueDate, calculateCIS,
+  calculateProjections, checkCompliance, calculateInvoiceTotals,
   PAY_TYPES, EMPLOYMENT_STATUSES, CIS_RATES, JOB_STATUSES, INVOICE_STATUSES, TIMESHEET_STATUSES,
   TRAFFIC_LIGHT_COLORS,
 } from '../lib/subcontractor'
@@ -42,6 +41,7 @@ function getWeekDates(weekStart) {
   })
 }
 
+// eslint-disable-next-line no-unused-vars
 function formatDateShort(dateStr) {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -83,6 +83,7 @@ export default function SubcontractorJobDetail() {
   const [approvingAll, setApprovingAll] = useState(false)
   const [showManualEntry, setShowManualEntry] = useState(false)
   const [manualForm, setManualForm] = useState({ operative_id: '', date: '', hours: '', day_type: 'full', is_daywork: false, daywork_description: '', notes: '' })
+  const [savingEntry, setSavingEntry] = useState(false)
   const [discrepancies, setDiscrepancies] = useState({ unassigned: [], missing: [] })
   const [editingCell, setEditingCell] = useState(null)
   const [editHours, setEditHours] = useState('')
@@ -99,10 +100,6 @@ export default function SubcontractorJobDetail() {
   // Stats for overview
   const [totalSpend, setTotalSpend] = useState(0)
   const [weeklySpends, setWeeklySpends] = useState([])
-
-  useEffect(() => { if (cid && jobId) loadJob() }, [cid, jobId])
-  useEffect(() => { if (job && activeTab === 'timesheet') loadTimesheet() }, [job, weekStart, activeTab])
-  useEffect(() => { if (job && activeTab === 'invoices') loadInvoices() }, [job, activeTab])
 
   async function loadJob() {
     setLoading(true)
@@ -411,6 +408,7 @@ export default function SubcontractorJobDetail() {
     if (!manualForm.operative_id || !manualForm.date) { toast.error('Operative and date required'); return }
     const jop = jobOperatives.find(o => o.operative_id === manualForm.operative_id)
     if (!jop) { toast.error('Operative not assigned to this job'); return }
+    setSavingEntry(true)
     const hours = parseFloat(manualForm.hours) || 0
     const hoursData = { hours, dayType: manualForm.day_type }
     const cost = calculateCost(hoursData, jop.pay_type, jop.pay_rate)
@@ -440,6 +438,7 @@ export default function SubcontractorJobDetail() {
     } catch (err) {
       toast.error(err.message)
     }
+    setSavingEntry(false)
   }
 
   // ── Invoices ──
@@ -451,12 +450,29 @@ export default function SubcontractorJobDetail() {
     setInvoices(data || [])
   }
 
-  const invoicePeriodTotal = useMemo(() => {
-    if (!invoiceForm.period_from || !invoiceForm.period_to) return 0
-    return timesheetEntries
-      .filter(e => e.status === 'approved' && e.date >= invoiceForm.period_from && e.date <= invoiceForm.period_to)
-      .reduce((s, e) => s + (e.cost_calculated || 0), 0)
-  }, [invoiceForm.period_from, invoiceForm.period_to, timesheetEntries])
+  useEffect(() => { if (cid && jobId) loadJob() }, [cid, jobId])
+  useEffect(() => { if (job && activeTab === 'timesheet') loadTimesheet() }, [job, weekStart, activeTab])
+  useEffect(() => { if (job && activeTab === 'invoices') loadInvoices() }, [job, activeTab])
+
+  const [invoicePeriodTotal, setInvoicePeriodTotal] = useState(0)
+
+  useEffect(() => {
+    async function calcInvoicePeriodTotal() {
+      if (!invoiceForm.period_from || !invoiceForm.period_to) { setInvoicePeriodTotal(0); return }
+      try {
+        const { data } = await supabase.from('timesheet_entries')
+          .select('cost_calculated')
+          .eq('job_id', jobId)
+          .eq('status', 'approved')
+          .gte('date', invoiceForm.period_from)
+          .lte('date', invoiceForm.period_to)
+        setInvoicePeriodTotal((data || []).reduce((s, e) => s + (e.cost_calculated || 0), 0))
+      } catch {
+        setInvoicePeriodTotal(0)
+      }
+    }
+    calcInvoicePeriodTotal()
+  }, [invoiceForm.period_from, invoiceForm.period_to, jobId])
 
   async function handleCreateInvoice(e) {
     e.preventDefault()
@@ -604,6 +620,7 @@ export default function SubcontractorJobDetail() {
           showManualEntry={showManualEntry} setShowManualEntry={setShowManualEntry}
           manualForm={manualForm} setManualForm={setManualForm}
           handleManualEntry={handleManualEntry}
+          savingEntry={savingEntry}
           discrepancies={discrepancies}
           job={job}
         />
@@ -971,11 +988,11 @@ function OperativesTab({
 
 // ── Timesheet Tab ──
 function TimesheetTab({
-  jobOperatives, weekDates, weekStart, timesheetEntries, loadingTimesheet,
+  jobOperatives, weekDates, timesheetEntries, loadingTimesheet,
   shiftWeek, generateFromQR, generatingQR, approveAll, approvingAll,
   editingCell, setEditingCell, editHours, setEditHours, handleSaveCellEdit,
-  showManualEntry, setShowManualEntry, manualForm, setManualForm, handleManualEntry,
-  discrepancies, job,
+  showManualEntry, setShowManualEntry, manualForm, setManualForm, handleManualEntry, savingEntry,
+  discrepancies,
 }) {
   const activeOps = jobOperatives.filter(o => o.status === 'active')
   const weekLabel = `${new Date(weekDates[0]).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} — ${new Date(weekDates[6]).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
@@ -1059,7 +1076,6 @@ function TimesheetTab({
                       <span className="block text-[10px] text-slate-400 font-normal">{row.jop.trade_role || row.op.role || ''}</span>
                     </td>
                     {row.days.map((entry, i) => {
-                      const cellKey = `${row.jop.operative_id}_${weekDates[i]}`
                       const isEditing = editingCell === entry?.id
                       const sc = entry ? (statusColors[entry.status] || statusColors.auto) : ''
                       const hours = entry?.hours_adjusted ?? entry?.hours_calculated ?? 0
@@ -1183,7 +1199,7 @@ function TimesheetTab({
               </Field>
               <div className="flex gap-2 justify-end pt-2">
                 <button type="button" onClick={() => setShowManualEntry(false)} className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
-                <button type="submit" className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold">Add Entry</button>
+                <button type="submit" disabled={savingEntry} className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold disabled:opacity-50">{savingEntry ? 'Adding...' : 'Add Entry'}</button>
               </div>
             </form>
           </div>

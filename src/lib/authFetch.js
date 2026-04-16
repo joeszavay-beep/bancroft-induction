@@ -24,7 +24,7 @@ export async function authFetch(url, options = {}) {
       const { data: { session: refreshed } } = await supabase.auth.refreshSession()
       token = refreshed?.access_token
     }
-  } catch {}
+  } catch { /* ignore */ }
 
   const res = await fetch(url, {
     ...options,
@@ -41,7 +41,7 @@ export async function authFetch(url, options = {}) {
       if (fresh?.access_token) {
         return authFetch(url, { ...options, _retried: true, headers: { ...options.headers, 'Authorization': `Bearer ${fresh.access_token}` } })
       }
-    } catch {}
+    } catch { /* ignore */ }
   }
 
   return res

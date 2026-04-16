@@ -98,18 +98,7 @@ export default function Signup() {
       })
       if (profError) throw profError
 
-      // 4. Auto sign-in
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password: password.trim(),
-      })
-      if (signInError) {
-        // If email confirmation is required, still redirect
-        toast.success('Account created! Check your email to confirm, then sign in.')
-        navigate('/login')
-        return
-      }
-
+      // 4. Session is already active from the sign-in above
       toast.success('Account created!')
       navigate('/onboarding')
     } catch (err) {
@@ -203,17 +192,7 @@ export default function Signup() {
         role: 'admin',
       })
 
-      // 6. Auto sign-in
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password: password.trim(),
-      })
-      if (signInError) {
-        toast.success('Account created! Check your email to confirm, then sign in.')
-        navigate('/login')
-        return
-      }
-
+      // 6. Session is already active from the sign-in above
       toast.success('Agency registered!')
       navigate('/onboarding')
     } catch (err) {

@@ -35,15 +35,6 @@ export default function AdminDashboard() {
 
   const cid = JSON.parse(getSession('manager_data') || '{}').company_id
 
-  useEffect(() => {
-    const mgr = getSession('manager_data')
-    if (!mgr || JSON.parse(mgr).role !== 'admin') {
-      navigate('/login')
-      return
-    }
-    loadData()
-  }, [])
-
   async function loadData() {
     setLoading(true)
     const [m, p] = await Promise.all([
@@ -57,6 +48,15 @@ export default function AdminDashboard() {
     setLoading(false)
   }
 
+  useEffect(() => {
+    const mgr = getSession('manager_data')
+    if (!mgr || JSON.parse(mgr).role !== 'admin') {
+      navigate('/login')
+      return
+    }
+    loadData() // eslint-disable-line react-hooks/set-state-in-effect
+  }, [])
+
   async function addManager(e) {
     e.preventDefault()
     if (!name.trim() || !email.trim() || !password.trim()) return
@@ -68,6 +68,7 @@ export default function AdminDashboard() {
       role: 'manager',
       project_ids: selectedProjects,
       company_id: cid,
+      is_active: true,
     })
     setSaving(false)
     if (error) {
@@ -119,7 +120,7 @@ export default function AdminDashboard() {
     setEditEmail(mgr.email)
     setEditPassword('')
     setEditProjects(mgr.project_ids || [])
-    setEditActive(mgr.is_active)
+    setEditActive(mgr.is_active !== false)
     setShowEdit(mgr)
   }
 

@@ -72,7 +72,7 @@ export default function AddressLookup({ value, onChange, placeholder = 'Start ty
         })
         setStreetLine('')
       }
-    } catch {}
+    } catch { /* ignore — lookup failed */ }
     setSearching(false)
   }
 

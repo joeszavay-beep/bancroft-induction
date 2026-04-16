@@ -5,7 +5,7 @@ import {
   fetchSignatureAsDataUrl, formatDate, formatDateTime, COLORS
 } from './reportTemplate'
 
-export async function generateToolboxPDF({ talk, project, signatures, companyName }) {
+export async function generateToolboxPDF({ talk, project, signatures }) {
   const doc = new jsPDF('p', 'mm', 'a4')
   const pageW = 210
   const margin = 14

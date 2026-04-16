@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     // Find all overdue open snags
     const { data: overdueSnags, error } = await supabase
       .from('snags')
-      .select('*, drawings(name, project_id), projects:drawings(projects(name))')
+      .select('*, drawings(name, project_id, projects(name))')
       .eq('status', 'open')
       .lt('due_date', today)
       .not('assigned_to', 'is', null)

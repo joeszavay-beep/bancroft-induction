@@ -16,23 +16,22 @@ export async function verifySuperAdmin(req) {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-  // Try Supabase auth token first
+  // Require a valid Supabase auth token
   const token = req.headers.authorization?.replace('Bearer ', '')
-  if (token) {
-    const { data: { user } } = await supabase.auth.getUser(token)
-    if (user) return { verified: true, supabase }
-  }
-
-  // Fallback: verify via managers table using email from request body
-  const email = req.body?.managerEmail
-  if (!email) {
+  if (!token) {
     return { verified: false, error: 'Not authenticated — please log out and log back in' }
   }
 
+  const { data: { user } } = await supabase.auth.getUser(token)
+  if (!user) {
+    return { verified: false, error: 'Invalid or expired session — please log out and log back in' }
+  }
+
+  // Verify the authenticated user is a super admin in the managers table
   const { data: mgr } = await supabase
     .from('managers')
     .select('role')
-    .eq('email', email)
+    .eq('email', user.email)
     .eq('role', 'super_admin')
     .eq('is_active', true)
     .single()

@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
-import toast from 'react-hot-toast'
 import {
-  MessageSquare, Send, Search, ChevronLeft, Package, AlertTriangle,
-  Wrench, Clock, CheckCircle2, User, Image, Paperclip, X, ZoomIn
+  MessageSquare, Send, Search, ChevronLeft,
+  Paperclip, X, Package, Wrench, AlertTriangle, Clock
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
 
@@ -37,15 +36,6 @@ export default function Chat() {
   const [opSearch, setOpSearch] = useState('')
   const messagesEndRef = useRef(null)
   const channelRef = useRef(null)
-
-  useEffect(() => {
-    if (!cid) return
-    loadConversations()
-    const interval = setInterval(() => {
-      if (!selectedOp) loadConversations()
-    }, 10000)
-    return () => clearInterval(interval)
-  }, [cid, selectedOp])
 
   async function loadConversations() {
     if (!cid) return
@@ -81,6 +71,11 @@ export default function Chat() {
     setConversations(Object.values(opMap).sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime)))
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (!cid) return
+    loadConversations()
+  }, [cid])
 
   async function openConversation(conv) {
     setSelectedOp(conv)
@@ -216,12 +211,10 @@ export default function Chat() {
     openConversation(conv)
   }
 
-  // Poll the active conversation for new messages every 5 seconds
+  // Clean up realtime channel when leaving a conversation
   useEffect(() => {
     if (!selectedOp) return
-    const interval = setInterval(() => loadMessages(selectedOp.operative_id), 5000)
     return () => {
-      clearInterval(interval)
       if (channelRef.current) supabase.removeChannel(channelRef.current)
     }
   }, [selectedOp])
@@ -231,8 +224,10 @@ export default function Chat() {
   )
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread, 0)
 
+  // eslint-disable-next-line react-hooks/purity
+  const now = useMemo(() => Date.now(), [conversations])
   const timeAgo = (d) => {
-    const mins = Math.round((Date.now() - new Date(d).getTime()) / 60000)
+    const mins = Math.round((now - new Date(d).getTime()) / 60000)
     if (mins < 1) return 'now'
     if (mins < 60) return `${mins}m`
     if (mins < 1440) return `${Math.floor(mins / 60)}h`

@@ -77,7 +77,7 @@ export default function ResetPassword() {
                   value={password}
                   onChange={e => { setPassword(e.target.value); setError('') }}
                   className="w-full px-3.5 py-2.5 border border-[#E2E6EA] rounded-lg text-[#1A1A2E] placeholder-[#B0B8C9] focus:outline-none focus:border-[#1B6FC8] focus:ring-2 focus:ring-[#1B6FC8]/10 text-sm pr-10"
-                  placeholder="Minimum 6 characters"
+                  placeholder="Minimum 8 characters"
                   autoFocus
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B0B8C9] hover:text-[#6B7A99]">

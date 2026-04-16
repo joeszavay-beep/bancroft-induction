@@ -20,10 +20,6 @@ export default function OperativeGuard({ children }) {
   const { operativeId } = useParams()
   const [status, setStatus] = useState('checking')
 
-  useEffect(() => {
-    checkAccess()
-  }, [operativeId])
-
   async function checkAccess() {
     const session = getSession('operative_session')
     const isProfilePage = location.pathname.includes('/profile')
@@ -38,7 +34,7 @@ export default function OperativeGuard({ children }) {
         }
         setStatus('ok')
         return
-      } catch {}
+      } catch { /* ignore */ }
     }
 
     // Not logged in — check if this is a first-time profile setup
@@ -55,13 +51,18 @@ export default function OperativeGuard({ children }) {
           setStatus('ok')
           return
         }
-      } catch {}
+      } catch { /* ignore */ }
     }
 
     // All other cases — require login
     setSession('operative_return_url', window.location.pathname)
     setStatus('login')
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    checkAccess()
+  }, [operativeId, location.pathname])
 
   if (status === 'checking') {
     return (

@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
 import {
   TRADES, TRADE_OPTIONS, TRADE_CATEGORIES, CARD_TYPES, SKILL_LEVELS,
-  formatDayRate, formatDate
+  formatDayRate
 } from '../lib/marketplace'
 import toast from 'react-hot-toast'
 import {
@@ -44,8 +44,6 @@ export default function AgencyOperatives() {
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [cardPhotoFile, setCardPhotoFile] = useState(null)
 
-  useEffect(() => { lookupAgency() }, [])
-
   async function lookupAgency() {
     try {
       let email = managerData.email
@@ -81,6 +79,8 @@ export default function AgencyOperatives() {
       .order('last_name')
     setOperatives(data || [])
   }
+
+  useEffect(() => { lookupAgency() }, [])
 
   const filtered = useMemo(() => {
     let list = operatives

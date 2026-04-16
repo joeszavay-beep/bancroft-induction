@@ -19,24 +19,6 @@ export default function ToolboxTalkLive() {
 
   const signUrl = `${window.location.origin}/toolbox/${talkId}`
 
-  useEffect(() => {
-    loadData()
-    // Real-time subscription
-    const channel = supabase
-      .channel(`toolbox-${talkId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'toolbox_signatures',
-        filter: `talk_id=eq.${talkId}`,
-      }, (payload) => {
-        setSignatures(prev => [...prev, payload.new])
-      })
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
-  }, [talkId])
-
   async function loadData() {
     const { data: t } = await supabase.from('toolbox_talks').select('*').eq('id', talkId).single()
     if (!t) { navigate('/pm'); return }
@@ -52,6 +34,24 @@ export default function ToolboxTalkLive() {
     setOperatives(o.data || [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    loadData() // eslint-disable-line react-hooks/set-state-in-effect
+    // Real-time subscription
+    const channel = supabase
+      .channel(`toolbox-${talkId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'toolbox_signatures',
+        filter: `talk_id=eq.${talkId}`,
+      }, (payload) => {
+        setSignatures(prev => [...prev, payload.new])
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [talkId])
 
   async function closeTalk() {
     if (!confirm('Close this toolbox talk? The QR code will stop working.')) return

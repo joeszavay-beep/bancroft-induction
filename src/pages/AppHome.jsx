@@ -12,12 +12,10 @@ import TrialBanner from '../components/TrialBanner'
 
 export default function AppHome() {
   const navigate = useNavigate()
-  const { user, company } = useCompany()
+  const { user } = useCompany()
   const cid = user?.company_id
   const [loading, setLoading] = useState(true)
   const [s, setS] = useState({})
-
-  useEffect(() => { if (cid) loadDashboard() }, [cid])
 
   async function loadDashboard() {
     setLoading(true)
@@ -28,7 +26,7 @@ export default function AppHome() {
     const [projects, operatives, snags, sigs, attendance, diary, inspections, chats] = await Promise.all([
       supabase.from('projects').select('id').eq('company_id', cid),
       supabase.from('operatives').select('id, cscs_expiry, ipaf_expiry, pasma_expiry, sssts_expiry, first_aid_expiry').eq('company_id', cid),
-      supabase.from('snags').select('id, status, due_date, created_at').eq('company_id', cid),
+      supabase.from('snags').select('id, status, due_date, created_at, updated_at').eq('company_id', cid),
       supabase.from('signatures').select('id').eq('company_id', cid),
       supabase.from('site_attendance').select('id, type, operative_id').eq('company_id', cid).gte('recorded_at', todayStart.toISOString()),
       supabase.from('site_diary').select('id, date').eq('company_id', cid).order('date', { ascending: false }).limit(1),
@@ -39,7 +37,7 @@ export default function AppHome() {
     const allSnags = snags.data || []
     const open = allSnags.filter(s => s.status === 'open')
     const overdue = open.filter(s => s.due_date && new Date(s.due_date) < today)
-    const closedWeek = allSnags.filter(s => s.status === 'completed' && new Date(s.created_at) >= weekAgo)
+    const closedWeek = allSnags.filter(s => s.status === 'completed' && new Date(s.updated_at || s.created_at) >= weekAgo)
     const raisedWeek = allSnags.filter(s => new Date(s.created_at) >= weekAgo)
 
     const ops = operatives.data || []
@@ -75,6 +73,9 @@ export default function AppHome() {
     })
     setLoading(false)
   }
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (cid) loadDashboard() }, [cid])
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'

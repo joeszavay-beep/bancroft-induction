@@ -5,7 +5,7 @@ import {
   formatDate, formatDateTime, COLORS
 } from './reportTemplate'
 
-export async function generateAuditReport({ project, documents, operatives, signatures, companyName }) {
+export async function generateAuditReport({ project, documents, operatives, signatures }) {
   const doc = new jsPDF('p', 'mm', 'a4')
   const pageW = 210
   const margin = 14

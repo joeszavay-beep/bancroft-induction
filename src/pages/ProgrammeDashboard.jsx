@@ -43,9 +43,6 @@ export default function ProgrammeDashboard() {
   const [sortField, setSortField] = useState('name')
   const [sortDir, setSortDir] = useState('asc')
 
-  useEffect(() => { loadProjects() }, [])
-  useEffect(() => { if (selectedProject) loadActivities() }, [selectedProject])
-
   async function loadProjects() {
     try {
       let query = supabase.from('projects').select('id, name').order('name')
@@ -92,6 +89,9 @@ export default function ProgrammeDashboard() {
     }
     setLoading(false)
   }
+
+  useEffect(() => { loadProjects() }, [])
+  useEffect(() => { if (selectedProject) loadActivities() }, [selectedProject])
 
   // Compute progress for each activity
   const enrichedActivities = useMemo(() => {
@@ -174,6 +174,10 @@ export default function ProgrammeDashboard() {
     if (!file || !selectedProject) return
     if (!file.name.toLowerCase().endsWith('.dxf')) {
       toast.error('Please upload a DXF file')
+      return
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('File must be under 50MB')
       return
     }
 
@@ -482,6 +486,7 @@ export default function ProgrammeDashboard() {
   )
 }
 
+// eslint-disable-next-line no-unused-vars
 function SummaryCard({ icon: Icon, label, value, color }) {
   const colors = {
     blue:  'bg-blue-50 text-blue-600 border-blue-100',

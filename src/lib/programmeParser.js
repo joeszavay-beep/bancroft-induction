@@ -135,8 +135,6 @@ export async function parseProgrammePDF(pdfData) {
     }
   }
 
-  // Extract metadata from first page text
-  const firstPageText = allActivities.length > 0 ? '' : ''
   const metadata = {
     pageCount: doc.numPages,
     activityCount: unique.length,

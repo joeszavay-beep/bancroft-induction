@@ -17,7 +17,7 @@ export async function getCachedImageUrl(url) {
       const blob = new Blob([cached])
       return URL.createObjectURL(blob)
     }
-  } catch {}
+  } catch { /* ignore */ }
 
   // Not cached — fetch and store (only if online)
   if (!navigator.onLine) return url // fall back to original URL (SW might have it)
@@ -34,7 +34,8 @@ export async function getCachedImageUrl(url) {
     const blob = new Blob([arrayBuffer], { type: contentType })
     return URL.createObjectURL(blob)
   } catch {
-    return url // network failed, use original URL
+    // ignore - network failed, use original URL
+    return url
   }
 }
 
@@ -60,6 +61,7 @@ export async function prefetchImages(urls) {
       await cacheBlob(cacheKey, arrayBuffer, { contentType, originalUrl: url })
       results.cached++
     } catch {
+      // ignore
       results.failed++
     }
   }

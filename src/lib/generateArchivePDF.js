@@ -5,7 +5,7 @@ import {
   fetchSignatureAsDataUrl, formatDate, formatDateTime, COLORS
 } from './reportTemplate'
 
-export async function generateArchivePDF({ project, operatives, documents, signatures, toolboxTalks, toolboxSignatures, snags, drawings }) {
+export async function generateArchivePDF({ project, operatives, documents, signatures, toolboxTalks, toolboxSignatures, snags }) {
   const doc = new jsPDF('p', 'mm', 'a4')
   const pageW = 210
   const margin = 14
@@ -85,7 +85,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
       for (const sig of docSigs) {
         let sigImg = null
         if (sig.signature_url && !sig.invalidated) {
-          try { sigImg = await fetchSignatureAsDataUrl(sig.signature_url) } catch {}
+          try { sigImg = await fetchSignatureAsDataUrl(sig.signature_url) } catch { /* ignore */ }
         }
         people.push({
           name: sig.operative_name || 'Unknown',
@@ -142,7 +142,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
       for (const sig of talkSigs) {
         let sigImg = null
         if (sig.signature_url) {
-          try { sigImg = await fetchSignatureAsDataUrl(sig.signature_url) } catch {}
+          try { sigImg = await fetchSignatureAsDataUrl(sig.signature_url) } catch { /* ignore */ }
         }
         people.push({
           name: sig.operative_name || 'Unknown',

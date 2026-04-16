@@ -22,9 +22,6 @@ export default function LabourRequests() {
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { loadProjects() }, [])
-  useEffect(() => { if (selectedProject) loadRequests() }, [selectedProject])
-
   async function loadProjects() {
     try {
       let query = supabase.from('projects').select('id, name').order('name')
@@ -89,6 +86,9 @@ export default function LabourRequests() {
     }
     setLoading(false)
   }
+
+  useEffect(() => { loadProjects() }, [])
+  useEffect(() => { if (selectedProject) loadRequests() }, [selectedProject])
 
   if (loading && !requests.length) {
     return (

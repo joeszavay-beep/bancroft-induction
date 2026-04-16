@@ -82,7 +82,7 @@ export default function MasterProgramme() {
 
   const [projects, setProjects] = useState([])
   const [selectedProject, setSelectedProject] = useState('')
-  const [programme, setProgramme] = useState(null)
+  const [, setProgramme] = useState(null)
   const [activities, setActivities] = useState([])
   const [linkedMap, setLinkedMap] = useState({}) // master_activity_id -> auto progress
   const [loading, setLoading] = useState(true)
@@ -90,13 +90,9 @@ export default function MasterProgramme() {
   const [editingId, setEditingId] = useState(null)
   const [editValue, setEditValue] = useState('')
   const editRef = useRef(null)
-  const ganttRef = useRef(null)
   const tableBodyRef = useRef(null)
 
   // ── Load projects ─────────────────────────────────────────────────────────
-
-  useEffect(() => { loadProjects() }, [])
-  useEffect(() => { if (selectedProject) loadProgramme() }, [selectedProject])
 
   async function loadProjects() {
     try {
@@ -162,7 +158,7 @@ export default function MasterProgramme() {
     // Get markup lines for these activities to calculate progress
     const { data: lines } = await supabase
       .from('markup_lines')
-      .select('programme_activity_id, measured_length')
+      .select('programme_activity_id, real_world_length_metres')
       .in('programme_activity_id', paIds)
 
     const map = {}
@@ -170,12 +166,15 @@ export default function MasterProgramme() {
       const pa = progActs.find(p => p.id === ma.linked_programme_activity_id)
       if (!pa) continue
       const actLines = (lines || []).filter(l => l.programme_activity_id === pa.id)
-      const installed = actLines.reduce((s, l) => s + (l.measured_length || 0), 0)
+      const installed = actLines.reduce((s, l) => s + (l.real_world_length_metres || 0), 0)
       const baseline = ma.baseline_length || 0
       map[ma.id] = baseline > 0 ? Math.min(100, Math.round((installed / baseline) * 100)) : 0
     }
     setLinkedMap(map)
   }
+
+  useEffect(() => { loadProjects() }, [])
+  useEffect(() => { if (selectedProject) loadProgramme() }, [selectedProject])
 
   // ── Import PDF ────────────────────────────────────────────────────────────
 
@@ -186,12 +185,16 @@ export default function MasterProgramme() {
       toast.error('Please upload a PDF file')
       return
     }
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error('PDF must be under 25MB')
+      return
+    }
 
     setImporting(true)
     try {
       // 1. Parse the PDF
       const arrayBuffer = await file.arrayBuffer()
-      const { activities: parsed, metadata } = await parseProgrammePDF(arrayBuffer)
+      const { activities: parsed } = await parseProgrammePDF(arrayBuffer)
 
       if (!parsed.length) {
         toast.error('No activities found in PDF')
@@ -258,9 +261,14 @@ export default function MasterProgramme() {
     ))
     setEditingId(null)
 
+    const updates = { actual_progress: num }
+    if (num >= 100) updates.status = 'complete'
+    else if (num > 0) updates.status = 'on_track'
+    else updates.status = 'not_started'
+
     const { error } = await supabase
       .from('master_activities')
-      .update({ actual_progress: num, status: num >= 100 ? 'complete' : undefined })
+      .update(updates)
       .eq('id', activityId)
 
     if (error) {
@@ -354,7 +362,6 @@ export default function MasterProgramme() {
     let currentMonth = -1
     for (const w of weeks) {
       const m = w.start.getMonth()
-      const y = w.start.getFullYear()
       if (m !== currentMonth) {
         currentMonth = m
         months.push({
@@ -758,6 +765,7 @@ export default function MasterProgramme() {
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line no-unused-vars
 function StatCard({ icon: Icon, label, value, color }) {
   const colors = {
     blue:  'bg-blue-50 text-blue-600 border-blue-100',

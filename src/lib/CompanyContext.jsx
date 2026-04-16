@@ -1,7 +1,7 @@
 import { getSession, setSession, removeSession } from './storage'
-import { createContext, useContext, useState, useEffect, useRef } from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from './supabase'
-import { cacheAuth, getCachedAuth } from './offlineDb'
+import { cacheAuth, getCachedAuth, clearStore } from './offlineDb'
 
 const CompanyContext = createContext(null)
 
@@ -10,10 +10,6 @@ export function CompanyProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    checkSession()
-  }, [])
 
   async function checkSession() {
     let restored = false
@@ -40,7 +36,7 @@ export function CompanyProvider({ children }) {
             cacheAuth('session', { access_token: refreshed.access_token, refresh_token: refreshed.refresh_token, user: refreshed.user }).catch(() => {})
             restored = true
           }
-        } catch {}
+        } catch { /* ignore */ }
       }
     } catch (err) {
       console.error('Session check failed:', err)
@@ -61,7 +57,7 @@ export function CompanyProvider({ children }) {
           console.log('[cache] Restored auth from IndexedDB')
           restored = true
         }
-      } catch {}
+      } catch { /* ignore */ }
     }
 
     // 4. Try stored session in localStorage (mobile persistent login)
@@ -75,7 +71,7 @@ export function CompanyProvider({ children }) {
           if (data.id) loadFullProfile(data.id)
           console.log('[native] Restored auth from stored session')
           restored = true
-        } catch {}
+        } catch { /* ignore */ }
       }
     }
 
@@ -96,6 +92,14 @@ export function CompanyProvider({ children }) {
     // Store in sessionStorage for backward compatibility
     setSession('pm_auth', 'true')
     setSession('manager_data', JSON.stringify({ ...userData, project_ids: [] }))
+  }
+
+  function applyBranding(companyData) {
+    if (!companyData) return
+    const root = document.documentElement
+    root.style.setProperty('--primary-color', companyData.primary_colour || '#1B6FC8')
+    root.style.setProperty('--sidebar-color', companyData.secondary_colour || '#1A2744')
+    document.title = `${companyData.name} | CoreSite`
   }
 
   async function loadFullProfile(userId) {
@@ -123,8 +127,8 @@ export function CompanyProvider({ children }) {
         cacheAuth('profile', prof).catch(() => {})
       }
 
-      // Load company
-      const companyId = prof?.company_id || user?.company_id
+      // Load company — use prof data or the userId arg (not `user` state which may be stale)
+      const companyId = prof?.company_id
       if (companyId) {
         const { data: companies } = await supabase
           .from('companies')
@@ -144,13 +148,10 @@ export function CompanyProvider({ children }) {
     }
   }
 
-  function applyBranding(companyData) {
-    if (!companyData) return
-    const root = document.documentElement
-    root.style.setProperty('--primary-color', companyData.primary_colour || '#1B6FC8')
-    root.style.setProperty('--sidebar-color', companyData.secondary_colour || '#1A2744')
-    document.title = `${companyData.name} | CoreSite`
-  }
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    checkSession()
+  }, [])
 
   function clearState() {
     setUser(null)
@@ -158,6 +159,8 @@ export function CompanyProvider({ children }) {
     setCompany(null)
     removeSession('pm_auth')
     removeSession('manager_data')
+    removeSession('operative_session')
+    removeSession('operative_return_url')
     document.title = 'CoreSite — Site Compliance Platform'
     document.documentElement.style.setProperty('--primary-color', '#1B6FC8')
     document.documentElement.style.setProperty('--sidebar-color', '#1A2744')
@@ -180,6 +183,8 @@ export function CompanyProvider({ children }) {
   async function logout() {
     await supabase.auth.signOut()
     clearState()
+    // Clear IndexedDB auth cache so offline restore doesn't resurrect the session
+    clearStore('authCache').catch(() => {})
   }
 
   async function resetPassword(email) {
@@ -207,6 +212,7 @@ export function CompanyProvider({ children }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCompany() {
   const ctx = useContext(CompanyContext)
   if (!ctx) throw new Error('useCompany must be used within CompanyProvider')

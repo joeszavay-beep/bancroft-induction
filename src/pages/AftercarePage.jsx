@@ -99,6 +99,10 @@ export default function AftercarePage() {
   function handlePhotoChange(e) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Photo must be under 10MB')
+      return
+    }
     setPhoto(file)
     setPhotoPreview(URL.createObjectURL(file))
   }

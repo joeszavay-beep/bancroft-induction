@@ -5,7 +5,7 @@ import {
   fetchSignatureAsDataUrl, formatDate, formatDateTime, COLORS
 } from './reportTemplate'
 
-export async function generateSignOffSheet({ projectName, documentTitle, signatures, companyName }) {
+export async function generateSignOffSheet({ projectName, documentTitle, signatures }) {
   const doc = new jsPDF('p', 'mm', 'a4')
   const pageW = 210
   const margin = 14
@@ -50,7 +50,7 @@ export async function generateSignOffSheet({ projectName, documentTitle, signatu
     if (sig.signature_url && !sig.invalidated) {
       try {
         sigImg = await fetchSignatureAsDataUrl(sig.signature_url)
-      } catch {}
+      } catch { /* ignore */ }
     }
     people.push({
       name: sig.operative_name,

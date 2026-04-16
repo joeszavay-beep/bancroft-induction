@@ -38,8 +38,6 @@ export default function OperativeProfile() {
   const [uploadingBack, setUploadingBack] = useState(false)
   const [lightbox, setLightbox] = useState(null)
 
-  useEffect(() => { loadOperative() }, [])
-
   async function loadOperative() {
     const { data } = await supabase
       .from('operatives')
@@ -64,6 +62,9 @@ export default function OperativeProfile() {
     setCardBackUrl(data.card_back_url || '')
     setLoading(false)
   }
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadOperative() }, [])
 
   async function uploadCardPhoto(file, side) {
     if (!file) return null
@@ -323,6 +324,7 @@ export default function OperativeProfile() {
   )
 }
 
+// eslint-disable-next-line no-unused-vars
 function Section({ icon: Icon, title, colour, required, children }) {
   return (
     <div className="bg-white border border-[#E2E6EA] rounded-xl overflow-hidden">

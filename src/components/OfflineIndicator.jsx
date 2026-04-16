@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNetworkStatus } from '../hooks/useNetworkStatus'
 import { useSyncStatus } from '../hooks/useSyncStatus'
 import { WifiOff, Wifi, Loader2 } from 'lucide-react'
@@ -7,16 +7,17 @@ export default function OfflineIndicator() {
   const isOnline = useNetworkStatus()
   const { syncing, pendingCount } = useSyncStatus()
   const [showReconnected, setShowReconnected] = useState(false)
-  const [wasOffline, setWasOffline] = useState(false)
+  const wasOfflineRef = useRef(false)
 
   useEffect(() => {
     if (!isOnline) {
-      setWasOffline(true)
-    } else if (wasOffline) {
+      wasOfflineRef.current = true
+    } else if (wasOfflineRef.current) {
+      wasOfflineRef.current = false
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowReconnected(true)
       const timer = setTimeout(() => {
         setShowReconnected(false)
-        setWasOffline(false)
       }, 4000)
       return () => clearTimeout(timer)
     }

@@ -12,10 +12,6 @@ export default function OperativeDocuments() {
   const [signatures, setSignatures] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadData()
-  }, [operativeId])
-
   async function loadData() {
     setLoading(true)
     const { data: op } = await supabase
@@ -45,6 +41,11 @@ export default function OperativeDocuments() {
     setSignatures(sigs || [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData()
+  }, [operativeId])
 
   if (loading) {
     return (

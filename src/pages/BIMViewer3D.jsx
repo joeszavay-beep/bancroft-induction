@@ -128,6 +128,7 @@ function ClippingPlane({ enabled, position, axis }) {
       if (axis === 'y') plane.set(new THREE.Vector3(0, -1, 0), position)
       else if (axis === 'x') plane.set(new THREE.Vector3(-1, 0, 0), position)
       else plane.set(new THREE.Vector3(0, 0, -1), position)
+      // eslint-disable-next-line react-hooks/immutability
       gl.clippingPlanes = [plane]
     } else {
       gl.clippingPlanes = []
@@ -561,6 +562,7 @@ function MeasureClickHandler({ active, onPoint, snap, onPreview }) {
 
   useEffect(() => {
     if (!active) {
+      // eslint-disable-next-line react-hooks/immutability
       gl.domElement.style.cursor = ''
       onPreview?.(null)
       return
@@ -594,7 +596,7 @@ function MeasureClickHandler({ active, onPoint, snap, onPreview }) {
       canvas.removeEventListener('mousemove', handleMove)
       canvas.style.cursor = ''
     }
-  }, [active, camera, scene, onPoint, snap])
+  }, [active, camera, scene, onPoint, snap, onPreview])
 
   return null
 }
@@ -965,10 +967,10 @@ export default function BIMViewer3D() {
                 if (typeof elId === 'number') storeyMap[elId] = storey?.name || null
               }
             }
-          } catch {}
+          } catch { /* ignore */ }
         }
       }
-    } catch {}
+    } catch { /* ignore */ }
 
     for (const { typeID, typeName } of allTypes) {
       processed++
@@ -1014,10 +1016,11 @@ export default function BIMViewer3D() {
             if (isMEP) mepMeshes.push(meshData)
             else structMeshes.push(meshData)
           }
-        } catch {}
+        } catch { /* ignore */ }
       }
     }
     ifcApi.CloseModel(modelID)
+    ifcApi.Dispose()
     return { mepMeshes, structMeshes, meshBox: box.isEmpty() ? null : box, floors: [...floorSet] }
   }
 

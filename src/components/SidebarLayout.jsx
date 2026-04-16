@@ -9,9 +9,9 @@ import SyncBadge from './SyncBadge'
 import NotificationBell from './NotificationBell'
 import DemoBanner from './DemoBanner'
 import {
-  Menu, X, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
+  Menu, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
-  Globe, Settings, User, Shield, Image, Layers, BookOpen, CheckSquare, Activity, Bell, Box, CalendarRange,
+  Globe, Settings, User, Shield, Layers, BookOpen, CheckSquare, Activity, Box, CalendarRange,
   Briefcase, PlusCircle, CalendarCheck, Building2, Calendar, Star, Link2, PoundSterling
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
@@ -150,7 +150,6 @@ export default function SidebarLayout({ children }) {
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   const companyName = company?.name || 'Company'
   const companyLogo = company?.logo_url || null
-  const primaryColor = company?.primary_colour || '#1B6FC8'
   const sidebarColor = company?.secondary_colour || '#1A2744'
 
   // Check if user is linked to an agency

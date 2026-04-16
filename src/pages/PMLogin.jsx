@@ -22,8 +22,8 @@ export default function PMLogin() {
   const [showPassword, setShowPassword] = useState(false)
   const [showReset, setShowReset] = useState(false)
   const [accountName, setAccountName] = useState('')
-  const [hasManager, setHasManager] = useState(false)
-  const [hasWorker, setHasWorker] = useState(false)
+  const [, setHasManager] = useState(false)
+  const [, setHasWorker] = useState(false)
   const [managerName, setManagerName] = useState('')
   const [workerName, setWorkerName] = useState('')
   const [workerCompany, setWorkerCompany] = useState('')
@@ -125,7 +125,7 @@ export default function PMLogin() {
         primary_colour: op.companies?.primary_colour || '#1B6FC8',
       }))
       navigate('/worker')
-    } catch (err) {
+    } catch {
       setError('Something went wrong. Please try again.')
       setLoading(false)
     }

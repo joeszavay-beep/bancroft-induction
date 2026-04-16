@@ -1,7 +1,17 @@
+function escapeHtml(str) {
+  if (!str) return str
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const { name, email, company, phone, message } = req.body
+  const raw = req.body
+  const name = escapeHtml(raw.name)
+  const email = escapeHtml(raw.email)
+  const company = escapeHtml(raw.company)
+  const phone = escapeHtml(raw.phone)
+  const message = escapeHtml(raw.message)
   if (!name || !email) return res.status(400).json({ error: 'Name and email required' })
 
   const resendKey = process.env.RESEND_API_KEY

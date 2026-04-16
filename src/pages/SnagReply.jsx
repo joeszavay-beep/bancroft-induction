@@ -3,6 +3,15 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import { Camera, CheckCircle2, XCircle, Upload, Send, MessageSquare } from 'lucide-react'
+import { smartCompress } from '../lib/imageCompressor'
+
+const STATUS_COLORS = {
+  open: 'bg-red-100 text-red-700',
+  completed: 'bg-green-100 text-green-700',
+  closed: 'bg-gray-100 text-gray-600',
+  reassigned: 'bg-amber-100 text-amber-700',
+  pending_review: 'bg-purple-100 text-purple-700',
+}
 
 export default function SnagReply() {
   const { token } = useParams()
@@ -15,8 +24,6 @@ export default function SnagReply() {
   const [photoFile, setPhotoFile] = useState(null)
   const [comment, setComment] = useState('')
   const [comments, setComments] = useState([])
-
-  useEffect(() => { loadSnag() }, [token])
 
   async function loadSnag() {
     const { data } = await supabase
@@ -38,13 +45,25 @@ export default function SnagReply() {
     setLoading(false)
   }
 
-  function handlePhoto(e) {
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadSnag() }, [token])
+
+  async function handlePhoto(e) {
     const file = e.target.files[0]
     if (!file) return
-    setPhotoFile(file)
-    const reader = new FileReader()
-    reader.onload = () => setPhotoPreview(reader.result)
-    reader.readAsDataURL(file)
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error('Photo must be under 25MB')
+      return
+    }
+    try {
+      const compressed = await smartCompress(file)
+      setPhotoFile(compressed)
+      setPhotoPreview(URL.createObjectURL(compressed))
+    } catch {
+      // Fallback to original if compression fails
+      setPhotoFile(file)
+      setPhotoPreview(URL.createObjectURL(file))
+    }
   }
 
   async function handleCommentOnly() {
@@ -72,7 +91,7 @@ export default function SnagReply() {
     try {
       // Upload photo
       const filePath = `snag-replies/${snag.id}/${crypto.randomUUID()}.jpg`
-      const { error: upErr } = await supabase.storage.from('snag-photos').upload(filePath, photoFile, { contentType: photoFile.type })
+      const { error: upErr } = await supabase.storage.from('snag-photos').upload(filePath, photoFile, { contentType: photoFile.type || 'image/jpeg' })
       if (upErr) { console.error('Upload error:', upErr); setUploading(false); toast.error('Failed to upload photo'); return }
 
       const { data: urlData } = supabase.storage.from('snag-photos').getPublicUrl(filePath)
@@ -100,7 +119,7 @@ export default function SnagReply() {
           snag_id: snag.id, comment: 'Completion photo submitted for review',
           author_name: snag.assigned_to || 'Operative', author_role: 'Operative',
         })
-      } catch {}
+      } catch { /* ignore */ }
 
       setUploading(false)
       setSubmitted(true)
@@ -157,7 +176,7 @@ export default function SnagReply() {
         {/* Snag info */}
         <div className="bg-white border border-[#E2E6EA] rounded-xl p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-3">
-            <span className="bg-red-100 text-red-700 text-[11px] font-bold px-2 py-0.5 rounded">
+            <span className={`${STATUS_COLORS[snag.status] || 'bg-gray-100 text-gray-600'} text-[11px] font-bold px-2 py-0.5 rounded`}>
               {snag.status?.toUpperCase()}
             </span>
             <h1 className="text-lg font-bold text-slate-900">Snag #{snag.snag_number}</h1>

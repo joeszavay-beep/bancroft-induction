@@ -5,6 +5,7 @@ const STATUS_COLORS = {
   completed: [34, 197, 94],
   closed: [156, 163, 175],
   reassigned: [245, 158, 11],
+  pending_review: [168, 85, 247],
 }
 
 async function fetchImageAsDataUrl(url) {
@@ -43,7 +44,7 @@ async function fetchImageAsDataUrl(url) {
   } catch { return null }
 }
 
-function generateLocationMapDataUrl(img, pinX, pinY, snagNumber) {
+function generateLocationMapDataUrl(img, pinX, pinY) {
   const canvas = document.createElement('canvas')
   const size = 200
   canvas.width = size
@@ -170,7 +171,7 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl, optio
         doc.setFont('helvetica', 'bold')
         doc.text(`${snag.snag_number}`, pinX, pinY + 1, { align: 'center' })
       }
-    } catch (e) {
+    } catch {
       doc.setTextColor(150, 150, 150)
       doc.setFontSize(12)
       doc.text('[Drawing image could not be loaded]', pageW / 2, pageH / 2, { align: 'center' })
@@ -284,7 +285,7 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl, optio
           doc.setFontSize(5)
           doc.text('Photo', imgX, y + 48)
           photoLoaded = true
-        } catch {}
+        } catch { /* ignore */ }
       }
     }
 
@@ -302,7 +303,7 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl, optio
         doc.setTextColor(150, 150, 150)
         doc.setFontSize(5)
         doc.text(`Location — Pin #${snag.snag_number}`, imgX, locY + locSize + 3)
-      } catch {}
+      } catch { /* ignore */ }
     }
 
     // Meta info

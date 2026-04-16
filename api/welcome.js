@@ -23,7 +23,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const loginUrl = 'https://coresite.io/login'
+    const loginUrl = `${process.env.APP_URL || 'https://app.coresite.io'}/login`
 
     const emailRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -92,7 +92,13 @@ export default async function handler(req, res) {
       }),
     })
 
-    return res.status(200).json({ message: emailRes.ok ? 'Email sent' : 'Email failed' })
+    if (!emailRes.ok) {
+      const err = await emailRes.text()
+      console.error('Welcome email Resend error:', err)
+      return res.status(502).json({ error: 'Failed to send welcome email' })
+    }
+
+    return res.status(200).json({ message: 'Email sent' })
   } catch (error) {
     console.error('Welcome email error:', error)
     return res.status(500).json({ error: 'Failed to send email' })

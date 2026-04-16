@@ -32,14 +32,6 @@ export default function OperativeInvoices() {
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    const session = getSession('operative_session')
-    if (!session) { navigate('/worker-login'); return }
-    const data = JSON.parse(session)
-    setOp(data)
-    loadData(data)
-  }, [])
-
   async function loadData(opData) {
     setLoading(true)
 
@@ -76,6 +68,14 @@ export default function OperativeInvoices() {
     setLoading(false)
   }
 
+  useEffect(() => {
+    const session = getSession('operative_session')
+    if (!session) { navigate('/worker-login'); return }
+    const data = JSON.parse(session)
+    setOp(data) // eslint-disable-line react-hooks/set-state-in-effect
+    loadData(data)
+  }, [])
+
   async function calculateInvoice() {
     if (!selectedJobOp || !periodFrom || !periodTo) return
     const jo = jobOps.find(j => j.id === selectedJobOp)
@@ -101,7 +101,7 @@ export default function OperativeInvoices() {
   }
 
   useEffect(() => {
-    if (selectedJobOp && periodFrom && periodTo) calculateInvoice()
+    if (selectedJobOp && periodFrom && periodTo) calculateInvoice() // eslint-disable-line react-hooks/set-state-in-effect
     else setCalculatedData(null)
   }, [selectedJobOp, periodFrom, periodTo])
 
@@ -116,7 +116,11 @@ export default function OperativeInvoices() {
     const jo = jobOps.find(j => j.id === selectedJobOp)
 
     // Generate reference: OP-001, OP-002 etc.
-    const nextNum = invoices.length + 1
+    const existingNums = invoices.map(inv => {
+      const match = inv.invoice_ref?.match(/^OP-(\d+)$/)
+      return match ? parseInt(match[1], 10) : 0
+    })
+    const nextNum = (existingNums.length > 0 ? Math.max(...existingNums) : 0) + 1
     const ref = `OP-${String(nextNum).padStart(3, '0')}`
 
     const record = {

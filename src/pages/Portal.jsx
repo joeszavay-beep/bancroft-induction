@@ -13,14 +13,6 @@ export default function Portal() {
   const [loading, setLoading] = useState(true)
   const [selectedSig, setSelectedSig] = useState(null)
 
-  useEffect(() => {
-    if (!projectId) {
-      loadProjects()
-    } else {
-      loadProjectData()
-    }
-  }, [projectId])
-
   async function loadProjects() {
     // Don't list all projects publicly — redirect to login
     setLoading(false)
@@ -39,6 +31,15 @@ export default function Portal() {
     setOperatives(ops.data || [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (!projectId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadProjects()
+    } else {
+      loadProjectData()
+    }
+  }, [projectId])
 
   if (loading) {
     return (
@@ -111,7 +112,8 @@ export default function Portal() {
           <div className="space-y-4">
             {operatives.map(op => {
               const opSigs = signatures.filter(s => s.operative_id === op.id)
-              const allDone = documents.length > 0 && opSigs.length >= documents.length
+              const validSigs = opSigs.filter(s => !s.invalidated)
+              const allDone = documents.length > 0 && validSigs.length >= documents.length
               return (
                 <div key={op.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
                   <div className="p-4 flex items-center gap-3">
@@ -124,7 +126,7 @@ export default function Portal() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-slate-900 font-semibold truncate">{op.name}</p>
-                      <p className="text-xs text-slate-500">{op.role || 'Operative'} · {opSigs.length}/{documents.length} signed</p>
+                      <p className="text-xs text-slate-500">{op.role || 'Operative'} · {validSigs.length}/{documents.length} signed</p>
                     </div>
                     {allDone && <span className="text-xs bg-success/10 text-success px-2 py-1 rounded-full font-medium">Complete</span>}
                   </div>

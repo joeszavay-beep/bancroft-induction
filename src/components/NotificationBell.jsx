@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
 import { Bell, Check, Info, AlertTriangle, CheckCircle2, XCircle, X } from 'lucide-react'
@@ -29,6 +30,7 @@ function TypeIcon({ type }) {
 
 export default function NotificationBell() {
   const { user } = useCompany()
+  const navigate = useNavigate()
   const [notifications, setNotifications] = useState([])
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -114,7 +116,7 @@ export default function NotificationBell() {
   function handleNotificationClick(notification) {
     markAsRead(notification.id)
     if (notification.link) {
-      window.location.href = notification.link
+      navigate(notification.link)
     }
   }
 

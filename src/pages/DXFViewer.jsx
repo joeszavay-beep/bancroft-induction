@@ -76,19 +76,12 @@ export default function DXFViewer() {
   const [calibration, setCalibration] = useState(null)
   const [calibrating, setCalibrating] = useState(false)
   const [calPoints, setCalPoints] = useState([])
-  const [calDistanceInput, setCalDistanceInput] = useState('')
+  const [, setCalDistanceInput] = useState('')
   const [calScale, setCalScale] = useState(100) // default 1:100
   const [calDimInput, setCalDimInput] = useState('')
 
   // Track pointer for tap detection (avoid marking on pan)
   const tapRef = useRef(null)
-
-  useEffect(() => { loadData() }, [drawingId])
-
-  useEffect(() => {
-    const cal = getCalibration(drawingId)
-    if (cal) setCalibration(cal)
-  }, [drawingId])
 
   async function loadData() {
     setLoading(true)
@@ -132,6 +125,13 @@ export default function DXFViewer() {
     }
     setLoading(false)
   }
+
+  useEffect(() => { loadData() }, [drawingId])
+
+  useEffect(() => {
+    const cal = getCalibration(drawingId)
+    if (cal) setCalibration(cal)
+  }, [drawingId])
 
   // Metres per percent from calibration
   const metresPerPercent = useMemo(() => calcMetresPerPercent(calibration), [calibration])
@@ -204,25 +204,6 @@ export default function DXFViewer() {
         toast.success('Two points set — enter the known distance')
       }
     }
-  }
-
-  function confirmCalibration() {
-    const dist = parseFloat(calDistanceInput)
-    if (!dist || dist <= 0 || calPoints.length !== 2) {
-      toast.error('Enter a valid distance in metres')
-      return
-    }
-    const cal = {
-      point1: calPoints[0],
-      point2: calPoints[1],
-      distanceMetres: dist,
-    }
-    saveCalibration(drawingId, cal)
-    setCalibration(cal)
-    setCalibrating(false)
-    setCalPoints([])
-    setCalDistanceInput('')
-    toast.success(`Scale set: ${calcMetresPerPercent(cal)?.toFixed(4)} m/%`)
   }
 
   function confirmCalibrationWithScale() {
@@ -514,7 +495,7 @@ export default function DXFViewer() {
               {/* Calculated real distance */}
               {calScale && calDimInput && (
                 <span className="text-xs text-green-600 font-semibold ml-1">
-                  = {(parseFloat(calDimInput) * calScale / 1000).toFixed(2)}m real
+                  = {(parseFloat(calDimInput) / 1000).toFixed(2)}m real
                 </span>
               )}
 

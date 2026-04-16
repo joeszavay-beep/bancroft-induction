@@ -65,10 +65,6 @@ export default function SiteAttendance() {
   const [qrProject, setQrProject] = useState(null)
   const qrRef = useRef(null)
 
-  useEffect(() => {
-    if (cid) { loadData(); loadHistoryAuto() }
-  }, [cid])
-
   async function loadHistoryAuto() {
     const fromDate = new Date(); fromDate.setDate(fromDate.getDate() - 30)
     const toDate = new Date(); toDate.setHours(23, 59, 59)
@@ -95,6 +91,10 @@ export default function SiteAttendance() {
     setTodayRecords(a.data || [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (cid) { loadData(); loadHistoryAuto() } // eslint-disable-line react-hooks/set-state-in-effect
+  }, [cid])
 
   // Determine who is currently on site
   const onSiteOperatives = useMemo(() => {
@@ -259,7 +259,7 @@ export default function SiteAttendance() {
         r.duration ? formatDuration(r.duration) : '',
         r.method || '',
         r.ip_address || '',
-        r.gps ? `${r.gps.lat},${r.gps.lng}` : '',
+        (r.latitude && r.longitude) ? `${r.latitude},${r.longitude}` : '',
       ]
     })
     const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
@@ -599,8 +599,8 @@ export default function SiteAttendance() {
                         <td className="py-2 px-3 hidden md:table-cell" style={{ color: 'var(--text-muted)' }}>{r.duration ? formatDuration(r.duration) : '--'}</td>
                         <td className="py-2 px-3 hidden lg:table-cell text-xs" style={{ color: 'var(--text-muted)' }}>{r.ip_address || '--'}</td>
                         <td className="py-2 px-3 hidden lg:table-cell text-xs" style={{ color: 'var(--text-muted)' }}>
-                          {r.gps ? (
-                            <span className="flex items-center gap-1"><MapPin size={11} />{r.gps.lat?.toFixed(4)}, {r.gps.lng?.toFixed(4)}</span>
+                          {(r.latitude && r.longitude) ? (
+                            <span className="flex items-center gap-1"><MapPin size={11} />{Number(r.latitude).toFixed(4)}, {Number(r.longitude).toFixed(4)}</span>
                           ) : '--'}
                         </td>
                       </tr>
@@ -708,7 +708,7 @@ export default function SiteAttendance() {
               </div>
               <div className="flex justify-center">
                 <QRCodeSVG
-                  value={`https://coresite.io/site/${qrProject.id}`}
+                  value={`https://www.coresite.io/site/${qrProject.id}`}
                   size={220}
                   level="H"
                   includeMargin

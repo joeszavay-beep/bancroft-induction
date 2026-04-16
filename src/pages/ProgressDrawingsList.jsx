@@ -48,8 +48,6 @@ export default function ProgressDrawingsList() {
   const [dProject, setDProject] = useState('')
   const [dFile, setDFile] = useState(null)
 
-  useEffect(() => { loadAll() }, [])
-
   async function loadAll() {
     setLoading(true)
     const [d, p] = await Promise.all([
@@ -75,9 +73,15 @@ export default function ProgressDrawingsList() {
     setLoading(false)
   }
 
+  useEffect(() => { loadAll() }, [])
+
   async function uploadDrawing(e) {
     e.preventDefault()
     if (!dName.trim() || !dProject || !dFile) return
+    if (dFile.size > 25 * 1024 * 1024) {
+      toast.error('File must be under 25MB')
+      return
+    }
     setSaving(true)
 
     let fileToUpload = dFile

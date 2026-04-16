@@ -20,7 +20,7 @@ const INDUSTRIES = ['M&E', 'Fit-out', 'Civils', 'General', 'Other']
 
 export default function Onboarding() {
   const navigate = useNavigate()
-  const { user, company, refreshCompany, isAuthenticated, isLoading } = useCompany()
+  const { company, refreshCompany, isAuthenticated, isLoading } = useCompany()
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [completed, setCompleted] = useState(false)
@@ -172,6 +172,10 @@ export default function Onboarding() {
   // Step 4: Upload drawing
   async function handleUploadDrawing() {
     if (!drawingFile || !projectCreated) return
+    if (drawingFile.size > 25 * 1024 * 1024) {
+      toast.error('File must be under 25MB')
+      return
+    }
     setSaving(true)
     try {
       const uuid = crypto.randomUUID()

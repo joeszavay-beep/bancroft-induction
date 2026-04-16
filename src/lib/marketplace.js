@@ -336,6 +336,7 @@ export function matchOperatives(request, operatives, certifications, availabilit
 // CSCS VERIFICATION (placeholder for Smart Check API)
 // ============================================================
 
+// eslint-disable-next-line no-unused-vars
 export async function verifyCscsCard(registrationNumber) {
   // TODO: Integrate with CITB Smart Check API
   // When available, this function should:

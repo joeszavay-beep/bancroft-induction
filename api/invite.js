@@ -17,9 +17,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields' })
   }
 
-  const baseUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : req.headers.origin || 'https://bancroft-induction.vercel.app'
+  const baseUrl = process.env.APP_URL || 'https://app.coresite.io'
 
   const profileLink = `${baseUrl}/operative/${operativeId}/profile`
   const documentsLink = `${baseUrl}/operative/${operativeId}/documents`
@@ -99,7 +97,7 @@ export default async function handler(req, res) {
           body: new URLSearchParams({
             To: mobile.startsWith('+') ? mobile : `+44${mobile.replace(/^0/, '')}`,
             From: twilioFrom,
-            Body: `Hi ${operativeName}, you've been added to ${projectName} on Bancroft Ltd's induction platform. Complete your profile and sign documents here: ${profileLink}`,
+            Body: `Hi ${operativeName}, you've been added to ${projectName} on CoreSite. Complete your profile and sign documents here: ${profileLink}`,
           }),
         })
         results.sms = smsRes.ok ? 'sent' : 'failed'

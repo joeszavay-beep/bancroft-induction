@@ -68,7 +68,7 @@ function calculateVarianceDays(activity, percentage) {
 
 /**
  * Calculate installation rate from historical snapshots (metres per week)
- * @param {Array} snapshots - Array of { date, installed_length_metres } sorted by date ascending
+ * @param {Array} snapshots - Array of { snapshot_date, installed_length_metres } sorted by date ascending
  * @returns {{ ratePerWeek, trend }}
  */
 export function calculateRate(snapshots) {
@@ -76,14 +76,17 @@ export function calculateRate(snapshots) {
     return { ratePerWeek: 0, trend: 'stable' }
   }
 
+  // Support both 'snapshot_date' (DB column) and 'date' (legacy) field names
+  const getDate = (s) => s.snapshot_date || s.date
+
   // Use last 4 weeks of data if available
-  const sorted = [...snapshots].sort((a, b) => new Date(a.date) - new Date(b.date))
+  const sorted = [...snapshots].sort((a, b) => new Date(getDate(a)) - new Date(getDate(b)))
   const latest = sorted[sorted.length - 1]
-  const fourWeeksAgo = new Date(new Date(latest.date).getTime() - 28 * 24 * 60 * 60 * 1000)
-  const recentStart = sorted.find(s => new Date(s.date) >= fourWeeksAgo) || sorted[0]
+  const fourWeeksAgo = new Date(new Date(getDate(latest)).getTime() - 28 * 24 * 60 * 60 * 1000)
+  const recentStart = sorted.find(s => new Date(getDate(s)) >= fourWeeksAgo) || sorted[0]
 
   const lengthDelta = latest.installed_length_metres - recentStart.installed_length_metres
-  const daysDelta = Math.max(1, (new Date(latest.date) - new Date(recentStart.date)) / (1000 * 60 * 60 * 24))
+  const daysDelta = Math.max(1, (new Date(getDate(latest)) - new Date(getDate(recentStart))) / (1000 * 60 * 60 * 24))
   const ratePerWeek = Math.round((lengthDelta / daysDelta) * 7 * 100) / 100
 
   // Calculate trend by comparing last 2 weeks vs previous 2 weeks
@@ -91,9 +94,9 @@ export function calculateRate(snapshots) {
   if (sorted.length >= 3) {
     const midIdx = Math.floor(sorted.length / 2)
     const firstHalfRate = (sorted[midIdx].installed_length_metres - sorted[0].installed_length_metres) /
-      Math.max(1, (new Date(sorted[midIdx].date) - new Date(sorted[0].date)) / (1000 * 60 * 60 * 24))
+      Math.max(1, (new Date(getDate(sorted[midIdx])) - new Date(getDate(sorted[0]))) / (1000 * 60 * 60 * 24))
     const secondHalfRate = (latest.installed_length_metres - sorted[midIdx].installed_length_metres) /
-      Math.max(1, (new Date(latest.date) - new Date(sorted[midIdx].date)) / (1000 * 60 * 60 * 24))
+      Math.max(1, (new Date(getDate(latest)) - new Date(getDate(sorted[midIdx]))) / (1000 * 60 * 60 * 24))
 
     if (secondHalfRate > firstHalfRate * 1.15) trend = 'improving'
     else if (secondHalfRate < firstHalfRate * 0.85) trend = 'declining'

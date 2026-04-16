@@ -25,8 +25,6 @@ export default function AgencyConnections() {
   const [agencyOperatives, setAgencyOperatives] = useState([])
   const [loadingOperatives, setLoadingOperatives] = useState(false)
 
-  useEffect(() => { loadConnections() }, [])
-
   async function loadConnections() {
     if (!companyId) { setLoading(false); return }
     try {
@@ -75,6 +73,8 @@ export default function AgencyConnections() {
     }
     setLoading(false)
   }
+
+  useEffect(() => { loadConnections() }, [])
 
   async function searchAgencies(term) {
     if (!term || term.length < 2) { setSearchResults([]); return }

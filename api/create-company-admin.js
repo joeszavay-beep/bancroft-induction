@@ -6,7 +6,7 @@ async function sendWelcomeEmail(companyName, contactName, email, tempPassword) {
     console.log(`[Welcome] ${contactName} at ${companyName} — email: ${email} (no RESEND_API_KEY)`)
     return
   }
-  const loginUrl = 'https://coresite.io/login'
+  const loginUrl = `${process.env.APP_URL || 'https://app.coresite.io'}/login`
   try {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -111,11 +111,10 @@ export default async function handler(req, res) {
     })
     if (profileErr) console.error('Profile insert error:', profileErr)
 
-    // Create managers record
+    // Create managers record (password only stored in Supabase Auth, not here)
     const { error: mgrErr } = await supabase.from('managers').insert({
       name: adminName,
       email: adminEmail,
-      password: tempPassword,
       role: 'admin',
       company_id: companyId,
       is_active: true,

@@ -13,7 +13,7 @@ const STATUS_MAP = Object.fromEntries(JOB_STATUSES.map(s => [s.value, s]))
 
 export default function SubcontractorJobs() {
   const navigate = useNavigate()
-  const { user, company } = useCompany()
+  const { user } = useCompany()
   const cid = user?.company_id
 
   const [jobs, setJobs] = useState([])
@@ -33,16 +33,18 @@ export default function SubcontractorJobs() {
     payment_terms_days: '30', scope_description: '',
   })
 
-  useEffect(() => { if (cid) loadData() }, [cid])
-
   async function loadData() {
     setLoading(true)
     try {
-      const [jobRes, projRes, varRes] = await Promise.all([
+      const [jobRes, projRes] = await Promise.all([
         supabase.from('subcontractor_jobs').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
         supabase.from('projects').select('id, name').eq('company_id', cid).order('name'),
-        supabase.from('job_variations').select('id, job_id, value, status'),
       ])
+      const jobIds = (jobRes.data || []).map(j => j.id)
+      let varRes = { data: [] }
+      if (jobIds.length > 0) {
+        varRes = await supabase.from('job_variations').select('id, job_id, value, status').in('job_id', jobIds)
+      }
       const variationsByJob = {}
       for (const v of (varRes.data || [])) {
         if (!variationsByJob[v.job_id]) variationsByJob[v.job_id] = []
@@ -66,6 +68,8 @@ export default function SubcontractorJobs() {
     }
     setLoading(false)
   }
+
+  useEffect(() => { if (cid) loadData() }, [cid])
 
   async function handleCreate(e) {
     e.preventDefault()
@@ -371,6 +375,7 @@ function Field({ label, children }) {
   )
 }
 
+// eslint-disable-next-line no-unused-vars
 function SummaryCard({ icon: Icon, label, value, color }) {
   const colors = {
     blue: 'bg-blue-50 text-blue-600 border-blue-100',

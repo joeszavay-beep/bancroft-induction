@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useRef } from 'react'
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -25,7 +25,11 @@ export default function DateOfBirthPicker({ value, onChange }) {
   const [year, setYear] = useState(parsed ? parsed.getFullYear().toString() : '')
 
   // Sync if value changes externally
-  useEffect(() => {
+  const prevValueRef = useRef(value)
+  // eslint-disable-next-line react-hooks/refs
+  if (value !== prevValueRef.current) {
+    // eslint-disable-next-line react-hooks/refs
+    prevValueRef.current = value
     if (value) {
       const d = new Date(value + 'T00:00')
       if (!isNaN(d.getTime())) {
@@ -34,7 +38,7 @@ export default function DateOfBirthPicker({ value, onChange }) {
         setYear(d.getFullYear().toString())
       }
     }
-  }, [value])
+  }
 
   function handleChange(newDay, newMonth, newYear) {
     if (newDay && newMonth && newYear) {

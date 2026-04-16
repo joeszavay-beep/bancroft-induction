@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { Clock, LogIn, LogOut, Calendar, X, ChevronDown, ChevronRight } from 'lucide-react'
 
@@ -13,11 +13,7 @@ export default function AttendanceHistory({ operative, onClose }) {
   const [loading, setLoading] = useState(true)
   const [showAll, setShowAll] = useState(false)
 
-  useEffect(() => {
-    loadRecords()
-  }, [operative.id])
-
-  async function loadRecords() {
+  const loadRecords = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
       .from('site_attendance')
@@ -27,7 +23,12 @@ export default function AttendanceHistory({ operative, onClose }) {
       .limit(200)
     setRecords(data || [])
     setLoading(false)
-  }
+  }, [operative.id])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadRecords()
+  }, [loadRecords])
 
   // Group records into sessions (sign_in → sign_out pairs)
   const sessions = []

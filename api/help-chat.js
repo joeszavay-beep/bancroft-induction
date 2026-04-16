@@ -60,7 +60,7 @@ export default async function handler(req, res) {
 
   const identifier = req.headers['x-forwarded-for'] || 'unknown'
   if (!checkRateLimit(identifier)) {
-    return res.status(429).json({ error: "Too many questions! Try again in a minute, or email support@coresite.io." })
+    return res.status(429).json({ error: "Too many questions! Try again in an hour, or email support@coresite.io." })
   }
 
   try {

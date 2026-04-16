@@ -134,7 +134,7 @@ export async function parseIFC(buffer, onProgress) {
               if (typeof elId === 'number') storeyMap[elId] = floorLabel
             }
           }
-        } catch {}
+        } catch { /* ignore */ }
       }
     }
   } catch (err) {
@@ -176,7 +176,7 @@ export async function parseIFC(buffer, onProgress) {
             const coords = extractCoordinates(ifcApi, modelId, placement)
             if (coords) { x = coords.x; y = coords.y; z = coords.z }
           }
-        } catch {}
+        } catch { /* ignore */ }
 
         // Get property sets
         const properties = {}
@@ -193,7 +193,7 @@ export async function parseIFC(buffer, onProgress) {
               }
             }
           }
-        } catch {}
+        } catch { /* ignore */ }
 
         // Floor from storey map, or fall back to Z-height heuristic
         let floorName = storeyMap[expressId] || null
@@ -206,7 +206,7 @@ export async function parseIFC(buffer, onProgress) {
         let systemType = null
         try {
           if (props.PredefinedType?.value) systemType = props.PredefinedType.value
-        } catch {}
+        } catch { /* ignore */ }
 
         elements.push({
           ifc_id: expressId,
@@ -272,6 +272,7 @@ function extractCoordinates(ifcApi, modelId, placement) {
       z: coords[2]?.value ?? coords[2] ?? 0,
     }
   } catch {
+    // ignore
     return null
   }
 }

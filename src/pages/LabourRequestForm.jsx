@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
-import { TRADES, TRADE_OPTIONS, TRADE_CATEGORIES, SKILL_LEVELS, CARD_TYPES, CERT_TYPES, URGENCY_LABELS, formatDayRate } from '../lib/marketplace'
+import { TRADES, TRADE_OPTIONS, TRADE_CATEGORIES, SKILL_LEVELS, CARD_TYPES, CERT_TYPES, URGENCY_LABELS } from '../lib/marketplace'
 import toast from 'react-hot-toast'
 import { ArrowLeft, ArrowRight, Check, Loader2, Send, Link2 } from 'lucide-react'
 
@@ -48,13 +48,6 @@ export default function LabourRequestForm() {
   const [ppeRequirements, setPpeRequirements] = useState('')
   const [urgency, setUrgency] = useState('standard')
 
-  useEffect(() => { loadProjects() }, [])
-
-  // Load connected agencies when entering Step 3
-  useEffect(() => {
-    if (step === 2 && connectedAgencies.length === 0) loadConnectedAgencies()
-  }, [step])
-
   async function loadConnectedAgencies() {
     if (!managerData.company_id) return
     setLoadingAgencies(true)
@@ -90,6 +83,13 @@ export default function LabourRequestForm() {
       console.error('loadProjects error:', err)
     }
   }
+
+  useEffect(() => { loadProjects() }, [])
+
+  // Load connected agencies when entering Step 3
+  useEffect(() => {
+    if (step === 2 && connectedAgencies.length === 0) loadConnectedAgencies()
+  }, [step])
 
   function handleProjectChange(projectId) {
     setSelectedProject(projectId)

@@ -1,3 +1,8 @@
+function escapeHtml(str) {
+  if (!str) return str
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -11,11 +16,19 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields' })
   }
 
+  // Basic email format check to prevent abuse
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    return res.status(400).json({ error: 'Invalid email address' })
+  }
+
+  const safeName = escapeHtml(operativeName)
+  const safeProject = escapeHtml(projectName)
+
   const resendKey = process.env.RESEND_API_KEY
 
   // If no Resend API key configured, just log and return success
   if (!resendKey) {
-    console.log(`[Notification] ${operativeName} completed all documents for ${projectName}. Email would be sent to ${to}.`)
+    console.log(`[Notification] ${safeName} completed all documents for ${safeProject}. Email would be sent to ${to}.`)
     return res.status(200).json({ message: 'Notification logged (email not configured)' })
   }
 
@@ -29,7 +42,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         from: 'CoreSite <noreply@coresite.io>',
         to: [to],
-        subject: `${operativeName} has completed all documents — ${projectName}`,
+        subject: `${safeName} has completed all documents — ${safeProject}`,
         html: `
           <div style="font-family: system-ui, sans-serif; max-width: 500px; margin: 0 auto; background: #0f1529; border-radius: 12px; overflow: hidden;">
             <div style="background: #0a0e1a; padding: 20px 24px;">
@@ -39,10 +52,10 @@ export default async function handler(req, res) {
             <div style="padding: 24px;">
               <div style="background: #1c2744; border: 1px solid #253356; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
                 <p style="color: #22c55e; font-weight: 600; margin: 0 0 4px;">All Documents Complete</p>
-                <p style="color: white; font-size: 18px; font-weight: 700; margin: 0;">${operativeName}</p>
+                <p style="color: white; font-size: 18px; font-weight: 700; margin: 0;">${safeName}</p>
               </div>
               <p style="color: #9ca3af; font-size: 14px; margin: 0;">
-                Has completed and signed all required documents for <strong style="color: white;">${projectName}</strong>.
+                Has completed and signed all required documents for <strong style="color: white;">${safeProject}</strong>.
               </p>
               <p style="color: #6b7280; font-size: 12px; margin: 16px 0 0;">
                 ${new Date().toLocaleString()}

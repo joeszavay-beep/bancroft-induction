@@ -20,12 +20,9 @@ export default function OnboardingChecklist() {
 
   useEffect(() => {
     const stored = localStorage.getItem('onboarding_checklist_dismissed')
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored === 'true') setDismissed(true)
   }, [])
-
-  useEffect(() => {
-    if (company && user) loadChecks()
-  }, [company, user])
 
   async function loadChecks() {
     const cid = company.id
@@ -45,6 +42,11 @@ export default function OnboardingChecklist() {
       snag: (snags.data?.length || 0) > 0,
     })
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (company && user) loadChecks()
+  }, [company, user])
 
   if (dismissed || !company || company.onboarding_complete) return null
 

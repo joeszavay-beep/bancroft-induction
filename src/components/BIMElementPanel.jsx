@@ -3,6 +3,7 @@ import { Search, X, Download, ChevronUp, ChevronDown, Check, ListFilter } from '
 import { BIM_CATEGORIES } from '../lib/bimUtils'
 
 // Status display config — exported for reuse
+// eslint-disable-next-line react-refresh/only-export-components
 export const STATUS = {
   not_verified: { bg: '#F3F4F6', text: '#6B7280', label: 'Not verified' },
   installed: { bg: '#D1FAE5', text: '#065F46', label: 'Installed' },
@@ -47,6 +48,14 @@ function ifcTypeToReadable(ifcType) {
 
 const STATUS_OPTIONS = ['all', 'not_verified', 'installed', 'snagged', 'commissioned']
 
+// Sort arrow indicator — defined outside component to avoid re-creation during render
+function SortArrow({ col, sortCol, sortDir }) {
+  if (sortCol !== col) return <ChevronUp size={12} style={{ opacity: 0.25 }} />
+  return sortDir === 'asc'
+    ? <ChevronUp size={12} style={{ opacity: 1 }} />
+    : <ChevronDown size={12} style={{ opacity: 1 }} />
+}
+
 export default function BIMElementPanel({
   open,
   onClose,
@@ -54,7 +63,6 @@ export default function BIMElementPanel({
   onElementClick,
   onElementHover,
   onStatusUpdate,
-  drawingId,
 }) {
   const [search, setSearch] = useState('')
   const [activeCategories, setActiveCategories] = useState(new Set())
@@ -205,14 +213,6 @@ export default function BIMElementPanel({
       setSelectedIds(new Set())
     }
   }, [selectedIds, onStatusUpdate])
-
-  // Sort arrow indicator
-  const SortArrow = ({ col }) => {
-    if (sortCol !== col) return <ChevronUp size={12} style={{ opacity: 0.25 }} />
-    return sortDir === 'asc'
-      ? <ChevronUp size={12} style={{ opacity: 1 }} />
-      : <ChevronDown size={12} style={{ opacity: 1 }} />
-  }
 
   if (!open) return null
 
@@ -484,7 +484,7 @@ export default function BIMElementPanel({
                   }}
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                    Name <SortArrow col="name" />
+                    Name <SortArrow col="name" sortCol={sortCol} sortDir={sortDir} />
                   </span>
                 </th>
                 <th
@@ -504,7 +504,7 @@ export default function BIMElementPanel({
                   }}
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                    Type <SortArrow col="type" />
+                    Type <SortArrow col="type" sortCol={sortCol} sortDir={sortDir} />
                   </span>
                 </th>
                 <th style={{
@@ -536,7 +536,7 @@ export default function BIMElementPanel({
                   }}
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                    Status <SortArrow col="status" />
+                    Status <SortArrow col="status" sortCol={sortCol} sortDir={sortDir} />
                   </span>
                 </th>
                 <th style={{

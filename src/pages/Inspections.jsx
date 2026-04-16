@@ -92,14 +92,6 @@ export default function Inspections() {
   const [overallNotes, setOverallNotes] = useState('')
   const [completing, setCompleting] = useState(false)
 
-  useEffect(() => {
-    if (cid) loadData()
-  }, [cid])
-
-  useEffect(() => {
-    if (user?.name && !inspInspector) setInspInspector(user.name)
-  }, [user])
-
   async function loadData() {
     setLoading(true)
     const [t, i, p] = await Promise.all([
@@ -112,6 +104,14 @@ export default function Inspections() {
     setProjects(p.data || [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (cid) loadData() // eslint-disable-line react-hooks/set-state-in-effect
+  }, [cid])
+
+  useEffect(() => {
+    if (user?.name && !inspInspector) setInspInspector(user.name) // eslint-disable-line react-hooks/set-state-in-effect
+  }, [user])
 
   // ---------- Templates ----------
 
@@ -241,6 +241,10 @@ export default function Inspections() {
 
   async function uploadItemPhoto(idx, file) {
     if (!file || !activeInspection) return
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Photo must be under 10MB')
+      return
+    }
     const path = `inspections/${activeInspection.id}/${idx}.jpg`
     const { error } = await supabase.storage.from('documents').upload(path, file, { upsert: true })
     if (error) return toast.error('Photo upload failed')

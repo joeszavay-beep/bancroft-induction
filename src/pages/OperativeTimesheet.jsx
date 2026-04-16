@@ -52,12 +52,8 @@ export default function OperativeTimesheet() {
   useEffect(() => {
     const session = getSession('operative_session')
     if (!session) { navigate('/worker-login'); return }
-    setOp(JSON.parse(session))
+    setOp(JSON.parse(session)) // eslint-disable-line react-hooks/set-state-in-effect
   }, [])
-
-  useEffect(() => {
-    if (op) loadWeek()
-  }, [op, weekOffset])
 
   async function loadWeek() {
     setLoading(true)
@@ -84,6 +80,10 @@ export default function OperativeTimesheet() {
     setAttendance(attRes.data || [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (op) loadWeek() // eslint-disable-line react-hooks/set-state-in-effect
+  }, [op, weekOffset])
 
   if (!op) return null
 

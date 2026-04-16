@@ -16,8 +16,6 @@ export default function AllWorkers() {
   const [selectedWorker, setSelectedWorker] = useState(null)
   const [verifyWorker, setVerifyWorker] = useState(null)
 
-  useEffect(() => { loadData() }, [])
-
   async function loadData() {
     setLoading(true)
     const { data } = cid
@@ -26,6 +24,8 @@ export default function AllWorkers() {
     setOperatives(data || [])
     setLoading(false)
   }
+
+  useEffect(() => { loadData() }, [])
 
   async function removeWorker(id, name) {
     if (!confirm(`Remove ${name}? This will remove all their data including signatures, attendance, and messages.`)) return
@@ -48,7 +48,7 @@ export default function AllWorkers() {
   }
 
   const filtered = operatives.filter(op =>
-    op.name.toLowerCase().includes(search.toLowerCase()) ||
+    (op.name || '').toLowerCase().includes(search.toLowerCase()) ||
     (op.email && op.email.toLowerCase().includes(search.toLowerCase()))
   )
 

@@ -178,6 +178,10 @@ export default function SnagDrawingView() {
 
   async function handleReplaceDrawing(file) {
     if (!file) return
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error('File must be under 25MB')
+      return
+    }
     setReplacingDrawing(true)
     let fileToUpload = file
     let fileExt = file.name.split('.').pop().toLowerCase()

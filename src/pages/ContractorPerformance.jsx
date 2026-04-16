@@ -62,7 +62,7 @@ export default function ContractorPerformance() {
     const withDue = completedSnags.filter((s) => s.due_date)
     if (withDue.length === 0) return 0
     const onTime = withDue.filter(
-      (s) => s.updated_at.split('T')[0] <= s.due_date
+      (s) => new Date(s.updated_at) <= new Date(s.due_date + 'T23:59:59')
     )
     return Math.round((onTime.length / withDue.length) * 100)
   }, [completedSnags])
@@ -93,7 +93,7 @@ export default function ContractorPerformance() {
         const onTime =
           t.withDue.length > 0
             ? Math.round(
-                (t.withDue.filter((s) => s.updated_at.split('T')[0] <= s.due_date)
+                (t.withDue.filter((s) => new Date(s.updated_at) <= new Date(s.due_date + 'T23:59:59'))
                   .length /
                   t.withDue.length) *
                   100
@@ -146,7 +146,7 @@ export default function ContractorPerformance() {
         const onTime =
           op.withDue.length > 0
             ? Math.round(
-                (op.withDue.filter((s) => s.updated_at.split('T')[0] <= s.due_date)
+                (op.withDue.filter((s) => new Date(s.updated_at) <= new Date(s.due_date + 'T23:59:59'))
                   .length /
                   op.withDue.length) *
                   100

@@ -21,18 +21,7 @@ export default function ToolboxSign() {
   const [showSuccess, setShowSuccess] = useState(false)
 
   // Check if operative is logged in — auto-select them
-  const opSession = (() => { try { return JSON.parse(getSession('operative_session') || 'null') } catch { return null } })()
-
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  useEffect(() => {
-    if (opSession?.id && operatives.length > 0) {
-      const match = operatives.find(o => o.id === opSession.id)
-      if (match) setSelectedOp(match.id)
-    }
-  }, [operatives])
+  const opSession = (() => { try { return JSON.parse(getSession('operative_session') || 'null') } catch { /* ignore */ return null } })()
 
   async function loadData() {
     const { data: t } = await supabase.from('toolbox_talks').select('*').eq('id', talkId).single()
@@ -50,6 +39,19 @@ export default function ToolboxSign() {
     setLoading(false)
   }
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData()
+  }, [])
+
+  useEffect(() => {
+    if (opSession?.id && operatives.length > 0) {
+      const match = operatives.find(o => o.id === opSession.id)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (match) setSelectedOp(match.id)
+    }
+  }, [operatives])
+
   function clearSignature() {
     sigRef.current?.clear()
     setHasSigned(false)
@@ -59,6 +61,20 @@ export default function ToolboxSign() {
     e.preventDefault()
     if (!hasSigned || !selectedOp) return
     setSaving(true)
+
+    // Re-check for duplicate signature before submitting
+    const { data: existing } = await supabase
+      .from('toolbox_signatures')
+      .select('id')
+      .eq('talk_id', talkId)
+      .eq('operative_id', selectedOp)
+      .limit(1)
+    if (existing && existing.length > 0) {
+      setSaving(false)
+      toast.error('You have already signed this toolbox talk')
+      setShowSuccess(true)
+      return
+    }
 
     const op = operatives.find(o => o.id === selectedOp)
     const signatureDataUrl = sigRef.current.toDataURL('image/png')
@@ -173,13 +189,17 @@ export default function ToolboxSign() {
               {opSession ? (
                 <div>
                   <label className="text-sm font-semibold text-slate-600 block mb-2">Signing as</label>
-                  <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="w-9 h-9 rounded-full bg-green-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  <div className={`flex items-center gap-3 p-3 ${selectedOp ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'} rounded-lg`}>
+                    <div className={`w-9 h-9 rounded-full ${selectedOp ? 'bg-green-500' : 'bg-amber-500'} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
                       {opSession.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-green-900">{opSession.name}</p>
-                      {opSession.role && <p className="text-xs text-green-700">{opSession.role}</p>}
+                      <p className={`text-sm font-semibold ${selectedOp ? 'text-green-900' : 'text-amber-900'}`}>{opSession.name}</p>
+                      {selectedOp ? (
+                        opSession.role && <p className="text-xs text-green-700">{opSession.role}</p>
+                      ) : (
+                        <p className="text-xs text-amber-700">You are not assigned to this project. Please contact your manager.</p>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { authFetch } from '../lib/authFetch'
@@ -51,14 +51,18 @@ export default function AddNewWorker() {
   const [projectId, setProjectId] = useState('')
   const [projects, setProjects] = useState([])
 
-  useState(() => {
+  useEffect(() => {
     const q = cid ? supabase.from('projects').select('*').eq('company_id', cid).order('name') : supabase.from('projects').select('*').order('name')
     q.then(({ data }) => setProjects(data || []))
-  })
+  }, [cid])
 
   function handlePhotoChange(e) {
     const file = e.target.files[0]
     if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File must be under 10MB')
+      return
+    }
     setPhoto(file)
     const reader = new FileReader()
     reader.onload = () => setPhotoPreview(reader.result)

@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { prefetchImages } from '../lib/offlineStorage'
 import { fetchAndCache } from '../hooks/useOfflineData'
 import { checkStorageQuota } from '../lib/imageCompressor'
-import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import { CloudDownload, Check, Loader2 } from 'lucide-react'
 

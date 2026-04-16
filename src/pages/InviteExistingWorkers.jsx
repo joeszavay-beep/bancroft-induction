@@ -14,10 +14,6 @@ export default function InviteExistingWorkers() {
   const [selectedProject, setSelectedProject] = useState('')
   const [sending, setSending] = useState(null)
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
   async function loadData() {
     const [o, p] = await Promise.all([
       cid ? supabase.from('operatives').select('*, projects(name)').eq('company_id', cid).order('name') : supabase.from('operatives').select('*, projects(name)').order('name'),
@@ -27,6 +23,11 @@ export default function InviteExistingWorkers() {
     setProjects(p.data || [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData()
+  }, [])
 
   async function inviteToProject(op) {
     if (!selectedProject) {

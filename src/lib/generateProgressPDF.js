@@ -75,7 +75,7 @@ async function fetchHighResImage(url) {
   }
 }
 
-export async function generateProgressPDF({ drawing, project, items, companyName }) {
+export async function generateProgressPDF({ drawing, items, companyName }) {
   const doc = new jsPDF('l', 'mm', 'a4') // landscape
   const pageW = 297
   const pageH = 210
@@ -196,7 +196,7 @@ export async function generateProgressPDF({ drawing, project, items, companyName
             imgX + (x2 / 100) * imgW, imgY + (y2 / 100) * imgH
           )
           doc.restoreGraphicsState()
-        } catch {}
+        } catch { /* ignore */ }
       } else if (item.label === 'polyline' && item.notes) {
         try {
           const { points } = JSON.parse(item.notes)
@@ -212,7 +212,7 @@ export async function generateProgressPDF({ drawing, project, items, companyName
             )
           }
           doc.restoreGraphicsState()
-        } catch {}
+        } catch { /* ignore */ }
       } else if (item.label === 'circle' && item.notes) {
         try {
           const { radius } = JSON.parse(item.notes)
@@ -225,7 +225,7 @@ export async function generateProgressPDF({ drawing, project, items, companyName
           doc.setLineWidth(0.4)
           doc.circle(px, py, Math.min(r, 15), 'D')
           doc.restoreGraphicsState()
-        } catch {}
+        } catch { /* ignore */ }
       } else if ((item.label === 'text' || item.label === 'comment') && item.notes) {
         try {
           const { text, fontSize } = JSON.parse(item.notes)
@@ -237,13 +237,13 @@ export async function generateProgressPDF({ drawing, project, items, companyName
             doc.setFont('helvetica', 'bold')
             doc.text(text, px, py)
           }
-        } catch {}
+        } catch { /* ignore */ }
       } else {
         // Dot or photo
         const px = imgX + (item.pin_x / 100) * imgW
         const py = imgY + (item.pin_y / 100) * imgH
         let dotR = 1
-        try { const p = JSON.parse(item.notes || '{}'); if (p.size) dotR = Math.max(0.5, p.size * 0.08) } catch {}
+        try { const p = JSON.parse(item.notes || '{}'); if (p.size) dotR = Math.max(0.5, p.size * 0.08) } catch { /* ignore */ }
         doc.saveGraphicsState()
         doc.setGState(gState)
         doc.setFillColor(...color)

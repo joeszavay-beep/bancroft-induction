@@ -45,8 +45,6 @@ export default function ProgrammeSetup() {
   const [createdActivities, setCreatedActivities] = useState([])
   const [layerPanelOpen, setLayerPanelOpen] = useState(true)
 
-  useEffect(() => { loadDrawing() }, [drawingId])
-
   async function loadDrawing() {
     setLoading(true)
     try {
@@ -98,6 +96,8 @@ export default function ProgrammeSetup() {
     }
     setLoading(false)
   }
+
+  useEffect(() => { loadDrawing() }, [drawingId])
 
   async function parseDXFFile(drawingData) {
     setParsing(true)
@@ -164,6 +164,10 @@ export default function ProgrammeSetup() {
     const ext = file.name.split('.').pop().toLowerCase()
     if (!['png', 'jpg', 'jpeg', 'pdf'].includes(ext)) {
       toast.error('Please upload a PNG, JPG or PDF file')
+      return
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error('File must be under 25MB')
       return
     }
 
@@ -311,8 +315,6 @@ export default function ProgrammeSetup() {
       </div>
     )
   }
-
-  const isVisualPdf = visualPreviewUrl?.toLowerCase().endsWith('.pdf')
 
   return (
     <div className="flex flex-col h-screen bg-slate-50">
@@ -532,7 +534,7 @@ export default function ProgrammeSetup() {
                   {createdActivities.map(act => (
                     <div key={act.id} className="flex items-center justify-between gap-2 px-2 py-1.5 bg-green-50 border border-green-100 rounded-lg">
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-green-800 truncate">{act.activity_name}</p>
+                        <p className="text-xs font-medium text-green-800 truncate">{act.name}</p>
                         <p className="text-[10px] text-green-600">{act.baseline_length_metres}m baseline</p>
                       </div>
                       <button

@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { offlineUpdate, offlineInsert, offlineDelete } from '../lib/syncQueue'
+import { offlineUpdate, offlineInsert } from '../lib/syncQueue'
 import { fetchAndCache } from '../hooks/useOfflineData'
 import { smartCompress } from '../lib/imageCompressor'
 import { toastSmart, toastOffline } from '../lib/offlineToast'
@@ -183,7 +183,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
     setUploadingPhoto(true)
 
     let compressed = file
-    try { compressed = await smartCompress(file) } catch {}
+    try { compressed = await smartCompress(file) } catch { /* ignore */ }
 
     const filePath = `snag-photos/${snag.id}/${crypto.randomUUID()}.jpg`
 
@@ -262,8 +262,8 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
           {/* Header */}
           <div className="sticky top-0 bg-white border-b border-[#E2E6EA] px-5 py-3 flex items-center justify-between z-10 shrink-0">
             <div className="flex items-center gap-2.5">
-              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${STATUS_COLORS[snag.status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                {snag.status.toUpperCase()}
+              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${STATUS_COLORS[status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                {status.toUpperCase()}
               </span>
               <h3 className="text-lg font-bold text-[#1A1A2E]">Snag #{snag.snag_number}</h3>
               {isOverdue && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold">OVERDUE</span>}

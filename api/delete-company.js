@@ -37,7 +37,7 @@ export default async function handler(req, res) {
       'site_attendance', 'notifications',
       'inspection_templates', 'inspections',
       'aftercare_defects', 'chat_messages',
-      'progress_items', 'progress_item_history', 'progress_zones', 'progress_drawings',
+      'progress_item_history', 'progress_items', 'progress_zones', 'progress_drawings',
       'bim_drawing_calibration', 'bim_elements', 'bim_models',
       'operatives', 'projects', 'profiles', 'managers', 'settings',
     ]

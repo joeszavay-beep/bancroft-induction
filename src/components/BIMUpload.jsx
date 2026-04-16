@@ -25,6 +25,10 @@ export default function BIMUpload({ open, onClose, projectId, companyId, models,
       toast.error('Please upload an IFC file')
       return
     }
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error('IFC file must be under 100MB')
+      return
+    }
 
     setUploading(true)
     setProgress(0)

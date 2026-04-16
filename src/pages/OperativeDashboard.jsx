@@ -9,7 +9,7 @@ import {
   Send, ZoomIn, Upload, ArrowLeft, Paperclip, PoundSterling, Shield, Briefcase
 } from 'lucide-react'
 import { getSession, removeSession } from '../lib/storage'
-import { formatMoney, calculateCIS } from '../lib/subcontractor'
+import { formatMoney } from '../lib/subcontractor'
 
 const QUICK_MESSAGES = [
   { icon: 'Package', label: 'Material Request', text: 'Material needed: ' },
@@ -30,7 +30,7 @@ export default function OperativeDashboard() {
   const [snags, setSnags] = useState([])
   const [talks, setTalks] = useState([])
   const [talkSigs, setTalkSigs] = useState([])
-  const [notifications, setNotifications] = useState([])
+  const [, setNotifications] = useState([])
   const [jobOps, setJobOps] = useState([])
   const [weekEntries, setWeekEntries] = useState([])
   const [operative, setOperative] = useState(null)
@@ -39,7 +39,7 @@ export default function OperativeDashboard() {
   const [chatMessages, setChatMessages] = useState([])
   const [chatMsg, setChatMsg] = useState('')
   const [chatSending, setChatSending] = useState(false)
-  const [unreadChat, setUnreadChat] = useState(0)
+  const [, setUnreadChat] = useState(0)
   const [managers, setManagers] = useState([])
   const [selectedManager, setSelectedManager] = useState(null)
   const chatEndRef = useRef(null)
@@ -51,21 +51,6 @@ export default function OperativeDashboard() {
   const [newComment, setNewComment] = useState('')
   const [sendingComment, setSendingComment] = useState(false)
   const [lightbox, setLightbox] = useState(null)
-
-  useEffect(() => {
-    const session = getSession('operative_session')
-    if (!session) { navigate('/worker-login'); return }
-    const data = JSON.parse(session)
-    setOp(data)
-    loadData(data)
-    loadChat(data)
-    // Poll chat every 5 seconds for new messages
-    const chatPoll = setInterval(() => loadChat(data), 5000)
-    return () => {
-      clearInterval(chatPoll)
-      if (chatChannelRef.current) supabase.removeChannel(chatChannelRef.current)
-    }
-  }, [])
 
   async function loadData(opData) {
     setLoading(true)
@@ -159,6 +144,19 @@ export default function OperativeDashboard() {
         }
       ).subscribe()
   }
+
+  useEffect(() => {
+    const session = getSession('operative_session')
+    if (!session) { navigate('/worker-login'); return }
+    const data = JSON.parse(session)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOp(data)
+    loadData(data)
+    loadChat(data)
+    return () => {
+      if (chatChannelRef.current) supabase.removeChannel(chatChannelRef.current)
+    }
+  }, [])
 
   async function sendChat(photoFile = null) {
     if (!chatMsg.trim() && !photoFile) return
@@ -283,6 +281,7 @@ export default function OperativeDashboard() {
         <Route path="/" element={<HomeTab op={op} unsignedDocs={unsignedDocs} unsignedTalks={unsignedTalks} snags={snags} overdueSnags={overdueSnags} pendingActions={pendingActions} navigate={navigate} primaryColor={primaryColor} jobOps={jobOps} weekEntries={weekEntries} operative={operative} />} />
         <Route path="/documents" element={<DocumentsTab op={op} documents={documents} signatures={signatures} signedDocIds={signedDocIds} navigate={navigate} primaryColor={primaryColor} />} />
         <Route path="/snags" element={<SnagsTab snags={snags} overdueSnags={overdueSnags} navigate={navigate} primaryColor={primaryColor} openSnag={openSnag} />} />
+        <Route path="/toolbox" element={<ToolboxTab talks={talks} signedTalkIds={signedTalkIds} unsignedTalks={unsignedTalks} navigate={navigate} />} />
         <Route path="/chat" element={<OperativeChatTab op={op} messages={chatMessages} chatMsg={chatMsg} setChatMsg={setChatMsg} sendChat={sendChat} chatSending={chatSending} chatEndRef={chatEndRef} markChatRead={markChatRead} primaryColor={primaryColor} managers={managers} selectedManager={selectedManager} setSelectedManager={setSelectedManager} />} />
         <Route path="/profile" element={<ProfileTab op={op} handleLogout={handleLogout} navigate={navigate} primaryColor={primaryColor} />} />
       </Routes>
@@ -437,7 +436,7 @@ export default function OperativeDashboard() {
 }
 
 /* ========== HOME TAB ========== */
-function HomeTab({ op, unsignedDocs, unsignedTalks, snags, overdueSnags, pendingActions, setTab, navigate, primaryColor, jobOps, weekEntries, operative }) {
+function HomeTab({ op, unsignedDocs, unsignedTalks, snags, pendingActions, navigate, primaryColor, jobOps, weekEntries, operative }) {
   // Current job info
   const activeJob = (jobOps || []).find(jo => jo.subcontractor_jobs?.status === 'active') || (jobOps || [])[0]
   const isSelfEmployed = activeJob?.employment_status === 'self_employed'
@@ -668,7 +667,7 @@ function HomeTab({ op, unsignedDocs, unsignedTalks, snags, overdueSnags, pending
 }
 
 /* ========== DOCUMENTS TAB ========== */
-function DocumentsTab({ op, documents, signatures, signedDocIds, navigate, primaryColor }) {
+function DocumentsTab({ op, documents, signatures, signedDocIds, navigate }) {
   const unsigned = documents.filter(d => !signedDocIds.has(d.id))
   const signed = documents.filter(d => signedDocIds.has(d.id))
 
@@ -726,7 +725,7 @@ function DocumentsTab({ op, documents, signatures, signedDocIds, navigate, prima
 }
 
 /* ========== SNAGS TAB ========== */
-function SnagsTab({ snags, overdueSnags, navigate, primaryColor, openSnag }) {
+function SnagsTab({ snags, overdueSnags, primaryColor, openSnag }) {
   return (
     <div className="p-4 space-y-4">
       <h2 className="text-lg font-bold text-slate-900">Assigned Snags</h2>
@@ -789,7 +788,7 @@ function SnagsTab({ snags, overdueSnags, navigate, primaryColor, openSnag }) {
 }
 
 /* ========== TOOLBOX TAB ========== */
-function ToolboxTab({ talks, signedTalkIds, unsignedTalks, navigate, primaryColor }) {
+function ToolboxTab({ talks, signedTalkIds, unsignedTalks, navigate }) {
   const signed = talks.filter(t => signedTalkIds.has(t.id))
 
   return (
@@ -894,7 +893,7 @@ function ProfileTab({ op, handleLogout, navigate, primaryColor }) {
 }
 
 /* ========== CHAT TAB ========== */
-function OperativeChatTab({ op, messages, chatMsg, setChatMsg, sendChat, chatSending, chatEndRef, markChatRead, primaryColor, managers, selectedManager, setSelectedManager }) {
+function OperativeChatTab({ messages, chatMsg, setChatMsg, sendChat, chatSending, chatEndRef, markChatRead, primaryColor, managers, selectedManager, setSelectedManager }) {
   const [chatPhoto, setChatPhoto] = useState(null)
   const [chatPhotoPreview, setChatPhotoPreview] = useState(null)
   const [chatLightbox, setChatLightbox] = useState(null)
@@ -904,6 +903,10 @@ function OperativeChatTab({ op, messages, chatMsg, setChatMsg, sendChat, chatSen
   function handleChatPhoto(e) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Photo must be under 10MB')
+      return
+    }
     setChatPhoto(file)
     setChatPhotoPreview(URL.createObjectURL(file))
   }
@@ -943,6 +946,7 @@ function OperativeChatTab({ op, messages, chatMsg, setChatMsg, sendChat, chatSen
           <div className="space-y-2">
             {managers.map(mgr => {
               const unread = unreadByManager[mgr.id] || 0
+              // eslint-disable-next-line no-unused-vars
               const lastMsg = [...messages].reverse().find(m => m.manager_id === mgr.id || (m.sender_type === 'operative' && m.manager_id === mgr.id))
               return (
                 <button key={mgr.id} onClick={() => { setSelectedManager(mgr); setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100) }}

@@ -43,6 +43,7 @@ export default function AgencyRegister() {
       let insurance_document_url = null
 
       if (logoFile) {
+        if (logoFile.size > 5 * 1024 * 1024) throw new Error('Logo must be under 5MB')
         const path = `agencies/logos/${crypto.randomUUID()}-${logoFile.name}`
         const { error: upErr } = await supabase.storage.from('documents').upload(path, logoFile)
         if (upErr) throw new Error(`Logo upload failed: ${upErr.message}`)
@@ -51,6 +52,7 @@ export default function AgencyRegister() {
       }
 
       if (insuranceFile) {
+        if (insuranceFile.size > 10 * 1024 * 1024) throw new Error('Insurance document must be under 10MB')
         const path = `agencies/insurance/${crypto.randomUUID()}-${insuranceFile.name}`
         const { error: upErr } = await supabase.storage.from('documents').upload(path, insuranceFile)
         if (upErr) throw new Error(`Insurance upload failed: ${upErr.message}`)

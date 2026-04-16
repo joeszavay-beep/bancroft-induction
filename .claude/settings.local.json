@@ -51,7 +51,12 @@
       "Bash(npm uninstall:*)",
       "Bash(find /Users/SzavayProperty/bancroft-induction/scripts -name *.js)",
       "Bash(rm -rf scripts/migrations/*.js ls scripts/migrations/ 2)",
-      "Bash(/dev/null echo:*)"
+      "Bash(/dev/null echo:*)",
+      "Bash(wc -l /Users/SzavayProperty/bancroft-induction/src/components/*.jsx)",
+      "Bash(npm run:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx -y acorn-jsx --ecma2022 --module src/pages/SignDocument.jsx)",
+      "Bash(git diff:*)"
     ]
   }
 }

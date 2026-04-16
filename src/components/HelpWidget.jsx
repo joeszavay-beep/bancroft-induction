@@ -23,7 +23,7 @@ function getSuggestions() {
     for (const [prefix, suggestions] of Object.entries(SUGGESTIONS_MAP)) {
       if (path.startsWith(prefix)) return suggestions
     }
-  } catch {}
+  } catch { /* ignore — fallback to defaults */ }
   return DEFAULT_SUGGESTIONS
 }
 

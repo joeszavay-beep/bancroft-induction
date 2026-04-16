@@ -23,25 +23,30 @@ export default function SubcontractorDashboard() {
   const [loading, setLoading] = useState(true)
   const [selectedJobId, setSelectedJobId] = useState('all')
 
-  useEffect(() => { if (cid) loadData() }, [cid])
-
   async function loadData() {
     setLoading(true)
     try {
-      const [jobRes, tsRes, varRes] = await Promise.all([
+      const [jobRes, tsRes] = await Promise.all([
         supabase.from('subcontractor_jobs').select('*').eq('company_id', cid).order('name'),
         supabase.from('timesheet_entries').select('job_id, date, cost_calculated, status').eq('company_id', cid),
-        supabase.from('job_variations').select('job_id, value, status'),
       ])
+      const jobIds = (jobRes.data || []).map(j => j.id)
+      let varData = []
+      if (jobIds.length > 0) {
+        const { data } = await supabase.from('job_variations').select('job_id, value, status').in('job_id', jobIds)
+        varData = data || []
+      }
       setJobs(jobRes.data || [])
       setTimesheetEntries(tsRes.data || [])
-      setVariations(varRes.data || [])
+      setVariations(varData)
     } catch (err) {
       console.error(err)
       toast.error('Failed to load dashboard data')
     }
     setLoading(false)
   }
+
+  useEffect(() => { if (cid) loadData() }, [cid]) // eslint-disable-line react-hooks/set-state-in-effect
 
   // Filter by selected job
   const filteredJobs = useMemo(() => {

@@ -62,7 +62,7 @@ export default function PDFViewer({ url, title, onConfirmRead }) {
             checked={confirmed}
             onChange={e => {
               setConfirmed(e.target.checked)
-              if (e.target.checked) onConfirmRead()
+              onConfirmRead(e.target.checked)
             }}
             className="mt-1 w-5 h-5 rounded border-navy-600 bg-navy-800 text-accent focus:ring-accent shrink-0"
           />

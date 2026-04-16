@@ -1,23 +1,22 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useCompany } from '../lib/CompanyContext'
 import { Clock, X, ArrowRight } from 'lucide-react'
 
 export default function TrialBanner() {
   const { company } = useCompany()
-  const [dismissed, setDismissed] = useState(false)
-
-  useEffect(() => {
+  const [dismissed, setDismissed] = useState(() => {
     const stored = localStorage.getItem('trial_banner_dismissed')
     if (stored) {
       const ts = parseInt(stored, 10)
       // Dismissed for 24 hours
       if (Date.now() - ts < 24 * 60 * 60 * 1000) {
-        setDismissed(true)
+        return true
       } else {
         localStorage.removeItem('trial_banner_dismissed')
       }
     }
-  }, [])
+    return false
+  })
 
   if (dismissed || !company) return null
   if (company.subscription_plan !== 'trial' || !company.trial_ends_at) return null

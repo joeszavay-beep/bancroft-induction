@@ -243,7 +243,7 @@ function getUnitsLabel(units) {
  * @param {object} options - { width, height, strokeWidth, color }
  * @returns {Array<{ path, color, layer }>} SVG path strings
  */
-export function entitiesToSVGPaths(entities, bounds, options = {}) {
+export function entitiesToSVGPaths(entities, bounds) {
   const paths = []
 
   for (const entity of entities) {

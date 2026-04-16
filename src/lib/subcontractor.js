@@ -65,12 +65,13 @@ export function calculateCost(hoursData, payType, payRate) {
       return 0
     case 'hourly':
       return Math.round(hoursData.hours * payRate)
-    case 'weekly':
+    case 'weekly': {
       // Weekly rate / 5 days, then apply day type
       const dailyFromWeekly = Math.round(payRate / 5)
       if (hoursData.dayType === 'full') return dailyFromWeekly
       if (hoursData.dayType === 'half') return Math.round(dailyFromWeekly / 2)
       return 0
+    }
     default:
       return 0
   }

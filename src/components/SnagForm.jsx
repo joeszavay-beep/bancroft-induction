@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { offlineInsert } from '../lib/syncQueue'
 import { smartCompress } from '../lib/imageCompressor'
 import { toastSmart } from '../lib/offlineToast'

@@ -13,10 +13,7 @@ export default function InvitationsPipeline() {
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchFirst, setSearchFirst] = useState('')
-  const [searchLast, setSearchLast] = useState('')
   const [filterSite, setFilterSite] = useState('all')
-
-  useEffect(() => { loadData() }, [])
 
   async function loadData() {
     setLoading(true)
@@ -36,6 +33,9 @@ export default function InvitationsPipeline() {
     setProjects(p.data || [])
     setLoading(false)
   }
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadData() }, [])
 
   // Pipeline stats
   const total = operatives.length

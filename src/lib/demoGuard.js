@@ -1,5 +1,4 @@
 import toast from 'react-hot-toast'
-import { getSession } from './storage'
 
 /**
  * Check if current session is demo and block mutations.

@@ -9,10 +9,6 @@ export default function OperativeSelect() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    loadOperatives()
-  }, [])
-
   async function loadOperatives() {
     const { data } = await supabase
       .from('operatives')
@@ -21,6 +17,11 @@ export default function OperativeSelect() {
     setOperatives(data || [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadOperatives()
+  }, [])
 
   const filtered = operatives.filter(op =>
     op.name.toLowerCase().includes(search.toLowerCase())

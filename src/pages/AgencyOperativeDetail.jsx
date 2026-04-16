@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { getSession } from '../lib/storage'
 import {
   TRADES, TRADE_OPTIONS, TRADE_CATEGORIES, CARD_TYPES, CERT_TYPES,
-  SKILL_LEVELS, BOOKING_STATUSES, formatDayRate, formatDate
+  SKILL_LEVELS, BOOKING_STATUSES, formatDate
 } from '../lib/marketplace'
 import toast from 'react-hot-toast'
 import {
@@ -18,7 +17,6 @@ const TABS = ['Profile', 'Certifications', 'Availability', 'Bookings', 'Performa
 export default function AgencyOperativeDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const managerData = JSON.parse(getSession('manager_data') || '{}')
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -45,8 +43,6 @@ export default function AgencyOperativeDetail() {
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
 
-  useEffect(() => { loadAll() }, [id])
-
   async function loadAll() {
     setLoading(true)
     try {
@@ -63,12 +59,14 @@ export default function AgencyOperativeDetail() {
       setCertifications(certRes.data || [])
       setAvailability(availRes.data || [])
       setBookings(bookRes.data || [])
-    } catch (err) {
-      console.error(err)
+    } catch (loadErr) {
+      console.error(loadErr)
       toast.error('Failed to load operative')
     }
     setLoading(false)
   }
+
+  useEffect(() => { loadAll() }, [id])
 
   function updateForm(field, value) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -153,6 +151,7 @@ export default function AgencyOperativeDetail() {
     try {
       let document_url = null
       if (certFile) {
+        if (certFile.size > 10 * 1024 * 1024) throw new Error('File must be under 10MB')
         const path = `agency/${operative.agency_id}/certs/${crypto.randomUUID()}-${certFile.name}`
         const { error: upErr } = await supabase.storage.from('documents').upload(path, certFile)
         if (upErr) throw new Error(upErr.message)
@@ -240,7 +239,7 @@ export default function AgencyOperativeDetail() {
           if (data) setAvailability(prev => [...prev, data])
         }
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to update availability')
     }
   }
@@ -248,13 +247,17 @@ export default function AgencyOperativeDetail() {
   async function bulkSetWeekdays() {
     const dates = []
     const now = new Date()
+    // Find next Monday (or today if Monday)
+    const dayOfWeek = now.getDay() // 0=Sun, 1=Mon...
+    const daysUntilMon = dayOfWeek === 0 ? 1 : dayOfWeek === 1 ? 0 : 8 - dayOfWeek
+    const nextMon = new Date(now)
+    nextMon.setDate(now.getDate() + daysUntilMon)
+    nextMon.setHours(0, 0, 0, 0)
     for (let w = 0; w < 4; w++) {
-      for (let d = 1; d <= 5; d++) {
-        const date = new Date(now)
-        date.setDate(now.getDate() + (w * 7) + (d - now.getDay()))
-        if (date > now) {
-          dates.push(date.toISOString().split('T')[0])
-        }
+      for (let d = 0; d < 5; d++) {
+        const date = new Date(nextMon)
+        date.setDate(nextMon.getDate() + (w * 7) + d)
+        dates.push(date.toISOString().split('T')[0])
       }
     }
 
@@ -264,7 +267,7 @@ export default function AgencyOperativeDetail() {
       // All these dates become 'available' — which means no record needed (available is default)
       setAvailability(prev => prev.filter(a => !dates.includes(a.date)))
       toast.success(`Marked ${dates.length} weekdays as available`)
-    } catch (err) {
+    } catch {
       toast.error('Failed to bulk update')
     }
   }
@@ -743,6 +746,7 @@ function Section({ title, children }) {
   )
 }
 
+// eslint-disable-next-line no-unused-vars
 function PerfCard({ icon: Icon, label, value, color }) {
   const colors = {
     blue: 'bg-blue-50 text-blue-600 border-blue-100',

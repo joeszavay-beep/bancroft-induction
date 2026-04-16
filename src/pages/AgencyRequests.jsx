@@ -28,8 +28,6 @@ export default function AgencyRequests() {
   const [expandedRequest, setExpandedRequest] = useState(null)
   const [proposing, setProposing] = useState(null)
 
-  useEffect(() => { lookupAgency() }, [])
-
   async function lookupAgency() {
     try {
       let email = managerData.email
@@ -56,6 +54,8 @@ export default function AgencyRequests() {
     }
     setLoading(false)
   }
+
+  useEffect(() => { lookupAgency() }, [])
 
   async function loadData(aid) {
     try {
@@ -106,10 +106,12 @@ export default function AgencyRequests() {
   async function handlePropose(requestId, operativeId) {
     setProposing(operativeId)
     try {
+      const op = operatives.find(o => o.id === operativeId)
       const { error } = await supabase.from('labour_proposals').insert({
         labour_request_id: requestId,
         agency_id: agencyId,
         operative_id: operativeId,
+        proposed_day_rate: op?.day_rate || null,
         status: 'proposed',
         proposed_at: new Date().toISOString(),
       })

@@ -4,7 +4,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 // Set worker from public folder — same origin, no CORS issues
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
-const PDFRenderer = forwardRef(function PDFRenderer({ src, alt, className, style, onLoad, onError, draggable }, ref) {
+const PDFRenderer = forwardRef(function PDFRenderer({ src, className, style, onLoad, onError, draggable }, ref) {
   const canvasRef = useRef(null)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(null)
@@ -109,6 +109,7 @@ const PDFRenderer = forwardRef(function PDFRenderer({ src, alt, className, style
 
 export default PDFRenderer
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function isPDF(url) {
   if (!url) return false
   const lower = url.toLowerCase()
