@@ -367,6 +367,15 @@ export default function SidebarLayout({ children }) {
           <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
         </button>
         <button
+          onClick={() => { navigate('/app/settings'); setMobileOpen(false) }}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[12.5px] transition-colors ${
+            isActive('/app/settings') ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <Settings size={14} />
+          <span>Settings</span>
+        </button>
+        <button
           onClick={() => { navigate('/app/account'); setMobileOpen(false) }}
           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[12.5px] transition-colors ${
             isActive('/app/account') ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white hover:bg-white/5'

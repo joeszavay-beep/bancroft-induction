@@ -68,6 +68,7 @@ import AgencyOperativeDetail from './pages/AgencyOperativeDetail'
 import AgencyRequests from './pages/AgencyRequests'
 import AgencyConnections from './pages/AgencyConnections'
 import AgencyRegister from './pages/AgencyRegister'
+import CompanySettings from './pages/CompanySettings'
 import SubcontractorJobs from './pages/SubcontractorJobs'
 import SubcontractorJobDetail from './pages/SubcontractorJobDetail'
 import SubcontractorDashboard from './pages/SubcontractorDashboard'
@@ -129,6 +130,7 @@ function AppLayout() {
         <Route path="/hs-reports" element={<PMDashboard key="hs" initialTab="hsreport" />} />
         <Route path="/portal" element={<PMDashboard key="portal" initialTab="portal" />} />
         <Route path="/account" element={<PMDashboard key="settings" initialTab="settings" />} />
+        <Route path="/settings" element={<CompanySettings />} />
         <Route path="/labour-requests" element={<LabourRequests />} />
         <Route path="/labour-requests/new" element={<LabourRequestForm />} />
         <Route path="/labour-requests/:id" element={<LabourRequestDetail />} />
