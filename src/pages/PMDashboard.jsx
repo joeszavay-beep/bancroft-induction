@@ -1998,10 +1998,15 @@ function ToolboxTab({ projects, navigate }) {
 
 /* ==================== H&S REPORT TAB ==================== */
 function HSReportTab() {
+  const managerData = JSON.parse(getSession('manager_data') || '{}')
+  const companyName = managerData.company_name || 'Company'
+  const logoUrl = managerData.logo_url || ''
+  const managerName = managerData.name || ''
+  const params = new URLSearchParams({ embed: '1', company: companyName, logo: logoUrl, manager: managerName })
   return (
     <div className="space-y-4 -mx-4 -mt-4">
       <iframe
-        src="/hs-report.html?embed=1"
+        src={`/hs-report.html?${params.toString()}`}
         className="w-full border-0"
         style={{ height: 'calc(100dvh - 120px)' }}
         title="H&S Report Generator"
