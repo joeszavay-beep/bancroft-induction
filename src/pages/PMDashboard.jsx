@@ -1785,9 +1785,10 @@ function SnagsTab({ projects, navigate }) {
 
 /* ==================== H&S REPORT TAB ==================== */
 /* ==================== TOOLBOX TAB ==================== */
-function ToolboxTab({ projects, navigate }) {
+function ToolboxTab({ projects: parentProjects, navigate }) {
   const cid = JSON.parse(getSession('manager_data') || '{}').company_id
   const [talks, setTalks] = useState([])
+  const [ownProjects, setOwnProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -1798,9 +1799,18 @@ function ToolboxTab({ projects, navigate }) {
   const [talkSigs, setTalkSigs] = useState({})
   const [exporting, setExporting] = useState(null)
 
+  // Use parent projects if available, otherwise load own
+  const projects = parentProjects?.length > 0 ? parentProjects : ownProjects
+
   async function loadTalks() {
     setLoading(true)
     if (!cid) { setLoading(false); return }
+
+    // Load projects directly in case parent hasn't loaded them yet
+    if (!parentProjects?.length) {
+      const { data: projData } = await supabase.from('projects').select('*').eq('company_id', cid).order('name')
+      setOwnProjects(projData || [])
+    }
     const tData = await fetchAndCache('toolbox_talks', (sb) =>
       sb.from('toolbox_talks').select('*').eq('company_id', cid).order('created_at', { ascending: false })
     )
