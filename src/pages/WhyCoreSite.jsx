@@ -75,14 +75,19 @@ const features = [
   { icon: TrendingUp, title: 'Cash Flow Forecast', desc: '8-week visual forecast of projected income vs spend. Cumulative cash position. Margin alerts when jobs drop below threshold.', color: '#15803D' },
   { icon: FileText, title: 'Worker Invoices', desc: 'Self-employed operatives raise invoices with line items, attach receipts and PDFs. Managers review, comment, approve, and mark as paid.', color: '#6D28D9' },
   { icon: FolderOpen, title: 'Job Document Register', desc: 'Categorised storage for subcontracts, payment notices, pay-less notices, CIS statements, and correspondence per job.', color: '#0E7490' },
-  // Toolbox & compliance
+  // H&S & compliance
+  { icon: Shield, title: 'Permit to Work', desc: '6 permit types: hot works, confined space, working at height, excavation, electrical isolation, roof work. Approval chains, time-limited, auto-expire, closure checklists.', color: '#DC2626' },
+  { icon: FolderOpen, title: 'Document Hub', desc: 'Central document management with 9 categories, version control, expiry tracking, review dates, audit trail. Upload RAMS, policies, certificates, O&M manuals — everything in one place.', color: '#0369A1' },
+  { icon: CheckSquare, title: 'Compliance Matrix', desc: 'One-glance grid showing which operative has signed which document. Green tick, amber pending, red missing. Click any cell to chase. The view every site manager needs.', color: '#059669' },
   { icon: Clock, title: 'Toolbox Talks', desc: 'Create talks, generate a QR code, watch signatures come in live. Auto-generate PDF sign-off sheets for your H&S file.', color: '#B45309' },
+  // Platform
+  { icon: Globe, title: 'Custom Branding', desc: 'Your logo, your colours, your sidebar. Feature toggles to show only what you need. Each company gets their own branded experience.', color: '#4F46E5' },
   { icon: Ruler, title: '3D Measurement Tool', desc: 'Measure distances between any two points on a 3D BIM model. Snap-to-vertex for precision. Screenshot exports with CoreSite watermark.', color: '#6366F1' },
   { icon: BarChart3, title: 'Contractor Performance', desc: 'Resolution times by trade, operative league tables, on-time percentages. Data for every sub meeting.', color: '#0D9488' },
-  { icon: Bell, title: 'Auto-Chase & Alerts', desc: 'Overdue snag emails every morning. Cert expiry warnings. In-app notifications. Margin alerts on commercial.', color: '#DC2626' },
+  { icon: Bell, title: 'Auto-Chase & Alerts', desc: 'Overdue snag emails every morning. Cert expiry warnings. In-app notifications. Margin alerts on commercial.', color: '#B91C1C' },
   { icon: Activity, title: 'Aftercare Portal', desc: 'Public defect reporting for clients during the 12-month liability period. Track alongside your snags.', color: '#F97316' },
   { icon: WifiOff, title: 'Works Offline', desc: 'Create snags, take photos, place pins with no signal. Everything syncs automatically when back online.', color: '#8B5CF6' },
-  { icon: Shield, title: 'H&S Archive & Reports', desc: 'One-click PDF export: signatures, toolbox talks, snags, inspections, diary entries. Full project pack.', color: '#1B2A3D' },
+  { icon: FileCheck, title: 'H&S Archive & Reports', desc: 'One-click PDF export: signatures, toolbox talks, snags, inspections, diary entries, permits. Full project pack for handover.', color: '#1B2A3D' },
 ]
 
 const steps = [
@@ -144,7 +149,7 @@ export default function WhyCoreSite() {
             <div className="max-w-4xl mx-auto text-center">
               <FadeIn>
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 backdrop-blur-sm text-white/80 text-xs font-medium rounded-full mb-8 border border-white/10">
-                  <Zap size={12} className="text-[#3B7DD8]" /> 29 features. One platform. Zero paper.
+                  <Zap size={12} className="text-[#3B7DD8]" /> 33 features. One platform. Zero paper.
                 </div>
               </FadeIn>
               <FadeIn delay={100}>
@@ -155,7 +160,7 @@ export default function WhyCoreSite() {
               </FadeIn>
               <FadeIn delay={200}>
                 <p className="text-lg text-white/50 max-w-2xl mx-auto mb-10 leading-relaxed">
-                  3D BIM viewer, programme tracking, snagging, RAMS, inspections, site diary, QR sign-in, worker management, commercial management, payment applications, invoicing — all in one place. Works on any device. Works offline.
+                  3D BIM viewer, programme tracking, snagging, RAMS, permits to work, document hub, inspections, site diary, QR sign-in, worker management, commercial management, invoicing — all in one place. Works on any device. Works offline.
                 </p>
               </FadeIn>
               <FadeIn delay={300}>
@@ -180,7 +185,7 @@ export default function WhyCoreSite() {
       <section className="bg-[#1A2744] py-14 px-6 -mt-1">
         <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-8">
           {[
-            { value: 29, suffix: '', label: 'Features built in' },
+            { value: 33, suffix: '', label: 'Features built in' },
             { value: 50, suffix: '%', label: 'Less admin time' },
             { value: 100, suffix: '%', label: 'Digital audit trail' },
             { value: 0, suffix: '', label: 'Paper forms', display: 'Zero' },
