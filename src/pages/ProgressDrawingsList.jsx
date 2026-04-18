@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
@@ -7,6 +7,7 @@ import Modal from '../components/Modal'
 import LoadingButton from '../components/LoadingButton'
 import { Upload, Trash2, ChevronRight, Layers, BarChart3, Download, Edit3, Plus } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
+import { buildBranding } from '../lib/reportTemplate'
 import { getSession } from '../lib/storage'
 
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Lighting', 'Other']
@@ -16,6 +17,7 @@ export default function ProgressDrawingsList() {
   const navigate = useNavigate()
   const { company } = useCompany()
   const cid = JSON.parse(getSession('manager_data') || '{}').company_id
+  const companyBranding = useMemo(() => buildBranding(company), [company])
   const [drawings, setDrawings] = useState([])
   const [itemCounts, setItemCounts] = useState({})
   const [projects, setProjects] = useState([])
@@ -146,6 +148,7 @@ export default function ProgressDrawingsList() {
       await generateProgressPDF({
         drawing: d, project: proj, items: drawingItems || [],
         companyName: company?.name || 'Company',
+        branding: companyBranding,
       })
       toast.success('PDF exported')
     } catch (err) {

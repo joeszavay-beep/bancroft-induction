@@ -2,19 +2,24 @@ import { jsPDF } from 'jspdf'
 import {
   drawHeader, drawTitle, drawInfoStrip, drawDescription,
   drawSectionLabel, drawCardGrid, drawSummaryRow, drawFooter,
-  fetchSignatureAsDataUrl, formatDate, formatDateTime, COLORS
+  fetchSignatureAsDataUrl, formatDate, formatDateTime, COLORS, loadLogoImage
 } from './reportTemplate'
 
-export async function generateToolboxPDF({ talk, project, signatures }) {
+export async function generateToolboxPDF({ talk, project, signatures, branding }) {
   const doc = new jsPDF('p', 'mm', 'a4')
   const pageW = 210
   const margin = 14
+
+  // Pre-load logo if branding is provided
+  if (branding?.logoUrl && !branding.logoDataUrl) {
+    branding.logoDataUrl = await loadLogoImage(branding.logoUrl)
+  }
 
   // Header
   let y = drawHeader(doc, {
     docType: 'Toolbox talk sign-off',
     status: talk.is_open ? 'Open' : 'Closed',
-    pageW,
+    pageW, branding,
   })
 
   // Accent bar (draw after all content)
@@ -25,7 +30,7 @@ export async function generateToolboxPDF({ talk, project, signatures }) {
     title: talk.title,
     projectName: project?.name || '',
     y: y + 8,
-    margin,
+    margin, branding,
   })
 
   // Info strip
@@ -41,11 +46,11 @@ export async function generateToolboxPDF({ talk, project, signatures }) {
   // Description
   y = drawDescription(doc, {
     text: talk.description,
-    y, margin, pageW,
+    y, margin, pageW, branding,
   })
 
   // Sign-off section
-  y = drawSectionLabel(doc, { label: 'Sign-off record', y, margin })
+  y = drawSectionLabel(doc, { label: 'Sign-off record', y, margin, branding })
 
   // Build people data with signature images
   const people = []
@@ -63,7 +68,7 @@ export async function generateToolboxPDF({ talk, project, signatures }) {
   }
 
   // Card grid
-  y = drawCardGrid(doc, { people, y, margin, pageW })
+  y = drawCardGrid(doc, { people, y, margin, pageW, branding })
 
   // Summary
   y = drawSummaryRow(doc, {
@@ -73,13 +78,14 @@ export async function generateToolboxPDF({ talk, project, signatures }) {
   })
 
   // Footer
-  drawFooter(doc, { y: y + 4, margin, pageW, pageNum: 1 })
+  drawFooter(doc, { y: y + 4, margin, pageW, pageNum: 1, branding })
 
   // Draw body frame (accent bar + border)
+  const primary = branding?.primaryColor || COLORS.blue
   doc.setDrawColor(...COLORS.border)
   doc.setLineWidth(0.3)
   doc.rect(margin, bodyStartY, pageW - margin * 2, y + 10 - bodyStartY)
-  doc.setFillColor(...COLORS.blue)
+  doc.setFillColor(...primary)
   doc.rect(margin, bodyStartY, 3, y + 10 - bodyStartY, 'F')
 
   const fileName = `Toolbox Talk - ${talk.title} - ${new Date().toISOString().slice(0, 10)}.pdf`.replace(/[^a-zA-Z0-9 \-_.]/g, '')

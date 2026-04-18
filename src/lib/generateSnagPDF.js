@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf'
+import { loadLogoImage } from './reportTemplate'
 
 const STATUS_COLORS = {
   open: [239, 68, 68],
@@ -81,7 +82,7 @@ function generateLocationMapDataUrl(img, pinX, pinY) {
   return canvas.toDataURL('image/jpeg', 0.5)
 }
 
-export async function generateSnagPDF({ drawing, project, snags, imageUrl, options }) {
+export async function generateSnagPDF({ drawing, project, snags, imageUrl, options, branding }) {
   const doc = new jsPDF('l', 'mm', 'a4') // landscape for drawing
   const pageW = 297
   const pageH = 210
@@ -89,26 +90,43 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl, optio
   const contentW = pageW - margin * 2
   const contentH = pageH - margin * 2
 
+  // Pre-load logo if branding is provided
+  if (branding?.logoUrl && !branding.logoDataUrl) {
+    branding.logoDataUrl = await loadLogoImage(branding.logoUrl)
+  }
+  const accent = branding?.accentColor || [27, 42, 61]
+  const brandName = branding?.companyName || ''
+
   // === PAGE 1: Drawing with pins ===
-  // Header — CoreSite design system
-  doc.setFillColor(27, 42, 61) // navy
+  // Header — design system
+  doc.setFillColor(...accent)
   doc.rect(0, 0, pageW, 18, 'F')
-  // Logo crosshair
-  doc.setDrawColor(255, 255, 255)
-  doc.setLineWidth(0.4)
-  doc.circle(14, 9, 5, 'D')
-  doc.setFillColor(255, 255, 255)
-  doc.circle(14, 9, 1.5, 'F')
-  doc.line(14, 3, 14, 6); doc.line(14, 12, 14, 15)
-  doc.line(8, 9, 11, 9); doc.line(17, 9, 20, 9)
-  // Wordmark
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'normal')
-  doc.text('CORE', 22, 7.5)
-  doc.setFont('helvetica', 'bold')
-  doc.text('SITE', 22, 11.5)
+
+  if (branding?.logoDataUrl) {
+    try { doc.addImage(branding.logoDataUrl, 'PNG', 6, 2, 14, 14) } catch { /* ignore */ }
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'bold')
+    doc.text(brandName, 22, 10)
+  } else {
+    // Logo crosshair
+    doc.setDrawColor(255, 255, 255)
+    doc.setLineWidth(0.4)
+    doc.circle(14, 9, 5, 'D')
+    doc.setFillColor(255, 255, 255)
+    doc.circle(14, 9, 1.5, 'F')
+    doc.line(14, 3, 14, 6); doc.line(14, 12, 14, 15)
+    doc.line(8, 9, 11, 9); doc.line(17, 9, 20, 9)
+    // Wordmark
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'normal')
+    doc.text('CORE', 22, 7.5)
+    doc.setFont('helvetica', 'bold')
+    doc.text('SITE', 22, 11.5)
+  }
   // Centre text
+  doc.setTextColor(255, 255, 255)
   doc.setFontSize(9)
   doc.setFont('helvetica', 'bold')
   doc.text('Snag report', pageW / 2, 8, { align: 'center' })
@@ -190,7 +208,10 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl, optio
     legendX += 25
   }
   doc.setTextColor(180, 180, 180)
-  doc.text('CoreSite — Site Compliance Platform', pageW - margin, legendY + 0.5, { align: 'right' })
+  const snagFooter1 = branding?.footerText
+    ? branding.footerText + (branding.showCoreSiteBranding && branding.companyName ? ' \u00B7 Powered by CoreSite' : '')
+    : 'CoreSite \u2014 Site Compliance Platform'
+  doc.text(snagFooter1, pageW - margin, legendY + 0.5, { align: 'right' })
 
   // === Load drawing image for location maps ===
   let drawingImg = null
@@ -216,12 +237,12 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl, optio
 
     if (i % 2 === 0) {
       doc.addPage('a4', 'p')
-      doc.setFillColor(27, 42, 61)
+      doc.setFillColor(...accent)
       doc.rect(0, 0, 210, 16, 'F')
       doc.setTextColor(255, 255, 255)
       doc.setFontSize(9)
       doc.setFont('helvetica', 'bold')
-      doc.text(`${project?.name} — ${drawing.name}`, 10, 10)
+      doc.text(`${project?.name} \u2014 ${drawing.name}`, 10, 10)
       doc.setFontSize(7)
       doc.setFont('helvetica', 'normal')
       doc.text(`${drawing.drawing_number || ''} Rev ${drawing.revision || ''} | ${new Date().toLocaleDateString()}`, 200, 10, { align: 'right' })
@@ -332,7 +353,10 @@ export async function generateSnagPDF({ drawing, project, snags, imageUrl, optio
     if (i % 2 === 1 || i === snags.length - 1) {
       doc.setTextColor(180, 180, 180)
       doc.setFontSize(6)
-      doc.text('CoreSite — Site Compliance Platform', 10, 290)
+      const snagPageFooter = branding?.footerText
+        ? branding.footerText + (branding.showCoreSiteBranding && branding.companyName ? ' \u00B7 Powered by CoreSite' : '')
+        : 'CoreSite \u2014 Site Compliance Platform'
+      doc.text(snagPageFooter, 10, 290)
       doc.text(`Page ${doc.getNumberOfPages()}`, 200, 290, { align: 'right' })
     }
   }

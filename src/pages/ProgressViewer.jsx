@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 import PrefetchButton from '../components/PrefetchButton'
 import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check, Circle, Type, MessageSquareText } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
+import { buildBranding } from '../lib/reportTemplate'
 import { useCompany } from '../lib/CompanyContext'
 import { getSession } from '../lib/storage'
 
@@ -19,6 +20,7 @@ export default function ProgressViewer() {
   const { drawingId } = useParams()
   const navigate = useNavigate()
   const { company } = useCompany()
+  const companyBranding = useMemo(() => buildBranding(company), [company])
   const imageRef = useRef(null)
   const cid = JSON.parse(getSession('manager_data') || '{}').company_id
   const mgr = JSON.parse(getSession('manager_data') || '{}')
@@ -452,7 +454,7 @@ export default function ProgressViewer() {
       await generateProgressPDF({
         drawing, project, items,
         companyName: company?.name || 'Company',
-        companyLogo: company?.logo_url,
+        branding: companyBranding,
       })
       toast.success('PDF exported')
     } catch (err) {

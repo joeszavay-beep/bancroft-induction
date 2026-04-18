@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf'
+import { loadLogoImage } from './reportTemplate'
 
 const STATUS_COLORS_RGB = {
   green: [46, 160, 67],
@@ -75,11 +76,17 @@ async function fetchHighResImage(url) {
   }
 }
 
-export async function generateProgressPDF({ drawing, items, companyName }) {
+export async function generateProgressPDF({ drawing, items, companyName, branding }) {
   const doc = new jsPDF('l', 'mm', 'a4') // landscape
   const pageW = 297
   const pageH = 210
   const margin = 8
+
+  // Pre-load logo if branding is provided
+  if (branding?.logoUrl && !branding.logoDataUrl) {
+    branding.logoDataUrl = await loadLogoImage(branding.logoUrl)
+  }
+  const accent = branding?.accentColor || [27, 42, 61]
 
   // Stats
   const total = items.length
@@ -90,21 +97,26 @@ export async function generateProgressPDF({ drawing, items, companyName }) {
   const pctYellow = total > 0 ? Math.round((yellowCount / total) * 100) : 0
   const pctRed = total > 0 ? Math.round((redCount / total) * 100) : 0
 
-  // Header bar — CoreSite design system
-  doc.setFillColor(27, 42, 61)
+  // Header bar
+  doc.setFillColor(...accent)
   doc.rect(0, 0, pageW, 14, 'F')
-  // Logo crosshair
-  doc.setDrawColor(255, 255, 255)
-  doc.setLineWidth(0.3)
-  doc.circle(12, 7, 4, 'D')
-  doc.setFillColor(255, 255, 255)
-  doc.circle(12, 7, 1, 'F')
-  doc.line(12, 2.5, 12, 4.5); doc.line(12, 9.5, 12, 11.5)
-  doc.line(7.5, 7, 9.5, 7); doc.line(14.5, 7, 16.5, 7)
+
+  if (branding?.logoDataUrl) {
+    try { doc.addImage(branding.logoDataUrl, 'PNG', 4, 1, 12, 12) } catch { /* ignore */ }
+  } else {
+    // Logo crosshair
+    doc.setDrawColor(255, 255, 255)
+    doc.setLineWidth(0.3)
+    doc.circle(12, 7, 4, 'D')
+    doc.setFillColor(255, 255, 255)
+    doc.circle(12, 7, 1, 'F')
+    doc.line(12, 2.5, 12, 4.5); doc.line(12, 9.5, 12, 11.5)
+    doc.line(7.5, 7, 9.5, 7); doc.line(14.5, 7, 16.5, 7)
+  }
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(9)
   doc.setFont('helvetica', 'bold')
-  doc.text(`${companyName || 'Company'} — ${drawing.name}`, margin, 9)
+  doc.text(`${companyName || 'Company'} \u2014 ${drawing.name}`, margin, 9)
   doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
   doc.text(`${drawing.drawing_number || ''} ${drawing.revision ? 'Rev ' + drawing.revision : ''} | ${drawing.trade || ''} | ${drawing.floor_level || ''} | ${new Date().toLocaleDateString('en-GB')}`, pageW - margin, 9, { align: 'right' })
@@ -283,7 +295,10 @@ export async function generateProgressPDF({ drawing, items, companyName }) {
   // Footer
   doc.setTextColor(180, 180, 180)
   doc.setFontSize(5)
-  doc.text('CoreSite — Site Compliance Platform', pageW - margin, legendY + 1, { align: 'right' })
+  const progressFooter = branding?.footerText
+    ? branding.footerText + (branding.showCoreSiteBranding && branding.companyName ? ' \u00B7 Powered by CoreSite' : '')
+    : 'CoreSite \u2014 Site Compliance Platform'
+  doc.text(progressFooter, pageW - margin, legendY + 1, { align: 'right' })
 
   const fileName = `Progress - ${drawing.name} - ${new Date().toISOString().slice(0, 10)}.pdf`.replace(/[^a-zA-Z0-9 \-_.]/g, '')
   doc.save(fileName)

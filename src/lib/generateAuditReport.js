@@ -2,13 +2,18 @@ import { jsPDF } from 'jspdf'
 import {
   drawHeader, drawTitle, drawInfoStrip,
   drawSectionLabel, drawCardGrid, drawSummaryRow, drawFooter,
-  formatDate, formatDateTime, COLORS
+  formatDate, formatDateTime, COLORS, loadLogoImage
 } from './reportTemplate'
 
-export async function generateAuditReport({ project, documents, operatives, signatures }) {
+export async function generateAuditReport({ project, documents, operatives, signatures, branding }) {
   const doc = new jsPDF('p', 'mm', 'a4')
   const pageW = 210
   const margin = 14
+
+  // Pre-load logo if branding is provided
+  if (branding?.logoUrl && !branding.logoDataUrl) {
+    branding.logoDataUrl = await loadLogoImage(branding.logoUrl)
+  }
 
   const validSigs = signatures.filter(s => !s.invalidated)
   const allComplete = operatives.every(op => {
@@ -18,10 +23,10 @@ export async function generateAuditReport({ project, documents, operatives, sign
   const status = allComplete ? 'Completed' : 'Open'
 
   // Header
-  let y = drawHeader(doc, { docType: 'HSE Compliance audit trail', status, pageW })
+  let y = drawHeader(doc, { docType: 'HSE Compliance audit trail', status, pageW, branding })
 
   // Title
-  y = drawTitle(doc, { title: 'HSE Compliance Audit Trail', projectName: project.name, y, margin })
+  y = drawTitle(doc, { title: 'HSE Compliance Audit Trail', projectName: project.name, y, margin, branding })
 
   // Info strip
   y = drawInfoStrip(doc, {
@@ -41,7 +46,7 @@ export async function generateAuditReport({ project, documents, operatives, sign
       y = margin + 10
     }
 
-    y = drawSectionLabel(doc, { label: document.title, y, margin })
+    y = drawSectionLabel(doc, { label: document.title, y, margin, branding })
 
     const docSigs = signatures.filter(s => s.document_id === document.id)
 
@@ -63,6 +68,7 @@ export async function generateAuditReport({ project, documents, operatives, sign
         y,
         margin,
         pageW,
+        branding,
         checkPage: () => {
           doc.addPage()
           return margin + 10
@@ -86,7 +92,7 @@ export async function generateAuditReport({ project, documents, operatives, sign
   })
 
   // Footer
-  drawFooter(doc, { y, margin, pageW })
+  drawFooter(doc, { y, margin, pageW, branding })
 
   const fileName = `${project.name} - Audit Trail Report ${new Date().toISOString().slice(0, 10)}.pdf`.replace(/[^a-zA-Z0-9 \-_.]/g, '')
   doc.save(fileName)

@@ -5,6 +5,8 @@ import { QRCodeSVG } from 'qrcode.react'
 import toast from 'react-hot-toast'
 import { ArrowLeft, CheckCircle2, Users, XCircle, Download } from 'lucide-react'
 import { generateToolboxPDF } from '../lib/generateToolboxPDF'
+import { buildBranding } from '../lib/reportTemplate'
+import { getSession } from '../lib/storage'
 
 export default function ToolboxTalkLive() {
   const { talkId } = useParams()
@@ -16,6 +18,7 @@ export default function ToolboxTalkLive() {
   const [loading, setLoading] = useState(true)
   const [closing, setClosing] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [companyBranding, setCompanyBranding] = useState(null)
 
   const signUrl = `${window.location.origin}/toolbox/${talkId}`
 
@@ -32,6 +35,16 @@ export default function ToolboxTalkLive() {
     setProject(p.data)
     setSignatures(s.data || [])
     setOperatives(o.data || [])
+
+    // Load company branding for PDF exports
+    const cid = JSON.parse(getSession('manager_data') || '{}').company_id
+    if (cid && !companyBranding) {
+      try {
+        const { data: co } = await supabase.from('companies').select('name,logo_url,primary_colour,secondary_colour,settings').eq('id', cid).single()
+        if (co) setCompanyBranding(buildBranding(co))
+      } catch { /* ignore */ }
+    }
+
     setLoading(false)
   }
 
@@ -65,7 +78,7 @@ export default function ToolboxTalkLive() {
   async function handleExport() {
     setExporting(true)
     try {
-      await generateToolboxPDF({ talk, project, signatures, companyName: document.title.split('|')[0]?.trim() || 'CoreSite' })
+      await generateToolboxPDF({ talk, project, signatures, branding: companyBranding })
       toast.success('PDF downloaded')
     } catch (err) {
       console.error(err)

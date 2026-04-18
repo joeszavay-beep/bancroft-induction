@@ -8,6 +8,7 @@ import Modal from '../components/Modal'
 import SnagDetail from '../components/SnagDetail'
 import SnagForm from '../components/SnagForm'
 import { generateSnagPDF } from '../lib/generateSnagPDF'
+import { buildBranding } from '../lib/reportTemplate'
 import PrefetchButton from '../components/PrefetchButton'
 import BIMOverlay, { BIMToggle } from '../components/BIMOverlay'
 import BIMCalibration from '../components/BIMCalibration'
@@ -49,6 +50,7 @@ export default function SnagDrawingView() {
   const [showForm, setShowForm] = useState(false)
   const [showList, setShowList] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [companyBranding, setCompanyBranding] = useState(null)
   const [statusFilter, setStatusFilter] = useState('all')
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imgError, setImgError] = useState(false)
@@ -127,6 +129,18 @@ export default function SnagDrawingView() {
     setSnags(snags.sort((a, b) => (a.snag_number || 0) - (b.snag_number || 0)))
     const ops = Array.isArray(opsList) ? opsList.filter(o => o.project_id === d.project_id) : (opsList || [])
     setOperatives(ops.sort((a, b) => (a.name || '').localeCompare(b.name || '')))
+
+    // Load company branding for PDF exports
+    if (!companyBranding) {
+      const cid = JSON.parse(getSession('manager_data') || '{}').company_id
+      if (cid) {
+        try {
+          const { data: co } = await supabase.from('companies').select('name,logo_url,primary_colour,secondary_colour,settings').eq('id', cid).single()
+          if (co) setCompanyBranding(buildBranding(co))
+        } catch { /* ignore */ }
+      }
+    }
+
     setLoading(false)
   }
 
@@ -167,7 +181,7 @@ export default function SnagDrawingView() {
   async function handleExport() {
     setExporting(true)
     try {
-      await generateSnagPDF({ drawing, project, snags, imageUrl: drawing.file_url })
+      await generateSnagPDF({ drawing, project, snags, imageUrl: drawing.file_url, branding: companyBranding })
       toast.success('PDF exported')
     } catch (err) {
       console.error(err)

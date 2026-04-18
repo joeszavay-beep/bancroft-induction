@@ -2,15 +2,20 @@ import { jsPDF } from 'jspdf'
 import {
   drawHeader, drawTitle, drawInfoStrip, drawDescription,
   drawSectionLabel, drawCardGrid, drawSummaryRow, drawFooter,
-  fetchSignatureAsDataUrl, formatDate, formatDateTime, COLORS
+  fetchSignatureAsDataUrl, formatDate, formatDateTime, COLORS, loadLogoImage
 } from './reportTemplate'
 
-export async function generateArchivePDF({ project, operatives, documents, signatures, toolboxTalks, toolboxSignatures, snags }) {
+export async function generateArchivePDF({ project, operatives, documents, signatures, toolboxTalks, toolboxSignatures, snags, branding }) {
   const doc = new jsPDF('p', 'mm', 'a4')
   const pageW = 210
   const margin = 14
   let y
   let pageNum = 1
+
+  // Pre-load logo if branding is provided
+  if (branding?.logoUrl && !branding.logoDataUrl) {
+    branding.logoDataUrl = await loadLogoImage(branding.logoUrl)
+  }
 
   function checkPage() {
     doc.addPage()
@@ -19,13 +24,13 @@ export async function generateArchivePDF({ project, operatives, documents, signa
   }
 
   // Header
-  y = drawHeader(doc, { docType: 'Project H&S archive', status: 'Completed', pageW })
+  y = drawHeader(doc, { docType: 'Project H&S archive', status: 'Completed', pageW, branding })
 
   // Title
   y = drawTitle(doc, {
     title: 'Project H&S Archive',
-    projectName: `${project.name}${project.location ? ' — ' + project.location : ''}`,
-    y, margin,
+    projectName: `${project.name}${project.location ? ' \u2014 ' + project.location : ''}`,
+    y, margin, branding,
   })
 
   // Info strip
@@ -43,12 +48,12 @@ export async function generateArchivePDF({ project, operatives, documents, signa
   // Description
   y = drawDescription(doc, {
     text: `Complete health & safety archive for "${project.name}". This document contains all operative registrations, document sign-offs, toolbox talks, and snagging records for the project.`,
-    y, margin, pageW,
+    y, margin, pageW, branding,
   })
 
   // ─── SECTION 1: Operative register ───
   if (y > 270) y = checkPage()
-  y = drawSectionLabel(doc, { label: 'Operative register', y, margin })
+  y = drawSectionLabel(doc, { label: 'Operative register', y, margin, branding })
 
   const opPeople = operatives.map(op => ({
     name: op.name || 'Unknown',
@@ -56,17 +61,18 @@ export async function generateArchivePDF({ project, operatives, documents, signa
     signed: true,
   }))
 
-  y = drawCardGrid(doc, { people: opPeople, y, margin, pageW, checkPage })
+  y = drawCardGrid(doc, { people: opPeople, y, margin, pageW, checkPage, branding })
 
   // ─── SECTION 2: Document sign-offs ───
   if (y > 270) y = checkPage()
-  y = drawSectionLabel(doc, { label: 'Document sign-offs', y, margin })
+  y = drawSectionLabel(doc, { label: 'Document sign-offs', y, margin, branding })
 
+  const archivePrimary = branding?.primaryColor || COLORS.blue
   for (const document of documents) {
     if (y > 270) y = checkPage()
 
     // Sub-label for each document
-    doc.setTextColor(...COLORS.blue)
+    doc.setTextColor(...archivePrimary)
     doc.setFontSize(9)
     doc.setFont('helvetica', 'bold')
     doc.text(document.title + (document.version > 1 ? ` (v${document.version})` : ''), margin + 8, y)
@@ -95,7 +101,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
         })
       }
 
-      y = drawCardGrid(doc, { people, y, margin, pageW, checkPage })
+      y = drawCardGrid(doc, { people, y, margin, pageW, checkPage, branding })
     }
 
     y += 2
@@ -103,7 +109,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
 
   // ─── SECTION 3: Toolbox talks ───
   if (y > 270) y = checkPage()
-  y = drawSectionLabel(doc, { label: 'Toolbox talks', y, margin })
+  y = drawSectionLabel(doc, { label: 'Toolbox talks', y, margin, branding })
 
   if (toolboxTalks.length === 0) {
     doc.setTextColor(...COLORS.textTertiary)
@@ -117,7 +123,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
     if (y > 270) y = checkPage()
 
     // Talk title
-    doc.setTextColor(...COLORS.blue)
+    doc.setTextColor(...archivePrimary)
     doc.setFontSize(9)
     doc.setFont('helvetica', 'bold')
     doc.text(talk.title, margin + 8, y)
@@ -152,7 +158,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
         })
       }
 
-      y = drawCardGrid(doc, { people, y, margin, pageW, checkPage })
+      y = drawCardGrid(doc, { people, y, margin, pageW, checkPage, branding })
     }
 
     y += 4
@@ -160,7 +166,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
 
   // ─── SECTION 4: Snagging summary ───
   if (y > 270) y = checkPage()
-  y = drawSectionLabel(doc, { label: 'Snagging summary', y, margin })
+  y = drawSectionLabel(doc, { label: 'Snagging summary', y, margin, branding })
 
   if (snags.length === 0) {
     doc.setTextColor(...COLORS.textTertiary)
@@ -195,7 +201,7 @@ export async function generateArchivePDF({ project, operatives, documents, signa
   })
 
   // Footer with page number
-  drawFooter(doc, { y, margin, pageW, pageNum })
+  drawFooter(doc, { y, margin, pageW, pageNum, branding })
 
   const fileName = `H&S Archive - ${project.name} - ${new Date().toISOString().slice(0, 10)}.pdf`.replace(/[^a-zA-Z0-9 \-_.&]/g, '')
   doc.save(fileName)

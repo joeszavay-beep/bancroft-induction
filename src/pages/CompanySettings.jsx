@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import {
   Palette, Bell, Clock, PoundSterling, ToggleLeft, ShieldCheck,
   Upload, CheckCircle2, AlertTriangle, Lock, Trash2, Image, Building2,
-  ChevronRight, Eye
+  ChevronRight, Eye, FileText
 } from 'lucide-react'
 
 const PRIMARY_PRESETS = [
@@ -41,6 +41,7 @@ const CIS_OPTIONS = [
 
 const SECTIONS = [
   { id: 'branding', label: 'Company Branding', icon: Palette },
+  { id: 'pdf-templates', label: 'PDF Templates', icon: FileText },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'site-defaults', label: 'Site Defaults', icon: Clock },
   { id: 'commercial', label: 'Commercial Defaults', icon: PoundSterling },
@@ -147,6 +148,12 @@ export default function CompanySettings() {
   })
   const [savingFeatures, setSavingFeatures] = useState(false)
 
+  // PDF Template state
+  const [pdfHeaderStyle, setPdfHeaderStyle] = useState('modern')
+  const [pdfFooterText, setPdfFooterText] = useState('')
+  const [pdfShowCoreSite, setPdfShowCoreSite] = useState(true)
+  const [savingPdf, setSavingPdf] = useState(false)
+
   // Load company data
   useEffect(() => {
     async function load() {
@@ -204,6 +211,12 @@ export default function CompanySettings() {
         aftercare_portal: f.aftercare_portal !== false,
         permits_to_work: f.permits_to_work !== false,
       })
+
+      // PDF Template settings
+      const pdf = s.pdf_template || {}
+      setPdfHeaderStyle(pdf.header_style || 'modern')
+      setPdfFooterText(pdf.footer_text || '')
+      setPdfShowCoreSite(pdf.show_coresite_branding !== false)
 
       // Also load notification email from settings table (existing functionality)
       const { data: settingsRow } = await supabase.from('settings').select('*').eq('key', 'pm_email').single()
@@ -391,6 +404,34 @@ export default function CompanySettings() {
       toast.error(err.message || 'Failed to save features')
     }
     setSavingFeatures(false)
+  }
+
+  // Save PDF template settings
+  async function savePdfTemplate() {
+    if (!cid) return
+    setSavingPdf(true)
+    try {
+      const currentSettings = companyData.settings || {}
+      const newSettings = {
+        ...currentSettings,
+        pdf_template: {
+          header_style: pdfHeaderStyle,
+          footer_text: pdfFooterText || '',
+          show_coresite_branding: pdfShowCoreSite,
+        },
+      }
+
+      const { data, error } = await supabase.from('companies').update({
+        settings: newSettings,
+      }).eq('id', cid).select().single()
+      if (error) throw error
+
+      setCompanyData(data)
+      toast.success('PDF template settings saved')
+    } catch (err) {
+      toast.error(err.message || 'Failed to save PDF settings')
+    }
+    setSavingPdf(false)
   }
 
   // Password reset
@@ -630,7 +671,141 @@ export default function CompanySettings() {
             </div>
           </SectionCard>
 
-          {/* Section 2: Notifications */}
+          {/* Section 2: PDF Templates */}
+          <SectionCard id="pdf-templates" icon={FileText} title="PDF Templates">
+            <p className="text-xs text-slate-500 mb-5">Customise the look of exported PDF reports (sign-off sheets, snag reports, audit trails, etc.)</p>
+            <div className="space-y-5">
+              {/* Header Style */}
+              <div>
+                <label className={labelCls}>Header Style</label>
+                <p className="text-xs text-slate-400 mb-2">Choose how the header appears on PDF reports</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { value: 'modern', label: 'Modern', desc: 'Full header with logo, company name centred, status badge' },
+                    { value: 'classic', label: 'Classic', desc: 'Company logo and name left, document type right' },
+                    { value: 'minimal', label: 'Minimal', desc: 'Thin header bar with logo and document type' },
+                  ].map(style => (
+                    <button
+                      key={style.value}
+                      type="button"
+                      onClick={() => setPdfHeaderStyle(style.value)}
+                      className={`text-left p-3 rounded-lg border-2 transition-all ${
+                        pdfHeaderStyle === style.value
+                          ? 'border-[var(--primary-color)] bg-[var(--primary-color)]/5'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-slate-900">{style.label}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{style.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Footer Text */}
+              <div>
+                <label className={labelCls}>Footer Text</label>
+                <p className="text-xs text-slate-400 mb-1.5">Custom text shown at the bottom of each PDF page</p>
+                <input
+                  type="text"
+                  value={pdfFooterText}
+                  onChange={e => setPdfFooterText(e.target.value)}
+                  placeholder={`Generated by ${companyName || 'Your Company'}`}
+                  className={inputCls}
+                />
+              </div>
+
+              {/* Show CoreSite branding */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">Show "Powered by CoreSite"</p>
+                  <p className="text-xs text-slate-500">Appends CoreSite branding after your footer text</p>
+                </div>
+                <Toggle checked={pdfShowCoreSite} onChange={setPdfShowCoreSite} />
+              </div>
+
+              {/* Preview */}
+              <div>
+                <label className={labelCls}>
+                  <Eye size={14} className="inline mr-1" />
+                  PDF Header Preview
+                </label>
+                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                  {/* Header preview */}
+                  {pdfHeaderStyle === 'modern' && (
+                    <div className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: sidebarColour }}>
+                      <div className="flex items-center gap-2">
+                        {logoPreview ? (
+                          <img src={logoPreview} alt="" className="h-7 w-7 object-contain rounded" />
+                        ) : (
+                          <div className="w-7 h-7 rounded border border-white/30 flex items-center justify-center">
+                            <span className="text-white text-[8px] font-bold">LOGO</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-center">
+                        <p className="text-white text-xs font-bold">{companyName || 'Company Name'}</p>
+                        <p className="text-white/70 text-[10px]">Document type</p>
+                      </div>
+                      <div className="px-2 py-0.5 rounded text-[9px] font-bold" style={{ backgroundColor: `${primaryColour}33`, color: primaryColour }}>
+                        Status
+                      </div>
+                    </div>
+                  )}
+                  {pdfHeaderStyle === 'classic' && (
+                    <div className="px-4 py-2.5 flex items-center justify-between" style={{ backgroundColor: sidebarColour }}>
+                      <div className="flex items-center gap-2">
+                        {logoPreview ? (
+                          <img src={logoPreview} alt="" className="h-6 w-6 object-contain rounded" />
+                        ) : null}
+                        <span className="text-white text-sm font-bold">{companyName || 'Company Name'}</span>
+                      </div>
+                      <span className="text-white/70 text-xs">Document type</span>
+                    </div>
+                  )}
+                  {pdfHeaderStyle === 'minimal' && (
+                    <div className="px-4 py-1.5 flex items-center justify-between" style={{ backgroundColor: sidebarColour }}>
+                      <div className="flex items-center gap-2">
+                        {logoPreview ? (
+                          <img src={logoPreview} alt="" className="h-4 w-4 object-contain rounded" />
+                        ) : null}
+                        <span className="text-white text-xs font-bold">{companyName || 'Company Name'}</span>
+                      </div>
+                      <span className="text-white/60 text-[10px]">Document type</span>
+                    </div>
+                  )}
+                  {/* Content placeholder */}
+                  <div className="px-4 py-3 bg-white">
+                    <div className="h-2 bg-slate-100 rounded w-3/4 mb-1.5" />
+                    <div className="h-1.5 bg-slate-50 rounded w-1/2 mb-3" />
+                    <div className="flex gap-3 mb-2">
+                      <div className="h-1 bg-slate-100 rounded w-16" />
+                      <div className="h-1 bg-slate-100 rounded w-20" />
+                      <div className="h-1 bg-slate-100 rounded w-12" />
+                    </div>
+                  </div>
+                  {/* Footer preview */}
+                  <div className="px-4 py-2 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                    <span className="text-[10px] text-slate-400">
+                      {pdfFooterText || `Generated by ${companyName || 'Your Company'}`}
+                      {pdfShowCoreSite && companyName ? ' \u00B7 Powered by CoreSite' : ''}
+                    </span>
+                    <span className="text-[10px] text-slate-400">16/04/2026 09:30</span>
+                  </div>
+                </div>
+              </div>
+
+              <LoadingButton
+                loading={savingPdf}
+                onClick={savePdfTemplate}
+                className="bg-[var(--primary-color)] hover:opacity-90 text-white"
+              >
+                Save PDF Settings
+              </LoadingButton>
+            </div>
+          </SectionCard>
+
+          {/* Section 3: Notifications */}
           <SectionCard id="notifications" icon={Bell} title="Notification Preferences">
             <div className="space-y-5">
               <div className="flex items-center justify-between">

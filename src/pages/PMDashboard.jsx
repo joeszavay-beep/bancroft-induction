@@ -19,6 +19,7 @@ import SnagDetail from '../components/SnagDetail'
 import { generateSnagPDF } from '../lib/generateSnagPDF'
 import { generateToolboxPDF } from '../lib/generateToolboxPDF'
 import { getSession } from '../lib/storage'
+import { buildBranding } from '../lib/reportTemplate'
 
 const TABS = [
   { id: 'home', label: 'Home', icon: Home },
@@ -43,6 +44,7 @@ export default function PMDashboard({ initialTab }) {
   const managerData = JSON.parse(getSession('manager_data') || '{}')
   const managerProjectIds = managerData.project_ids || []
   const isAdmin = managerData.role === 'admin'
+  const [companyBranding, setCompanyBranding] = useState(null)
 
   async function loadData() {
     setLoading(true)
@@ -55,6 +57,14 @@ export default function PMDashboard({ initialTab }) {
       fetchAndCache('documents', (sb) => sb.from('documents').select('*').eq('company_id', cid).order('created_at', { ascending: false })),
       fetchAndCache('signatures', (sb) => sb.from('signatures').select('*').eq('company_id', cid).order('signed_at', { ascending: false })),
     ])
+
+    // Load company branding for PDF exports
+    if (!companyBranding) {
+      try {
+        const { data: co } = await supabase.from('companies').select('name,logo_url,primary_colour,secondary_colour,settings').eq('id', cid).single()
+        if (co) setCompanyBranding(buildBranding(co))
+      } catch { /* ignore */ }
+    }
 
     let filteredProjects = pData || []
     if (!isAdmin && managerProjectIds.length > 0) {
@@ -444,7 +454,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
         documents: projDocs,
         operatives: projOps,
         signatures: projSigs,
-        companyName: document.title.split('|')[0]?.trim() || 'CoreSite',
+        branding: companyBranding,
       })
       toast.success('Audit report downloaded')
     } catch (err) {
@@ -483,6 +493,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
         toolboxSignatures: talkSigs,
         snags: sngs || [],
         drawings: drws || [],
+        branding: companyBranding,
       })
       toast.success('H&S Archive downloaded')
     } catch (err) {
@@ -592,7 +603,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                                     <button disabled={downloading === d.id} onClick={async () => {
                                       setDownloading(d.id)
                                       try {
-                                        await generateSignOffSheet({ projectName: p.name, documentTitle: d.title, signatures: docSigs, companyName: document.title.split('|')[0]?.trim() || 'CoreSite' })
+                                        await generateSignOffSheet({ projectName: p.name, documentTitle: d.title, signatures: docSigs, branding: companyBranding })
                                       } catch { /* ignore */ }
                                       setDownloading(null)
                                     }} className="p-1 transition-colors" style={{ color: 'var(--primary-color)' }} title="Download sign-off sheet">
@@ -1147,7 +1158,7 @@ function SnagsTab({ projects, navigate }) {
       // If some snags on this drawing are checked, only export those. Otherwise export all.
       const checkedOnThisDrawing = allDrawingSnags.filter(s => checkedSnags.has(s.id))
       const snagsToExport = checkedOnThisDrawing.length > 0 ? checkedOnThisDrawing : allDrawingSnags
-      await generateSnagPDF({ drawing: d, project: proj, snags: snagsToExport, imageUrl: d.file_url })
+      await generateSnagPDF({ drawing: d, project: proj, snags: snagsToExport, imageUrl: d.file_url, branding: companyBranding })
       const label = checkedOnThisDrawing.length > 0 ? `${checkedOnThisDrawing.length} selected snag${checkedOnThisDrawing.length > 1 ? 's' : ''}` : 'full report'
       toast.success(`Downloaded ${label}`)
     } catch (err) {
@@ -1188,7 +1199,7 @@ function SnagsTab({ projects, navigate }) {
     let pdfUrl = null
     try {
       const { generateSnagPDFBlob } = await import('../lib/generateSnagPDF')
-      const pdfBlob = await generateSnagPDFBlob({ drawing, project: proj, snags: selectedSnagData, imageUrl: drawing?.file_url })
+      const pdfBlob = await generateSnagPDFBlob({ drawing, project: proj, snags: selectedSnagData, imageUrl: drawing?.file_url, branding: companyBranding })
 
       if (pdfBlob) {
         const pdfPath = `snag-reports/${cid}/${crypto.randomUUID()}.pdf`
@@ -1845,7 +1856,7 @@ function ToolboxTab({ projects, navigate }) {
     try {
       const { data: proj } = await supabase.from('projects').select('*').eq('id', talk.project_id).single()
       const { data: sigs } = await supabase.from('toolbox_signatures').select('*').eq('talk_id', talk.id).order('signed_at')
-      await generateToolboxPDF({ talk, project: proj, signatures: sigs || [], companyName: document.title.split('|')[0]?.trim() || 'CoreSite' })
+      await generateToolboxPDF({ talk, project: proj, signatures: sigs || [], branding: companyBranding })
       toast.success('PDF downloaded')
     } catch (err) {
       console.error(err)
