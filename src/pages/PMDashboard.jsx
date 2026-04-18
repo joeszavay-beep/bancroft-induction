@@ -1866,7 +1866,6 @@ function ToolboxTab({ projects: parentProjects, navigate }) {
       title: title.trim(),
       description: description.trim() || null,
       project_id: projectId,
-      created_by: managerData.id || null,
       company_id: cid,
       attachment_url: attachmentUrl,
       attachment_name: attachmentName,
