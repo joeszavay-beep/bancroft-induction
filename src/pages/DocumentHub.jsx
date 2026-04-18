@@ -217,7 +217,6 @@ export default function DocumentHub() {
         description: uploadForm.description.trim() || null,
         project_id: uploadForm.project_id || null,
         file_url: publicUrl,
-        file_path: path,
         file_name: uploadFile.name,
         file_type: uploadFile.type,
         file_size: uploadFile.size,
@@ -228,7 +227,7 @@ export default function DocumentHub() {
         requires_signoff: uploadForm.requires_signoff,
         is_template: uploadForm.is_template,
         uploaded_by: managerName,
-        status: 'active',
+        is_archived: false,
       }).select().single()
 
       if (error) throw error
@@ -287,7 +286,6 @@ export default function DocumentHub() {
         description: doc.description,
         project_id: doc.project_id,
         file_url: publicUrl,
-        file_path: path,
         file_name: versionFile.name,
         file_type: versionFile.type,
         file_size: versionFile.size,
@@ -298,14 +296,14 @@ export default function DocumentHub() {
         requires_signoff: doc.requires_signoff,
         is_template: doc.is_template,
         uploaded_by: managerName,
-        status: 'active',
+        is_archived: false,
         previous_version_id: doc.id,
       }).select().single()
 
       if (error) throw error
 
       // Archive old version
-      await supabase.from('document_hub').update({ status: 'archived' }).eq('id', doc.id)
+      await supabase.from('document_hub').update({ is_archived: true }).eq('id', doc.id)
 
       // If requires signoff, invalidate old and create new pending signoffs
       if (doc.requires_signoff) {
@@ -410,7 +408,7 @@ export default function DocumentHub() {
   // ── Archive document ──
   async function handleArchive(doc) {
     if (!confirm(`Archive "${doc.title}"?`)) return
-    const { error } = await supabase.from('document_hub').update({ status: 'archived' }).eq('id', doc.id)
+    const { error } = await supabase.from('document_hub').update({ is_archived: true }).eq('id', doc.id)
     if (error) return toast.error('Failed to archive')
     logAudit('archive', doc.id)
     toast.success('Document archived')
@@ -509,7 +507,6 @@ export default function DocumentHub() {
         description: tpl.description,
         project_id: cloneProjectId,
         file_url: tpl.file_url,
-        file_path: tpl.file_path,
         file_name: tpl.file_name,
         file_type: tpl.file_type,
         file_size: tpl.file_size,
@@ -520,7 +517,7 @@ export default function DocumentHub() {
         requires_signoff: tpl.requires_signoff,
         is_template: false,
         uploaded_by: managerName,
-        status: 'active',
+        is_archived: false,
       })
       if (error) throw error
       logAudit('clone', tpl.id, { to_project: cloneProjectId })
@@ -558,15 +555,15 @@ export default function DocumentHub() {
   }
 
   // ── Filtering ──
-  const activeDocuments = documents.filter(d => d.status !== 'archived' && !d.is_template)
-  const archivedDocuments = documents.filter(d => d.status === 'archived')
+  const activeDocuments = documents.filter(d => !d.is_archived && !d.is_template)
+  const archivedDocuments = documents.filter(d => d.is_archived)
   const templateDocuments = documents.filter(d => d.is_template)
 
   const filteredDocuments = documents.filter(d => {
     if (filterCategory && d.category !== filterCategory) return false
     if (filterProject && d.project_id !== filterProject) return false
-    if (filterStatus === 'active' && d.status !== 'active') return false
-    if (filterStatus === 'archived' && d.status !== 'archived') return false
+    if (filterStatus === 'active' && d.is_archived) return false
+    if (filterStatus === 'archived' && !d.is_archived) return false
     if (filterStatus === 'expiring') {
       const days = daysUntil(d.expiry_date)
       if (days === null || days > 30) return false
