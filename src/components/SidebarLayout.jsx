@@ -100,7 +100,7 @@ const NAV_SECTIONS = [
     title: 'H&S',
     items: [
       { label: 'Toolbox Talks', path: '/app/toolbox', icon: MessageSquare, feature: 'toolbox_talks' },
-      { label: 'Documents', path: '/app/documents', icon: FileText },
+      { label: 'Documents', path: '/app/document-hub', icon: FolderOpen },
       { label: 'H&S Reports', path: '/app/hs-reports', icon: ClipboardList, feature: 'hs_reports' },
       { label: 'Permits to Work', path: '/app/permits', icon: Shield },
     ],
