@@ -33,9 +33,15 @@ function formatBytes(bytes) {
 
 async function loadPdfDoc(arrayBuffer) {
   try {
-    return await PDFDocument.load(arrayBuffer, { ignoreEncryption: true })
+    return await PDFDocument.load(arrayBuffer, { ignoreEncryption: true, updateMetadata: false })
   } catch {
-    throw new Error('Failed to load PDF. The file may be encrypted or corrupted.')
+    // Retry with a copy of the buffer in case the original was detached
+    try {
+      const copy = arrayBuffer.slice ? arrayBuffer.slice(0) : new Uint8Array(arrayBuffer)
+      return await PDFDocument.load(copy, { ignoreEncryption: true, updateMetadata: false, throwOnInvalidObject: false })
+    } catch {
+      throw new Error('Failed to load PDF. The file may be encrypted or corrupted.')
+    }
   }
 }
 
@@ -192,10 +198,17 @@ function MergePDF() {
     if (pdfFiles.length !== newFiles.length) toast.error('Only PDF files are accepted')
     const entries = []
     for (const f of pdfFiles) {
-      const buf = await f.arrayBuffer()
-      const pages = await getPdfPageCount(buf)
-      entries.push({ name: f.name, size: f.size, pages, buffer: buf, id: Date.now() + Math.random() })
+      try {
+        if (f.size > 100 * 1024 * 1024) { toast.error(`${f.name} is too large (max 100MB)`); continue }
+        const buf = await f.arrayBuffer()
+        const pages = await getPdfPageCount(buf.slice(0))
+        if (pages === null) { toast.error(`Could not read ${f.name} — file may be corrupted`); continue }
+        entries.push({ name: f.name, size: f.size, pages, buffer: buf, id: Date.now() + Math.random() })
+      } catch {
+        toast.error(`Failed to load ${f.name}`)
+      }
     }
+    if (entries.length === 0) return
     setFiles(prev => [...prev, ...entries])
     sortable.setItems(prev => [...prev, ...entries])
   }
@@ -277,7 +290,10 @@ function SplitPDF() {
   async function handleFile(files) {
     const f = files[0]
     if (!f.type.includes('pdf') && !f.name.toLowerCase().endsWith('.pdf')) { toast.error('Only PDF files'); return }
-    const buf = await f.arrayBuffer()
+    let buf
+    try { buf = await f.arrayBuffer() } catch { toast.error('Failed to read file'); return }
+    const testPages = await getPdfPageCount(buf.slice(0))
+    if (!testPages) { toast.error('Failed to load PDF — file may be corrupted or encrypted'); return }
     setFile(f)
     setBuffer(buf)
     setSelected(new Set())
@@ -434,7 +450,10 @@ function CompressPDF() {
   async function handleFile(files) {
     const f = files[0]
     if (!f.type.includes('pdf') && !f.name.toLowerCase().endsWith('.pdf')) { toast.error('Only PDF files'); return }
-    const buf = await f.arrayBuffer()
+    let buf
+    try { buf = await f.arrayBuffer() } catch { toast.error('Failed to read file'); return }
+    const testPages = await getPdfPageCount(buf.slice(0))
+    if (!testPages) { toast.error('Failed to load PDF — file may be corrupted or encrypted'); return }
     setFile(f)
     setBuffer(buf)
     setResult(null)
@@ -581,7 +600,10 @@ function WatermarkPDF() {
   async function handleFile(files) {
     const f = files[0]
     if (!f.type.includes('pdf') && !f.name.toLowerCase().endsWith('.pdf')) { toast.error('Only PDF files'); return }
-    const buf = await f.arrayBuffer()
+    let buf
+    try { buf = await f.arrayBuffer() } catch { toast.error('Failed to read file'); return }
+    const testPages = await getPdfPageCount(buf.slice(0))
+    if (!testPages) { toast.error('Failed to load PDF — file may be corrupted or encrypted'); return }
     setFile(f)
     setBuffer(buf)
     // Render first page preview
@@ -758,11 +780,13 @@ function PageNumbersPDF() {
   async function handleFile(files) {
     const f = files[0]
     if (!f.type.includes('pdf') && !f.name.toLowerCase().endsWith('.pdf')) { toast.error('Only PDF files'); return }
-    const buf = await f.arrayBuffer()
+    let buf
+    try { buf = await f.arrayBuffer() } catch { toast.error('Failed to read file'); return }
+    const count = await getPdfPageCount(buf.slice(0))
+    if (!count) { toast.error('Failed to load PDF — file may be corrupted or encrypted'); return }
     setFile(f)
     setBuffer(buf)
-    const count = await getPdfPageCount(buf)
-    setPageCount(count || 0)
+    setPageCount(count)
   }
 
   async function apply() {
