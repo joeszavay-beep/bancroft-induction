@@ -70,6 +70,7 @@ import AgencyConnections from './pages/AgencyConnections'
 import AgencyRegister from './pages/AgencyRegister'
 import CompanySettings from './pages/CompanySettings'
 import DocumentHub from './pages/DocumentHub'
+import HSReportGenerator from './pages/HSReportGenerator'
 import PDFTools from './pages/PDFTools'
 import SubcontractorJobs from './pages/SubcontractorJobs'
 import SubcontractorJobDetail from './pages/SubcontractorJobDetail'
@@ -131,7 +132,7 @@ function AppLayout() {
         <Route path="/documents" element={<PMDashboard key="docs" initialTab="projects" />} />
         <Route path="/document-hub" element={<DocumentHub />} />
         <Route path="/pdf-tools" element={<PDFTools />} />
-        <Route path="/hs-reports" element={<PMDashboard key="hs" initialTab="hsreport" />} />
+        <Route path="/hs-reports" element={<HSReportGenerator />} />
         <Route path="/portal" element={<PMDashboard key="portal" initialTab="portal" />} />
         <Route path="/account" element={<PMDashboard key="settings" initialTab="settings" />} />
         <Route path="/settings" element={<CompanySettings />} />
