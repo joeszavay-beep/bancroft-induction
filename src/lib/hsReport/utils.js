@@ -63,6 +63,13 @@ export function classifyExpiry(dateValue, weekEndDate) {
  *             attentionItems: Array<{ severity: string, message: string, page: number }> }}
  */
 export function computeReportSummary({ operatives, weekEnd, pmChecklist, envChecklist, opChecklist, labourData, equipmentRows }) {
+  console.log('computeReportSummary v3 inputs:', {
+    labourData: Array.isArray(labourData) ? labourData.length : typeof labourData,
+    labourSample: Array.isArray(labourData) ? labourData[0] : null,
+    pmChecklist: Array.isArray(pmChecklist) ? pmChecklist.length : typeof pmChecklist,
+    pmSample: Array.isArray(pmChecklist) ? pmChecklist[0] : null,
+    operatives: Array.isArray(operatives) ? operatives.length : typeof operatives,
+  })
   const attentionItems = []
 
   // --- Total shifts from labour data (headcount per day, not hours) ---

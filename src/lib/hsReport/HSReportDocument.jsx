@@ -4,6 +4,13 @@ import { PageFrame, SectionHeader } from './primitives'
 import CoverPage from './CoverPage'
 
 export default function HSReportDocument({ data }) {
+  console.log('HSReportDocument v3 rendered', {
+    labourRows: data.labourData?.length,
+    pmChecks: data.pmChecklist?.length,
+    envChecks: data.envChecklist?.length,
+    opChecks: data.opChecklist?.length,
+    pmSample: data.pmChecklist?.[0],
+  })
   const summary = computeReportSummary({
     operatives: data.operatives,
     weekEnd: data.weekEnd,
