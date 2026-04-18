@@ -12,6 +12,7 @@ export default function OperativeEarnings() {
   const [loading, setLoading] = useState(true)
   const [entries, setEntries] = useState([])
   const [jobOps, setJobOps] = useState([])
+  const [invoices, setInvoices] = useState([])
   const [tab, setTab] = useState('summary') // summary | monthly | by-job
 
   async function loadEarnings(opData) {
@@ -35,6 +36,16 @@ export default function OperativeEarnings() {
       .order('date')
 
     setEntries(tsData || [])
+
+    // Load approved/paid invoices
+    const { data: invData } = await supabase
+      .from('operative_invoices')
+      .select('*')
+      .eq('operative_id', opData.id)
+      .in('status', ['approved', 'paid'])
+      .order('created_at', { ascending: false })
+    setInvoices(invData || [])
+
     setLoading(false)
   }
 
@@ -64,15 +75,29 @@ export default function OperativeEarnings() {
     return { gross: cost, cis: cisAmount, net: cost - cisAmount, cisRate }
   }
 
-  // Totals
-  let totalGross = 0, totalCIS = 0, totalNet = 0, totalDays = 0
+  // Totals from timesheets
+  let tsGross = 0, tsCIS = 0, tsNet = 0, totalDays = 0
   entries.forEach(e => {
     const { gross, cis, net } = calcEntryEarnings(e)
-    totalGross += gross
-    totalCIS += cis
-    totalNet += net
+    tsGross += gross
+    tsCIS += cis
+    tsNet += net
     if ((e.hours_adjusted ?? e.hours_calculated ?? 0) > 0) totalDays++
   })
+
+  // Totals from approved/paid invoices
+  let invGross = 0, invCIS = 0, invNet = 0, invPaid = 0
+  invoices.forEach(inv => {
+    invGross += inv.gross_amount || 0
+    invCIS += inv.cis_deduction || 0
+    invNet += inv.net_amount || 0
+    if (inv.status === 'paid') invPaid += inv.net_amount || 0
+  })
+
+  // Combined totals
+  const totalGross = tsGross + invGross
+  const totalCIS = tsCIS + invCIS
+  const totalNet = tsNet + invNet
 
   // Monthly breakdown
   const monthlyMap = {}
@@ -158,7 +183,7 @@ export default function OperativeEarnings() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>My Earnings</h1>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Earnings from approved timesheet entries</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Earnings from timesheets and approved invoices</p>
           </div>
           <button onClick={downloadCISStatement}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
@@ -177,8 +202,8 @@ export default function OperativeEarnings() {
             <div className="grid grid-cols-2 gap-3">
               <SummaryCard icon={PoundSterling} label="Gross Earned" value={formatMoney(totalGross)} color="#2EA043" />
               <SummaryCard icon={TrendingUp} label="CIS Deducted" value={formatMoney(totalCIS)} color="#DA3633" />
-              <SummaryCard icon={PoundSterling} label="Net Pay" value={formatMoney(totalNet)} color={primaryColor} />
-              <SummaryCard icon={Calendar} label="Days Worked" value={totalDays.toString()} color="#7C3AED" />
+              <SummaryCard icon={PoundSterling} label="Net Payable" value={formatMoney(totalNet)} color={primaryColor} />
+              <SummaryCard icon={Briefcase} label="Paid to Date" value={formatMoney(invPaid)} color="#7C3AED" />
             </div>
 
             {/* Tab selector */}
@@ -218,6 +243,35 @@ export default function OperativeEarnings() {
                         <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Net Pay</span>
                         <span className="text-base font-bold" style={{ color: primaryColor }}>{formatMoney(totalNet)}</span>
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Invoice earnings */}
+                {invoices.length > 0 && (
+                  <div className="bg-white border border-[#E2E6EA] rounded-xl p-4 space-y-3">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Invoice Earnings ({invoices.length} approved)</p>
+                    <div className="space-y-2">
+                      {invoices.map(inv => (
+                        <div key={inv.id} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                          <div>
+                            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{inv.invoice_ref}</p>
+                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                              {inv.period_from ? new Date(inv.period_from).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}{inv.period_from && inv.period_to ? ' — ' : ''}{inv.period_to ? new Date(inv.period_to).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatMoney(inv.net_amount)}</p>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${inv.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-green-100 text-green-700'}`}>
+                              {inv.status === 'paid' ? 'Paid' : 'Approved'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pt-2 border-t border-slate-200 flex justify-between text-sm">
+                      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Invoice Total (Net)</span>
+                      <span className="font-bold" style={{ color: primaryColor }}>{formatMoney(invNet)}</span>
                     </div>
                   </div>
                 )}
