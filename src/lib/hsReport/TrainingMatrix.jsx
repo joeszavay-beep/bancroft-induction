@@ -37,7 +37,7 @@ function hasCerts(op) {
 }
 
 function computeSummary(operatives, weekEnd) {
-  let valid = 0, warning = 0, critical = 0, missing = 0
+  let expired = 0, critical = 0, warning = 0, valid = 0, missing = 0
 
   operatives.forEach(op => {
     if (!hasCerts(op)) {
@@ -46,22 +46,24 @@ function computeSummary(operatives, weekEnd) {
     }
     CERT_KEYS.forEach(k => {
       const status = classifyExpiry(op[k], weekEnd)
-      if (status === 'valid') valid++
+      if (status === 'expired') expired++
+      else if (status === 'critical') critical++
       else if (status === 'warning') warning++
-      else if (status === 'critical' || status === 'expired') critical++
+      else if (status === 'valid') valid++
     })
   })
 
-  return { valid, warning, critical, missing }
+  return { expired, critical, warning, valid, missing }
 }
 
 // ── Summary strip (4 mini tiles) ──
 function SummaryStrip({ stats }) {
   const tiles = [
-    { label: 'Valid certs',       value: stats.valid,    color: 'green' },
-    { label: 'Expiring ≤90d',    value: stats.warning,  color: 'amber' },
-    { label: 'Expiring within 30d', value: stats.critical, color: 'red' },
-    { label: 'Missing records',   value: stats.missing,  color: 'neutral' },
+    { label: 'Expired',           value: stats.expired,  color: 'red' },
+    { label: 'Expiring \u226430d', value: stats.critical, color: 'red' },
+    { label: 'Expiring \u226490d', value: stats.warning,  color: 'amber' },
+    { label: 'Valid',              value: stats.valid,    color: 'green' },
+    { label: 'Missing records',    value: stats.missing,  color: 'neutral' },
   ]
 
   return (
@@ -254,7 +256,7 @@ export default function TrainingMatrix({ operatives, weekEnd, projectName, weekS
 
       {chunk.length === 0 && (
         <View style={s.emptyRow}>
-          <Text style={s.emptyText}>No operatives recorded for this project</Text>
+          <Text style={s.emptyText}>No operatives recorded for this period</Text>
         </View>
       )}
 

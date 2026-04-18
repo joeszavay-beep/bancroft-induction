@@ -74,17 +74,17 @@ export default function CoverPage({ data, summary }) {
         <InfoCol label="Issued by" value={data.issuedBy} />
       </View>
 
-      {/* 4 KPI tiles */}
+      {/* 4 KPI tiles — em-dash + "No data" for zero-data states */}
       <View style={s.kpiRow}>
         <KPITile
           label="Shifts worked"
-          value={summary.totalShifts}
-          context="Headcount · week"
+          value={summary.totalShifts > 0 ? summary.totalShifts : '\u2014'}
+          context={summary.totalShifts > 0 ? 'Headcount \u00b7 week' : 'No data'}
         />
         <KPITile
           label="Operatives on site"
-          value={summary.operativeCount}
-          context="Unique sign-ins"
+          value={summary.operativeCount > 0 ? summary.operativeCount : '\u2014'}
+          context={summary.operativeCount > 0 ? 'Unique sign-ins' : 'No data'}
         />
         <KPITile
           label="Inspections passed"
@@ -93,10 +93,12 @@ export default function CoverPage({ data, summary }) {
           context={summary.inspectionsTotal > 0 ? `${Math.round(passRate * 100)}% pass rate` : 'No data'}
         />
         <KPITile
-          label="Certs expiring within 30d"
-          value={summary.expiringCertCount}
+          label="Urgent certs"
+          value={summary.expiringCertCount > 0 ? summary.expiringCertCount : '\u2014'}
           color={summary.expiringCertCount > 0 ? 'red' : 'neutral'}
-          context={summary.expiringCertCount > 0 ? 'Action required' : 'All current'}
+          context={summary.expiringCertCount > 0
+            ? `${summary.expiredCertCount} expired \u00b7 ${summary.criticalCertCount} expiring \u226430d`
+            : 'All current'}
         />
       </View>
 

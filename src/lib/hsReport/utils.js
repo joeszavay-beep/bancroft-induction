@@ -117,8 +117,10 @@ export function computeReportSummary({ operatives, weekEnd, pmChecklist, envChec
     })
   })
 
-  // --- Expiring certs ---
+  // --- Expiring certs (split into expired vs critical-within-30d) ---
   let expiringCertCount = 0
+  let expiredCertCount = 0
+  let criticalCertCount = 0
   const weekEndDate = weekEnd instanceof Date ? weekEnd : new Date(weekEnd)
   const certFieldLabels = {
     cscs_expiry: 'CSCS',
@@ -141,6 +143,8 @@ export function computeReportSummary({ operatives, weekEnd, pmChecklist, envChec
         const status = classifyExpiry(op[field], weekEndDate)
         if (status === 'expired' || status === 'critical') {
           expiringCertCount++
+          if (status === 'expired') expiredCertCount++
+          else criticalCertCount++
           const opName = op.full_name || op.name || 'Unknown operative'
           const certLabel = certFieldLabels[field]
           const expiryFmt = formatDate(op[field], { short: true })
@@ -178,6 +182,8 @@ export function computeReportSummary({ operatives, weekEnd, pmChecklist, envChec
     inspectionsPassed,
     inspectionsTotal,
     expiringCertCount,
+    expiredCertCount,
+    criticalCertCount,
     attentionItems,
   }
 }
