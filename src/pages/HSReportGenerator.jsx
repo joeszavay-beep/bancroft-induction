@@ -5,7 +5,7 @@ import { getSession } from '../lib/storage'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import { jsPDF } from 'jspdf'
-import 'jspdf-autotable'
+import autoTable from 'jspdf-autotable'
 import {
   FileText, Download, Save, Plus, Trash2, ChevronRight, ChevronDown,
   Loader2, Settings, BookOpen, Users, Wrench, ClipboardList, Shield,
@@ -664,7 +664,7 @@ export default function HSReportGenerator() {
       y = M + lh + 10
       const tbtBody = allTalks.map((t, i) => [String(i + 1), t.topic, String(t.attendees || ''), t.notes])
       if (tbtBody.length === 0) tbtBody.push(['1', 'No talks recorded this week', '', ''])
-      doc.autoTable({
+      autoTable(doc, {
         startY: y,
         head: [['TBT No', 'Description', 'Attendees', 'Notes']],
         body: tbtBody,
@@ -698,7 +698,7 @@ export default function HSReportGenerator() {
         trBody.push([String(trBody.length + 1), t.name, t.company, t.role, t.cscs, t.ipaf, t.pasma, t.sssts, t.smsts, t.firstAid, t.apNumber])
       })
       if (trBody.length === 0) trBody.push(['1', 'No operatives recorded', '', '', '', '', '', '', '', '', ''])
-      doc.autoTable({
+      autoTable(doc, {
         startY: y,
         head: [['No', 'Name', 'Company', 'Role', 'CSCS Expiry', 'IPAF Expiry', 'PASMA Expiry', 'SSSTS Expiry', 'SMSTS Expiry', 'First Aid Expiry', 'AP Number']],
         body: trBody,
@@ -743,7 +743,7 @@ export default function HSReportGenerator() {
         fmtUK(o.first_aid_expiry), '', fmtUK(o.pasma_expiry), fmtUK(o.ipaf_expiry), '', '',
       ])
       if (mgBody.length === 0) mgBody.push(['1', 'No management staff recorded', '', '', '', '', '', '', '', '', '', '', ''])
-      doc.autoTable({
+      autoTable(doc, {
         startY: y,
         head: [['No', 'Name', 'Company', 'Position', 'CSCS/JIB', 'SSSTS', 'SMSTS', 'First Aider\n(3 day)', 'First Aider\n(1 day)', 'PASMA', 'IPAF', 'PAV', 'Other']],
         body: mgBody,
@@ -786,7 +786,7 @@ export default function HSReportGenerator() {
       y += 12
       const eqBody = equipmentRows.map(r => [r.ref || '', r.description || '', r.patExpiry || '', r.comments || '', r.certExpiry || '', r.defects || '', r.safe || '', r.inspectedBy || '', g.we])
       if (eqBody.length === 0) eqBody.push(['1', 'No equipment recorded', '', '', '', '', '', '', g.we])
-      doc.autoTable({
+      autoTable(doc, {
         startY: y,
         head: [['Ref No', 'Description', 'PAT test\nexpiry', g.co + '\nComments', 'Cert\nexpiry', 'Defects', 'Safe to\nuse?', 'Inspected by', 'Date']],
         body: eqBody,
@@ -903,7 +903,7 @@ export default function HSReportGenerator() {
       y += 12
       const raBody = ramsRows.map(r => [String(r.num), r.title, '', r.issuedBy, '', '', r.approvedBy || ''])
       if (raBody.length === 0) raBody.push(['1', 'No RAMS recorded', '', '', '', '', ''])
-      doc.autoTable({
+      autoTable(doc, {
         startY: y,
         head: [['Doc No', 'RAMS title', 'Submitted\nto', 'Submitted\nby', 'Forecast issue\ndate', 'Date\nsubmitted', 'Date returned\n& Status']],
         body: raBody,
@@ -946,7 +946,7 @@ export default function HSReportGenerator() {
         return [r.trade || r.company || '', ...r.days.map(String), String(total)]
       })
       if (laBody.length === 0) laBody.push(['No trades', '0', '0', '0', '0', '0', '0', '0', '0'])
-      doc.autoTable({
+      autoTable(doc, {
         startY: y,
         head: [['TRADE', 'Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun', 'TOTAL']],
         body: laBody,
