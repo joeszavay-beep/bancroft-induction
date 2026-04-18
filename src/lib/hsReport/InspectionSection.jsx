@@ -6,41 +6,47 @@ import { PageFrame, SectionHeader, Pill } from './primitives'
 const COL = {
   num: 24,
   result: 80,
-  comment: 140,
+  comment: 170,
 }
 
 const ROWS_FIRST_PAGE = 20
 const ROWS_PER_PAGE = 28
 
 // ── Ordering helpers ──
-// Failed first, then items with comments, then pass, then N/A.
-function sortChecklist(items) {
+// #4: Explicit sort — Failed first, then compliant-with-actions (amber), then plain compliant.
+// Not-assessed items are stripped out and collapsed into a single line (#3).
+function sortAndSplitChecklist(items) {
   const failed = []
-  const commented = []
+  const withActions = [] // passed but has comments
   const passed = []
-  const na = []
+  const notAssessed = []
 
   items.forEach(item => {
-    if (item.value === 'N') {
+    const v = (item.value || '').toUpperCase()
+    if (v === 'N') {
       failed.push(item)
-    } else if (item.comment && item.comment.trim()) {
-      commented.push(item)
-    } else if (item.value === 'Y') {
+    } else if (v === 'Y' && item.comment && item.comment.trim()) {
+      withActions.push(item)
+    } else if (v === 'Y' || v === 'NA') {
       passed.push(item)
     } else {
-      na.push(item)
+      notAssessed.push(item)
     }
   })
 
-  return [...failed, ...commented, ...passed, ...na]
+  return {
+    assessed: [...failed, ...withActions, ...passed],
+    notAssessed,
+  }
 }
 
 // ── Summary strip (3 mini tiles) ──
 function SummaryStrip({ stats }) {
   const tiles = [
-    { label: 'Failed',       value: stats.failed,  color: 'red' },
-    { label: 'Open actions',  value: stats.actions, color: 'amber' },
-    { label: 'Passed',        value: stats.passed,  color: 'green' },
+    { label: 'Failed',         value: stats.failed,      color: 'red' },
+    { label: 'Open actions',   value: stats.actions,     color: 'amber' },
+    { label: 'Passed',         value: stats.passed,      color: 'green' },
+    { label: 'Not assessed',   value: stats.notAssessed, color: 'neutral' },
   ]
 
   return (
@@ -48,13 +54,16 @@ function SummaryStrip({ stats }) {
       {tiles.map((t, i) => {
         const bg = t.color === 'green' ? C.greenBg
           : t.color === 'amber' ? C.amberBg
-          : C.redBg
+          : t.color === 'red' ? C.redBg
+          : C.surfaceMuted
         const txt = t.color === 'green' ? C.greenTextDark
           : t.color === 'amber' ? C.amberTextDark
-          : C.redTextDark
+          : t.color === 'red' ? C.redTextDark
+          : C.textSecondary
         const border = t.color === 'green' ? C.green
           : t.color === 'amber' ? C.amber
-          : C.red
+          : t.color === 'red' ? C.red
+          : C.border
 
         return (
           <View key={i} style={[s.summaryTile, { backgroundColor: bg, borderColor: border }]}>
@@ -97,7 +106,7 @@ function DataRow({ item, index, showComments }) {
   // For failed items: show comment as action, or fallback message
   let commentText = item.comment && item.comment.trim() ? item.comment.trim() : null
   if (isFailed && !commentText) {
-    commentText = 'Action required \u2014 no details recorded'
+    commentText = 'Action required'
   }
 
   return (
@@ -123,25 +132,30 @@ function DataRow({ item, index, showComments }) {
 // ── Main component ──
 export default function InspectionSection({ sectionNumber, title, checklist, inspectorName, notes, pageProps }) {
   const items = Array.isArray(checklist) ? checklist : []
-  const sorted = sortChecklist(items)
+  const { assessed, notAssessed } = sortAndSplitChecklist(items)
 
   // Stats
-  const failed = items.filter(i => i.value === 'N').length
-  const actions = items.filter(i => i.value === 'N' && i.comment && i.comment.trim()).length
-  const passed = items.filter(i => i.value === 'Y' || i.value === 'NA').length
-  const stats = { failed, actions, passed }
+  const failed = items.filter(i => (i.value || '').toUpperCase() === 'N').length
+  const actions = items.filter(i => (i.value || '').toUpperCase() === 'N' && i.comment?.trim()).length
+  const passed = items.filter(i => {
+    const v = (i.value || '').toUpperCase()
+    return v === 'Y' || v === 'NA'
+  }).length
+  const stats = { failed, actions, passed, notAssessed: notAssessed.length }
 
-  // Does any item have a comment?
-  const showComments = items.some(i => i.comment && i.comment.trim()) || failed > 0
+  // Does any assessed item have a comment?
+  const showComments = assessed.some(i => i.comment?.trim()) || failed > 0
 
-  const sectionNum = String(sectionNumber).padStart(2, '0')
+  // #1: Header shows "Compliance: passed/assessed"
+  const assessedCount = assessed.length
+  const headerContext = assessedCount > 0 ? `Compliance: ${passed}/${assessedCount}` : undefined
 
-  // Chunk for pagination
+  // Chunk assessed items for pagination
   const chunks = []
-  if (sorted.length > 0) {
-    chunks.push(sorted.slice(0, ROWS_FIRST_PAGE))
-    for (let i = ROWS_FIRST_PAGE; i < sorted.length; i += ROWS_PER_PAGE) {
-      chunks.push(sorted.slice(i, i + ROWS_PER_PAGE))
+  if (assessed.length > 0) {
+    chunks.push(assessed.slice(0, ROWS_FIRST_PAGE))
+    for (let i = ROWS_FIRST_PAGE; i < assessed.length; i += ROWS_PER_PAGE) {
+      chunks.push(assessed.slice(i, i + ROWS_PER_PAGE))
     }
   }
 
@@ -156,7 +170,7 @@ export default function InspectionSection({ sectionNumber, title, checklist, ins
         <SectionHeader
           number={sectionNumber}
           title={title}
-          context={items.length > 0 ? `${passed}/${items.length} items` : undefined}
+          context={headerContext}
         />
       )}
 
@@ -204,7 +218,14 @@ export default function InspectionSection({ sectionNumber, title, checklist, ins
       {/* Continuation cue */}
       {chunkIdx < chunks.length - 1 && (
         <Text style={s.continuation}>
-          Continues on next page {'\u00b7'} {chunks.slice(0, chunkIdx + 1).reduce((sum, c) => sum + c.length, 0)} of {sorted.length} items
+          Continues on next page {'\u00b7'} {chunks.slice(0, chunkIdx + 1).reduce((sum, c) => sum + c.length, 0)} of {assessed.length} items
+        </Text>
+      )}
+
+      {/* #3: Not-assessed items collapsed into single muted line on last page */}
+      {chunkIdx === chunks.length - 1 && notAssessed.length > 0 && (
+        <Text style={s.notAssessedLine}>
+          Not assessed this week: {notAssessed.map(i => i.label).join(', ')}
         </Text>
       )}
 
@@ -339,6 +360,18 @@ const s = StyleSheet.create({
     textAlign: 'right',
     marginTop: 8,
     fontWeight: FONT.regular,
+  },
+
+  // #3: Not-assessed collapse line
+  notAssessedLine: {
+    fontSize: 8,
+    color: C.textFaint,
+    fontWeight: FONT.regular,
+    marginTop: 8,
+    paddingTop: 6,
+    borderTopWidth: 0.5,
+    borderTopColor: C.borderMuted,
+    lineHeight: 1.4,
   },
 
   // Notes box
