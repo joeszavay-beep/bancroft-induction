@@ -10,7 +10,7 @@ import {
   FileText, Download, Save, Plus, Trash2, ChevronRight, ChevronDown,
   Loader2, Settings, BookOpen, Users, Wrench, ClipboardList, Shield,
   Leaf, HardHat, FileCheck, Calendar, AlertTriangle, Check, X,
-  RefreshCw
+  RefreshCw, Eye
 } from 'lucide-react'
 
 // ── Constants ──
@@ -147,6 +147,7 @@ export default function HSReportGenerator() {
   const [loading, setLoading] = useState(true)
   const [dataLoading, setDataLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [previewGenerating, setPreviewGenerating] = useState(false)
   const [activeSection, setActiveSection] = useState('settings')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const sectionRefs = useRef({})
@@ -1090,6 +1091,54 @@ export default function HSReportGenerator() {
     setGenerating(false)
   }
 
+  // ── Preview PDF (react-pdf/renderer) ──
+  async function previewPDF() {
+    if (!selectedProject) return toast.error('Select a project first')
+    setPreviewGenerating(true)
+    try {
+      const [{ pdf }, { default: HSReportDocument }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('../lib/hsReport/HSReportDocument'),
+      ])
+
+      const reportData = {
+        allTalks: [...toolboxTalks, ...manualTalks],
+        operatives,
+        equipmentRows,
+        pmChecklist: pmChecks,
+        envChecklist: envChecks,
+        opChecklist: opChecks,
+        ramsRows,
+        labourData: labourRows,
+        safeStartCards,
+        project: projectData || projects.find(p => p.id === selectedProject) || {},
+        company,
+        weekStart,
+        weekEnd,
+        reportNumber,
+        issuedBy,
+        role,
+        companyName,
+      }
+
+      const blob = await pdf(<HSReportDocument data={reportData} />).toBlob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      const pn = (reportData.project.name || 'Report').replace(/[^a-zA-Z0-9]/g, '_')
+      link.download = `HS_Report_${pn}_${weekEnd}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      toast.success('PDF downloaded')
+    } catch (err) {
+      console.error('Preview PDF failed:', err)
+      toast.error('Failed to generate preview: ' + err.message)
+    }
+    setPreviewGenerating(false)
+  }
+
   // ── Loading state ──
   if (loading) {
     return (
@@ -1112,6 +1161,9 @@ export default function HSReportGenerator() {
           <button onClick={saveDraft} className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-colors hover:bg-black/5" style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
             <Save size={16} /> Save Draft
           </button>
+          <LoadingButton loading={previewGenerating} onClick={previewPDF} className="bg-blue-600 hover:bg-blue-700 text-white text-sm">
+            <Eye size={16} /> Preview PDF
+          </LoadingButton>
           <LoadingButton loading={generating} onClick={generatePDF} className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm">
             <Download size={16} /> Generate PDF
           </LoadingButton>
