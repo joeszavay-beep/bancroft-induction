@@ -97,7 +97,7 @@ export default function CoverPage({ data, summary }) {
           value={summary.expiringCertCount > 0 ? summary.expiringCertCount : '\u2014'}
           color={summary.expiringCertCount > 0 ? 'red' : 'neutral'}
           context={summary.expiringCertCount > 0
-            ? `${summary.expiredCertCount} expired \u00b7 ${summary.criticalCertCount} expiring \u226430d`
+            ? `${summary.expiredCertCount} Expired \u00b7 ${summary.criticalCertCount} Expiring \u226430d`
             : 'All current'}
         />
       </View>
