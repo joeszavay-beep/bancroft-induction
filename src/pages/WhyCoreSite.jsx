@@ -5,7 +5,8 @@ import {
   Shield, FileCheck, MapPin, Layers, QrCode, Users, Clock, Download, CheckCircle2,
   ArrowRight, Zap, Lock, Globe, Smartphone, X, Send, BookOpen, CheckSquare,
   Bell, BarChart3, WifiOff, HardHat, Activity, MessageSquare, CreditCard, ChevronRight, Eye,
-  Cuboid, CalendarRange, Ruler, Pencil
+  Cuboid, CalendarRange, Ruler, Pencil, PoundSterling, Receipt, Hammer, FolderOpen, Calculator,
+  TrendingUp, FileText, Briefcase, UserCheck
 } from 'lucide-react'
 
 function AnimatedCounter({ end, suffix = '', duration = 2000 }) {
@@ -49,6 +50,7 @@ function FadeIn({ children, delay = 0, className = '' }) {
 }
 
 const features = [
+  // Core site management
   { icon: Cuboid, title: '3D BIM Viewer', desc: 'Upload IFC models and explore them in full 3D. X-ray mode, clipping planes, fly-to elements, colour by status. Click any element to see properties, raise snags, or update commissioning status.', color: '#7C3AED' },
   { icon: CalendarRange, title: 'Master Programme', desc: 'Import your Asta Powerproject programme as a live Gantt chart. Click-to-update progress, auto-status tracking, colour-coded bars, today line, CSV export back to Asta.', color: '#3B7DD8' },
   { icon: Pencil, title: 'DXF Programme Tracking', desc: 'Upload DXF design drawings, extract M&E routes by layer, auto-calculate baseline lengths. Draw progress markup on the PDF and watch percentages update live.', color: '#059669' },
@@ -58,12 +60,26 @@ const features = [
   { icon: QrCode, title: 'QR Site Sign-In', desc: 'Print a QR poster for the gate. Live headcount, fire muster roll call, GPS capture, time tracking, auto sign-out at midnight.', color: '#D29922' },
   { icon: CheckSquare, title: 'Inspection Checklists', desc: 'Reusable templates for void closure, fire stopping, pre-handover, M&E commissioning. Pass/fail with photo evidence.', color: '#0891B2' },
   { icon: BookOpen, title: 'Daily Site Diary', desc: 'Weather auto-fill from location, workforce count, deliveries, delays, incidents. The log every site needs.', color: '#EA580C' },
+  // Worker management
   { icon: Users, title: 'Worker Management', desc: 'Full profiles with CSCS/ECS card verification, certification expiry alerts, and UK postcode address lookup.', color: '#4F46E5' },
-  { icon: HardHat, title: 'Worker Portal', desc: 'Operatives get their own login. Sign documents, view assigned snags, chat with managers, track compliance.', color: '#F59E0B' },
+  { icon: HardHat, title: 'Worker Portal', desc: 'Operatives get their own login. Sign documents, view assigned snags, chat with managers, track compliance and timesheets.', color: '#F59E0B' },
+  { icon: UserCheck, title: 'Onboarding Pipeline', desc: 'Visual pipeline showing every operative from invite to fully signed off. Track who has logged in, completed their profile, and signed every document.', color: '#10B981' },
   { icon: MessageSquare, title: 'Site Chat', desc: 'Real-time messaging between managers and operatives. Photo sharing, quick templates for material requests.', color: '#2563EB' },
+  { icon: CreditCard, title: 'CSCS/ECS Card Verification', desc: 'Operatives upload card photos during profile setup. Managers verify with one click. Expiry tracking and auto-alerts.', color: '#7C3AED' },
+  // Commercial
+  { icon: PoundSterling, title: 'Subcontractor Commercial', desc: 'Full commercial management per job. Contract values, variations with file attachments, burn rate tracking, traffic-light financial projections.', color: '#0F766E' },
+  { icon: Receipt, title: 'Payment Applications', desc: 'Submit, certify, and track monthly valuations through the full lifecycle — draft to paid. Auto-calculate net after retention.', color: '#0369A1' },
+  { icon: Briefcase, title: 'Contra Charges', desc: 'Log contra charges from the MC, attach evidence photos, dispute or accept. Track totals across every job.', color: '#B91C1C' },
+  { icon: Hammer, title: 'Daywork Sheets', desc: 'Itemised labour, plant, and materials with rates. Auto-totals, sign-off tracking, and approval workflow.', color: '#C2410C' },
+  { icon: Calculator, title: 'Final Account & Retention', desc: 'Live final account summary: contract + variations - contras. Retention release tracking with practical completion and defects end dates.', color: '#4338CA' },
+  { icon: TrendingUp, title: 'Cash Flow Forecast', desc: '8-week visual forecast of projected income vs spend. Cumulative cash position. Margin alerts when jobs drop below threshold.', color: '#15803D' },
+  { icon: FileText, title: 'Worker Invoices', desc: 'Self-employed operatives raise invoices with line items, attach receipts and PDFs. Managers review, comment, approve, and mark as paid.', color: '#6D28D9' },
+  { icon: FolderOpen, title: 'Job Document Register', desc: 'Categorised storage for subcontracts, payment notices, pay-less notices, CIS statements, and correspondence per job.', color: '#0E7490' },
+  // Toolbox & compliance
+  { icon: Clock, title: 'Toolbox Talks', desc: 'Create talks, generate a QR code, watch signatures come in live. Auto-generate PDF sign-off sheets for your H&S file.', color: '#B45309' },
   { icon: Ruler, title: '3D Measurement Tool', desc: 'Measure distances between any two points on a 3D BIM model. Snap-to-vertex for precision. Screenshot exports with CoreSite watermark.', color: '#6366F1' },
   { icon: BarChart3, title: 'Contractor Performance', desc: 'Resolution times by trade, operative league tables, on-time percentages. Data for every sub meeting.', color: '#0D9488' },
-  { icon: Bell, title: 'Auto-Chase & Alerts', desc: 'Overdue snag emails every morning. Cert expiry warnings. In-app notifications. Escalation after 14 days.', color: '#DC2626' },
+  { icon: Bell, title: 'Auto-Chase & Alerts', desc: 'Overdue snag emails every morning. Cert expiry warnings. In-app notifications. Margin alerts on commercial.', color: '#DC2626' },
   { icon: Activity, title: 'Aftercare Portal', desc: 'Public defect reporting for clients during the 12-month liability period. Track alongside your snags.', color: '#F97316' },
   { icon: WifiOff, title: 'Works Offline', desc: 'Create snags, take photos, place pins with no signal. Everything syncs automatically when back online.', color: '#8B5CF6' },
   { icon: Shield, title: 'H&S Archive & Reports', desc: 'One-click PDF export: signatures, toolbox talks, snags, inspections, diary entries. Full project pack.', color: '#1B2A3D' },
@@ -128,7 +144,7 @@ export default function WhyCoreSite() {
             <div className="max-w-4xl mx-auto text-center">
               <FadeIn>
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 backdrop-blur-sm text-white/80 text-xs font-medium rounded-full mb-8 border border-white/10">
-                  <Zap size={12} className="text-[#3B7DD8]" /> 18 features. One platform. Zero paper.
+                  <Zap size={12} className="text-[#3B7DD8]" /> 29 features. One platform. Zero paper.
                 </div>
               </FadeIn>
               <FadeIn delay={100}>
@@ -139,7 +155,7 @@ export default function WhyCoreSite() {
               </FadeIn>
               <FadeIn delay={200}>
                 <p className="text-lg text-white/50 max-w-2xl mx-auto mb-10 leading-relaxed">
-                  3D BIM viewer, live programme tracking, DXF progress markup, snagging, RAMS, inspections, site diary, QR sign-in, worker management, chat — all in one place. Works on any device. Works offline.
+                  3D BIM viewer, programme tracking, snagging, RAMS, inspections, site diary, QR sign-in, worker management, commercial management, payment applications, invoicing — all in one place. Works on any device. Works offline.
                 </p>
               </FadeIn>
               <FadeIn delay={300}>
@@ -164,7 +180,7 @@ export default function WhyCoreSite() {
       <section className="bg-[#1A2744] py-14 px-6 -mt-1">
         <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-8">
           {[
-            { value: 18, suffix: '', label: 'Features built in' },
+            { value: 29, suffix: '', label: 'Features built in' },
             { value: 50, suffix: '%', label: 'Less admin time' },
             { value: 100, suffix: '%', label: 'Digital audit trail' },
             { value: 0, suffix: '', label: 'Paper forms', display: 'Zero' },
@@ -196,6 +212,9 @@ export default function WhyCoreSite() {
                 'Paper sign-in sheets at the gate',
                 'Manually writing site diaries',
                 'Expired CSCS cards going unnoticed',
+                'Tracking variations in spreadsheets',
+                'Chasing payment applications by email',
+                'No visibility on job margins until it\'s too late',
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-2.5 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-left">
                   <X size={14} className="text-red-400 shrink-0" />
