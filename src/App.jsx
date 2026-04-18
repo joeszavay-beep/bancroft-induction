@@ -40,6 +40,7 @@ import AddNewWorker from './pages/AddNewWorker'
 import DailySiteDiary from './pages/DailySiteDiary'
 import ContractorPerformance from './pages/ContractorPerformance'
 import Inspections from './pages/Inspections'
+import PermitToWork from './pages/PermitToWork'
 import AftercarePage from './pages/AftercarePage'
 import SiteSignIn from './pages/SiteSignIn'
 import Chat from './pages/Chat'
@@ -116,6 +117,7 @@ function AppLayout() {
         <Route path="/messages" element={<Chat />} />
         <Route path="/performance" element={<ContractorPerformance />} />
         <Route path="/inspections" element={<Inspections />} />
+        <Route path="/permits" element={<PermitToWork />} />
         <Route path="/progress" element={<ProgressDrawingsList />} />
         <Route path="/bim" element={<BIMModels />} />
         <Route path="/programme" element={<ProgrammeDashboard />} />

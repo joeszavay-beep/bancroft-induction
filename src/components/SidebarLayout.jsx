@@ -102,6 +102,7 @@ const NAV_SECTIONS = [
       { label: 'Toolbox Talks', path: '/app/toolbox', icon: MessageSquare, feature: 'toolbox_talks' },
       { label: 'Documents', path: '/app/documents', icon: FileText },
       { label: 'H&S Reports', path: '/app/hs-reports', icon: ClipboardList, feature: 'hs_reports' },
+      { label: 'Permits to Work', path: '/app/permits', icon: Shield },
     ],
   },
   {
