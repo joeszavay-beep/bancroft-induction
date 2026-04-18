@@ -1879,7 +1879,7 @@ function ToolboxTab({ projects: parentProjects, navigate }) {
     toast.success('Toolbox talk created')
     setShowAdd(false)
     setTitle(''); setDescription(''); setProjectId(''); setAttachmentFile(null)
-    navigate(`/toolbox-live/${data.id}`)
+    navigate(`/app/toolbox-live/${data.id}`)
   }
 
   async function handleExport(talk) {
@@ -1927,7 +1927,7 @@ function ToolboxTab({ projects: parentProjects, navigate }) {
               return (
                 <button
                   key={talk.id}
-                  onClick={() => navigate(`/toolbox-live/${talk.id}`)}
+                  onClick={() => navigate(`/app/toolbox-live/${talk.id}`)}
                   className="w-full bg-white border border-green-200 rounded-xl p-4 text-left hover:shadow-md transition-all active:scale-[0.98]"
                 >
                   <div className="flex items-center gap-3">
@@ -1967,7 +1967,7 @@ function ToolboxTab({ projects: parentProjects, navigate }) {
                       </a>
                     )}
                     <button
-                      onClick={() => navigate(`/toolbox-live/${talk.id}`)}
+                      onClick={() => navigate(`/app/toolbox-live/${talk.id}`)}
                       className="p-2 text-slate-400 hover:text-blue-500 transition-colors"
                       title="View details"
                     >

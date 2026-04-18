@@ -24,7 +24,7 @@ export default function ToolboxTalkLive() {
 
   async function loadData() {
     const { data: t } = await supabase.from('toolbox_talks').select('*').eq('id', talkId).single()
-    if (!t) { navigate('/pm'); return }
+    if (!t) { navigate('/app/toolbox'); return }
     setTalk(t)
 
     const [p, s, o] = await Promise.all([
