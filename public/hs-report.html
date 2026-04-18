@@ -74,6 +74,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--ltr);color:var(--t);min-h
 .ssh{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #8BC34A}
 @media(max-width:900px){.sidebar{width:56px}.sidebar img,.sidebar .sub,.nav-item span:not(.ni),.nn,.sst{display:none}.nav-item{justify-content:center;padding:10px}.main{margin-left:56px}.cg{grid-template-columns:1fr}}
 </style>
+<script>
+// When embedded in iframe, hide sidebar and adjust layout
+if (new URLSearchParams(window.location.search).get('embed') === '1') {
+  document.addEventListener('DOMContentLoaded', function() {
+    var sidebar = document.querySelector('.sidebar');
+    var topBar = document.querySelector('.top-bar');
+    var main = document.querySelector('.main');
+    if (sidebar) sidebar.style.display = 'none';
+    if (main) main.style.marginLeft = '0';
+    if (topBar) topBar.style.display = 'none';
+  });
+}
+</script>
 </head>
 <body>
 <aside class="sidebar">

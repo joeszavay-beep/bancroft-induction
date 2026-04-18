@@ -2001,7 +2001,7 @@ function HSReportTab() {
   return (
     <div className="space-y-4 -mx-4 -mt-4">
       <iframe
-        src="/hs-report.html"
+        src="/hs-report.html?embed=1"
         className="w-full border-0"
         style={{ height: 'calc(100dvh - 120px)' }}
         title="H&S Report Generator"
