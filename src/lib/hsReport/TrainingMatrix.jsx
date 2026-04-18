@@ -4,26 +4,30 @@ import { formatDate, classifyExpiry } from './utils'
 import { PageFrame, SectionHeader, Pill } from './primitives'
 
 // ── Cert column definitions ──
+// Fix #1: Explicit widths per cert column — no rotation, sentence case, no ALL CAPS
 const CERT_COLS = [
-  { key: 'card_expiry',     label: 'CSCS / ECS' },
-  { key: 'ipaf_expiry',     label: 'IPAF' },
-  { key: 'pasma_expiry',    label: 'PASMA' },
-  { key: 'sssts_expiry',    label: 'SSSTS' },
-  { key: 'smsts_expiry',    label: 'SMSTS' },
-  { key: 'first_aid_expiry', label: 'First Aid' },
+  { key: 'card_expiry',     label: 'CSCS / ECS', width: 68 },
+  { key: 'ipaf_expiry',     label: 'IPAF',       width: 55 },
+  { key: 'pasma_expiry',    label: 'PASMA',      width: 58 },
+  { key: 'sssts_expiry',    label: 'SSSTS',      width: 56 },
+  { key: 'smsts_expiry',    label: 'SMSTS',      width: 58 },
+  { key: 'first_aid_expiry', label: 'First aid',  width: 62 },
 ]
 
 const CERT_KEYS = CERT_COLS.map(c => c.key)
 
+// Supervisor roles excluded from operative matrix (they go in Management Training section 03)
+const SUPERVISOR_ROLES = ['supervisor', 'foreman', 'manager', 'director']
+
 // ── Layout constants (landscape A4: 842 × 595pt, ~770pt content width) ──
 const COL = {
   num:  22,
-  name: 130,
+  name: 145,
   role: 90,
-  cert: 88,
 }
 
-const ROWS_PER_PAGE = 18
+// Fix #5: Increase rows per page to avoid near-empty continuation pages
+const ROWS_PER_PAGE = 22
 
 // ── Helpers ──
 function hasCerts(op) {
@@ -54,7 +58,7 @@ function SummaryStrip({ stats }) {
   const tiles = [
     { label: 'Valid certs',       value: stats.valid,    color: 'green' },
     { label: 'Expiring ≤90d',    value: stats.warning,  color: 'amber' },
-    { label: 'Expiring / expired', value: stats.critical, color: 'red' },
+    { label: 'Expiring within 30d', value: stats.critical, color: 'red' },
     { label: 'Missing records',   value: stats.missing,  color: 'neutral' },
   ]
 
@@ -93,20 +97,19 @@ function HeaderRow() {
       <Text style={[s.headerText, { width: COL.name }]}>Name</Text>
       <Text style={[s.headerText, { width: COL.role }]}>Role</Text>
       {CERT_COLS.map(col => (
-        <View key={col.key} style={s.certHeaderCell}>
-          <Text style={s.headerText}>{col.label}</Text>
-        </View>
+        <Text key={col.key} style={[s.headerText, { width: col.width, textAlign: 'center', flexShrink: 0 }]}>{col.label}</Text>
       ))}
     </View>
   )
 }
 
 // ── Cert cell ──
-function CertCell({ value, weekEnd }) {
+// Fix #4: Cert cell with explicit pill styling inside fixed-width container
+function CertCell({ value, weekEnd, width }) {
   if (value == null || value === '') {
     return (
-      <View style={s.certCell}>
-        <Text style={s.emptyDash}>—</Text>
+      <View style={[s.certCell, { width }]}>
+        <Text style={s.emptyDash}>{'\u2014'}</Text>
       </View>
     )
   }
@@ -116,44 +119,43 @@ function CertCell({ value, weekEnd }) {
 
   if (status === 'expired') {
     return (
-      <View style={s.certCell}>
-        <Pill text={`*${formatted}`} color="red" />
+      <View style={[s.certCell, { width }]}>
+        <View style={s.pillRed}><Text style={s.pillRedText}>*{formatted}</Text></View>
       </View>
     )
   }
   if (status === 'critical') {
     return (
-      <View style={s.certCell}>
-        <Pill text={formatted} color="red" />
+      <View style={[s.certCell, { width }]}>
+        <View style={s.pillRed}><Text style={s.pillRedText}>{formatted}</Text></View>
       </View>
     )
   }
   if (status === 'warning') {
     return (
-      <View style={s.certCell}>
-        <Pill text={formatted} color="amber" />
+      <View style={[s.certCell, { width }]}>
+        <View style={s.pillAmber}><Text style={s.pillAmberText}>{formatted}</Text></View>
       </View>
     )
   }
 
-  // valid
   return (
-    <View style={s.certCell}>
+    <View style={[s.certCell, { width }]}>
       <Text style={s.certDate}>{formatted}</Text>
     </View>
   )
 }
 
-// ── Data row (operative with at least one cert) ──
+// ── Data row ──
 function DataRow({ op, index, weekEnd }) {
   const shaded = index % 2 === 1
   return (
     <View style={[s.dataRow, shaded ? s.rowShaded : null]}>
       <Text style={s.numCol}>{index + 1}</Text>
-      <Text style={s.nameCol}>{op.name || '—'}</Text>
-      <Text style={s.roleCol}>{op.role || '—'}</Text>
+      <Text style={s.nameCol}>{op.name || '\u2014'}</Text>
+      <Text style={s.roleCol}>{op.role || '\u2014'}</Text>
       {CERT_COLS.map(col => (
-        <CertCell key={col.key} value={op[col.key]} weekEnd={weekEnd} />
+        <CertCell key={col.key} value={op[col.key]} weekEnd={weekEnd} width={col.width} />
       ))}
     </View>
   )
@@ -207,7 +209,9 @@ function Legend() {
 // ── Main component ──
 export default function TrainingMatrix({ operatives, weekEnd, projectName, weekStart, weekEndFmt, clientName, reportRef }) {
   const ops = Array.isArray(operatives) ? operatives : []
-  const sorted = [...ops].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+  // Fix #2: Filter out supervisors — they belong in Management Training (section 03)
+  const nonSupervisors = ops.filter(op => !SUPERVISOR_ROLES.includes((op.role || '').toLowerCase()))
+  const sorted = [...nonSupervisors].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
   const stats = computeSummary(sorted, weekEnd)
 
@@ -310,12 +314,8 @@ const s = StyleSheet.create({
     fontSize: 7.5,
     fontWeight: FONT.medium,
     color: C.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  certHeaderCell: {
-    width: COL.cert,
-    alignItems: 'center',
+    letterSpacing: 0.3,
+    flexShrink: 0,
   },
 
   // Data rows
@@ -338,7 +338,7 @@ const s = StyleSheet.create({
     fontWeight: FONT.regular,
   },
   nameCol: {
-    width: COL.name,
+    width: 145,
     fontSize: 9,
     color: C.textPrimary,
     fontWeight: FONT.medium,
@@ -354,7 +354,6 @@ const s = StyleSheet.create({
 
   // Cert cells
   certCell: {
-    width: COL.cert,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -368,6 +367,29 @@ const s = StyleSheet.create({
     fontSize: 9,
     color: C.empty,
     fontWeight: FONT.regular,
+  },
+  // Fix #4: Inline pill styles so they render reliably inside table cells
+  pillRed: {
+    backgroundColor: C.redBg,
+    borderRadius: 3,
+    paddingVertical: 1.5,
+    paddingHorizontal: 4,
+  },
+  pillRedText: {
+    fontSize: 7.5,
+    fontWeight: FONT.medium,
+    color: C.redTextDark,
+  },
+  pillAmber: {
+    backgroundColor: C.amberBg,
+    borderRadius: 3,
+    paddingVertical: 1.5,
+    paddingHorizontal: 4,
+  },
+  pillAmberText: {
+    fontSize: 7.5,
+    fontWeight: FONT.medium,
+    color: C.amberTextDark,
   },
 
   // Missing records span
