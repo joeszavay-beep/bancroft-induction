@@ -1794,6 +1794,7 @@ function ToolboxTab({ projects, navigate }) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [projectId, setProjectId] = useState('')
+  const [attachmentFile, setAttachmentFile] = useState(null)
   const [talkSigs, setTalkSigs] = useState({})
   const [exporting, setExporting] = useState(null)
 
@@ -1833,12 +1834,29 @@ function ToolboxTab({ projects, navigate }) {
     if (!title.trim() || !projectId) return
     setSaving(true)
     const managerData = JSON.parse(getSession('manager_data') || '{}')
+
+    // Upload attachment if provided
+    let attachmentUrl = null
+    let attachmentName = null
+    if (attachmentFile) {
+      const ext = attachmentFile.name.split('.').pop()
+      const path = `toolbox/${cid}/${crypto.randomUUID()}.${ext}`
+      const { error: uploadErr } = await supabase.storage.from('documents').upload(path, attachmentFile, { contentType: attachmentFile.type })
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+        attachmentUrl = urlData.publicUrl
+        attachmentName = attachmentFile.name
+      }
+    }
+
     const { data, error } = await supabase.from('toolbox_talks').insert({
       title: title.trim(),
       description: description.trim() || null,
       project_id: projectId,
       created_by: managerData.id || null,
       company_id: cid,
+      attachment_url: attachmentUrl,
+      attachment_name: attachmentName,
     }).select().single()
     setSaving(false)
     if (error) {
@@ -1847,7 +1865,7 @@ function ToolboxTab({ projects, navigate }) {
     }
     toast.success('Toolbox talk created')
     setShowAdd(false)
-    setTitle(''); setDescription(''); setProjectId('')
+    setTitle(''); setDescription(''); setProjectId(''); setAttachmentFile(null)
     navigate(`/toolbox-live/${data.id}`)
   }
 
@@ -1929,6 +1947,12 @@ function ToolboxTab({ projects, navigate }) {
                       <p className="text-slate-900 font-semibold truncate">{talk.title}</p>
                       <p className="text-xs text-slate-400">{proj?.name} · {new Date(talk.created_at).toLocaleDateString()} · {sigs.length} attendees</p>
                     </div>
+                    {talk.attachment_url && (
+                      <a href={talk.attachment_url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 px-2 py-1 bg-blue-50 rounded-lg shrink-0" title={talk.attachment_name}>
+                        <FileText size={12} /> PDF
+                      </a>
+                    )}
                     <button
                       onClick={() => navigate(`/toolbox-live/${talk.id}`)}
                       className="p-2 text-slate-400 hover:text-blue-500 transition-colors"
@@ -1986,7 +2010,7 @@ function ToolboxTab({ projects, navigate }) {
             onChange={e => setProjectId(e.target.value)}
             className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
           >
-            <option value="">Select project / site</option>
+            <option value="">{projects.length === 0 ? 'No projects — create one first' : 'Select project / site'}</option>
             {projects.map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
@@ -1998,6 +2022,26 @@ function ToolboxTab({ projects, navigate }) {
             rows={3}
             className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10 resize-none"
           />
+          {/* Attachment upload */}
+          <div>
+            <label className="text-xs text-slate-500 font-medium mb-1 block">Toolbox Talk PDF (optional)</label>
+            <label className="flex items-center gap-3 px-4 py-3 border border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
+              <FileText size={18} className="text-slate-400 shrink-0" />
+              <span className="text-sm text-slate-500 truncate">
+                {attachmentFile ? attachmentFile.name : 'Attach the toolbox talk front page PDF...'}
+              </span>
+              <input type="file" accept=".pdf,image/*" className="hidden" onChange={e => {
+                const f = e.target.files?.[0]
+                if (f && f.size > 25 * 1024 * 1024) { toast.error('Max 25MB'); return }
+                setAttachmentFile(f || null)
+              }} />
+            </label>
+            {attachmentFile && (
+              <button type="button" onClick={() => setAttachmentFile(null)} className="text-xs text-red-500 hover:text-red-700 mt-1">
+                Remove attachment
+              </button>
+            )}
+          </div>
           <LoadingButton loading={saving} type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-xl">
             Create & Show QR Code
           </LoadingButton>

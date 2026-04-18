@@ -150,6 +150,20 @@ export default function ToolboxTalkLive() {
           </div>
         )}
 
+        {/* Attachment */}
+        {talk.attachment_url && (
+          <a href={talk.attachment_url} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-4 hover:border-blue-300 transition-colors">
+            <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center shrink-0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-slate-900 truncate">{talk.attachment_name || 'Toolbox Talk PDF'}</p>
+              <p className="text-xs text-blue-500">Tap to view attachment</p>
+            </div>
+          </a>
+        )}
+
         {/* Live signatures */}
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
