@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
 import WorkerSidebarLayout from '../components/WorkerSidebarLayout'
 import { formatMoney, calculateCIS } from '../lib/subcontractor'
-import { FileText, Plus, X, Send, Clock, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { FileText, Plus, X, Send, Clock, CheckCircle2, AlertTriangle, Paperclip, Image, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const STATUS_STYLES = {
@@ -31,6 +31,8 @@ export default function OperativeInvoices() {
   const [calculatedData, setCalculatedData] = useState(null)
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [invoiceFiles, setInvoiceFiles] = useState([])
+  const [uploadingFiles, setUploadingFiles] = useState(false)
 
   async function loadData(opData) {
     setLoading(true)
@@ -105,6 +107,20 @@ export default function OperativeInvoices() {
     else setCalculatedData(null)
   }, [selectedJobOp, periodFrom, periodTo])
 
+  async function uploadInvoiceFiles(invoiceId, files) {
+    const uploaded = []
+    for (const file of files) {
+      const ext = file.name.split('.').pop()
+      const path = `invoices/${invoiceId}/${crypto.randomUUID()}.${ext}`
+      const { error } = await supabase.storage.from('documents').upload(path, file, { contentType: file.type })
+      if (!error) {
+        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+        uploaded.push({ name: file.name, url: urlData.publicUrl, type: file.type })
+      }
+    }
+    return uploaded
+  }
+
   async function submitInvoice(asDraft = false) {
     if (!calculatedData || !selectedJobOp) return
     if (!tableExists) {
@@ -139,11 +155,20 @@ export default function OperativeInvoices() {
       notes: notes.trim() || null,
     }
 
-    const { error } = await supabase.from('operative_invoices').insert(record)
+    const { data: inserted, error } = await supabase.from('operative_invoices').insert(record).select().single()
     if (error) {
       toast.error('Failed to create invoice')
       console.error(error)
     } else {
+      // Upload attachments if any
+      if (invoiceFiles.length > 0) {
+        setUploadingFiles(true)
+        const attachments = await uploadInvoiceFiles(inserted.id, invoiceFiles)
+        if (attachments.length > 0) {
+          await supabase.from('operative_invoices').update({ attachments }).eq('id', inserted.id)
+        }
+        setUploadingFiles(false)
+      }
       toast.success(asDraft ? 'Draft saved' : 'Invoice submitted')
       setShowCreate(false)
       resetForm()
@@ -158,6 +183,7 @@ export default function OperativeInvoices() {
     setPeriodTo('')
     setCalculatedData(null)
     setNotes('')
+    setInvoiceFiles([])
   }
 
   if (!op) return null
@@ -256,10 +282,38 @@ export default function OperativeInvoices() {
                         </div>
                       </div>
                       {inv.notes && <p className="text-xs text-slate-400 mt-2 italic">{inv.notes}</p>}
+                      {/* Attachments */}
+                      {inv.attachments?.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-slate-50">
+                          {inv.attachments.map((att, i) => (
+                            <a key={i} href={att.url} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-blue-600 hover:border-blue-300">
+                              {att.type?.startsWith('image/') ? <Image size={12} /> : <FileText size={12} />}
+                              <span className="truncate max-w-[100px]">{att.name}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      {/* Manager comment */}
+                      {inv.manager_comment && (
+                        <div className="mt-2 pt-2 border-t border-slate-50 bg-blue-50 rounded-lg p-2.5">
+                          <p className="text-[10px] text-blue-500 font-semibold mb-0.5">Manager Comment</p>
+                          <p className="text-xs text-blue-800">{inv.manager_comment}</p>
+                          {inv.reviewed_by && <p className="text-[10px] text-blue-400 mt-1">— {inv.reviewed_by}{inv.reviewed_at ? `, ${new Date(inv.reviewed_at).toLocaleDateString('en-GB')}` : ''}</p>}
+                        </div>
+                      )}
                       {inv.status === 'paid' && inv.paid_at && (
                         <p className="text-[10px] text-emerald-600 font-medium mt-1.5 flex items-center gap-1">
                           <CheckCircle2 size={10} /> Paid {new Date(inv.paid_at).toLocaleDateString('en-GB')}
                         </p>
+                      )}
+                      {inv.status === 'draft' && (
+                        <button onClick={async () => {
+                          const { error } = await supabase.from('operative_invoices').update({ status: 'submitted', submitted_at: new Date().toISOString() }).eq('id', inv.id)
+                          if (!error) { toast.success('Invoice submitted'); loadData(op) }
+                        }} className="mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg text-white transition-colors" style={{ backgroundColor: primaryColor }}>
+                          <Send size={12} className="inline mr-1" /> Submit to Manager
+                        </button>
                       )}
                     </div>
                   )
@@ -350,16 +404,45 @@ export default function OperativeInvoices() {
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 resize-none" />
               </div>
 
+              {/* Attachments */}
+              <div>
+                <label className="text-xs text-slate-500 font-medium mb-1 block">Attachments (optional)</label>
+                <label className="flex items-center gap-2 px-3 py-2.5 border border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
+                  <Paperclip size={14} className="text-slate-400" />
+                  <span className="text-sm text-slate-500">{invoiceFiles.length ? `${invoiceFiles.length} file${invoiceFiles.length > 1 ? 's' : ''} selected` : 'Attach invoice PDF, receipts, photos...'}</span>
+                  <input type="file" accept="image/*,.pdf" multiple className="hidden"
+                    onChange={e => {
+                      const files = Array.from(e.target.files || [])
+                      if (files.some(f => f.size > 25 * 1024 * 1024)) { toast.error('Max 25MB per file'); return }
+                      setInvoiceFiles(prev => [...prev, ...files])
+                    }}
+                  />
+                </label>
+                {invoiceFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {invoiceFiles.map((f, i) => (
+                      <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600">
+                        {f.type?.startsWith('image/') ? <Image size={12} /> : <FileText size={12} />}
+                        <span className="truncate max-w-[120px]">{f.name}</span>
+                        <button type="button" onClick={() => setInvoiceFiles(prev => prev.filter((_, j) => j !== i))} className="text-slate-400 hover:text-red-500">
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Actions */}
               <div className="flex gap-2 pt-2">
                 <button onClick={() => submitInvoice(true)} disabled={submitting || !calculatedData}
                   className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5">
                   <Clock size={14} /> Save Draft
                 </button>
-                <button onClick={() => submitInvoice(false)} disabled={submitting || !calculatedData || calculatedData.gross === 0}
+                <button onClick={() => submitInvoice(false)} disabled={submitting || uploadingFiles || !calculatedData || calculatedData.gross === 0}
                   className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5"
                   style={{ backgroundColor: primaryColor }}>
-                  <Send size={14} /> Submit
+                  <Send size={14} /> {uploadingFiles ? 'Uploading...' : 'Submit'}
                 </button>
               </div>
             </div>

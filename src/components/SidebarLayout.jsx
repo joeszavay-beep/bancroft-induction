@@ -77,6 +77,7 @@ const NAV_SECTIONS = [
     items: [
       { label: 'Dashboard', path: '/app/sub-dashboard', icon: PoundSterling },
       { label: 'Jobs', path: '/app/jobs', icon: Briefcase },
+      { label: 'Worker Invoices', path: '/app/worker-invoices', icon: FileText },
     ],
   },
   {

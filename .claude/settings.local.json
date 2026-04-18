@@ -56,7 +56,8 @@
       "Bash(npm run:*)",
       "Bash(npx eslint:*)",
       "Bash(npx -y acorn-jsx --ecma2022 --module src/pages/SignDocument.jsx)",
-      "Bash(git diff:*)"
+      "Bash(git diff:*)",
+      "Bash(npx -y acorn-loose --ecma2022 src/pages/OperativeInvoices.jsx)"
     ]
   }
 }

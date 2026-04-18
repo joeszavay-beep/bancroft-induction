@@ -70,6 +70,7 @@ import AgencyRegister from './pages/AgencyRegister'
 import SubcontractorJobs from './pages/SubcontractorJobs'
 import SubcontractorJobDetail from './pages/SubcontractorJobDetail'
 import SubcontractorDashboard from './pages/SubcontractorDashboard'
+import WorkerInvoiceReview from './pages/WorkerInvoiceReview'
 import OperativeGuard from './components/OperativeGuard'
 import { getSession } from './lib/storage'
 
@@ -139,6 +140,7 @@ function AppLayout() {
         <Route path="/jobs" element={<SubcontractorJobs />} />
         <Route path="/jobs/:id" element={<SubcontractorJobDetail />} />
         <Route path="/sub-dashboard" element={<SubcontractorDashboard />} />
+        <Route path="/worker-invoices" element={<WorkerInvoiceReview />} />
         <Route path="/toolbox-live/:talkId" element={<ToolboxTalkLive />} />
       </Routes>
     </SidebarLayout>
