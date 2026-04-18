@@ -12,7 +12,7 @@ import {
   Menu, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
   Globe, Settings, User, Shield, Layers, BookOpen, CheckSquare, Activity, Box, CalendarRange,
-  Briefcase, PlusCircle, CalendarCheck, Building2, Calendar, Star, Link2, PoundSterling, Scissors
+  Briefcase, PlusCircle, CalendarCheck, Building2, Calendar, Star, Link2, PoundSterling, Scissors, Eye
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
 
@@ -80,6 +80,7 @@ const NAV_SECTIONS = [
   {
     title: 'H&S',
     items: [
+      { label: 'Observations', path: '/app/observations', icon: Eye },
       { label: 'Toolbox Talks', path: '/app/toolbox', icon: MessageSquare },
       { label: 'Permits to Work', path: '/app/permits', icon: Shield, feature: 'permits_to_work' },
       { label: 'H&S Reports', path: '/app/hs-reports', icon: ClipboardList },

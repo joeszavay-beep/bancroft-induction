@@ -59,7 +59,8 @@
       "Bash(git diff:*)",
       "Bash(npx -y acorn-loose --ecma2022 src/pages/OperativeInvoices.jsx)",
       "Bash(npx -y acorn-loose --ecma2020 src/pages/PermitToWork.jsx)",
-      "Bash(echo \"Exit code: $?\")"
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(npx -y acorn-jsx --ecma2020 src/pages/HSObservations.jsx)"
     ]
   }
 }
