@@ -227,7 +227,7 @@ export default function HSReportGenerator() {
           .or(`project_id.eq.${selectedProject},project_id.is.null`).order('name'),
         supabase.from('document_hub').select('*').eq('company_id', cid).eq('project_id', selectedProject)
           .eq('category', 'RAMS'),
-        supabase.from('document_signoffs').select('*').eq('company_id', cid),
+        Promise.resolve({ data: [] }), // signoffs loaded separately after docs
         supabase.from('site_attendance').select('*').eq('company_id', cid).eq('project_id', selectedProject)
           .gte('recorded_at', ws.toISOString()).lte('recorded_at', we.toISOString()),
         supabase.from('site_diary').select('*').eq('company_id', cid).eq('project_id', selectedProject)
@@ -249,9 +249,14 @@ export default function HSReportGenerator() {
       // Operatives
       setOperatives(opsRes.data || [])
 
-      // RAMS
+      // RAMS — load signoffs scoped to these documents
       const docs = docsRes.data || []
-      const soffs = signoffsRes.data || []
+      let soffs = []
+      if (docs.length > 0) {
+        const docIds = docs.map(d => d.id)
+        const { data: soffData } = await supabase.from('document_signoffs').select('*').in('document_id', docIds)
+        soffs = soffData || []
+      }
       const ramsData = docs.map((d, i) => ({
         num: i + 1,
         title: d.title || '',
