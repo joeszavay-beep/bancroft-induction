@@ -26,7 +26,9 @@ const COL = {
   role: 90,
 }
 
-// Fix #5: Increase rows per page to avoid near-empty continuation pages
+// Page 1 has summary strip + section header taking ~80pt, so fewer rows fit.
+// Subsequent pages have only the header row, so more rows fit.
+const ROWS_FIRST_PAGE = 16
 const ROWS_PER_PAGE = 22
 
 // ── Helpers ──
@@ -181,25 +183,25 @@ function Legend() {
   return (
     <View style={s.legend}>
       <View style={s.legendItem}>
-        <View style={[s.legendSwatch, { backgroundColor: C.redBg }]}>
-          <Text style={[s.legendSwatchText, { color: C.redTextDark }]}>*01/01/25</Text>
+        <View style={s.pillRed}>
+          <Text style={s.pillRedText}>*DD/MM/YY</Text>
         </View>
         <Text style={s.legendLabel}>Expired</Text>
       </View>
       <View style={s.legendItem}>
-        <View style={[s.legendSwatch, { backgroundColor: C.redBg }]}>
-          <Text style={[s.legendSwatchText, { color: C.redTextDark }]}>01/01/25</Text>
+        <View style={s.pillRed}>
+          <Text style={s.pillRedText}>DD/MM/YY</Text>
         </View>
-        <Text style={s.legendLabel}>Expires ≤30 days</Text>
+        <Text style={s.legendLabel}>Expires within 30 days</Text>
       </View>
       <View style={s.legendItem}>
-        <View style={[s.legendSwatch, { backgroundColor: C.amberBg }]}>
-          <Text style={[s.legendSwatchText, { color: C.amberTextDark }]}>01/01/25</Text>
+        <View style={s.pillAmber}>
+          <Text style={s.pillAmberText}>DD/MM/YY</Text>
         </View>
-        <Text style={s.legendLabel}>Expires ≤90 days</Text>
+        <Text style={s.legendLabel}>Expires within 90 days</Text>
       </View>
       <View style={s.legendItem}>
-        <Text style={s.legendDash}>—</Text>
+        <Text style={s.emptyDash}>{'\u2014'}</Text>
         <Text style={s.legendLabel}>No record</Text>
       </View>
     </View>
@@ -215,10 +217,13 @@ export default function TrainingMatrix({ operatives, weekEnd, projectName, weekS
 
   const stats = computeSummary(sorted, weekEnd)
 
-  // Chunk for pagination
+  // Chunk for pagination — first page holds fewer rows (summary strip takes space)
   const chunks = []
-  for (let i = 0; i < sorted.length; i += ROWS_PER_PAGE) {
-    chunks.push(sorted.slice(i, i + ROWS_PER_PAGE))
+  if (sorted.length > 0) {
+    chunks.push(sorted.slice(0, ROWS_FIRST_PAGE))
+    for (let i = ROWS_FIRST_PAGE; i < sorted.length; i += ROWS_PER_PAGE) {
+      chunks.push(sorted.slice(i, i + ROWS_PER_PAGE))
+    }
   }
 
   // If no operatives, render a single page with empty state
@@ -263,7 +268,7 @@ export default function TrainingMatrix({ operatives, weekEnd, projectName, weekS
       {/* Continuation cue between pages */}
       {chunkIdx < chunks.length - 1 && (
         <Text style={s.continuation}>
-          Continues on next page · {(chunkIdx + 1) * ROWS_PER_PAGE} of {sorted.length} operatives
+          Continues on next page · {chunks.slice(0, chunkIdx + 1).reduce((s, c) => s + c.length, 0)} of {sorted.length} operatives
         </Text>
       )}
 
@@ -352,11 +357,15 @@ const s = StyleSheet.create({
     paddingRight: 4,
   },
 
-  // Cert cells
+  // Cert cells — explicit flexDirection row, minHeight, and overflow visible
+  // so pill backgrounds and borderRadius actually render
   certCell: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    minHeight: 14,
+    overflow: 'visible',
   },
   certDate: {
     fontSize: 8,
@@ -368,28 +377,40 @@ const s = StyleSheet.create({
     color: C.empty,
     fontWeight: FONT.regular,
   },
-  // Fix #4: Inline pill styles so they render reliably inside table cells
+  // Pill styles — explicit minHeight and padding so @react-pdf doesn't collapse them
   pillRed: {
     backgroundColor: C.redBg,
     borderRadius: 3,
-    paddingVertical: 1.5,
-    paddingHorizontal: 4,
+    paddingTop: 2,
+    paddingBottom: 2,
+    paddingLeft: 5,
+    paddingRight: 5,
+    minHeight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   pillRedText: {
-    fontSize: 7.5,
+    fontSize: 7,
     fontWeight: FONT.medium,
     color: C.redTextDark,
+    lineHeight: 1,
   },
   pillAmber: {
     backgroundColor: C.amberBg,
     borderRadius: 3,
-    paddingVertical: 1.5,
-    paddingHorizontal: 4,
+    paddingTop: 2,
+    paddingBottom: 2,
+    paddingLeft: 5,
+    paddingRight: 5,
+    minHeight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   pillAmberText: {
-    fontSize: 7.5,
+    fontSize: 7,
     fontWeight: FONT.medium,
     color: C.amberTextDark,
+    lineHeight: 1,
   },
 
   // Missing records span
@@ -434,24 +455,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  legendSwatch: {
-    borderRadius: 2,
-    paddingVertical: 1,
-    paddingHorizontal: 4,
-  },
-  legendSwatchText: {
-    fontSize: 7,
-    fontWeight: FONT.medium,
-  },
   legendLabel: {
     fontSize: 7.5,
     color: C.textMuted,
     fontWeight: FONT.regular,
-  },
-  legendDash: {
-    fontSize: 9,
-    color: C.empty,
-    fontWeight: FONT.regular,
-    paddingHorizontal: 2,
   },
 })
