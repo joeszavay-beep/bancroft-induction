@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
 import WorkerSidebarLayout from '../components/WorkerSidebarLayout'
 import { formatMoney, calculateCIS } from '../lib/subcontractor'
-import { FileText, Plus, X, Send, Clock, CheckCircle2, AlertTriangle, Paperclip, Image, Download } from 'lucide-react'
+import { FileText, Plus, X, Send, Clock, CheckCircle2, AlertTriangle, Paperclip, Image, Download, Trash2, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const STATUS_STYLES = {
@@ -28,6 +28,7 @@ export default function OperativeInvoices() {
   const [selectedJobOp, setSelectedJobOp] = useState(null)
   const [periodFrom, setPeriodFrom] = useState('')
   const [periodTo, setPeriodTo] = useState('')
+  const [lineItems, setLineItems] = useState([{ description: '', qty: '', rate: '', amount: 0 }])
   const [calculatedData, setCalculatedData] = useState(null)
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -78,8 +79,29 @@ export default function OperativeInvoices() {
     loadData(data)
   }, [])
 
-  async function calculateInvoice() {
-    if (!selectedJobOp || !periodFrom || !periodTo) return
+  function updateLineItem(index, field, value) {
+    setLineItems(prev => {
+      const updated = [...prev]
+      updated[index] = { ...updated[index], [field]: value }
+      // Auto-calculate amount from qty × rate
+      const qty = parseFloat(field === 'qty' ? value : updated[index].qty) || 0
+      const rate = parseFloat(field === 'rate' ? value : updated[index].rate) || 0
+      updated[index].amount = Math.round(qty * rate * 100) // store in pence
+      return updated
+    })
+  }
+
+  function addLineItem() {
+    setLineItems(prev => [...prev, { description: '', qty: '', rate: '', amount: 0 }])
+  }
+
+  function removeLineItem(index) {
+    setLineItems(prev => prev.length > 1 ? prev.filter((_, i) => i !== index) : prev)
+  }
+
+  // Auto-populate line items from timesheet data
+  async function populateFromTimesheet() {
+    if (!selectedJobOp || !periodFrom || !periodTo) { toast.error('Select a job and date range first'); return }
     const jo = jobOps.find(j => j.id === selectedJobOp)
     if (!jo) return
 
@@ -91,21 +113,34 @@ export default function OperativeInvoices() {
       .in('status', ['approved', 'reviewed', 'auto'])
       .gte('date', periodFrom)
       .lte('date', periodTo)
+      .order('date')
 
     const entries = tsData || []
-    const gross = entries.reduce((sum, e) => sum + (e.cost_calculated || 0), 0)
-    const days = entries.filter(e => (e.hours_adjusted ?? e.hours_calculated ?? 0) > 0).length
-    const cisRate = jo.cis_rate || 20
-    const cis = calculateCIS(gross, cisRate)
-    const net = gross - cis
+    if (entries.length === 0) { toast.error('No timesheet entries found for this period'); return }
 
-    setCalculatedData({ gross, cis, net, days, cisRate, entries: entries.length })
+    const days = entries.filter(e => (e.hours_adjusted ?? e.hours_calculated ?? 0) > 0).length
+    const rateInPounds = (jo.pay_rate || 0) / 100
+    const payLabel = jo.pay_type === 'hourly' ? 'hours' : jo.pay_type === 'weekly' ? 'weeks' : 'days'
+
+    if (jo.pay_type === 'hourly') {
+      const totalHours = entries.reduce((s, e) => s + (e.hours_adjusted ?? e.hours_calculated ?? 0), 0)
+      setLineItems([{ description: `Labour — ${days} days (${totalHours.toFixed(1)} hours)`, qty: totalHours.toFixed(1), rate: rateInPounds.toFixed(2), amount: Math.round(totalHours * jo.pay_rate) }])
+    } else {
+      setLineItems([{ description: `Labour — ${days} ${payLabel} on site`, qty: String(days), rate: rateInPounds.toFixed(2), amount: days * jo.pay_rate }])
+    }
+    toast.success(`Populated from ${entries.length} timesheet entries`)
   }
 
+  // Recalculate totals whenever line items change
   useEffect(() => {
-    if (selectedJobOp && periodFrom && periodTo) calculateInvoice() // eslint-disable-line react-hooks/set-state-in-effect
-    else setCalculatedData(null)
-  }, [selectedJobOp, periodFrom, periodTo])
+    if (!selectedJobOp) { setCalculatedData(null); return }
+    const jo = jobOps.find(j => j.id === selectedJobOp)
+    const gross = lineItems.reduce((sum, item) => sum + (item.amount || 0), 0)
+    const cisRate = jo?.cis_rate || 20
+    const cis = calculateCIS(gross, cisRate)
+    const net = gross - cis
+    setCalculatedData({ gross, cis, net, cisRate }) // eslint-disable-line react-hooks/set-state-in-effect
+  }, [lineItems, selectedJobOp])
 
   async function uploadInvoiceFiles(invoiceId, files) {
     const uploaded = []
@@ -122,14 +157,17 @@ export default function OperativeInvoices() {
   }
 
   async function submitInvoice(asDraft = false) {
-    if (!calculatedData || !selectedJobOp) return
-    if (!tableExists) {
-      toast.error('Invoice system coming soon — table not yet configured')
-      return
-    }
+    if (!selectedJobOp) return
+    if (!tableExists) { toast.error('Invoice system coming soon'); return }
+    const validItems = lineItems.filter(item => item.description.trim() && item.amount > 0)
+    if (validItems.length === 0 && !asDraft) { toast.error('Add at least one line item'); return }
 
     setSubmitting(true)
     const jo = jobOps.find(j => j.id === selectedJobOp)
+    const gross = validItems.reduce((sum, item) => sum + item.amount, 0)
+    const cisRate = jo?.cis_rate || 20
+    const cis = calculateCIS(gross, cisRate)
+    const net = gross - cis
 
     // Generate reference: OP-001, OP-002 etc.
     const existingNums = invoices.map(inv => {
@@ -145,11 +183,12 @@ export default function OperativeInvoices() {
       job_operative_id: jo.id,
       company_id: op.company_id,
       invoice_ref: ref,
-      period_from: periodFrom,
-      period_to: periodTo,
-      gross_amount: calculatedData.gross,
-      cis_deduction: calculatedData.cis,
-      net_amount: calculatedData.net,
+      period_from: periodFrom || null,
+      period_to: periodTo || null,
+      gross_amount: gross,
+      cis_deduction: cis,
+      net_amount: net,
+      line_items: validItems,
       status: asDraft ? 'draft' : 'submitted',
       submitted_at: asDraft ? null : new Date().toISOString(),
       notes: notes.trim() || null,
@@ -181,6 +220,7 @@ export default function OperativeInvoices() {
     setSelectedJobOp(null)
     setPeriodFrom('')
     setPeriodTo('')
+    setLineItems([{ description: '', qty: '', rate: '', amount: 0 }])
     setCalculatedData(null)
     setNotes('')
     setInvoiceFiles([])
@@ -267,7 +307,20 @@ export default function OperativeInvoices() {
                           {inv.period_to && new Date(inv.period_to).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-xs">
+                      {/* Line items */}
+                      {inv.line_items?.length > 0 && (
+                        <div className="mb-2 space-y-1">
+                          {inv.line_items.map((item, i) => (
+                            <div key={i} className="flex justify-between text-xs">
+                              <span className="text-slate-600 truncate mr-2">{item.description}</span>
+                              <span className="text-slate-800 font-medium tabular-nums shrink-0">
+                                {item.qty && item.rate ? `${item.qty} × £${parseFloat(item.rate).toFixed(2)} = ` : ''}{formatMoney(item.amount)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="grid grid-cols-3 gap-2 text-xs pt-2 border-t border-slate-50">
                         <div>
                           <p className="text-[10px] text-slate-400 uppercase font-semibold">Gross</p>
                           <p className="font-bold" style={{ color: 'var(--text-primary)' }}>{formatMoney(inv.gross_amount)}</p>
@@ -358,41 +411,90 @@ export default function OperativeInvoices() {
               {/* Period */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-500 font-medium mb-1 block">From</label>
+                  <label className="text-xs text-slate-500 font-medium mb-1 block">Period From</label>
                   <input type="date" value={periodFrom} onChange={e => setPeriodFrom(e.target.value)}
                     className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-blue-400" />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-500 font-medium mb-1 block">To</label>
+                  <label className="text-xs text-slate-500 font-medium mb-1 block">Period To</label>
                   <input type="date" value={periodTo} onChange={e => setPeriodTo(e.target.value)}
                     className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-blue-400" />
                 </div>
               </div>
 
-              {/* Calculated amounts */}
+              {/* Auto-populate button */}
+              {selectedJobOp && periodFrom && periodTo && (
+                <button onClick={populateFromTimesheet} className="w-full flex items-center justify-center gap-2 py-2 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                  <RefreshCw size={12} /> Auto-populate from timesheet
+                </button>
+              )}
+
+              {/* Line Items */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs text-slate-500 font-medium">Line Items</label>
+                </div>
+                <div className="space-y-2">
+                  {lineItems.map((item, i) => (
+                    <div key={i} className="border border-slate-200 rounded-lg p-3 space-y-2">
+                      <div className="flex items-start gap-2">
+                        <input
+                          value={item.description}
+                          onChange={e => updateLineItem(i, 'description', e.target.value)}
+                          placeholder="Description (e.g. Labour — 5 days on site)"
+                          className="flex-1 px-2.5 py-2 border border-slate-200 rounded-md text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400"
+                        />
+                        {lineItems.length > 1 && (
+                          <button onClick={() => removeLineItem(i)} className="p-1.5 text-slate-300 hover:text-red-500 transition-colors mt-0.5">
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[10px] text-slate-400 mb-0.5 block">Qty / Days</label>
+                          <input type="number" step="0.5" min="0" value={item.qty}
+                            onChange={e => updateLineItem(i, 'qty', e.target.value)}
+                            placeholder="0"
+                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:border-blue-400 tabular-nums" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-400 mb-0.5 block">Rate (£)</label>
+                          <input type="number" step="0.01" min="0" value={item.rate}
+                            onChange={e => updateLineItem(i, 'rate', e.target.value)}
+                            placeholder="0.00"
+                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:border-blue-400 tabular-nums" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-400 mb-0.5 block">Amount</label>
+                          <div className="px-2.5 py-1.5 bg-slate-50 border border-slate-100 rounded-md text-sm font-semibold text-slate-700 tabular-nums">
+                            {formatMoney(item.amount)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={addLineItem} className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-slate-500 border border-dashed border-slate-300 rounded-lg hover:border-slate-400 hover:text-slate-700 transition-colors">
+                  <Plus size={12} /> Add Line Item
+                </button>
+              </div>
+
+              {/* Totals */}
               {calculatedData && (
-                <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Calculated from {calculatedData.entries} timesheet entries ({calculatedData.days} days)</p>
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Gross</span>
-                      <span className="font-bold text-slate-900">{formatMoney(calculatedData.gross)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">CIS ({calculatedData.cisRate}%)</span>
-                      <span className="font-bold text-red-600">-{formatMoney(calculatedData.cis)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm pt-1.5 border-t border-slate-200">
-                      <span className="font-semibold text-slate-900">Net Amount</span>
-                      <span className="font-bold text-lg" style={{ color: primaryColor }}>{formatMoney(calculatedData.net)}</span>
-                    </div>
+                <div className="bg-slate-50 rounded-xl p-4 space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Subtotal</span>
+                    <span className="font-bold text-slate-900">{formatMoney(calculatedData.gross)}</span>
                   </div>
-                  {calculatedData.gross === 0 && (
-                    <p className="text-[11px] text-amber-600 flex items-center gap-1 mt-1">
-                      <AlertTriangle size={12} />
-                      No approved timesheet entries found for this period
-                    </p>
-                  )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">CIS Deduction ({calculatedData.cisRate}%)</span>
+                    <span className="font-bold text-red-600">-{formatMoney(calculatedData.cis)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm pt-1.5 border-t border-slate-200">
+                    <span className="font-semibold text-slate-900">Net Payable</span>
+                    <span className="font-bold text-lg" style={{ color: primaryColor }}>{formatMoney(calculatedData.net)}</span>
+                  </div>
                 </div>
               )}
 
@@ -400,7 +502,7 @@ export default function OperativeInvoices() {
               <div>
                 <label className="text-xs text-slate-500 font-medium mb-1 block">Notes (optional)</label>
                 <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-                  placeholder="Any additional notes..."
+                  placeholder="Payment terms, bank details, additional notes..."
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:border-blue-400 resize-none" />
               </div>
 
@@ -409,7 +511,7 @@ export default function OperativeInvoices() {
                 <label className="text-xs text-slate-500 font-medium mb-1 block">Attachments (optional)</label>
                 <label className="flex items-center gap-2 px-3 py-2.5 border border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
                   <Paperclip size={14} className="text-slate-400" />
-                  <span className="text-sm text-slate-500">{invoiceFiles.length ? `${invoiceFiles.length} file${invoiceFiles.length > 1 ? 's' : ''} selected` : 'Attach invoice PDF, receipts, photos...'}</span>
+                  <span className="text-sm text-slate-500">{invoiceFiles.length ? `${invoiceFiles.length} file${invoiceFiles.length > 1 ? 's' : ''} selected` : 'Attach PDF invoice, receipts, photos...'}</span>
                   <input type="file" accept="image/*,.pdf" multiple className="hidden"
                     onChange={e => {
                       const files = Array.from(e.target.files || [])
@@ -435,11 +537,11 @@ export default function OperativeInvoices() {
 
               {/* Actions */}
               <div className="flex gap-2 pt-2">
-                <button onClick={() => submitInvoice(true)} disabled={submitting || !calculatedData}
+                <button onClick={() => submitInvoice(true)} disabled={submitting || !selectedJobOp}
                   className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5">
                   <Clock size={14} /> Save Draft
                 </button>
-                <button onClick={() => submitInvoice(false)} disabled={submitting || uploadingFiles || !calculatedData || calculatedData.gross === 0}
+                <button onClick={() => submitInvoice(false)} disabled={submitting || uploadingFiles || !selectedJobOp}
                   className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5"
                   style={{ backgroundColor: primaryColor }}>
                   <Send size={14} /> {uploadingFiles ? 'Uploading...' : 'Submit'}

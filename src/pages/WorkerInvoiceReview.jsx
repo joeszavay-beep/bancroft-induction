@@ -231,6 +231,32 @@ export default function WorkerInvoiceReview() {
                   </span>
                 </div>
 
+                {/* Line items */}
+                {inv.line_items?.length > 0 && (
+                  <div className="mb-3 border border-slate-100 rounded-lg overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 text-left">
+                          <th className="px-3 py-1.5 text-[10px] font-semibold text-slate-500">Description</th>
+                          <th className="px-3 py-1.5 text-[10px] font-semibold text-slate-500 text-right">Qty</th>
+                          <th className="px-3 py-1.5 text-[10px] font-semibold text-slate-500 text-right">Rate</th>
+                          <th className="px-3 py-1.5 text-[10px] font-semibold text-slate-500 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {inv.line_items.map((item, i) => (
+                          <tr key={i} className="border-t border-slate-50">
+                            <td className="px-3 py-1.5 text-slate-700">{item.description}</td>
+                            <td className="px-3 py-1.5 text-slate-600 text-right tabular-nums">{item.qty || '—'}</td>
+                            <td className="px-3 py-1.5 text-slate-600 text-right tabular-nums">{item.rate ? `£${parseFloat(item.rate).toFixed(2)}` : '—'}</td>
+                            <td className="px-3 py-1.5 text-slate-800 font-medium text-right tabular-nums">{formatMoney(item.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
                 {/* Amounts */}
                 <div className="grid grid-cols-3 gap-3 text-xs mb-3">
                   <div>
