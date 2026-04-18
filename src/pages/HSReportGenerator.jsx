@@ -14,10 +14,17 @@ import {
 } from 'lucide-react'
 
 // ── Constants ──
-const BLUE = [21, 96, 170] // #1560AA
-const GRAY = [213, 216, 220]
-const LGRAY = [230, 230, 230]
-const GRN = [153, 204, 0]
+const NAVY = [26, 39, 68]       // #1A2744
+const BLUE = [27, 111, 200]     // #1B6FC8
+const WHITE = [255, 255, 255]
+const LGRAY = [248, 249, 251]   // alternating rows
+const BORDER = [226, 230, 234]  // table borders
+const TXT = [26, 26, 46]        // body text
+const MUTED = [107, 122, 153]   // secondary text
+const GRN = [46, 160, 67]       // positive
+const RED = [218, 54, 51]       // negative
+const AMBER = [210, 153, 34]    // warning
+const GRAY = [213, 216, 220]    // legacy compat
 
 const PM_ITEMS = [
   'Housekeeping', 'Access / Egress', 'Scaffolding', 'Edge Protection',
@@ -424,7 +431,7 @@ export default function HSReportGenerator() {
         co: companyName,
       }
 
-      // Logo helper
+      // ── Logo loader ──
       let logoLoaded = false
       let logoImg = null
       if (company?.logo_url) {
@@ -441,14 +448,10 @@ export default function HSReportGenerator() {
         } catch { logoLoaded = false }
       }
 
-      function addLogo(x, y, w) {
+      function drawLogo(x, y, w) {
         const h = w * 0.243
         if (logoLoaded && logoImg) {
-          try {
-            doc.addImage(logoImg, 'PNG', x, y, w, h)
-          } catch {
-            drawFallbackLogo(x, y, w, h)
-          }
+          try { doc.addImage(logoImg, 'PNG', x, y, w, h) } catch { drawFallbackLogo(x, y, w, h) }
         } else {
           drawFallbackLogo(x, y, w, h)
         }
@@ -456,287 +459,230 @@ export default function HSReportGenerator() {
       }
 
       function drawFallbackLogo(x, y, w, h) {
-        doc.setFillColor(...BLUE)
+        doc.setFillColor(...NAVY)
         doc.rect(x, y, w, h, 'F')
-        doc.setTextColor(255, 255, 255)
-        doc.setFontSize(14)
+        doc.setTextColor(...WHITE)
+        doc.setFontSize(w > 30 ? 14 : 9)
         doc.setFont('helvetica', 'bold')
-        doc.text(g.co.toUpperCase(), x + w / 2, y + h * 0.7, { align: 'center' })
-        doc.setTextColor(0, 0, 0)
+        doc.text(g.co.toUpperCase(), x + w / 2, y + h * 0.65, { align: 'center' })
       }
 
-      function blueLine(y) {
-        doc.setDrawColor(...BLUE)
-        doc.setLineWidth(0.8)
-        doc.line(M, y, W - M, y)
+      // ── Page dimensions helper (handles portrait vs landscape) ──
+      function pageDims() {
+        const pw = doc.internal.pageSize.getWidth()
+        const ph = doc.internal.pageSize.getHeight()
+        return { W: pw, H: ph, CW: pw - M * 2 }
       }
 
-      function refCode(txt) {
-        doc.setFontSize(7)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(80, 80, 80)
-        doc.text(txt, W - M, H - 10, { align: 'right' })
-        doc.setTextColor(0, 0, 0)
-      }
-
-      function pageFooter(pageNum) {
-        doc.setFontSize(7)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(120, 120, 120)
-        doc.text(`Page ${pageNum}`, W / 2, H - 8, { align: 'center' })
-        doc.text(RC, W - M, H - 8, { align: 'right' })
-        doc.text(g.co, M, H - 8)
-        doc.setTextColor(0, 0, 0)
-      }
-
-      function infoBox(y, proj, addr, iNum, date) {
-        doc.setDrawColor(180, 180, 180)
-        doc.setLineWidth(0.3)
-        doc.rect(M, y, CW, 8)
-        doc.setFontSize(9)
-        doc.setFont('helvetica', 'bold')
-        doc.text('Project:', M + 2, y + 5.5)
-        doc.setFont('helvetica', 'normal')
-        doc.text(proj, M + 22, y + 5.5)
-        doc.setFont('helvetica', 'bold')
-        doc.text('Inspection No:', M + CW - 58, y + 5.5)
-        doc.setFont('helvetica', 'normal')
-        doc.text(iNum, M + CW - 28, y + 5.5)
-        const y2 = y + 8
-        doc.rect(M, y2, CW, 8)
-        doc.setFont('helvetica', 'bold')
-        doc.text('Address:', M + 2, y2 + 5.5)
-        doc.setFont('helvetica', 'normal')
-        doc.text(addr, M + 22, y2 + 5.5)
-        doc.setFont('helvetica', 'bold')
-        doc.text('Date:', M + CW - 58, y2 + 5.5)
-        doc.setFont('helvetica', 'normal')
-        doc.text(date, M + CW - 28, y2 + 5.5)
-        return y2 + 12
-      }
-
-      function checkTable(y, items) {
-        const half = Math.ceil(items.length / 2)
-        doc.setLineWidth(0.2)
-        doc.setDrawColor(180, 180, 180)
-        doc.setFontSize(8.5)
-        for (let i = 0; i < half; i++) {
-          const yi = y + i * 7
-          doc.rect(M, yi, 8, 7)
-          doc.rect(M + 8, yi, 72, 7)
-          doc.rect(M + 80, yi, 12, 7)
-          doc.setFont('helvetica', 'bold')
-          doc.text(String(i + 1), M + 4, yi + 5, { align: 'center' })
-          doc.setFont('helvetica', 'normal')
-          doc.text(items[i]?.label || '', M + 10, yi + 5)
-          if (items[i]?.value === 'Y') {
-            doc.setFont('helvetica', 'bold')
-            doc.text('\u2713', M + 86, yi + 5, { align: 'center' })
-          } else if (items[i]?.value === 'N') {
-            doc.setFont('helvetica', 'bold')
-            doc.setTextColor(200, 0, 0)
-            doc.text('\u2717', M + 86, yi + 5, { align: 'center' })
-            doc.setTextColor(0, 0, 0)
-          }
-          const ri = i + half
-          if (ri < items.length && items[ri]) {
-            doc.rect(M + 95, yi, 8, 7)
-            doc.rect(M + 103, yi, 72, 7)
-            doc.rect(M + 175, yi, 12, 7)
-            doc.setFont('helvetica', 'bold')
-            doc.text(String(ri + 1), M + 99, yi + 5, { align: 'center' })
-            doc.setFont('helvetica', 'normal')
-            doc.text(items[ri]?.label || '', M + 105, yi + 5)
-            if (items[ri]?.value === 'Y') {
-              doc.setFont('helvetica', 'bold')
-              doc.text('\u2713', M + 181, yi + 5, { align: 'center' })
-            } else if (items[ri]?.value === 'N') {
-              doc.setFont('helvetica', 'bold')
-              doc.setTextColor(200, 0, 0)
-              doc.text('\u2717', M + 181, yi + 5, { align: 'center' })
-              doc.setTextColor(0, 0, 0)
-            }
-          }
-        }
-        return y + half * 7 + 4
-      }
-
-      function commentsBox(y, com, inspBy) {
+      // ── Section header: number circle + title + blue underline ──
+      function sectionHeader(y, num, title) {
+        const { W: pw } = pageDims()
+        // Navy circle with section number
+        doc.setFillColor(...NAVY)
+        doc.circle(M + 5, y + 1, 5, 'F')
+        doc.setTextColor(...WHITE)
         doc.setFontSize(8)
         doc.setFont('helvetica', 'bold')
-        doc.text('If any area is inspected that is not listed above include in the comments section below.', M, y)
-        y += 6
-        doc.setDrawColor(180, 180, 180)
-        doc.setLineWidth(0.3)
-        doc.setFillColor(...LGRAY)
-        doc.rect(M, y, CW, 6, 'FD')
-        doc.setFontSize(8.5)
+        doc.text(String(num).padStart(2, '0'), M + 5, y + 2.5, { align: 'center' })
+        // Title
+        doc.setTextColor(...NAVY)
+        doc.setFontSize(16)
         doc.setFont('helvetica', 'bold')
-        doc.text('Comments', M + 2, y + 4)
-        y += 8
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(9)
-        const lines = doc.splitTextToSize(com || 'No comments.', CW - 4)
-        doc.rect(M, y - 2, CW, Math.max(lines.length * 5 + 6, 30))
-        doc.text(lines, M + 2, y + 2)
-        y += Math.max(lines.length * 5 + 8, 32)
-        doc.setLineWidth(0.3)
-        doc.setDrawColor(180, 180, 180)
-        doc.rect(M, y, 20, 8)
-        doc.rect(M + 20, y, 55, 8)
-        doc.rect(M + 85, y, 18, 8)
-        doc.rect(M + 103, y, 55, 8)
-        doc.setFillColor(...LGRAY)
-        doc.rect(M, y, 20, 8, 'FD')
-        doc.rect(M + 85, y, 18, 8, 'FD')
-        doc.setFontSize(9)
-        doc.setFont('helvetica', 'bold')
-        doc.text('Inspected by:', M + 2, y + 5.5)
-        doc.text('Signed:', M + 87, y + 5.5)
-        doc.setFont('helvetica', 'normal')
-        doc.text(inspBy || '', M + 22, y + 5.5)
-        doc.setFont('helvetica', 'italic')
-        doc.text(inspBy ? inspBy.split(' ').map((n, i) => i === 0 ? n[0] + '.' : n).join(' ') : '', M + 105, y + 5.5)
-        return y + 12
+        doc.text(title, M + 14, y + 3.5)
+        // Blue underline
+        doc.setDrawColor(...BLUE)
+        doc.setLineWidth(0.6)
+        doc.line(M, y + 8, pw - M, y + 8)
+        doc.setTextColor(...TXT)
+        return y + 14
       }
 
-      let pageNum = 1
+      // ── Page header (every page except cover) ──
+      function pageHeader() {
+        const { W: pw } = pageDims()
+        // Navy top bar
+        doc.setFillColor(...NAVY)
+        doc.rect(0, 0, pw, 4, 'F')
+        // Logo + company name (left)
+        const lh = drawLogo(M, 6, 25)
+        doc.setTextColor(...NAVY)
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'bold')
+        doc.text(g.co, M + 28, 10)
+        // Centre title
+        doc.setTextColor(...MUTED)
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'normal')
+        doc.text('Weekly H&S Report', pw / 2, 10, { align: 'center' })
+        // Right: ref + placeholder for page
+        doc.setFontSize(7)
+        doc.text(RC, pw - M, 8, { align: 'right' })
+        // Thin line under header
+        doc.setDrawColor(...BORDER)
+        doc.setLineWidth(0.3)
+        doc.line(M, 6 + Math.max(lh, 6) + 2, pw - M, 6 + Math.max(lh, 6) + 2)
+        doc.setTextColor(...TXT)
+        return 6 + Math.max(lh, 6) + 6
+      }
 
-      // ===== PAGE 1: COVER =====
-      let lh = addLogo(M, M, 50)
-      let y = M + lh + 18
-      doc.setFontSize(16)
+      // ── Standard autoTable styles ──
+      const tableHead = { fillColor: BLUE, textColor: WHITE, fontSize: 8, fontStyle: 'bold', halign: 'center', cellPadding: 2.5 }
+      const tableBody = { fontSize: 8, textColor: TXT, cellPadding: 2.5 }
+      const tableStyle = { lineColor: BORDER, lineWidth: 0.2 }
+      const tableTheme = 'grid'
+
+      // Track pages that use landscape so footer logic knows dimensions
+      const landscapePages = new Set()
+
+      // =====================================================
+      //  PAGE 1: COVER
+      // =====================================================
+      const navyH = H * 0.40
+      doc.setFillColor(...NAVY)
+      doc.rect(0, 0, W, navyH, 'F')
+
+      // Centred logo (large)
+      const coverLogoW = 50
+      const coverLogoH = drawLogo((W - coverLogoW) / 2, navyH * 0.15, coverLogoW)
+
+      // Title text
+      let y = navyH * 0.15 + coverLogoH + 14
+      doc.setTextColor(...WHITE)
+      doc.setFontSize(24)
       doc.setFont('helvetica', 'bold')
-      doc.text((g.pn || 'PROJECT').toUpperCase() + ' WEEKLY HEALTH & SAFETY REPORT', W / 2, y, { align: 'center' })
-      doc.setLineWidth(0.5)
-      doc.setDrawColor(0, 0, 0)
-      doc.line(M + 10, y + 2, W - M - 10, y + 2)
-      y += 18
-      doc.setFontSize(11)
-      doc.setFont('helvetica', 'bolditalic')
-      doc.text('Report Number: ', M, y)
-      doc.setFont('helvetica', 'bold')
-      doc.text(RC, 52, y)
-      y += 8
-      doc.setFont('helvetica', 'bolditalic')
-      doc.text('Weekending: ', M, y)
-      doc.setFont('helvetica', 'bold')
-      doc.text(g.we, 52, y)
-      y += 8
-      doc.setFont('helvetica', 'bolditalic')
-      doc.text('Issued By:  ', M, y)
-      doc.setFont('helvetica', 'bold')
-      doc.text(g.ib, 52, y)
-      doc.setFont('helvetica', 'normal')
-      doc.text(' (' + g.role + ')', 52 + doc.getTextWidth(g.ib), y)
-      y += 8
-      doc.setFont('helvetica', 'bolditalic')
-      doc.text('Signature: ', M, y)
-      doc.setFont('helvetica', 'italic')
-      doc.text(g.ib ? g.ib.split(' ').map((n, i) => i === 0 ? n[0] + '.' : n).join(' ') : '', 52, y)
-      y += 18
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'normal')
-      doc.text('Please see attached the ' + g.co + ' weekly Health & Safety Report the contents of this report', M, y)
-      y += 5
-      doc.text('is as follows:', M, y)
-      y += 10
-      const tocItems = ['Toolbox Talks', 'Operative Safety Report', 'Environmental Inspection', 'Plant & Equipment Inspections', 'Training Matrix', 'RAMS Matrix', 'Induction Summary', 'Project Manager Weekly Inspection']
-      tocItems.forEach(t => {
-        doc.circle(M + 3, y - 1, 0.8, 'F')
-        doc.text(t, M + 8, y)
-        y += 6
-      })
-      y += 12
-      doc.text('Kind Regards,', M, y)
+      doc.text('WEEKLY HEALTH & SAFETY REPORT', W / 2, y, { align: 'center', charSpace: 1 })
+
+      // White separator line
       y += 6
-      doc.text('The ' + g.co + ' Project Team.', M, y)
-      pageFooter(pageNum)
+      doc.setDrawColor(...WHITE)
+      doc.setLineWidth(0.5)
+      doc.line(W / 2 - 40, y, W / 2 + 40, y)
 
-      // ===== PAGE 2: TOOLBOX TALKS =====
-      doc.addPage()
-      pageNum++
-      lh = addLogo(M, M, 50)
-      doc.setFontSize(11)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Tool Box Talk Register', M + 55, M + lh / 2 + 2)
-      blueLine(M + lh + 4)
-      y = M + lh + 10
-      const tbtBody = allTalks.map((t, i) => [String(i + 1), t.topic, String(t.attendees || ''), t.notes])
-      if (tbtBody.length === 0) tbtBody.push(['1', 'No talks recorded this week', '', ''])
+      // Project name
+      y += 10
+      doc.setFontSize(16)
+      doc.setFont('helvetica', 'normal')
+      doc.text(g.pn || 'Project', W / 2, y, { align: 'center' })
+      doc.setTextColor(...TXT)
+
+      // ── Info grid below navy area ──
+      const gridTop = navyH + 16
+      const colW = CW / 2
+      const rowH = 20
+      const infoItems = [
+        { label: 'REPORT NUMBER', value: RC },
+        { label: 'WEEK COMMENCING', value: g.wc },
+        { label: 'WEEK ENDING', value: g.we },
+        { label: 'ISSUED BY', value: g.ib },
+        { label: 'ROLE', value: g.role },
+        { label: 'PROJECT ADDRESS', value: g.pf },
+        { label: 'CLIENT', value: g.cl },
+        { label: 'JOB REFERENCE', value: g.jr },
+      ]
+      infoItems.forEach((item, i) => {
+        const col = i % 2
+        const row = Math.floor(i / 2)
+        const ix = M + col * colW + (col === 1 ? 8 : 0)
+        const iy = gridTop + row * rowH
+        // Label
+        doc.setFontSize(7)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(...MUTED)
+        doc.text(item.label, ix, iy)
+        // Value
+        doc.setFontSize(11)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...TXT)
+        const valLines = doc.splitTextToSize(item.value || '-', colW - 12)
+        doc.text(valLines, ix, iy + 5.5)
+      })
+
+      // Cover footer
+      doc.setDrawColor(...BORDER)
+      doc.setLineWidth(0.3)
+      doc.line(M, H - 14, W - M, H - 14)
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...MUTED)
+      doc.text(RC, W / 2, H - 9, { align: 'center' })
+
+      // =====================================================
+      //  PAGE 2: TOOLBOX TALKS (Section 1)
+      // =====================================================
+      doc.addPage('p')
+      y = pageHeader()
+      y = sectionHeader(y, 1, 'Toolbox Talks')
+
+      const tbtBody = allTalks.map((t, i) => [fmtUK(t.date || ''), t.topic || '', String(t.attendees || ''), t.notes || ''])
+      if (tbtBody.length === 0) tbtBody.push(['-', 'No talks recorded this week', '-', ''])
       autoTable(doc, {
         startY: y,
-        head: [['TBT No', 'Description', 'Attendees', 'Notes']],
+        head: [['Date', 'Topic', 'Attendees', 'Notes']],
         body: tbtBody,
-        margin: { left: M + 5, right: M + 5 },
-        headStyles: { fillColor: GRAY, textColor: [0, 0, 0], fontSize: 8.5, fontStyle: 'bold', halign: 'center' },
-        bodyStyles: { fontSize: 8.5 },
-        columnStyles: { 0: { cellWidth: 20, halign: 'center' }, 2: { cellWidth: 22, halign: 'center' } },
-        styles: { cellPadding: 3, lineColor: [180, 180, 180], lineWidth: 0.2 },
-        theme: 'grid',
+        margin: { left: M, right: M },
+        headStyles: tableHead,
+        bodyStyles: tableBody,
+        columnStyles: { 0: { cellWidth: 24, halign: 'center' }, 2: { cellWidth: 22, halign: 'center' } },
+        styles: tableStyle,
+        theme: tableTheme,
+        alternateRowStyles: { fillColor: LGRAY },
       })
-      refCode(coAbbr + '344_Rev(B)_Tool_Box_Talk_Register')
-      pageFooter(pageNum)
 
-      // ===== PAGE 3: TRAINING MATRIX =====
+      // =====================================================
+      //  PAGE 3: TRAINING MATRIX (Section 2) — Landscape
+      // =====================================================
       doc.addPage('l')
-      pageNum++
-      lh = addLogo(M, M, 50)
-      doc.setFontSize(11)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Induction & Training Summary', M + 55, M + 4)
-      doc.setFontSize(10)
-      doc.text(g.pn + ' - ' + g.pa, 148, M + lh + 4, { align: 'center' })
-      y = M + lh + 10
+      landscapePages.add(doc.internal.getNumberOfPages())
+      y = pageHeader()
+      y = sectionHeader(y, 2, 'Training Matrix')
+
       const trBody = allOperatives.filter(o => !supervisors.includes(o)).map((o, i) => [
         String(i + 1), o.name || '', o.employer || '', o.role || '',
         fmtUK(o.card_expiry), fmtUK(o.ipaf_expiry), fmtUK(o.pasma_expiry),
         fmtUK(o.sssts_expiry), fmtUK(o.smsts_expiry), fmtUK(o.first_aid_expiry),
         o.ap_number || o.cscs_number || '',
       ])
-      manualTraining.forEach((t, i) => {
+      manualTraining.forEach(t => {
         trBody.push([String(trBody.length + 1), t.name, t.company, t.role, t.cscs, t.ipaf, t.pasma, t.sssts, t.smsts, t.firstAid, t.apNumber])
       })
       if (trBody.length === 0) trBody.push(['1', 'No operatives recorded', '', '', '', '', '', '', '', '', ''])
       autoTable(doc, {
         startY: y,
-        head: [['No', 'Name', 'Company', 'Role', 'CSCS Expiry', 'IPAF Expiry', 'PASMA Expiry', 'SSSTS Expiry', 'SMSTS Expiry', 'First Aid Expiry', 'AP Number']],
+        head: [['#', 'Name', 'Company', 'Role', 'CSCS', 'IPAF', 'PASMA', 'SSSTS', 'SMSTS', 'First Aid', 'AP']],
         body: trBody,
         margin: { left: M, right: M },
-        headStyles: { fillColor: GRAY, textColor: [0, 0, 0], fontSize: 6, fontStyle: 'bold', halign: 'center', cellPadding: 1.5 },
-        bodyStyles: { fontSize: 6.5, halign: 'center', cellPadding: 1.5 },
-        columnStyles: { 0: { cellWidth: 8 }, 1: { halign: 'left', cellWidth: 28 }, 2: { cellWidth: 18 }, 3: { cellWidth: 18 } },
-        styles: { lineColor: [180, 180, 180], lineWidth: 0.2 },
-        theme: 'grid',
+        headStyles: { ...tableHead, fontSize: 6.5, cellPadding: 1.5 },
+        bodyStyles: { ...tableBody, fontSize: 6.5, halign: 'center', cellPadding: 1.5 },
+        columnStyles: { 0: { cellWidth: 8 }, 1: { halign: 'left', cellWidth: 30 }, 2: { cellWidth: 22 }, 3: { cellWidth: 22 } },
+        styles: tableStyle,
+        theme: tableTheme,
+        alternateRowStyles: { fillColor: LGRAY },
         didParseCell: function (data) {
           if (data.section === 'body' && data.column.index >= 4 && data.column.index <= 9) {
             const val = data.cell.raw
-            if (val && isExpired(val.split('/').reverse().join('-'))) {
-              data.cell.styles.textColor = [220, 0, 0]
+            if (!val) return
+            const isoDate = val.split('/').reverse().join('-')
+            if (isExpired(isoDate)) {
+              data.cell.styles.textColor = RED
               data.cell.styles.fontStyle = 'bold'
-            } else if (val && isExpiringSoon(val.split('/').reverse().join('-'))) {
-              data.cell.styles.textColor = [200, 150, 0]
+            } else if (isExpiringSoon(isoDate)) {
+              data.cell.styles.textColor = AMBER
+              data.cell.styles.fontStyle = 'bold'
+            } else if (val) {
+              data.cell.styles.textColor = GRN
             }
           }
         },
       })
-      refCode(coAbbr + '334_Rev(B)_Site_Training_Matrix')
-      pageFooter(pageNum)
 
-      // ===== PAGE 4: MANAGEMENT TRAINING =====
+      // =====================================================
+      //  PAGE 4: MANAGEMENT TRAINING (Section 3) — Landscape
+      // =====================================================
       doc.addPage('l')
-      pageNum++
-      lh = addLogo(M, M, 45)
-      doc.setFontSize(11)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Management Training Matrix', 148, M + 6, { align: 'center' })
-      y = M + lh + 6
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Site:  ', M, y)
-      doc.setFont('helvetica', 'normal')
-      doc.text(g.pn, M + 10, y)
-      y += 6
+      landscapePages.add(doc.internal.getNumberOfPages())
+      y = pageHeader()
+      y = sectionHeader(y, 3, 'Management Training')
+
       const mgBody = supervisors.map((o, i) => [
         String(i + 1), o.name || '', o.employer || '', o.role || '',
         fmtUK(o.card_expiry), fmtUK(o.sssts_expiry), fmtUK(o.smsts_expiry),
@@ -745,315 +691,410 @@ export default function HSReportGenerator() {
       if (mgBody.length === 0) mgBody.push(['1', 'No management staff recorded', '', '', '', '', '', '', '', '', '', '', ''])
       autoTable(doc, {
         startY: y,
-        head: [['No', 'Name', 'Company', 'Position', 'CSCS/JIB', 'SSSTS', 'SMSTS', 'First Aider\n(3 day)', 'First Aider\n(1 day)', 'PASMA', 'IPAF', 'PAV', 'Other']],
+        head: [['#', 'Name', 'Company', 'Position', 'CSCS/JIB', 'SSSTS', 'SMSTS', 'First Aid\n(3 day)', 'First Aid\n(1 day)', 'PASMA', 'IPAF', 'PAV', 'Other']],
         body: mgBody,
         margin: { left: M, right: M },
-        headStyles: { fillColor: GRAY, textColor: [0, 0, 0], fontSize: 6.5, fontStyle: 'bold', halign: 'center', cellPadding: 1.5 },
-        bodyStyles: { fontSize: 7, cellPadding: 2 },
-        columnStyles: { 0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 25 }, 2: { cellWidth: 16 }, 3: { cellWidth: 28 } },
-        styles: { lineColor: [180, 180, 180], lineWidth: 0.2 },
-        theme: 'grid',
+        headStyles: { ...tableHead, fontSize: 6.5, cellPadding: 1.5 },
+        bodyStyles: { ...tableBody, fontSize: 7, cellPadding: 2 },
+        columnStyles: { 0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 25 }, 2: { cellWidth: 18 }, 3: { cellWidth: 28 } },
+        styles: tableStyle,
+        theme: tableTheme,
+        alternateRowStyles: { fillColor: LGRAY },
+        didParseCell: function (data) {
+          if (data.section === 'body' && data.column.index >= 4 && data.column.index <= 10) {
+            const val = data.cell.raw
+            if (!val) return
+            const isoDate = val.split('/').reverse().join('-')
+            if (isExpired(isoDate)) {
+              data.cell.styles.textColor = RED
+              data.cell.styles.fontStyle = 'bold'
+            } else if (isExpiringSoon(isoDate)) {
+              data.cell.styles.textColor = AMBER
+              data.cell.styles.fontStyle = 'bold'
+            } else if (val) {
+              data.cell.styles.textColor = GRN
+            }
+          }
+        },
       })
-      pageFooter(pageNum)
 
-      // ===== PAGE 5: EQUIPMENT REGISTER =====
+      // =====================================================
+      //  PAGE 5: EQUIPMENT REGISTER (Section 4) — Landscape
+      // =====================================================
       doc.addPage('l')
-      pageNum++
-      lh = addLogo(M, M, 50)
-      doc.setFontSize(13)
-      doc.setFont('helvetica', 'bolditalic')
-      doc.text('Weekly Work Equipment Inspection Report', W - M - 60, M + 6, { align: 'center' })
-      blueLine(M + lh + 4)
-      y = M + lh + 8
-      doc.setFontSize(8.5)
-      doc.setFont('helvetica', 'bold')
-      doc.setDrawColor(180, 180, 180)
-      doc.setLineWidth(0.3)
-      doc.rect(M, y, 155, 8)
-      doc.rect(M + 155, y, 18, 8)
-      doc.rect(M + 173, y, W - 2 * M - 173, 8)
-      doc.setFillColor(...LGRAY)
-      doc.rect(M, y, 20, 8, 'FD')
-      doc.rect(M + 155, y, 18, 8, 'FD')
-      doc.text('Project / Site:', M + 2, y + 5.5)
-      doc.setFont('helvetica', 'normal')
-      doc.text(g.pn + ' \u2013 ' + g.pf, M + 26, y + 5.5)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Company:', M + 157, y + 5.5)
-      doc.setTextColor(255, 0, 0)
-      doc.text(g.co, M + 175, y + 5.5)
-      doc.setTextColor(0, 0, 0)
-      y += 12
-      const eqBody = equipmentRows.map(r => [r.ref || '', r.description || '', r.patExpiry || '', r.comments || '', r.certExpiry || '', r.defects || '', r.safe || '', r.inspectedBy || '', g.we])
-      if (eqBody.length === 0) eqBody.push(['1', 'No equipment recorded', '', '', '', '', '', '', g.we])
+      landscapePages.add(doc.internal.getNumberOfPages())
+      y = pageHeader()
+      y = sectionHeader(y, 4, 'Equipment Register')
+
+      const eqBody = equipmentRows.map((r, i) => [
+        String(i + 1), r.description || '', r.ref || r.serial || '', fmtUK(r.patExpiry || r.inspectionDate || ''),
+        fmtUK(r.certExpiry || r.nextDue || ''), r.safe || r.status || '',
+      ])
+      if (eqBody.length === 0) eqBody.push(['1', 'No equipment recorded', '-', '-', '-', '-'])
       autoTable(doc, {
         startY: y,
-        head: [['Ref No', 'Description', 'PAT test\nexpiry', g.co + '\nComments', 'Cert\nexpiry', 'Defects', 'Safe to\nuse?', 'Inspected by', 'Date']],
+        head: [['#', 'Item', 'Serial / ID', 'Inspection Date', 'Next Due', 'Status']],
         body: eqBody,
         margin: { left: M, right: M },
-        headStyles: { fillColor: GRAY, textColor: [0, 0, 0], fontSize: 7, fontStyle: 'bold', halign: 'center', cellPadding: 2 },
-        bodyStyles: { fontSize: 7.5, halign: 'center', cellPadding: 2.5 },
-        columnStyles: { 0: { cellWidth: 18 }, 1: { halign: 'left', cellWidth: 30 } },
-        styles: { lineColor: [180, 180, 180], lineWidth: 0.2 },
-        theme: 'grid',
+        headStyles: { ...tableHead, fontSize: 7 },
+        bodyStyles: { ...tableBody, fontSize: 7.5, halign: 'center' },
+        columnStyles: { 0: { cellWidth: 10 }, 1: { halign: 'left', cellWidth: 55 }, 2: { cellWidth: 35 } },
+        styles: tableStyle,
+        theme: tableTheme,
+        alternateRowStyles: { fillColor: LGRAY },
       })
-      pageFooter(pageNum)
 
-      // ===== PAGE 6: PM INSPECTION =====
+      // =====================================================
+      //  PAGE 6: PM INSPECTION (Section 5)
+      // =====================================================
       doc.addPage('p')
-      pageNum++
-      lh = addLogo(M, M, 50)
-      doc.setFontSize(15)
-      doc.setFont('helvetica', 'bolditalic')
-      doc.text('Project Manager', W - M, M + 4, { align: 'right' })
-      doc.setFontSize(10)
-      doc.text('Health & Safety Inspection Report', W - M, M + 10, { align: 'right' })
-      blueLine(M + lh + 4)
-      y = infoBox(M + lh + 8, g.pn, g.pa, g.rn, g.we)
-      doc.setFillColor(...GRAY)
-      doc.rect(M, y + 4, CW, 7, 'F')
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.text('TICK BOX IF INSPECTED', W / 2, y + 9, { align: 'center' })
-      y = checkTable(y + 14, pmChecks)
-      y = commentsBox(y + 2, pmComments, pmInspector)
-      refCode(coAbbr + '314_Rev(B)_Project_Manager_Health_&_Safety_Inspection_Report')
-      pageFooter(pageNum)
+      y = pageHeader()
+      y = sectionHeader(y, 5, 'PM Inspection')
 
-      // ===== PAGE 7: ENVIRONMENTAL =====
-      doc.addPage('p')
-      pageNum++
-      lh = addLogo(M, M, 50)
-      doc.setFontSize(15)
-      doc.setFont('helvetica', 'bolditalic')
-      doc.text('Environmental Inspection', W - M, M + 4, { align: 'right' })
-      doc.setFontSize(13)
-      doc.text('Report', W - M, M + 10, { align: 'right' })
-      blueLine(M + lh + 4)
-      y = infoBox(M + lh + 8, g.pn, g.pf, g.rn, g.we)
-      doc.setFillColor(...GRAY)
-      doc.rect(M, y + 4, CW, 7, 'F')
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.text('TICK BOX IF INSPECTED', W / 2, y + 9, { align: 'center' })
-      y = checkTable(y + 14, envChecks)
-      y = commentsBox(y + 2, envComments, envInspector)
-      refCode(coAbbr + '324_Rev(B)_Environmental_Inspection_Report')
-      pageFooter(pageNum)
-
-      // ===== PAGE 8: OPERATIVE INSPECTION =====
-      doc.addPage('p')
-      pageNum++
-      lh = addLogo(M, M, 50)
-      doc.setFontSize(15)
-      doc.setFont('helvetica', 'bolditalic')
-      doc.text('Operative/Safety Rep', W - M, M + 4, { align: 'right' })
-      doc.setFontSize(10)
-      doc.text('Health & Safety Inspection Report', W - M, M + 10, { align: 'right' })
-      blueLine(M + lh + 4)
-      y = infoBox(M + lh + 8, g.pn, g.pf, g.rn, g.we)
-      doc.setFillColor(...GRAY)
-      doc.rect(M, y + 4, CW, 7, 'F')
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.text('TICK BOX IF INSPECTED', W / 2, y + 9, { align: 'center' })
-      y = checkTable(y + 14, opChecks)
-      y = commentsBox(y + 2, opComments, opInspector)
-      refCode(coAbbr + '326_Rev(B)_Operative_Safety_Rep_Inspection_Report')
-      pageFooter(pageNum)
-
-      // ===== PAGE 9: RAMS MATRIX =====
-      doc.addPage('p')
-      pageNum++
-      lh = addLogo(M, M, 50)
-      doc.setFontSize(15)
-      doc.setFont('helvetica', 'bolditalic')
-      doc.setTextColor(255, 0, 0)
-      doc.text('RAMS Matrix', W - M, M + 8, { align: 'right' })
-      doc.setTextColor(0, 0, 0)
-      y = M + lh + 8
-      doc.setFontSize(8.5)
-      doc.setDrawColor(180, 180, 180)
-      doc.setLineWidth(0.3)
-      doc.rect(M, y, 100, 7)
-      doc.rect(M + 105, y, 15, 7)
-      doc.rect(M + 120, y, 60, 7)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Client:', M + 2, y + 5)
-      doc.setFont('helvetica', 'normal')
-      doc.text(g.cl, M + 16, y + 5)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Job ref:', M + 107, y + 5)
-      doc.setTextColor(255, 0, 0)
-      doc.text(g.jr, M + 122, y + 5)
-      doc.setTextColor(0, 0, 0)
-      y += 8
-      doc.rect(M, y, 100, 7)
-      doc.rect(M + 105, y, 15, 7)
-      doc.rect(M + 120, y, 60, 7)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Project:', M + 2, y + 5)
-      doc.setFont('helvetica', 'normal')
-      doc.text(g.pn + ' \u2013 ' + g.pf, M + 18, y + 5)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Issue date:', M + 107, y + 5)
-      doc.setTextColor(255, 0, 0)
-      doc.text(g.we, M + 127, y + 5)
-      doc.setTextColor(0, 0, 0)
-      y += 12
-      const raBody = ramsRows.map(r => [String(r.num), r.title, '', r.issuedBy, '', '', r.approvedBy || ''])
-      if (raBody.length === 0) raBody.push(['1', 'No RAMS recorded', '', '', '', '', ''])
+      const pmBody = pmChecks.map(item => {
+        const val = item.value || '-'
+        return [item.label, val, '']
+      })
       autoTable(doc, {
         startY: y,
-        head: [['Doc No', 'RAMS title', 'Submitted\nto', 'Submitted\nby', 'Forecast issue\ndate', 'Date\nsubmitted', 'Date returned\n& Status']],
+        head: [['Item', 'Y / N / NA', 'Comments']],
+        body: pmBody,
+        margin: { left: M, right: M },
+        headStyles: tableHead,
+        bodyStyles: tableBody,
+        columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 24, halign: 'center' }, 2: {} },
+        styles: tableStyle,
+        theme: tableTheme,
+        alternateRowStyles: { fillColor: LGRAY },
+        didParseCell: function (data) {
+          if (data.section === 'body' && data.column.index === 1 && data.cell.raw === 'N') {
+            data.cell.styles.fillColor = [254, 226, 226]
+            data.cell.styles.textColor = RED
+            data.cell.styles.fontStyle = 'bold'
+          }
+        },
+      })
+      y = doc.lastAutoTable.finalY + 6
+      // Inspector + date row
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...NAVY)
+      doc.text('Inspector:', M, y + 4)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...TXT)
+      doc.text(pmInspector || '-', M + 22, y + 4)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...NAVY)
+      doc.text('Date:', M + 100, y + 4)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...TXT)
+      doc.text(g.we, M + 112, y + 4)
+      if (pmComments) {
+        y += 10
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...NAVY)
+        doc.text('Comments:', M, y)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(...TXT)
+        const cmLines = doc.splitTextToSize(pmComments, CW - 4)
+        doc.text(cmLines, M, y + 5)
+      }
+
+      // =====================================================
+      //  PAGE 7: ENVIRONMENTAL INSPECTION (Section 6)
+      // =====================================================
+      doc.addPage('p')
+      y = pageHeader()
+      y = sectionHeader(y, 6, 'Environmental Inspection')
+
+      const envBody = envChecks.map(item => [item.label, item.value || '-', ''])
+      autoTable(doc, {
+        startY: y,
+        head: [['Item', 'Y / N / NA', 'Comments']],
+        body: envBody,
+        margin: { left: M, right: M },
+        headStyles: tableHead,
+        bodyStyles: tableBody,
+        columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 24, halign: 'center' }, 2: {} },
+        styles: tableStyle,
+        theme: tableTheme,
+        alternateRowStyles: { fillColor: LGRAY },
+        didParseCell: function (data) {
+          if (data.section === 'body' && data.column.index === 1 && data.cell.raw === 'N') {
+            data.cell.styles.fillColor = [254, 226, 226]
+            data.cell.styles.textColor = RED
+            data.cell.styles.fontStyle = 'bold'
+          }
+        },
+      })
+      y = doc.lastAutoTable.finalY + 6
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...NAVY)
+      doc.text('Inspector:', M, y + 4)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...TXT)
+      doc.text(envInspector || '-', M + 22, y + 4)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...NAVY)
+      doc.text('Date:', M + 100, y + 4)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...TXT)
+      doc.text(g.we, M + 112, y + 4)
+      if (envComments) {
+        y += 10
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...NAVY)
+        doc.text('Comments:', M, y)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(...TXT)
+        const cmLines = doc.splitTextToSize(envComments, CW - 4)
+        doc.text(cmLines, M, y + 5)
+      }
+
+      // =====================================================
+      //  PAGE 8: OPERATIVE INSPECTION (Section 7)
+      // =====================================================
+      doc.addPage('p')
+      y = pageHeader()
+      y = sectionHeader(y, 7, 'Operative Inspection')
+
+      const opBody = opChecks.map(item => [item.label, item.value || '-', ''])
+      autoTable(doc, {
+        startY: y,
+        head: [['Item', 'Y / N / NA', 'Comments']],
+        body: opBody,
+        margin: { left: M, right: M },
+        headStyles: tableHead,
+        bodyStyles: tableBody,
+        columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 24, halign: 'center' }, 2: {} },
+        styles: tableStyle,
+        theme: tableTheme,
+        alternateRowStyles: { fillColor: LGRAY },
+        didParseCell: function (data) {
+          if (data.section === 'body' && data.column.index === 1 && data.cell.raw === 'N') {
+            data.cell.styles.fillColor = [254, 226, 226]
+            data.cell.styles.textColor = RED
+            data.cell.styles.fontStyle = 'bold'
+          }
+        },
+      })
+      y = doc.lastAutoTable.finalY + 6
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...NAVY)
+      doc.text('Inspector:', M, y + 4)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...TXT)
+      doc.text(opInspector || '-', M + 22, y + 4)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...NAVY)
+      doc.text('Date:', M + 100, y + 4)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...TXT)
+      doc.text(g.we, M + 112, y + 4)
+      if (opComments) {
+        y += 10
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...NAVY)
+        doc.text('Comments:', M, y)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(...TXT)
+        const cmLines = doc.splitTextToSize(opComments, CW - 4)
+        doc.text(cmLines, M, y + 5)
+      }
+
+      // =====================================================
+      //  PAGE 9: RAMS MATRIX (Section 8)
+      // =====================================================
+      doc.addPage('p')
+      y = pageHeader()
+      y = sectionHeader(y, 8, 'RAMS Matrix')
+
+      const raBody = ramsRows.map((r, i) => [
+        String(r.num || i + 1), r.title || '', r.reference || '', r.rev || '', r.issuedBy || '', r.approvedBy || '',
+      ])
+      if (raBody.length === 0) raBody.push(['1', 'No RAMS recorded', '-', '-', '-', '-'])
+      autoTable(doc, {
+        startY: y,
+        head: [['#', 'Title', 'Reference', 'Rev', 'Issued By', 'Approved By']],
         body: raBody,
         margin: { left: M, right: M },
-        headStyles: { fillColor: GRAY, textColor: [0, 0, 0], fontSize: 7, fontStyle: 'bold', halign: 'center', cellPadding: 2 },
-        bodyStyles: { fontSize: 7, cellPadding: 2 },
-        columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 55 } },
-        styles: { lineColor: [180, 180, 180], lineWidth: 0.2 },
-        theme: 'grid',
+        headStyles: tableHead,
+        bodyStyles: tableBody,
+        columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 1: { cellWidth: 55 } },
+        styles: tableStyle,
+        theme: tableTheme,
+        alternateRowStyles: { fillColor: LGRAY },
       })
-      pageFooter(pageNum)
 
-      // ===== PAGE 10: LABOUR RETURN =====
+      // =====================================================
+      //  PAGE 10: LABOUR RETURN (Section 9)
+      // =====================================================
       doc.addPage('p')
-      pageNum++
-      lh = addLogo(M, M, 50)
-      doc.setFontSize(15)
-      doc.setFont('helvetica', 'bolditalic')
-      doc.text('Weekly Labour Return', M + 55, M + lh / 2 + 2)
-      y = M + lh + 8
-      doc.setFontSize(7)
-      doc.setFont('helvetica', 'normal')
-      doc.text('This document must be completed on a weekly basis for all operatives on site including ' + g.co + ' Management,', M, y)
-      y += 3.5
-      doc.text('Operatives and Sub-Contractors and forwarded to the respective H&S Advisor by the end of each Monday for the previous week.', M, y)
-      y += 8
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Project: ', M + 30, y)
-      doc.setFont('helvetica', 'normal')
-      doc.text(g.pn, M + 50, y)
-      y += 7
-      doc.setFont('helvetica', 'bold')
-      doc.text('Week commencing: ', M + 30, y)
-      doc.setFont('helvetica', 'normal')
-      doc.text(g.wc, M + 65, y)
-      y += 8
+      y = pageHeader()
+      y = sectionHeader(y, 9, 'Labour Return')
+
       const laBody = labourRows.map(r => {
         const total = r.days.reduce((a, b) => a + b, 0)
         return [r.trade || r.company || '', ...r.days.map(String), String(total)]
       })
       if (laBody.length === 0) laBody.push(['No trades', '0', '0', '0', '0', '0', '0', '0', '0'])
+
+      // Compute grand totals
+      const dayTotals = [0, 0, 0, 0, 0, 0, 0]
+      labourRows.forEach(r => r.days.forEach((d, i) => { dayTotals[i] += d }))
+      const grandTotal = dayTotals.reduce((a, b) => a + b, 0)
+      laBody.push(['TOTAL', ...dayTotals.map(String), String(grandTotal)])
+
       autoTable(doc, {
         startY: y,
-        head: [['TRADE', 'Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun', 'TOTAL']],
+        head: [['Company / Trade', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total']],
         body: laBody,
         margin: { left: M, right: M },
-        headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontSize: 9, fontStyle: 'bold', halign: 'center', cellPadding: 3 },
-        bodyStyles: { fontSize: 9, halign: 'center', cellPadding: 3 },
-        columnStyles: { 0: { halign: 'left', fontStyle: 'bold' }, 8: { fontStyle: 'bold' } },
-        styles: { lineColor: [180, 180, 180], lineWidth: 0.3 },
-        theme: 'grid',
-      })
-      y = doc.lastAutoTable.finalY + 8
-      doc.setDrawColor(180, 180, 180)
-      doc.setLineWidth(0.3)
-      doc.rect(M, y, 35, 10)
-      doc.rect(M + 35, y, 45, 10)
-      doc.rect(M + 95, y, 30, 10)
-      doc.rect(M + 125, y, 15, 10)
-      doc.setFillColor(...LGRAY)
-      doc.rect(M, y, 35, 10, 'FD')
-      doc.rect(M + 95, y, 30, 10, 'FD')
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Completed by:', M + 2, y + 7)
-      doc.text('WEEKLY TOTAL:', M + 97, y + 7)
-      doc.setFontSize(14)
-      doc.setFont('helvetica', 'normal')
-      doc.text(labourCompletedBy, M + 37, y + 7)
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'bold')
-      doc.text(String(labourTotal), M + 127, y + 7)
-      refCode(coAbbr + '322_Rev(B)_Weekly_Labour_Return')
-      pageFooter(pageNum)
-
-      // ===== SAFE START CARDS =====
-      safeStartCards.forEach(card => {
-        doc.addPage('p')
-        pageNum++
-        const L = M, T = M, TW = CW
-        const RX = L + TW
-
-        // Header
-        doc.setFillColor(...GRN)
-        doc.rect(L, T, TW, 14, 'F')
-        doc.setFontSize(22)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(255, 255, 255)
-        doc.text('SAFE START RECORD', L + TW / 2, T + 10, { align: 'center' })
-        doc.setTextColor(0, 0, 0)
-        doc.setDrawColor(0, 0, 0)
-        doc.setLineWidth(1)
-        doc.rect(L, T, TW, 14)
-
-        // Company row
-        let ry = T + 14
-        doc.setLineWidth(0.5)
-        doc.rect(L, ry, TW, 9)
-        doc.setFontSize(11)
-        doc.setFont('helvetica', 'normal')
-        doc.text('Company Name: ' + ssCompany, L + 4, ry + 6.5)
-
-        // Supervisor row
-        ry += 9
-        doc.rect(L, ry, TW / 2, 8)
-        doc.rect(L + TW / 2, ry, TW / 2, 8)
-        doc.setFontSize(9)
-        doc.text('Supervisor: ' + ssSupervisor, L + 4, ry + 5.5)
-        doc.text('Date: ' + fmtUK(card.date), L + TW / 2 + 4, ry + 5.5)
-
-        // Trade row
-        ry += 8
-        doc.rect(L, ry, TW, 8)
-        doc.text('Trade Description: ' + ssTrade, L + 4, ry + 5.5)
-
-        // Checklist
-        ry += 12
-        card.checks.forEach((item, i) => {
-          doc.setDrawColor(150, 150, 150)
-          doc.setLineWidth(0.3)
-          doc.rect(L, ry, TW - 30, 7)
-          doc.rect(L + TW - 30, ry, 10, 7)
-          doc.rect(L + TW - 20, ry, 10, 7)
-          doc.rect(L + TW - 10, ry, 10, 7)
-          doc.setFontSize(8)
-          doc.setFont('helvetica', 'normal')
-          doc.text(item.label, L + 2, ry + 5)
-          doc.setFontSize(6)
-          doc.setTextColor(120, 120, 120)
-          doc.text('Y', L + TW - 25, ry + 5, { align: 'center' })
-          doc.text('N', L + TW - 15, ry + 5, { align: 'center' })
-          doc.text('N/A', L + TW - 5, ry + 5, { align: 'center' })
-          doc.setTextColor(0, 0, 0)
-          if (item.value === 'Y') {
-            doc.setFont('helvetica', 'bold')
-            doc.setFontSize(10)
-            doc.text('\u2713', L + TW - 25, ry + 5.5, { align: 'center' })
-          } else if (item.value === 'N') {
-            doc.setFont('helvetica', 'bold')
-            doc.setFontSize(10)
-            doc.text('\u2717', L + TW - 15, ry + 5.5, { align: 'center' })
+        headStyles: tableHead,
+        bodyStyles: { ...tableBody, halign: 'center' },
+        columnStyles: {
+          0: { halign: 'left', cellWidth: 50 },
+          8: { fontStyle: 'bold' },
+        },
+        styles: tableStyle,
+        theme: tableTheme,
+        alternateRowStyles: { fillColor: LGRAY },
+        didParseCell: function (data) {
+          // Style the totals row (last row)
+          if (data.section === 'body' && data.row.index === laBody.length - 1) {
+            data.cell.styles.fillColor = NAVY
+            data.cell.styles.textColor = WHITE
+            data.cell.styles.fontStyle = 'bold'
           }
-          ry += 7
+        },
+      })
+      y = doc.lastAutoTable.finalY + 6
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...NAVY)
+      doc.text('Completed by:', M, y + 4)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...TXT)
+      doc.text(labourCompletedBy || '-', M + 30, y + 4)
+      // Grand total callout
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...NAVY)
+      doc.text('Weekly Total:', W - M - 50, y + 4)
+      doc.setFillColor(...BLUE)
+      doc.roundedRect(W - M - 20, y - 1, 20, 8, 2, 2, 'F')
+      doc.setTextColor(...WHITE)
+      doc.setFontSize(10)
+      doc.text(String(grandTotal), W - M - 10, y + 4.5, { align: 'center' })
+      doc.setTextColor(...TXT)
+
+      // =====================================================
+      //  SAFE START CARDS (Section 10) — one card per day
+      // =====================================================
+      safeStartCards.forEach((card, ci) => {
+        doc.addPage('p')
+        y = pageHeader()
+        if (ci === 0) y = sectionHeader(y, 10, 'Safe Start Cards')
+        else y += 4
+
+        const dayName = card.dayName || DAYS[ci] || ''
+        const dateStr = fmtUK(card.date)
+
+        // Card container
+        const cardTop = y
+        doc.setDrawColor(...BORDER)
+        doc.setLineWidth(0.4)
+
+        // Day header bar
+        doc.setFillColor(...NAVY)
+        doc.roundedRect(M, y, CW, 10, 2, 2, 'F')
+        // Square off bottom corners by overlaying
+        doc.rect(M, y + 5, CW, 5, 'F')
+        doc.setTextColor(...WHITE)
+        doc.setFontSize(11)
+        doc.setFont('helvetica', 'bold')
+        doc.text(dayName.toUpperCase() + (dateStr ? '  -  ' + dateStr : ''), M + 5, y + 7)
+        y += 14
+
+        // Company + supervisor + trade info
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...MUTED)
+        doc.text('COMPANY', M, y)
+        doc.text('SUPERVISOR', M + 65, y)
+        doc.text('TRADE', M + 130, y)
+        y += 4
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(...TXT)
+        doc.text(ssCompany || '-', M, y)
+        doc.text(ssSupervisor || '-', M + 65, y)
+        doc.text(ssTrade || '-', M + 130, y)
+        y += 8
+
+        // Checklist table
+        const ssBody = (card.checks || []).map(item => [item.label, item.value || '-'])
+        if (ssBody.length === 0) ssBody.push(['No items', '-'])
+        autoTable(doc, {
+          startY: y,
+          head: [['Item', 'Y / N / NA']],
+          body: ssBody,
+          margin: { left: M, right: M },
+          headStyles: tableHead,
+          bodyStyles: tableBody,
+          columnStyles: { 0: { cellWidth: CW - 30 }, 1: { cellWidth: 26, halign: 'center' } },
+          styles: tableStyle,
+          theme: tableTheme,
+          alternateRowStyles: { fillColor: LGRAY },
+          didParseCell: function (data) {
+            if (data.section === 'body' && data.column.index === 1) {
+              if (data.cell.raw === 'Y') {
+                data.cell.styles.textColor = GRN
+                data.cell.styles.fontStyle = 'bold'
+              } else if (data.cell.raw === 'N') {
+                data.cell.styles.fillColor = [254, 226, 226]
+                data.cell.styles.textColor = RED
+                data.cell.styles.fontStyle = 'bold'
+              }
+            }
+          },
         })
 
-        pageFooter(pageNum)
+        // Card border
+        const cardBottom = doc.lastAutoTable.finalY + 2
+        doc.setDrawColor(...BORDER)
+        doc.setLineWidth(0.4)
+        doc.rect(M - 1, cardTop - 1, CW + 2, cardBottom - cardTop + 2)
       })
 
-      // Save
+      // =====================================================
+      //  TWO-PASS: Stamp page footers with "Page X of Y"
+      // =====================================================
+      const totalPages = doc.internal.getNumberOfPages()
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i)
+        const pw = doc.internal.pageSize.getWidth()
+        const ph = doc.internal.pageSize.getHeight()
+
+        // Footer line
+        doc.setDrawColor(...BORDER)
+        doc.setLineWidth(0.3)
+        doc.line(M, ph - 14, pw - M, ph - 14)
+
+        // Footer text
+        doc.setFontSize(7)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(...MUTED)
+        doc.text(g.co, M, ph - 9)
+        doc.text('Generated by CoreSite', pw / 2, ph - 9, { align: 'center' })
+        doc.text(`Page ${i} of ${totalPages}`, pw - M, ph - 9, { align: 'right' })
+      }
+
+      // ── Save ──
       const filename = `${g.co}_${g.pn}_HS_Report_WE_${weekEnd.replace(/-/g, '')}.pdf`
       doc.save(filename)
       bumpReportCounter()
