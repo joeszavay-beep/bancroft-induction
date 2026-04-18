@@ -65,25 +65,18 @@ export function classifyExpiry(dateValue, weekEndDate) {
 export function computeReportSummary({ operatives, weekEnd, pmChecklist, envChecklist, opChecklist, labourData, equipmentRows }) {
   const attentionItems = []
 
-  // --- Total hours from labour data ---
-  let totalHours = 0
+  // --- Total shifts from labour data (headcount per day, not hours) ---
+  let totalShifts = 0
   if (Array.isArray(labourData)) {
     labourData.forEach(row => {
       if (Array.isArray(row.days)) {
-        totalHours += row.days.reduce((sum, d) => sum + (Number(d) || 0), 0)
+        totalShifts += row.days.reduce((sum, d) => sum + (Number(d) || 0), 0)
       }
     })
   }
-  // Convert person-days to approximate hours (8h/day)
-  totalHours = totalHours * 8
 
   // --- Operative count ---
   const operativeCount = Array.isArray(operatives) ? operatives.length : 0
-
-  // Fallback: if labour data gave 0 hours but we have operatives, estimate
-  if (totalHours === 0 && operativeCount > 0) {
-    totalHours = operativeCount * 40 // ~40h/week estimate
-  }
 
   // --- Inspections passed ---
   let inspectionsPassed = 0
@@ -180,7 +173,7 @@ export function computeReportSummary({ operatives, weekEnd, pmChecklist, envChec
   }
 
   return {
-    totalHours,
+    totalShifts,
     operativeCount,
     inspectionsPassed,
     inspectionsTotal,

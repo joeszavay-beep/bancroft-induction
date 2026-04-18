@@ -77,9 +77,9 @@ export default function CoverPage({ data, summary }) {
       {/* 4 KPI tiles */}
       <View style={s.kpiRow}>
         <KPITile
-          label="Hours worked"
-          value={summary.totalHours}
-          context="This week"
+          label="Shifts worked"
+          value={summary.totalShifts}
+          context="Headcount · week"
         />
         <KPITile
           label="Operatives on site"
@@ -102,7 +102,9 @@ export default function CoverPage({ data, summary }) {
 
       {/* Attention callout */}
       {summary.attentionItems.length > 0 && (
-        <AttentionCallout items={summary.attentionItems} />
+        <View style={{ paddingHorizontal: SIZE.pageH, marginTop: 16 }}>
+          <AttentionCallout items={summary.attentionItems} />
+        </View>
       )}
 
       {/* Contents list */}

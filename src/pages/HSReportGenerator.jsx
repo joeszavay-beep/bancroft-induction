@@ -310,15 +310,32 @@ export default function HSReportGenerator() {
       // Inspections -> pre-fill checklists
       const inspections = inspRes.data || []
       if (inspections.length > 0) {
-        const items = inspections[0].results || inspections[0].items || []
-        if (Array.isArray(items)) {
-          // Try to match inspection items to PM checklist
-          const newPm = PM_ITEMS.map(label => {
-            const match = items.find(it => (it.label || '').toLowerCase().includes(label.toLowerCase()))
-            return { label, value: match?.result || match?.value || '' }
+        // Match inspections to checklists by type/template_name
+        const pmInsp = inspections.find(i => (i.template_name || i.type || '').toLowerCase().includes('pm'))
+        const envInsp = inspections.find(i => (i.template_name || i.type || '').toLowerCase().includes('env'))
+        const opInsp = inspections.find(i => (i.template_name || i.type || '').toLowerCase().includes('oper'))
+
+        function mapInspectionToChecklist(insp, defaultItems) {
+          const items = insp?.results || insp?.items || []
+          if (!Array.isArray(items) || items.length === 0) return null
+          return defaultItems.map(label => {
+            const match = items.find(it => ((it.item || it.label || '').toLowerCase()).includes(label.toLowerCase().slice(0, 15)))
+            const val = match?.result || match?.value || ''
+            // Normalize: pass->Y, fail->N, na->NA
+            const norm = val.toLowerCase()
+            const normalized = norm === 'pass' ? 'Y' : norm === 'fail' ? 'N' : norm === 'na' || norm === 'n/a' ? 'NA' : val.toUpperCase()
+            return { label, value: normalized }
           })
-          setPmChecks(newPm)
         }
+
+        const newPm = mapInspectionToChecklist(pmInsp, PM_ITEMS)
+        if (newPm) setPmChecks(newPm)
+
+        const newEnv = mapInspectionToChecklist(envInsp, ENV_ITEMS)
+        if (newEnv) setEnvChecks(newEnv)
+
+        const newOp = mapInspectionToChecklist(opInsp, OP_ITEMS)
+        if (newOp) setOpChecks(newOp)
       }
 
       // Try to restore draft
