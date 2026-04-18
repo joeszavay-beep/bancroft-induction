@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
 import { getSession } from '../lib/storage'
@@ -304,9 +304,12 @@ export default function PermitToWork() {
     if (cid) loadData()
   }, [cid, loadData])
 
-  // Auto-seed default templates
+  // Auto-seed default templates (once only, skip in sandbox/demo mode)
+  const seeded = useRef(false)
   useEffect(() => {
-    if (!cid || loading || templates.length > 0) return
+    if (!cid || loading || templates.length > 0 || seeded.current) return
+    if (sessionStorage.getItem('sandbox_mode') === 'true') return
+    seeded.current = true
     async function seed() {
       const rows = DEFAULT_TEMPLATES.map(t => ({
         company_id: cid,
@@ -319,8 +322,8 @@ export default function PermitToWork() {
         checklist: t.checklist,
         requires_isolation: t.requires_isolation,
       }))
-      const { error } = await supabase.from('permit_templates').insert(rows)
-      if (!error) {
+      const { data, error } = await supabase.from('permit_templates').insert(rows).select()
+      if (!error && data?.length) {
         toast.success('Default permit templates loaded')
         loadData()
       }
