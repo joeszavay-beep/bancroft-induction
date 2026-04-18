@@ -75,16 +75,64 @@ body{font-family:'DM Sans',sans-serif;background:var(--ltr);color:var(--t);min-h
 @media(max-width:900px){.sidebar{width:56px}.sidebar img,.sidebar .sub,.nav-item span:not(.ni),.nn,.sst{display:none}.nav-item{justify-content:center;padding:10px}.main{margin-left:56px}.cg{grid-template-columns:1fr}}
 </style>
 <script>
-// When embedded in iframe, hide sidebar and adjust layout
+// When embedded in iframe, convert sidebar to horizontal tab bar
 if (new URLSearchParams(window.location.search).get('embed') === '1') {
   document.addEventListener('DOMContentLoaded', function() {
     var params = new URLSearchParams(window.location.search);
     var sidebar = document.querySelector('.sidebar');
     var topBar = document.querySelector('.top-bar');
     var main = document.querySelector('.main');
-    if (sidebar) sidebar.style.display = 'none';
-    if (main) main.style.marginLeft = '0';
+
+    // Hide the top bar and sidebar logo/footer, keep nav items
     if (topBar) topBar.style.display = 'none';
+    if (main) main.style.marginLeft = '0';
+
+    // Convert sidebar to horizontal tab bar at the top
+    if (sidebar) {
+      // Extract nav items
+      var navItems = sidebar.querySelectorAll('.nav-item');
+      var tabBar = document.createElement('div');
+      tabBar.style.cssText = 'display:flex;gap:2px;padding:8px 12px;overflow-x:auto;background:#1A2744;position:sticky;top:0;z-index:100;flex-wrap:nowrap;';
+      navItems.forEach(function(item) {
+        var btn = document.createElement('button');
+        var label = item.querySelector('span:not(.ni):not(.nn)');
+        var icon = item.querySelector('.ni');
+        btn.textContent = (icon ? icon.textContent + ' ' : '') + (label ? label.textContent : '');
+        btn.style.cssText = 'white-space:nowrap;padding:6px 12px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;flex-shrink:0;';
+        if (item.classList.contains('active')) {
+          btn.style.background = 'rgba(255,255,255,0.15)';
+          btn.style.color = '#fff';
+        } else {
+          btn.style.background = 'transparent';
+          btn.style.color = 'rgba(255,255,255,0.5)';
+        }
+        btn.onmouseover = function() { btn.style.background = 'rgba(255,255,255,0.1)'; btn.style.color = '#fff'; };
+        btn.onmouseout = function() {
+          if (!btn.classList.contains('active-tab')) { btn.style.background = 'transparent'; btn.style.color = 'rgba(255,255,255,0.5)'; }
+        };
+        btn.onclick = function() {
+          // Switch section — same logic as the original nav-item click handlers
+          var section = item.getAttribute('data-s');
+          if (section) {
+            document.querySelectorAll('.sp').forEach(function(p) { p.classList.remove('active'); });
+            var panel = document.getElementById('p-' + section);
+            if (panel) panel.classList.add('active');
+            // Also click the original nav-item to trigger any title updates
+            item.click();
+          }
+          // Update tab bar active styling
+          tabBar.querySelectorAll('button').forEach(function(b) { b.style.background = 'transparent'; b.style.color = 'rgba(255,255,255,0.5)'; b.classList.remove('active-tab'); });
+          btn.style.background = 'rgba(255,255,255,0.15)';
+          btn.style.color = '#fff';
+          btn.classList.add('active-tab');
+        };
+        if (item.classList.contains('active')) btn.classList.add('active-tab');
+        tabBar.appendChild(btn);
+      });
+
+      sidebar.style.display = 'none';
+      main.insertBefore(tabBar, main.firstChild);
+    }
 
     // Inject company data from URL params
     var company = params.get('company') || '';
