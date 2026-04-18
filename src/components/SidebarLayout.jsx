@@ -12,7 +12,7 @@ import {
   Menu, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
   Globe, Settings, User, Shield, Layers, BookOpen, CheckSquare, Activity, Box, CalendarRange,
-  Briefcase, PlusCircle, CalendarCheck, Building2, Calendar, Star, Link2, PoundSterling
+  Briefcase, PlusCircle, CalendarCheck, Building2, Calendar, Star, Link2, PoundSterling, Scissors
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
 
@@ -38,6 +38,7 @@ const NAV_SECTIONS = [
     title: 'Documents',
     items: [
       { label: 'Document Hub', path: '/app/document-hub', icon: FolderOpen },
+      { label: 'PDF Tools', path: '/app/pdf-tools', icon: Scissors },
       { label: 'Sign-off Portal', path: '/app/portal', icon: Globe, feature: 'portal' },
     ],
   },
