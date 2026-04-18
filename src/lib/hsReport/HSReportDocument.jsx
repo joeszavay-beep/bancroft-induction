@@ -2,15 +2,9 @@ import { Document, Text } from '@react-pdf/renderer'
 import { computeReportSummary, formatDate } from './utils'
 import { PageFrame, SectionHeader } from './primitives'
 import CoverPage from './CoverPage'
+import TrainingMatrix from './TrainingMatrix'
 
 export default function HSReportDocument({ data }) {
-  console.log('HSReportDocument v3 rendered', {
-    labourRows: data.labourData?.length,
-    pmChecks: data.pmChecklist?.length,
-    envChecks: data.envChecklist?.length,
-    opChecks: data.opChecklist?.length,
-    pmSample: data.pmChecklist?.[0],
-  })
   const summary = computeReportSummary({
     operatives: data.operatives,
     weekEnd: data.weekEnd,
@@ -28,10 +22,25 @@ export default function HSReportDocument({ data }) {
   return (
     <Document>
       <CoverPage data={data} summary={summary} />
-      {/* Placeholder section pages - will be replaced in Phase 3+4 */}
+      {/* Section 1 placeholder */}
+      <PageFrame projectName={data.project?.name} weekStart={formatDate(data.weekStart)} weekEnd={formatDate(data.weekEnd)} clientName={data.companyName} reportRef={reportRef}>
+        <SectionHeader number={1} title="Toolbox talks" />
+        <Text style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center', marginTop: 40 }}>Content will be added in Phase 3 & 4</Text>
+      </PageFrame>
+
+      {/* Section 2 — Operative Training Matrix */}
+      <TrainingMatrix
+        operatives={data.operatives}
+        weekEnd={data.weekEnd}
+        projectName={data.project?.name}
+        weekStart={formatDate(data.weekStart)}
+        weekEndFmt={formatDate(data.weekEnd)}
+        clientName={data.companyName}
+        reportRef={reportRef}
+      />
+
+      {/* Placeholder section pages - will be replaced in later phases */}
       {[
-        { num: 1, title: 'Toolbox talks' },
-        { num: 2, title: 'Operative training matrix' },
         { num: 3, title: 'Management training' },
         { num: 4, title: 'Equipment register' },
         { num: 5, title: 'PM inspection' },

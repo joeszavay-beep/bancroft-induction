@@ -12,9 +12,9 @@ Font.register({
 
 // ── PageFrame ──
 // Wraps every page with repeating header, footer, and consistent padding.
-export function PageFrame({ projectName, weekStart, weekEnd, clientName, reportRef, children, style }) {
+export function PageFrame({ projectName, weekStart, weekEnd, clientName, reportRef, children, style, orientation }) {
   return (
-    <Page size="A4" style={[frameStyles.page, style]}>
+    <Page size="A4" orientation={orientation} style={[frameStyles.page, style]}>
       {/* Repeating header */}
       <View style={frameStyles.header} fixed>
         <Text style={frameStyles.headerLeft}>{projectName || ''}</Text>
