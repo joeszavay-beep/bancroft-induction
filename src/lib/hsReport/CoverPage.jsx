@@ -93,7 +93,7 @@ export default function CoverPage({ data, summary }) {
           context={summary.inspectionsTotal > 0 ? `${Math.round(passRate * 100)}% pass rate` : 'No data'}
         />
         <KPITile
-          label="Certs expiring \u226430d"
+          label="Certs expiring within 30d"
           value={summary.expiringCertCount}
           color={summary.expiringCertCount > 0 ? 'red' : 'neutral'}
           context={summary.expiringCertCount > 0 ? 'Action required' : 'All current'}

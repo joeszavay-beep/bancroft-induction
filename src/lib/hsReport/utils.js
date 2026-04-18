@@ -80,54 +80,93 @@ export function computeReportSummary({ operatives, weekEnd, pmChecklist, envChec
   // --- Operative count ---
   const operativeCount = Array.isArray(operatives) ? operatives.length : 0
 
+  // Fallback: if labour data gave 0 hours but we have operatives, estimate
+  if (totalHours === 0 && operativeCount > 0) {
+    totalHours = operativeCount * 40 // ~40h/week estimate
+  }
+
   // --- Inspections passed ---
   let inspectionsPassed = 0
   let inspectionsTotal = 0
+  const failedItems = [] // Track individual failures for attention callout
 
-  function countChecklist(checks) {
+  function countChecklist(checks, sectionLabel) {
     if (!Array.isArray(checks)) return
     checks.forEach(item => {
-      const v = (item.value || '').trim().toUpperCase()
-      if (v === 'Y' || v === 'N' || v === 'NA' || v === 'N/A') {
+      // Handle both formats: { value: 'Y'|'N'|'NA' } and { result: 'pass'|'fail'|'na' }
+      const v = (item.value || item.result || '').trim().toUpperCase()
+      if (v === 'Y' || v === 'YES' || v === 'PASS' || v === 'N' || v === 'NO' || v === 'FAIL' || v === 'NA' || v === 'N/A') {
         inspectionsTotal++
-        if (v === 'Y' || v === 'NA' || v === 'N/A') inspectionsPassed++
+        if (v === 'N' || v === 'NO' || v === 'FAIL') {
+          failedItems.push({ section: sectionLabel, name: item.label || item.item || 'Unknown item' })
+        } else {
+          inspectionsPassed++
+        }
       }
     })
   }
 
-  countChecklist(pmChecklist)
-  countChecklist(envChecklist)
-  countChecklist(opChecklist)
+  countChecklist(pmChecklist, 'PM Inspection')
+  countChecklist(envChecklist, 'Environmental Inspection')
+  countChecklist(opChecklist, 'Operative Inspection')
 
   // If no inspections were filled in, count zero
   if (inspectionsTotal === 0) {
     inspectionsPassed = 0
   }
 
-  // Check for failed inspections
-  const failedCount = inspectionsTotal - inspectionsPassed
-  if (failedCount > 0) {
+  // Add per-item attention entries for failed inspections
+  failedItems.forEach(fi => {
     attentionItems.push({
       severity: 'red',
-      message: `${failedCount} inspection item${failedCount > 1 ? 's' : ''} marked as non-compliant`,
-      page: 4,
+      message: `${fi.section}: ${fi.name} \u2014 non-compliant`,
+      page: fi.section === 'PM Inspection' ? 5 : fi.section === 'Environmental Inspection' ? 5 : 6,
     })
-  }
+  })
 
   // --- Expiring certs ---
   let expiringCertCount = 0
   const weekEndDate = weekEnd instanceof Date ? weekEnd : new Date(weekEnd)
+  const certFieldLabels = {
+    cscs_expiry: 'CSCS',
+    first_aid_expiry: 'First Aid',
+    asbestos_expiry: 'Asbestos Awareness',
+    manual_handling_expiry: 'Manual Handling',
+    ipaf_expiry: 'IPAF',
+    pasma_expiry: 'PASMA',
+    smsts_expiry: 'SMSTS',
+    sssts_expiry: 'SSSTS',
+  }
 
   if (Array.isArray(operatives)) {
+    let noCertsCount = 0
     operatives.forEach(op => {
-      const certFields = ['cscs_expiry', 'first_aid_expiry', 'asbestos_expiry', 'manual_handling_expiry', 'ipaf_expiry', 'pasma_expiry', 'smsts_expiry', 'sssts_expiry']
+      const certFields = Object.keys(certFieldLabels)
+      let hasAnyCert = false
       certFields.forEach(field => {
+        if (op[field]) hasAnyCert = true
         const status = classifyExpiry(op[field], weekEndDate)
         if (status === 'expired' || status === 'critical') {
           expiringCertCount++
+          const opName = op.full_name || op.name || 'Unknown operative'
+          const certLabel = certFieldLabels[field]
+          const expiryFmt = formatDate(op[field], { short: true })
+          attentionItems.push({
+            severity: status === 'expired' ? 'red' : 'amber',
+            message: `${opName} \u2014 ${certLabel} ${status === 'expired' ? 'expired' : 'expiring'} ${expiryFmt}`,
+            page: 3,
+          })
         }
       })
+      if (!hasAnyCert) noCertsCount++
     })
+    if (noCertsCount > 0) {
+      attentionItems.push({
+        severity: 'red',
+        message: `${noCertsCount} operative${noCertsCount > 1 ? 's' : ''} with no training records on file`,
+        page: 3,
+      })
+    }
   }
 
   // Also check equipment certs
@@ -137,14 +176,6 @@ export function computeReportSummary({ operatives, weekEnd, pmChecklist, envChec
       const patStatus = classifyExpiry(row.patExpiry, weekEndDate)
       if (certStatus === 'expired' || certStatus === 'critical') expiringCertCount++
       if (patStatus === 'expired' || patStatus === 'critical') expiringCertCount++
-    })
-  }
-
-  if (expiringCertCount > 0) {
-    attentionItems.push({
-      severity: 'red',
-      message: `${expiringCertCount} certificate${expiringCertCount > 1 ? 's' : ''} expired or expiring within 30 days`,
-      page: 3,
     })
   }
 
