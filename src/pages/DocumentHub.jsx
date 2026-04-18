@@ -9,7 +9,8 @@ import {
   FileText, FileImage, FileSpreadsheet, File, Check, Clock,
   AlertTriangle, Archive, ChevronRight, ChevronDown, Users,
   Send, Copy, Package, LayoutGrid, CalendarClock, History,
-  CheckCircle, XCircle, Loader2, RefreshCw, Trash2, Filter
+  CheckCircle, XCircle, Loader2, RefreshCw, Trash2, Filter,
+  ArrowUp, ArrowDown, ArrowUpDown
 } from 'lucide-react'
 
 // ── Category configuration ──
@@ -69,6 +70,65 @@ function titleFromFilename(name) {
   return name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
+function formatFileSize(bytes) {
+  if (!bytes) return '\u2014'
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+function formatIssuedDate(d) {
+  if (!d) return '\u2014'
+  const dt = new Date(d)
+  const day = dt.getDate().toString().padStart(2, '0')
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const mon = months[dt.getMonth()]
+  const yr = dt.getFullYear()
+  const hh = dt.getHours().toString().padStart(2, '0')
+  const mm = dt.getMinutes().toString().padStart(2, '0')
+  return `${day}-${mon}-${yr} ${hh}:${mm}`
+}
+
+function nextRevision(rev) {
+  if (!rev) return 'P01'
+  const m = rev.match(/^([A-Z]+)(\d+)$/i)
+  if (!m) return rev
+  const prefix = m[1]
+  const num = parseInt(m[2], 10) + 1
+  return prefix + num.toString().padStart(m[2].length, '0')
+}
+
+// ── Register / Issued For / Issue Reason options ──
+const ISSUED_FOR_OPTIONS = ['Preliminary', 'Information', 'Construction', 'Approval', 'As Built', 'Record', 'Tender']
+const ISSUE_REASON_OPTIONS = ['Information', 'Approval', 'Review', 'Comment', 'Construction', 'Record']
+const REGISTER_OPTIONS = [
+  'Electrical Contractor', 'Mechanical Contractor', 'Plumbing Contractor',
+  'BMS Contractor', 'Fire Alarm Contractor', 'Lighting Contractor',
+  'Structural Engineer', 'Architect', 'Client', 'Main Contractor', 'Other',
+]
+const REVISION_PRESETS = ['P01', 'P02', 'P03', 'C1', 'C2', 'C3', 'AB1', 'AB2']
+
+// Colour helpers for new badges
+function revisionColor(rev) {
+  if (!rev) return { bg: '#64748B18', fg: '#64748B' }
+  if (rev.startsWith('C')) return { bg: '#2563EB18', fg: '#2563EB' }
+  if (rev.startsWith('AB') || rev.startsWith('ab')) return { bg: '#05966918', fg: '#059669' }
+  return { bg: '#64748B18', fg: '#64748B' } // P or other
+}
+
+function issuedForColor(status) {
+  const map = {
+    'Preliminary': { bg: '#64748B18', fg: '#64748B' },
+    'Information': { bg: '#2563EB18', fg: '#2563EB' },
+    'Construction': { bg: '#16A34A18', fg: '#16A34A' },
+    'Approval': { bg: '#D9770618', fg: '#D97706' },
+    'As Built': { bg: '#05966918', fg: '#059669' },
+    'Record': { bg: '#7C3AED18', fg: '#7C3AED' },
+    'Tender': { bg: '#0891B218', fg: '#0891B2' },
+  }
+  return map[status] || { bg: '#64748B18', fg: '#64748B' }
+}
+
 // ── Main Component ──
 export default function DocumentHub() {
   const { user, company } = useCompany()
@@ -98,7 +158,13 @@ export default function DocumentHub() {
   const [filterCategory, setFilterCategory] = useState('')
   const [filterProject, setFilterProject] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterIssuedFor, setFilterIssuedFor] = useState('')
+  const [filterRegister, setFilterRegister] = useState('')
   const [searchText, setSearchText] = useState('')
+
+  // Table sort
+  const [sortCol, setSortCol] = useState('issued_date')
+  const [sortDir, setSortDir] = useState('desc')
 
   // Modals
   const [showUpload, setShowUpload] = useState(false)
@@ -119,6 +185,8 @@ export default function DocumentHub() {
     category: '', subcategory: '', title: '', description: '',
     project_id: '', tags: '', expiry_date: '', review_date: '',
     requires_signoff: false, is_template: false, signoff_operatives: [],
+    doc_ref: '', revision: 'P01', issued_for: 'Information', issue_reason: 'Information',
+    register: '', register_other: '',
   })
   const [uploadFile, setUploadFile] = useState(null)
   const [uploading, setUploading] = useState(false)
@@ -129,6 +197,7 @@ export default function DocumentHub() {
   // Version upload
   const [versionFile, setVersionFile] = useState(null)
   const [uploadingVersion, setUploadingVersion] = useState(false)
+  const [versionRevision, setVersionRevision] = useState('')
 
   // Assign signoff
   const [signoffSelections, setSignoffSelections] = useState([])
@@ -209,6 +278,10 @@ export default function DocumentHub() {
         ? uploadForm.tags.split(',').map(t => t.trim()).filter(Boolean)
         : []
 
+      const registerVal = uploadForm.register === 'Other'
+        ? (uploadForm.register_other?.trim() || 'Other')
+        : (uploadForm.register || null)
+
       const { data: doc, error } = await supabase.from('document_hub').insert({
         company_id: cid,
         category: uploadForm.category,
@@ -228,6 +301,12 @@ export default function DocumentHub() {
         is_template: uploadForm.is_template,
         uploaded_by: managerName,
         is_archived: false,
+        doc_ref: uploadForm.doc_ref.trim() || null,
+        revision: uploadForm.revision || 'P01',
+        issued_for: uploadForm.issued_for || 'Information',
+        issue_reason: uploadForm.issue_reason || 'Information',
+        register: registerVal,
+        issued_date: new Date().toISOString(),
       }).select().single()
 
       if (error) throw error
@@ -263,6 +342,8 @@ export default function DocumentHub() {
       category: '', subcategory: '', title: '', description: '',
       project_id: '', tags: '', expiry_date: '', review_date: '',
       requires_signoff: false, is_template: false, signoff_operatives: [],
+      doc_ref: '', revision: 'P01', issued_for: 'Information', issue_reason: 'Information',
+      register: '', register_other: '',
     })
     setUploadProgress(0)
   }
@@ -278,6 +359,7 @@ export default function DocumentHub() {
       const newVersion = (doc.version || 1) + 1
 
       // Create new doc record linked to previous
+      const newRev = versionRevision || nextRevision(doc.revision)
       const { data: newDoc, error } = await supabase.from('document_hub').insert({
         company_id: cid,
         category: doc.category,
@@ -298,6 +380,12 @@ export default function DocumentHub() {
         uploaded_by: managerName,
         is_archived: false,
         previous_version_id: doc.id,
+        doc_ref: doc.doc_ref,
+        revision: newRev,
+        issued_for: doc.issued_for,
+        issue_reason: doc.issue_reason,
+        register: doc.register,
+        issued_date: new Date().toISOString(),
       }).select().single()
 
       if (error) throw error
@@ -328,6 +416,7 @@ export default function DocumentHub() {
       toast.success(`Version ${newVersion} uploaded`)
       setShowVersionUpload(null)
       setVersionFile(null)
+      setVersionRevision('')
       loadData()
     } catch (err) {
       toast.error(err.message || 'Version upload failed')
@@ -383,6 +472,9 @@ export default function DocumentHub() {
       const tags = editForm.tags
         ? (typeof editForm.tags === 'string' ? editForm.tags.split(',').map(t => t.trim()).filter(Boolean) : editForm.tags)
         : []
+      const editRegisterVal = editForm.register === 'Other'
+        ? (editForm.register_other?.trim() || 'Other')
+        : (editForm.register || null)
       const { error } = await supabase.from('document_hub').update({
         title: editForm.title?.trim(),
         description: editForm.description?.trim() || null,
@@ -393,6 +485,11 @@ export default function DocumentHub() {
         expiry_date: editForm.expiry_date || null,
         review_date: editForm.review_date || null,
         requires_signoff: editForm.requires_signoff,
+        doc_ref: editForm.doc_ref?.trim() || null,
+        revision: editForm.revision || null,
+        issued_for: editForm.issued_for || null,
+        issue_reason: editForm.issue_reason || null,
+        register: editRegisterVal,
       }).eq('id', showEditDoc.id)
       if (error) throw error
       logAudit('edit', showEditDoc.id, { fields: 'metadata' })
@@ -418,7 +515,21 @@ export default function DocumentHub() {
   // ── View document ──
   function handleView(doc) {
     logAudit('view', doc.id)
+    // Mark as read
+    if (!doc.is_read) {
+      supabase.from('document_hub').update({ is_read: true }).eq('id', doc.id).then(() => {
+        setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, is_read: true } : d))
+      })
+    }
     window.open(doc.file_url, '_blank')
+  }
+
+  // ── Mark as read (row click) ──
+  function markAsRead(doc) {
+    if (doc.is_read) return
+    supabase.from('document_hub').update({ is_read: true }).eq('id', doc.id).then(() => {
+      setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, is_read: true } : d))
+    })
   }
 
   // ── Audit log panel ──
@@ -568,17 +679,52 @@ export default function DocumentHub() {
       const days = daysUntil(d.expiry_date)
       if (days === null || days > 30) return false
     }
+    if (filterIssuedFor && d.issued_for !== filterIssuedFor) return false
+    if (filterRegister && d.register !== filterRegister) return false
     if (searchText) {
       const s = searchText.toLowerCase()
       const match = d.title?.toLowerCase().includes(s)
         || d.category?.toLowerCase().includes(s)
         || d.description?.toLowerCase().includes(s)
         || d.file_name?.toLowerCase().includes(s)
+        || d.doc_ref?.toLowerCase().includes(s)
+        || d.register?.toLowerCase().includes(s)
         || (d.tags || []).some(t => t.toLowerCase().includes(s))
       if (!match) return false
     }
     return true
   })
+
+  // Sort filtered docs for table view
+  function toggleSort(col) {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortCol(col)
+      setSortDir('asc')
+    }
+  }
+
+  const sortedDocuments = [...filteredDocuments].sort((a, b) => {
+    const dir = sortDir === 'asc' ? 1 : -1
+    let va, vb
+    switch (sortCol) {
+      case 'doc_ref': va = (a.doc_ref || a.title || '').toLowerCase(); vb = (b.doc_ref || b.title || '').toLowerCase(); break
+      case 'revision': va = a.revision || ''; vb = b.revision || ''; break
+      case 'issued_for': va = a.issued_for || ''; vb = b.issued_for || ''; break
+      case 'issue_reason': va = a.issue_reason || ''; vb = b.issue_reason || ''; break
+      case 'issued_date': va = a.issued_date || a.created_at || ''; vb = b.issued_date || b.created_at || ''; break
+      case 'register': va = a.register || ''; vb = b.register || ''; break
+      case 'size': va = a.file_size || 0; vb = b.file_size || 0; return (va - vb) * dir
+      default: va = a.created_at || ''; vb = b.created_at || ''
+    }
+    if (va < vb) return -1 * dir
+    if (va > vb) return 1 * dir
+    return 0
+  })
+
+  // Unique registers for filter dropdown
+  const uniqueRegisters = [...new Set(documents.map(d => d.register).filter(Boolean))].sort()
 
   // ── Signoff helpers ──
   function getSignoffStats(docId) {
@@ -674,6 +820,77 @@ export default function DocumentHub() {
               onChange={e => setUploadForm(f => ({ ...f, title: e.target.value }))}
               className="w-full text-sm rounded-lg border px-3 py-2"
               style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+          </div>
+
+          {/* Doc Reference */}
+          <div>
+            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Doc Reference</label>
+            <input type="text" placeholder="e.g. PRJ-ABC-XX-01-DR-E-00001" value={uploadForm.doc_ref}
+              onChange={e => setUploadForm(f => ({ ...f, doc_ref: e.target.value }))}
+              className="w-full text-sm rounded-lg border px-3 py-2"
+              style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+          </div>
+
+          {/* Revision */}
+          <div>
+            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Revision</label>
+            <div className="flex items-center gap-2">
+              <input type="text" placeholder="P01" value={uploadForm.revision}
+                onChange={e => setUploadForm(f => ({ ...f, revision: e.target.value }))}
+                className="w-24 text-sm rounded-lg border px-3 py-2"
+                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+              <div className="flex flex-wrap gap-1">
+                {REVISION_PRESETS.map(r => (
+                  <button key={r} type="button"
+                    onClick={() => setUploadForm(f => ({ ...f, revision: r }))}
+                    className={`text-[10px] font-medium px-2 py-1 rounded border transition-colors ${uploadForm.revision === r ? 'text-white' : ''}`}
+                    style={{
+                      borderColor: uploadForm.revision === r ? 'var(--primary-color)' : 'var(--border-color)',
+                      backgroundColor: uploadForm.revision === r ? 'var(--primary-color)' : 'var(--bg-main)',
+                      color: uploadForm.revision === r ? '#fff' : 'var(--text-muted)',
+                    }}>
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Issued For + Issue Reason */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Issued For</label>
+              <select value={uploadForm.issued_for} onChange={e => setUploadForm(f => ({ ...f, issued_for: e.target.value }))}
+                className="w-full text-sm rounded-lg border px-3 py-2"
+                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+                {ISSUED_FOR_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Issue Reason</label>
+              <select value={uploadForm.issue_reason} onChange={e => setUploadForm(f => ({ ...f, issue_reason: e.target.value }))}
+                className="w-full text-sm rounded-lg border px-3 py-2"
+                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+                {ISSUE_REASON_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Register */}
+          <div>
+            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Register</label>
+            <select value={uploadForm.register} onChange={e => setUploadForm(f => ({ ...f, register: e.target.value }))}
+              className="w-full text-sm rounded-lg border px-3 py-2"
+              style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+              <option value="">Select register...</option>
+              {REGISTER_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+            {uploadForm.register === 'Other' && (
+              <input type="text" placeholder="Enter register name..." value={uploadForm.register_other}
+                onChange={e => setUploadForm(f => ({ ...f, register_other: e.target.value }))}
+                className="w-full text-sm rounded-lg border px-3 py-2 mt-2"
+                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+            )}
           </div>
 
           {/* Description */}
@@ -835,16 +1052,31 @@ export default function DocumentHub() {
   // Version Upload Modal
   const versionModal = showVersionUpload && (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={() => { setShowVersionUpload(null); setVersionFile(null) }} />
+      <div className="absolute inset-0 bg-black/50" onClick={() => { setShowVersionUpload(null); setVersionFile(null); setVersionRevision('') }} />
       <div className="relative w-full max-w-md mx-4 rounded-xl border shadow-xl p-5 space-y-4" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Upload New Version</h2>
-          <button onClick={() => { setShowVersionUpload(null); setVersionFile(null) }} style={{ color: 'var(--text-muted)' }}><X size={20} /></button>
+          <button onClick={() => { setShowVersionUpload(null); setVersionFile(null); setVersionRevision('') }} style={{ color: 'var(--text-muted)' }}><X size={20} /></button>
         </div>
         <div className="text-sm space-y-1 p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-main)' }}>
           <p style={{ color: 'var(--text-primary)' }}><strong>{showVersionUpload.title}</strong></p>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Current version: v{showVersionUpload.version || 1}</p>
+          {showVersionUpload.doc_ref && (
+            <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{showVersionUpload.doc_ref}</p>
+          )}
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Current version: v{showVersionUpload.version || 1} &middot; Revision: {showVersionUpload.revision || 'P01'}</p>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>File: {showVersionUpload.file_name}</p>
+        </div>
+        <div>
+          <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>New Revision</label>
+          <div className="flex items-center gap-2">
+            <input type="text" value={versionRevision || nextRevision(showVersionUpload.revision)}
+              onChange={e => setVersionRevision(e.target.value)}
+              className="w-24 text-sm rounded-lg border px-3 py-2"
+              style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Auto: {showVersionUpload.revision || 'P01'} &rarr; {nextRevision(showVersionUpload.revision)}
+            </span>
+          </div>
         </div>
         <div>
           <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>New file</label>
@@ -904,77 +1136,146 @@ export default function DocumentHub() {
   const editModal = showEditDoc && (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 pb-8 overflow-y-auto">
       <div className="absolute inset-0 bg-black/50" onClick={() => setShowEditDoc(null)} />
-      <div className="relative w-full max-w-lg mx-4 rounded-xl border shadow-xl p-5 space-y-3" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Edit Document</h2>
+      <div className="relative w-full max-w-lg mx-4 rounded-xl border shadow-xl" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
+          <h2 className="text-base font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <Edit2 size={18} style={{ color: 'var(--primary-color)' }} /> Edit Document
+          </h2>
           <button onClick={() => setShowEditDoc(null)} style={{ color: 'var(--text-muted)' }}><X size={20} /></button>
         </div>
-        <div>
-          <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Title</label>
-          <input type="text" value={editForm.title || ''} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
-            className="w-full text-sm rounded-lg border px-3 py-2"
-            style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
-        </div>
-        <div>
-          <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Category</label>
-          <select value={editForm.category || ''} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
-            className="w-full text-sm rounded-lg border px-3 py-2"
-            style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
-            {CATEGORY_LIST.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Subcategory</label>
-          <input type="text" value={editForm.subcategory || ''} onChange={e => setEditForm(f => ({ ...f, subcategory: e.target.value }))}
-            className="w-full text-sm rounded-lg border px-3 py-2"
-            style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
-        </div>
-        <div>
-          <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Description</label>
-          <textarea rows={2} value={editForm.description || ''} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
-            className="w-full text-sm rounded-lg border px-3 py-2 resize-none"
-            style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
-        </div>
-        <div>
-          <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Project</label>
-          <select value={editForm.project_id || ''} onChange={e => setEditForm(f => ({ ...f, project_id: e.target.value }))}
-            className="w-full text-sm rounded-lg border px-3 py-2"
-            style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
-            <option value="">Company-wide</option>
-            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Tags (comma separated)</label>
-          <input type="text" value={typeof editForm.tags === 'string' ? editForm.tags : (editForm.tags || []).join(', ')}
-            onChange={e => setEditForm(f => ({ ...f, tags: e.target.value }))}
-            className="w-full text-sm rounded-lg border px-3 py-2"
-            style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
           <div>
-            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Expiry Date</label>
-            <input type="date" value={editForm.expiry_date || ''} onChange={e => setEditForm(f => ({ ...f, expiry_date: e.target.value }))}
+            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Title</label>
+            <input type="text" value={editForm.title || ''} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
               className="w-full text-sm rounded-lg border px-3 py-2"
               style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
           </div>
           <div>
-            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Review Date</label>
-            <input type="date" value={editForm.review_date || ''} onChange={e => setEditForm(f => ({ ...f, review_date: e.target.value }))}
+            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Doc Reference</label>
+            <input type="text" placeholder="e.g. PRJ-ABC-XX-01-DR-E-00001" value={editForm.doc_ref || ''}
+              onChange={e => setEditForm(f => ({ ...f, doc_ref: e.target.value }))}
               className="w-full text-sm rounded-lg border px-3 py-2"
               style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
           </div>
+          <div>
+            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Revision</label>
+            <div className="flex items-center gap-2">
+              <input type="text" value={editForm.revision || ''} onChange={e => setEditForm(f => ({ ...f, revision: e.target.value }))}
+                className="w-24 text-sm rounded-lg border px-3 py-2"
+                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+              <div className="flex flex-wrap gap-1">
+                {REVISION_PRESETS.map(r => (
+                  <button key={r} type="button"
+                    onClick={() => setEditForm(f => ({ ...f, revision: r }))}
+                    className={`text-[10px] font-medium px-2 py-1 rounded border transition-colors ${editForm.revision === r ? 'text-white' : ''}`}
+                    style={{
+                      borderColor: editForm.revision === r ? 'var(--primary-color)' : 'var(--border-color)',
+                      backgroundColor: editForm.revision === r ? 'var(--primary-color)' : 'var(--bg-main)',
+                      color: editForm.revision === r ? '#fff' : 'var(--text-muted)',
+                    }}>
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Issued For</label>
+              <select value={editForm.issued_for || 'Information'} onChange={e => setEditForm(f => ({ ...f, issued_for: e.target.value }))}
+                className="w-full text-sm rounded-lg border px-3 py-2"
+                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+                {ISSUED_FOR_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Issue Reason</label>
+              <select value={editForm.issue_reason || 'Information'} onChange={e => setEditForm(f => ({ ...f, issue_reason: e.target.value }))}
+                className="w-full text-sm rounded-lg border px-3 py-2"
+                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+                {ISSUE_REASON_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Register</label>
+            <select value={REGISTER_OPTIONS.includes(editForm.register) ? editForm.register : (editForm.register ? 'Other' : '')}
+              onChange={e => setEditForm(f => ({ ...f, register: e.target.value, register_other: e.target.value === 'Other' ? (f.register_other || '') : '' }))}
+              className="w-full text-sm rounded-lg border px-3 py-2"
+              style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+              <option value="">Select register...</option>
+              {REGISTER_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+            {(!REGISTER_OPTIONS.includes(editForm.register) && editForm.register) || editForm.register === 'Other' ? (
+              <input type="text" placeholder="Enter register name..." value={editForm.register === 'Other' ? (editForm.register_other || '') : (editForm.register || '')}
+                onChange={e => setEditForm(f => ({ ...f, register: 'Other', register_other: e.target.value }))}
+                className="w-full text-sm rounded-lg border px-3 py-2 mt-2"
+                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+            ) : null}
+          </div>
+          <div>
+            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Category</label>
+            <select value={editForm.category || ''} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
+              className="w-full text-sm rounded-lg border px-3 py-2"
+              style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+              {CATEGORY_LIST.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Subcategory</label>
+            <input type="text" value={editForm.subcategory || ''} onChange={e => setEditForm(f => ({ ...f, subcategory: e.target.value }))}
+              className="w-full text-sm rounded-lg border px-3 py-2"
+              style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+          </div>
+          <div>
+            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Description</label>
+            <textarea rows={2} value={editForm.description || ''} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+              className="w-full text-sm rounded-lg border px-3 py-2 resize-none"
+              style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+          </div>
+          <div>
+            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Project</label>
+            <select value={editForm.project_id || ''} onChange={e => setEditForm(f => ({ ...f, project_id: e.target.value }))}
+              className="w-full text-sm rounded-lg border px-3 py-2"
+              style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+              <option value="">Company-wide</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Tags (comma separated)</label>
+            <input type="text" value={typeof editForm.tags === 'string' ? editForm.tags : (editForm.tags || []).join(', ')}
+              onChange={e => setEditForm(f => ({ ...f, tags: e.target.value }))}
+              className="w-full text-sm rounded-lg border px-3 py-2"
+              style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Expiry Date</label>
+              <input type="date" value={editForm.expiry_date || ''} onChange={e => setEditForm(f => ({ ...f, expiry_date: e.target.value }))}
+                className="w-full text-sm rounded-lg border px-3 py-2"
+                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+            </div>
+            <div>
+              <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Review Date</label>
+              <input type="date" value={editForm.review_date || ''} onChange={e => setEditForm(f => ({ ...f, review_date: e.target.value }))}
+                className="w-full text-sm rounded-lg border px-3 py-2"
+                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+            </div>
+          </div>
+          <label className="flex items-center justify-between cursor-pointer">
+            <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Requires sign-off</span>
+            <button type="button" onClick={() => setEditForm(f => ({ ...f, requires_signoff: !f.requires_signoff }))}
+              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${editForm.requires_signoff ? 'bg-[var(--primary-color)]' : 'bg-slate-300'}`}>
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${editForm.requires_signoff ? 'translate-x-5' : ''}`} />
+            </button>
+          </label>
         </div>
-        <label className="flex items-center justify-between cursor-pointer">
-          <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Requires sign-off</span>
-          <button type="button" onClick={() => setEditForm(f => ({ ...f, requires_signoff: !f.requires_signoff }))}
-            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${editForm.requires_signoff ? 'bg-[var(--primary-color)]' : 'bg-slate-300'}`}>
-            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${editForm.requires_signoff ? 'translate-x-5' : ''}`} />
-          </button>
-        </label>
-        <LoadingButton loading={savingEdit} onClick={handleSaveEdit} className="w-full text-white text-sm" style={{ backgroundColor: 'var(--primary-color)' }}>
-          Save Changes
-        </LoadingButton>
+        <div className="p-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+          <LoadingButton loading={savingEdit} onClick={handleSaveEdit} className="w-full text-white text-sm" style={{ backgroundColor: 'var(--primary-color)' }}>
+            Save Changes
+          </LoadingButton>
+        </div>
       </div>
     </div>
   )
@@ -1270,7 +1571,7 @@ export default function DocumentHub() {
               )}
               {doc.status !== 'archived' && (
                 <>
-                  <button onClick={() => setShowVersionUpload(doc)}
+                  <button onClick={() => { setShowVersionUpload(doc); setVersionRevision('') }}
                     className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md border transition-colors hover:bg-black/5"
                     style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
                     <RefreshCw size={12} /> New Version
@@ -1366,19 +1667,25 @@ export default function DocumentHub() {
           {/* Filters */}
           <div className="flex flex-wrap gap-2">
             <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
-              className="text-sm rounded-lg border px-3 py-2"
+              className="text-xs rounded-lg border px-2.5 py-2"
               style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
               <option value="">All Categories</option>
               {CATEGORY_LIST.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-            <select value={filterProject} onChange={e => setFilterProject(e.target.value)}
-              className="text-sm rounded-lg border px-3 py-2"
+            <select value={filterIssuedFor} onChange={e => setFilterIssuedFor(e.target.value)}
+              className="text-xs rounded-lg border px-2.5 py-2"
               style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
-              <option value="">All Projects</option>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              <option value="">All Issued For</option>
+              {ISSUED_FOR_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+            <select value={filterRegister} onChange={e => setFilterRegister(e.target.value)}
+              className="text-xs rounded-lg border px-2.5 py-2"
+              style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+              <option value="">All Registers</option>
+              {uniqueRegisters.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-              className="text-sm rounded-lg border px-3 py-2"
+              className="text-xs rounded-lg border px-2.5 py-2"
               style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
               <option value="">All Statuses</option>
               <option value="active">Active</option>
@@ -1386,27 +1693,249 @@ export default function DocumentHub() {
               <option value="archived">Archived</option>
             </select>
             <div className="relative flex-1 min-w-[180px]">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-              <input type="text" placeholder="Search documents..." value={searchText}
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+              <input type="text" placeholder="Search documents, refs, registers..." value={searchText}
                 onChange={e => setSearchText(e.target.value)}
-                className="w-full text-sm rounded-lg border pl-9 pr-3 py-2"
+                className="w-full text-xs rounded-lg border pl-8 pr-3 py-2"
                 style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
             </div>
           </div>
 
-          {/* Document list */}
-          {filteredDocuments.length === 0 && (
+          {/* Document register table -- desktop */}
+          {filteredDocuments.length === 0 ? (
             <div className="text-center py-12 rounded-xl border" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)' }}>
               <FolderOpen size={32} className="mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                 {documents.length === 0 ? 'No documents yet. Upload your first document.' : 'No documents match your filters.'}
               </p>
             </div>
-          )}
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)' }}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr style={{ backgroundColor: 'var(--bg-main)' }}>
+                        {[
+                          { key: 'doc_ref', label: 'Doc Ref / Title', minW: '240px' },
+                          { key: 'revision', label: 'Rev', minW: '56px' },
+                          { key: 'issued_for', label: 'Status', minW: '100px' },
+                          { key: 'issue_reason', label: 'Issue Reason', minW: '90px' },
+                          { key: 'issued_date', label: 'Issued Date', minW: '120px' },
+                          { key: 'register', label: 'Register', minW: '120px' },
+                          { key: 'size', label: 'Size', minW: '60px' },
+                        ].map(col => (
+                          <th key={col.key}
+                            onClick={() => toggleSort(col.key)}
+                            className="text-left px-3 py-2.5 font-semibold cursor-pointer select-none whitespace-nowrap border-b hover:bg-black/5 transition-colors sticky top-0 z-10"
+                            style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', minWidth: col.minW, backgroundColor: 'var(--bg-main)' }}>
+                            <span className="inline-flex items-center gap-1">
+                              {col.label}
+                              {sortCol === col.key ? (
+                                sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                              ) : (
+                                <ArrowUpDown size={10} className="opacity-30" />
+                              )}
+                            </span>
+                          </th>
+                        ))}
+                        <th className="px-2 py-2.5 border-b text-center font-semibold sticky top-0 z-10" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', minWidth: '36px', backgroundColor: 'var(--bg-main)' }}>
+                          Read
+                        </th>
+                        <th className="px-2 py-2.5 border-b text-center font-semibold sticky top-0 z-10" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', minWidth: '100px', backgroundColor: 'var(--bg-main)' }}>
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedDocuments.map((doc, idx) => {
+                        const FileIcon = fileIcon(doc.file_name)
+                        const revColor = revisionColor(doc.revision)
+                        const ifColor = issuedForColor(doc.issued_for)
+                        return (
+                          <tr key={doc.id}
+                            onClick={() => markAsRead(doc)}
+                            className="cursor-pointer transition-colors hover:brightness-95"
+                            style={{ backgroundColor: idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-main)' }}>
+                            {/* Doc Ref + Title */}
+                            <td className="px-3 py-2.5 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                              <div className="flex items-start gap-2 max-w-[320px]">
+                                <div className="w-7 h-7 rounded flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: (CATEGORIES[doc.category] || CATEGORIES['Other']).color + '18' }}>
+                                  <FileIcon size={14} style={{ color: (CATEGORIES[doc.category] || CATEGORIES['Other']).color }} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  {doc.doc_ref ? (
+                                    <>
+                                      <p className="font-semibold text-xs truncate font-mono" style={{ color: 'var(--text-primary)' }}>{doc.doc_ref}</p>
+                                      <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{doc.title}</p>
+                                    </>
+                                  ) : (
+                                    <p className="font-semibold text-xs truncate" style={{ color: 'var(--text-primary)' }}>{doc.title}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            {/* Revision */}
+                            <td className="px-3 py-2.5 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                              {doc.revision && (
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: revColor.bg, color: revColor.fg }}>
+                                  {doc.revision}
+                                </span>
+                              )}
+                            </td>
+                            {/* Issued For */}
+                            <td className="px-3 py-2.5 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                              {doc.issued_for && (
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap" style={{ backgroundColor: ifColor.bg, color: ifColor.fg }}>
+                                  {doc.issued_for}
+                                </span>
+                              )}
+                            </td>
+                            {/* Issue Reason */}
+                            <td className="px-3 py-2.5 border-b" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
+                              {doc.issue_reason || '\u2014'}
+                            </td>
+                            {/* Issued Date */}
+                            <td className="px-3 py-2.5 border-b whitespace-nowrap" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
+                              {formatIssuedDate(doc.issued_date || doc.created_at)}
+                            </td>
+                            {/* Register */}
+                            <td className="px-3 py-2.5 border-b" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
+                              <span className="truncate block max-w-[140px]">{doc.register || '\u2014'}</span>
+                            </td>
+                            {/* Size */}
+                            <td className="px-3 py-2.5 border-b whitespace-nowrap" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
+                              {formatFileSize(doc.file_size)}
+                            </td>
+                            {/* Read */}
+                            <td className="px-2 py-2.5 border-b text-center" style={{ borderColor: 'var(--border-color)' }}>
+                              {!doc.is_read && (
+                                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#2563EB' }} title="Unread" />
+                              )}
+                            </td>
+                            {/* Actions */}
+                            <td className="px-2 py-2.5 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                              <div className="flex items-center justify-center gap-1">
+                                {doc.file_url && (
+                                  <a href={doc.file_url} download target="_blank" rel="noopener noreferrer"
+                                    onClick={e => e.stopPropagation()}
+                                    className="p-1.5 rounded-md hover:bg-black/5 transition-colors" style={{ color: 'var(--text-muted)' }}
+                                    title="Download">
+                                    <Download size={14} />
+                                  </a>
+                                )}
+                                {!doc.is_archived && (
+                                  <>
+                                    <button onClick={e => { e.stopPropagation(); setShowVersionUpload(doc); setVersionRevision('') }}
+                                      className="p-1.5 rounded-md hover:bg-black/5 transition-colors" style={{ color: 'var(--text-muted)' }}
+                                      title="New Version">
+                                      <RefreshCw size={14} />
+                                    </button>
+                                    <button onClick={e => { e.stopPropagation(); setShowEditDoc(doc); setEditForm({ ...doc, tags: (doc.tags || []).join(', ') }) }}
+                                      className="p-1.5 rounded-md hover:bg-black/5 transition-colors" style={{ color: 'var(--text-muted)' }}
+                                      title="Edit">
+                                      <Edit2 size={14} />
+                                    </button>
+                                    <button onClick={e => { e.stopPropagation(); handleArchive(doc) }}
+                                      className="p-1.5 rounded-md hover:bg-black/5 transition-colors text-red-400 hover:text-red-600"
+                                      title="Archive">
+                                      <Archive size={14} />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="px-3 py-2 text-[10px] font-medium border-t" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', backgroundColor: 'var(--bg-main)' }}>
+                  {sortedDocuments.length} document{sortedDocuments.length !== 1 ? 's' : ''}
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            {filteredDocuments.map(doc => <DocCard key={doc.id} doc={doc} />)}
-          </div>
+              {/* Mobile card layout */}
+              <div className="md:hidden space-y-2">
+                {sortedDocuments.map(doc => {
+                  const FileIcon = fileIcon(doc.file_name)
+                  const revColor = revisionColor(doc.revision)
+                  const ifColor = issuedForColor(doc.issued_for)
+                  const catConfig = CATEGORIES[doc.category] || CATEGORIES['Other']
+                  return (
+                    <div key={doc.id}
+                      onClick={() => { markAsRead(doc); handleView(doc) }}
+                      className="rounded-xl border p-3 transition-all active:scale-[0.99] cursor-pointer"
+                      style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderLeftWidth: '3px', borderLeftColor: catConfig.color }}>
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-8 h-8 rounded flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: catConfig.color + '18' }}>
+                          <FileIcon size={16} style={{ color: catConfig.color }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                            {doc.revision && (
+                              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: revColor.bg, color: revColor.fg }}>
+                                {doc.revision}
+                              </span>
+                            )}
+                            {doc.issued_for && (
+                              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: ifColor.bg, color: ifColor.fg }}>
+                                {doc.issued_for}
+                              </span>
+                            )}
+                            {!doc.is_read && (
+                              <span className="inline-block w-2 h-2 rounded-full ml-auto" style={{ backgroundColor: '#2563EB' }} />
+                            )}
+                          </div>
+                          {doc.doc_ref ? (
+                            <>
+                              <p className="font-semibold text-xs truncate font-mono" style={{ color: 'var(--text-primary)' }}>{doc.doc_ref}</p>
+                              <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{doc.title}</p>
+                            </>
+                          ) : (
+                            <p className="font-semibold text-xs truncate" style={{ color: 'var(--text-primary)' }}>{doc.title}</p>
+                          )}
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                            <span>{formatIssuedDate(doc.issued_date || doc.created_at)}</span>
+                            {doc.register && <span>{doc.register}</span>}
+                            <span>{formatFileSize(doc.file_size)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Mobile actions */}
+                      <div className="flex items-center gap-1 mt-2 pt-2 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                        {doc.file_url && (
+                          <a href={doc.file_url} download target="_blank" rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md border" style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', textDecoration: 'none' }}>
+                            <Download size={11} /> Download
+                          </a>
+                        )}
+                        {!doc.is_archived && (
+                          <>
+                            <button onClick={e => { e.stopPropagation(); setShowVersionUpload(doc); setVersionRevision('') }}
+                              className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md border" style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+                              <RefreshCw size={11} /> New Ver
+                            </button>
+                            <button onClick={e => { e.stopPropagation(); setShowEditDoc(doc); setEditForm({ ...doc, tags: (doc.tags || []).join(', ') }) }}
+                              className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md border" style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+                              <Edit2 size={11} /> Edit
+                            </button>
+                            <button onClick={e => { e.stopPropagation(); handleArchive(doc) }}
+                              className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md border text-red-500 ml-auto" style={{ borderColor: 'var(--border-color)' }}>
+                              <Archive size={11} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -1698,7 +2227,7 @@ export default function DocumentHub() {
                         style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
                         <Eye size={12} /> View
                       </button>
-                      <button onClick={() => setShowVersionUpload(doc)}
+                      <button onClick={() => { setShowVersionUpload(doc); setVersionRevision('') }}
                         className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-lg text-white"
                         style={{ backgroundColor: 'var(--primary-color)' }}>
                         <RefreshCw size={12} /> Renew
