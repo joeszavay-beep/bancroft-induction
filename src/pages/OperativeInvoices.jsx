@@ -415,9 +415,9 @@ export default function OperativeInvoices() {
                       {/* Manager comment */}
                       {inv.manager_comment && (
                         <div className="mt-2 pt-2 border-t border-slate-50 bg-blue-50 rounded-lg p-2.5">
-                          <p className="text-[10px] text-blue-500 font-semibold mb-0.5">Manager Comment</p>
+                          <p className="text-[10px] text-blue-500 font-semibold mb-0.5">{inv.reviewed_by || 'Manager'}</p>
                           <p className="text-xs text-blue-800">{inv.manager_comment}</p>
-                          {inv.reviewed_by && <p className="text-[10px] text-blue-400 mt-1">— {inv.reviewed_by}{inv.reviewed_at ? `, ${new Date(inv.reviewed_at).toLocaleDateString('en-GB')}` : ''}</p>}
+                          {inv.reviewed_at && <p className="text-[10px] text-blue-400 mt-1">{new Date(inv.reviewed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>}
                         </div>
                       )}
                       {inv.status === 'paid' && inv.paid_at && (

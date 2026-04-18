@@ -302,7 +302,7 @@ export default function WorkerInvoiceReview() {
                 {/* Manager comment */}
                 {inv.manager_comment && !isCommenting && (
                   <div className="text-xs px-3 py-2 rounded-lg mb-3 bg-amber-50 border border-amber-100">
-                    <span className="font-medium text-amber-700">Manager:</span>{' '}
+                    <span className="font-medium text-amber-700">{inv.reviewed_by || 'Manager'}:</span>{' '}
                     <span className="text-amber-800">{inv.manager_comment}</span>
                   </div>
                 )}
