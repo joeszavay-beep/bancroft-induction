@@ -145,7 +145,7 @@ export function computeReportSummary({ operatives, weekEnd, pmChecklist, envChec
           const certLabel = certFieldLabels[field]
           const expiryFmt = formatDate(op[field], { short: true })
           attentionItems.push({
-            severity: status === 'expired' ? 'red' : 'amber',
+            severity: (status === 'expired' || status === 'critical') ? 'red' : 'amber',
             message: `${opName} \u2014 ${certLabel} ${status === 'expired' ? 'expired' : 'expiring'} ${expiryFmt}`,
             page: 3,
           })
