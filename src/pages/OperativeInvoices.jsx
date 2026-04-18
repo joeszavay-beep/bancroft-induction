@@ -425,8 +425,8 @@ export default function OperativeInvoices() {
                           <CheckCircle2 size={10} /> Paid {new Date(inv.paid_at).toLocaleDateString('en-GB')}
                         </p>
                       )}
-                      {/* Edit & action buttons for editable statuses */}
-                      {(inv.status === 'draft' || inv.status === 'changes_requested') && (
+                      {/* Edit & action buttons for editable statuses (not approved/paid) */}
+                      {(inv.status === 'draft' || inv.status === 'submitted' || inv.status === 'changes_requested') && (
                         <div className="mt-2 flex gap-2">
                           <button onClick={() => openEditInvoice(inv)}
                             className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
