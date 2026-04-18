@@ -1860,7 +1860,8 @@ function ToolboxTab({ projects, navigate }) {
     }).select().single()
     setSaving(false)
     if (error) {
-      toast.error('Failed to create toolbox talk')
+      toast.error(`Failed to create toolbox talk: ${error.message}`)
+      console.error('Toolbox talk insert error:', error)
       return
     }
     toast.success('Toolbox talk created')
