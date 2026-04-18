@@ -1118,6 +1118,16 @@ export default function HSReportGenerator() {
         import('../lib/hsReport/HSReportDocument'),
       ])
 
+      console.log('[Preview] Data snapshot:', {
+        operatives: operatives?.length,
+        pmChecks: pmChecks?.length,
+        pmSample: pmChecks?.[0],
+        envChecks: envChecks?.length,
+        opChecks: opChecks?.length,
+        labourRows: labourRows?.length,
+        labourSample: labourRows?.[0],
+        toolboxTalks: toolboxTalks?.length,
+      })
       const reportData = {
         allTalks: [...toolboxTalks, ...manualTalks],
         operatives,
