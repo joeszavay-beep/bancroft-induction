@@ -4,12 +4,13 @@ import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
 import WorkerSidebarLayout from '../components/WorkerSidebarLayout'
 import { formatMoney, calculateCIS } from '../lib/subcontractor'
-import { FileText, Plus, X, Send, Clock, CheckCircle2, AlertTriangle, Paperclip, Image, Download, Trash2, RefreshCw } from 'lucide-react'
+import { FileText, Plus, X, Send, Clock, CheckCircle2, AlertTriangle, Paperclip, Image, Download, Trash2, RefreshCw, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const STATUS_STYLES = {
   draft: { bg: 'bg-slate-100', text: 'text-slate-600', label: 'Draft' },
   submitted: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Submitted' },
+  changes_requested: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Changes Requested' },
   approved: { bg: 'bg-green-100', text: 'text-green-700', label: 'Approved' },
   paid: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Paid' },
 }
@@ -32,6 +33,7 @@ export default function OperativeInvoices() {
   const [calculatedData, setCalculatedData] = useState(null)
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [editingInvoiceId, setEditingInvoiceId] = useState(null)
   const [invoiceFiles, setInvoiceFiles] = useState([])
   const [uploadingFiles, setUploadingFiles] = useState(false)
 
@@ -224,6 +226,69 @@ export default function OperativeInvoices() {
     setCalculatedData(null)
     setNotes('')
     setInvoiceFiles([])
+    setEditingInvoiceId(null)
+  }
+
+  function openEditInvoice(inv) {
+    setEditingInvoiceId(inv.id)
+    // Find the matching job_operative
+    const jo = jobOps.find(j => j.id === inv.job_operative_id)
+    setSelectedJobOp(inv.job_operative_id)
+    setPeriodFrom(inv.period_from || '')
+    setPeriodTo(inv.period_to || '')
+    setLineItems(inv.line_items?.length > 0 ? inv.line_items : [{ description: '', qty: '', rate: '', amount: 0 }])
+    setNotes(inv.notes || '')
+    setInvoiceFiles([])
+    setShowCreate(true)
+  }
+
+  async function updateInvoice(resubmit = false) {
+    if (!editingInvoiceId || !selectedJobOp) return
+    const validItems = lineItems.filter(item => item.description.trim() && item.amount > 0)
+    if (validItems.length === 0 && resubmit) { toast.error('Add at least one line item'); return }
+
+    setSubmitting(true)
+    const jo = jobOps.find(j => j.id === selectedJobOp)
+    const gross = validItems.reduce((sum, item) => sum + item.amount, 0)
+    const cisRate = jo?.cis_rate || 20
+    const cis = calculateCIS(gross, cisRate)
+    const net = gross - cis
+
+    const updates = {
+      period_from: periodFrom || null,
+      period_to: periodTo || null,
+      gross_amount: gross,
+      cis_deduction: cis,
+      net_amount: net,
+      line_items: validItems,
+      notes: notes.trim() || null,
+    }
+    if (resubmit) {
+      updates.status = 'submitted'
+      updates.submitted_at = new Date().toISOString()
+      updates.manager_comment = null
+    }
+
+    const { data: updated, error } = await supabase.from('operative_invoices').update(updates).eq('id', editingInvoiceId).select().single()
+    if (error) {
+      toast.error('Failed to update invoice')
+    } else {
+      // Upload new attachments if any
+      if (invoiceFiles.length > 0) {
+        setUploadingFiles(true)
+        const newAttachments = await uploadInvoiceFiles(updated.id, invoiceFiles)
+        const existing = updated.attachments || []
+        if (newAttachments.length > 0) {
+          await supabase.from('operative_invoices').update({ attachments: [...existing, ...newAttachments] }).eq('id', updated.id)
+        }
+        setUploadingFiles(false)
+      }
+      toast.success(resubmit ? 'Invoice resubmitted' : 'Invoice updated')
+      setShowCreate(false)
+      resetForm()
+      loadData(op)
+    }
+    setSubmitting(false)
   }
 
   if (!op) return null
@@ -360,13 +425,28 @@ export default function OperativeInvoices() {
                           <CheckCircle2 size={10} /> Paid {new Date(inv.paid_at).toLocaleDateString('en-GB')}
                         </p>
                       )}
-                      {inv.status === 'draft' && (
-                        <button onClick={async () => {
-                          const { error } = await supabase.from('operative_invoices').update({ status: 'submitted', submitted_at: new Date().toISOString() }).eq('id', inv.id)
-                          if (!error) { toast.success('Invoice submitted'); loadData(op) }
-                        }} className="mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg text-white transition-colors" style={{ backgroundColor: primaryColor }}>
-                          <Send size={12} className="inline mr-1" /> Submit to Manager
-                        </button>
+                      {/* Edit & action buttons for editable statuses */}
+                      {(inv.status === 'draft' || inv.status === 'changes_requested') && (
+                        <div className="mt-2 flex gap-2">
+                          <button onClick={() => openEditInvoice(inv)}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+                            <Pencil size={12} className="inline mr-1" /> Edit
+                          </button>
+                          {inv.status === 'draft' && (
+                            <button onClick={async () => {
+                              const { error } = await supabase.from('operative_invoices').update({ status: 'submitted', submitted_at: new Date().toISOString() }).eq('id', inv.id)
+                              if (!error) { toast.success('Invoice submitted'); loadData(op) }
+                            }} className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white transition-colors" style={{ backgroundColor: primaryColor }}>
+                              <Send size={12} className="inline mr-1" /> Submit
+                            </button>
+                          )}
+                          {inv.status === 'changes_requested' && (
+                            <button onClick={() => { openEditInvoice(inv) }}
+                              className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white transition-colors" style={{ backgroundColor: primaryColor }}>
+                              <Send size={12} className="inline mr-1" /> Edit & Resubmit
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   )
@@ -384,7 +464,7 @@ export default function OperativeInvoices() {
           <div className="relative bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl max-h-[85vh] overflow-y-auto">
             {/* Modal header */}
             <div className="sticky top-0 bg-white border-b border-slate-100 px-5 py-4 flex items-center justify-between rounded-t-2xl z-10">
-              <h3 className="text-base font-bold text-slate-900">Create Invoice</h3>
+              <h3 className="text-base font-bold text-slate-900">{editingInvoiceId ? 'Edit Invoice' : 'Create Invoice'}</h3>
               <button onClick={() => { setShowCreate(false); resetForm() }} className="p-1.5 hover:bg-slate-100 rounded-lg">
                 <X size={18} className="text-slate-500" />
               </button>
@@ -537,15 +617,31 @@ export default function OperativeInvoices() {
 
               {/* Actions */}
               <div className="flex gap-2 pt-2">
-                <button onClick={() => submitInvoice(true)} disabled={submitting || !selectedJobOp}
-                  className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5">
-                  <Clock size={14} /> Save Draft
-                </button>
-                <button onClick={() => submitInvoice(false)} disabled={submitting || uploadingFiles || !selectedJobOp}
-                  className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5"
-                  style={{ backgroundColor: primaryColor }}>
-                  <Send size={14} /> {uploadingFiles ? 'Uploading...' : 'Submit'}
-                </button>
+                {editingInvoiceId ? (
+                  <>
+                    <button onClick={() => updateInvoice(false)} disabled={submitting || !selectedJobOp}
+                      className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5">
+                      <Clock size={14} /> Save Changes
+                    </button>
+                    <button onClick={() => updateInvoice(true)} disabled={submitting || uploadingFiles || !selectedJobOp}
+                      className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5"
+                      style={{ backgroundColor: primaryColor }}>
+                      <Send size={14} /> {uploadingFiles ? 'Uploading...' : 'Save & Resubmit'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => submitInvoice(true)} disabled={submitting || !selectedJobOp}
+                      className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5">
+                      <Clock size={14} /> Save Draft
+                    </button>
+                    <button onClick={() => submitInvoice(false)} disabled={submitting || uploadingFiles || !selectedJobOp}
+                      className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5"
+                      style={{ backgroundColor: primaryColor }}>
+                      <Send size={14} /> {uploadingFiles ? 'Uploading...' : 'Submit'}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
