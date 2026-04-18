@@ -259,7 +259,7 @@ export default function TrainingMatrix({ operatives, weekEnd, projectName, weekS
       )}
 
       {chunk.map((op, i) => {
-        const globalIdx = chunkIdx * ROWS_PER_PAGE + i
+        const globalIdx = chunks.slice(0, chunkIdx).reduce((sum, c) => sum + c.length, 0) + i
         return hasCerts(op)
           ? <DataRow key={op.id || globalIdx} op={op} index={globalIdx} weekEnd={weekEnd} />
           : <MissingRecordsRow key={op.id || globalIdx} op={op} index={globalIdx} />
