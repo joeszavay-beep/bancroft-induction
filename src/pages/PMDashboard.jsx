@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useCompany } from '../lib/CompanyContext'
 import { authFetch } from '../lib/authFetch'
 import { fetchAndCache } from '../hooks/useOfflineData'
 import toast from 'react-hot-toast'
@@ -34,6 +35,7 @@ const TABS = [
 
 export default function PMDashboard({ initialTab }) {
   const navigate = useNavigate()
+  const { company, user } = useCompany()
   const [tab, setTab] = useState(initialTab || 'home')
   const [projects, setProjects] = useState([])
   const [operatives, setOperatives] = useState([])
@@ -43,12 +45,13 @@ export default function PMDashboard({ initialTab }) {
 
   const managerData = JSON.parse(getSession('manager_data') || '{}')
   const managerProjectIds = managerData.project_ids || []
-  const isAdmin = managerData.role === 'admin'
+  const isAdmin = managerData.role === 'admin' || managerData.role === 'super_admin'
   const [companyBranding, setCompanyBranding] = useState(null)
 
   async function loadData() {
     setLoading(true)
-    const cid = managerData.company_id
+    // Try multiple sources for company_id — session may not be updated yet
+    const cid = managerData.company_id || user?.company_id || company?.id
     if (!cid) { setLoading(false); return }
 
     const [pData, oData, dData, sData] = await Promise.all([
@@ -81,7 +84,7 @@ export default function PMDashboard({ initialTab }) {
 
   useEffect(() => {
     loadData() // eslint-disable-line react-hooks/set-state-in-effect
-  }, [])
+  }, [company?.id])
 
   if (loading) {
     return (
