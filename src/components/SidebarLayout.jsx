@@ -18,18 +18,11 @@ import { getSession } from '../lib/storage'
 
 const NAV_SECTIONS = [
   {
-    title: 'Pre-Registration',
-    items: [
-      { label: 'Invite New Workers', path: '/app/invite-workers', icon: Mail },
-      { label: 'Invite Existing Workers', path: '/app/invite-existing', icon: UserPlus },
-      { label: 'Invitations Pipeline', path: '/app/pipeline', icon: BarChart3 },
-    ],
-  },
-  {
-    title: 'Workers',
+    title: 'People',
     items: [
       { label: 'All Workers', path: '/app/workers', icon: Users },
-      { label: 'Add New Worker', path: '/app/workers/new', icon: UserPlus },
+      { label: 'Invite Workers', path: '/app/invite-workers', icon: Mail },
+      { label: 'Pipeline', path: '/app/pipeline', icon: BarChart3 },
       { label: 'Site Attendance', path: '/app/attendance', icon: Activity },
     ],
   },
@@ -38,46 +31,57 @@ const NAV_SECTIONS = [
     items: [
       { label: 'All Projects', path: '/app/projects', icon: FolderOpen },
       { label: 'Site Diary', path: '/app/diary', icon: BookOpen },
-      { label: 'Inspections', path: '/app/inspections', icon: CheckSquare },
+      { label: 'Inspections', path: '/app/inspections', icon: CheckSquare, feature: 'inspections' },
     ],
   },
   {
-    title: 'Progress',
-    feature: 'progress_drawings',
+    title: 'Documents',
     items: [
-      { label: 'All Drawings', path: '/app/progress', icon: Layers },
+      { label: 'Document Hub', path: '/app/document-hub', icon: FolderOpen },
+      { label: 'Sign-off Portal', path: '/app/portal', icon: Globe, feature: 'portal' },
     ],
   },
   {
-    title: 'Snags',
-    feature: 'snagging',
+    title: 'Drawings & Snags',
     items: [
-      { label: 'Snag Overview', path: '/app/snags', icon: MapPin },
-      { label: 'Performance', path: '/app/performance', icon: Activity },
+      { label: 'Progress Drawings', path: '/app/progress', icon: Layers, feature: 'progress_drawings' },
+      { label: 'Snag Overview', path: '/app/snags', icon: MapPin, feature: 'snagging' },
+      { label: 'Performance', path: '/app/performance', icon: BarChart3, feature: 'snagging' },
+      { label: 'BIM Models', path: '/app/bim', icon: Box, feature: 'bim_models' },
     ],
   },
   {
     title: 'Programme',
+    feature: 'programme_tracking',
     items: [
-      { label: 'Dashboard', path: '/app/programme', icon: Activity },
+      { label: 'Dashboard', path: '/app/programme', icon: CalendarRange },
       { label: 'Master Programme', path: '/app/master-programme', icon: CalendarRange },
     ],
   },
   {
+    title: 'Commercial',
+    feature: 'commercial_module',
+    items: [
+      { label: 'Dashboard', path: '/app/sub-dashboard', icon: PoundSterling },
+      { label: 'Jobs', path: '/app/jobs', icon: Briefcase },
+      { label: 'Worker Invoices', path: '/app/worker-invoices', icon: FileText },
+    ],
+  },
+  {
     title: 'Labour',
+    feature: 'labour_marketplace',
     items: [
       { label: 'Requests', path: '/app/labour-requests', icon: Briefcase },
-      { label: 'New Request', path: '/app/labour-requests/new', icon: PlusCircle },
       { label: 'Agency Network', path: '/app/agency-connections', icon: Link2, hideForAgency: true },
       { label: 'Bookings', path: '/app/bookings', icon: CalendarCheck },
     ],
   },
   {
-    title: 'Commercial',
+    title: 'H&S',
     items: [
-      { label: 'Dashboard', path: '/app/sub-dashboard', icon: PoundSterling },
-      { label: 'Jobs', path: '/app/jobs', icon: Briefcase },
-      { label: 'Worker Invoices', path: '/app/worker-invoices', icon: FileText },
+      { label: 'Toolbox Talks', path: '/app/toolbox', icon: MessageSquare },
+      { label: 'Permits to Work', path: '/app/permits', icon: Shield, feature: 'permits_to_work' },
+      { label: 'H&S Reports', path: '/app/hs-reports', icon: ClipboardList },
     ],
   },
   {
@@ -88,28 +92,6 @@ const NAV_SECTIONS = [
       { label: 'Operatives', path: '/app/agency/operatives', icon: Users },
       { label: 'Requests', path: '/app/agency/requests', icon: FileText },
       { label: 'Bookings', path: '/app/agency/bookings', icon: Calendar },
-    ],
-  },
-  {
-    title: 'BIM',
-    items: [
-      { label: 'BIM Models', path: '/app/bim', icon: Box },
-    ],
-  },
-  {
-    title: 'H&S',
-    items: [
-      { label: 'Toolbox Talks', path: '/app/toolbox', icon: MessageSquare, feature: 'toolbox_talks' },
-      { label: 'Documents', path: '/app/document-hub', icon: FolderOpen },
-      { label: 'H&S Reports', path: '/app/hs-reports', icon: ClipboardList, feature: 'hs_reports' },
-      { label: 'Permits to Work', path: '/app/permits', icon: Shield },
-    ],
-  },
-  {
-    title: 'Portal',
-    feature: 'portal',
-    items: [
-      { label: 'Sign-off Portal', path: '/app/portal', icon: Globe },
     ],
   },
 ]
@@ -131,7 +113,7 @@ export default function SidebarLayout({ children }) {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [favourites, setFavourites] = useState(loadFavourites)
-  const [expandedSections, setExpandedSections] = useState(['Pre-Registration', 'Workers', 'Projects', 'Progress', 'Snags', 'Programme', 'Labour', 'Commercial', 'Agency', 'BIM', 'H&S', 'Portal', 'Admin'])
+  const [expandedSections, setExpandedSections] = useState(['People', 'Projects', 'Documents', 'Drawings & Snags', 'Programme', 'Commercial', 'Labour', 'H&S', 'Agency', 'Admin'])
 
   function toggleFavourite(path) {
     setFavourites(prev => {
