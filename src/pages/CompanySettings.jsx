@@ -39,9 +39,23 @@ const CIS_OPTIONS = [
   { value: 0, label: '0% — Gross' },
 ]
 
+const REPORT_SECTION_DEFAULTS = [
+  { id: 'toolbox',   defaultName: 'Toolbox Talks' },
+  { id: 'training',  defaultName: 'Operative Training Matrix' },
+  { id: 'mgmt',      defaultName: 'Management Training' },
+  { id: 'equipment', defaultName: 'Equipment Register' },
+  { id: 'pm',        defaultName: 'PM Inspection' },
+  { id: 'env',       defaultName: 'Environmental Inspection' },
+  { id: 'operative', defaultName: 'Operative Inspection' },
+  { id: 'rams',      defaultName: 'RAMS Register' },
+  { id: 'labour',    defaultName: 'Labour Return' },
+  { id: 'safestart', defaultName: 'Safe Start Cards' },
+]
+
 const SECTIONS = [
   { id: 'branding', label: 'Company Branding', icon: Palette },
   { id: 'pdf-templates', label: 'PDF Templates', icon: FileText },
+  { id: 'hs-report', label: 'H&S Report Settings', icon: FileText },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'site-defaults', label: 'Site Defaults', icon: Clock },
   { id: 'commercial', label: 'Commercial Defaults', icon: PoundSterling },
@@ -154,6 +168,14 @@ export default function CompanySettings() {
   const [pdfShowCoreSite, setPdfShowCoreSite] = useState(true)
   const [savingPdf, setSavingPdf] = useState(false)
 
+  // H&S Report Settings state
+  const [companyPrefix, setCompanyPrefix] = useState('')
+  const [sectionConfig, setSectionConfig] = useState(
+    REPORT_SECTION_DEFAULTS.map(s => ({ id: s.id, name: s.defaultName, included: true }))
+  )
+  const [numberingTemplate, setNumberingTemplate] = useState('{project_prefix}-{company_prefix}-XX-HS-X-{seq:05d}')
+  const [savingReport, setSavingReport] = useState(false)
+
   // Load company data
   useEffect(() => {
     async function load() {
@@ -217,6 +239,16 @@ export default function CompanySettings() {
       setPdfHeaderStyle(pdf.header_style || 'modern')
       setPdfFooterText(pdf.footer_text || '')
       setPdfShowCoreSite(pdf.show_coresite_branding !== false)
+
+      // H&S Report settings
+      const rpt = s.report || {}
+      setCompanyPrefix(rpt.company_prefix || (data.name || '').substring(0, 3).toUpperCase())
+      if (Array.isArray(rpt.section_config) && rpt.section_config.length > 0) {
+        setSectionConfig(rpt.section_config)
+      } else {
+        setSectionConfig(REPORT_SECTION_DEFAULTS.map(sec => ({ id: sec.id, name: sec.defaultName, included: true })))
+      }
+      setNumberingTemplate(rpt.numbering_template || '{project_prefix}-{company_prefix}-XX-HS-X-{seq:05d}')
 
       // Also load notification email from settings table (existing functionality)
       const { data: settingsRow } = await supabase.from('settings').select('*').eq('key', 'pm_email').single()
@@ -432,6 +464,33 @@ export default function CompanySettings() {
       toast.error(err.message || 'Failed to save PDF settings')
     }
     setSavingPdf(false)
+  }
+
+  async function saveReportSettings() {
+    if (!cid) return
+    setSavingReport(true)
+    try {
+      const currentSettings = companyData.settings || {}
+      const newSettings = {
+        ...currentSettings,
+        report: {
+          company_prefix: companyPrefix.trim().toUpperCase().slice(0, 5) || (companyData.name || '').substring(0, 3).toUpperCase(),
+          section_config: sectionConfig,
+          numbering_template: numberingTemplate.trim() || '{project_prefix}-{company_prefix}-XX-HS-X-{seq:05d}',
+        },
+      }
+
+      const { data, error } = await supabase.from('companies').update({
+        settings: newSettings,
+      }).eq('id', cid).select().single()
+      if (error) throw error
+
+      setCompanyData(data)
+      toast.success('H&S report settings saved')
+    } catch (err) {
+      toast.error(err.message || 'Failed to save report settings')
+    }
+    setSavingReport(false)
   }
 
   // Password reset
@@ -805,7 +864,118 @@ export default function CompanySettings() {
             </div>
           </SectionCard>
 
-          {/* Section 3: Notifications */}
+          {/* Section: H&S Report Settings */}
+          <SectionCard id="hs-report" icon={FileText} title="H&S Report Settings">
+            <div className="space-y-6">
+              {/* (a) Company prefix */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800 mb-1">Company prefix</h4>
+                <p className="text-xs text-slate-500 mb-2">Used in the report reference. For example &apos;ABC&apos; produces reports like RI-ABC-XX-HS-X-00001.</p>
+                <input
+                  value={companyPrefix}
+                  onChange={e => setCompanyPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5))}
+                  onBlur={e => setCompanyPrefix(e.target.value.trim().toUpperCase())}
+                  placeholder="ABC"
+                  maxLength={5}
+                  className="w-32 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 font-mono tracking-widest uppercase focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
+                />
+              </div>
+
+              {/* (b) Section config */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800 mb-1">Report sections</h4>
+                <p className="text-xs text-slate-500 mb-3">Customise section names and toggle sections on or off. Excluded sections won&apos;t appear in the generated PDF.</p>
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 text-left">
+                        <th className="px-3 py-2 text-xs font-semibold text-slate-500 w-12">#</th>
+                        <th className="px-3 py-2 text-xs font-semibold text-slate-500">Section name</th>
+                        <th className="px-3 py-2 text-xs font-semibold text-slate-500 w-20 text-center">Include</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sectionConfig.map((sec, i) => {
+                        // Compute sequential number for included sections
+                        const includedBefore = sectionConfig.slice(0, i).filter(s => s.included).length
+                        const displayNum = sec.included ? String(includedBefore + 1).padStart(2, '0') : '\u2014'
+                        return (
+                          <tr key={sec.id} className="border-t border-slate-100">
+                            <td className="px-3 py-2 text-xs text-slate-400 font-mono">{displayNum}</td>
+                            <td className="px-3 py-1.5">
+                              <input
+                                value={sec.name}
+                                onChange={e => {
+                                  const updated = [...sectionConfig]
+                                  updated[i] = { ...updated[i], name: e.target.value }
+                                  setSectionConfig(updated)
+                                }}
+                                className={`w-full px-2 py-1.5 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-400 ${sec.included ? 'text-slate-900' : 'text-slate-400'}`}
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <Toggle
+                                checked={sec.included}
+                                onChange={v => {
+                                  const updated = [...sectionConfig]
+                                  updated[i] = { ...updated[i], included: v }
+                                  setSectionConfig(updated)
+                                }}
+                              />
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center gap-3 mt-2">
+                  <button
+                    onClick={() => setSectionConfig(REPORT_SECTION_DEFAULTS.map(s => ({ id: s.id, name: s.defaultName, included: true })))}
+                    className="text-xs text-slate-500 hover:text-slate-700 underline"
+                  >
+                    Reset to defaults
+                  </button>
+                  <span className="text-xs text-slate-400">
+                    {sectionConfig.filter(s => s.included).length} of {sectionConfig.length} sections included
+                  </span>
+                </div>
+              </div>
+
+              {/* (c) Numbering template */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800 mb-1">Report numbering</h4>
+                <p className="text-xs text-slate-500 mb-2">
+                  Template for the report reference code. Available tokens: <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">{'{project_prefix}'}</code> <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">{'{company_prefix}'}</code> <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">{'{seq:05d}'}</code>
+                </p>
+                <input
+                  value={numberingTemplate}
+                  onChange={e => setNumberingTemplate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 font-mono focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
+                />
+                <div className="mt-2 px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg">
+                  <span className="text-xs text-slate-500">Preview: </span>
+                  <span className="text-xs font-mono text-slate-800">
+                    {numberingTemplate
+                      .replace('{project_prefix}', 'RI')
+                      .replace('{company_prefix}', companyPrefix || 'ABC')
+                      .replace('{seq:05d}', '00001')
+                    }
+                  </span>
+                </div>
+              </div>
+
+              <LoadingButton
+                loading={savingReport}
+                onClick={saveReportSettings}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold"
+              >
+                Save Report Settings
+              </LoadingButton>
+            </div>
+          </SectionCard>
+
+          {/* Section: Notifications */}
           <SectionCard id="notifications" icon={Bell} title="Notification Preferences">
             <div className="space-y-5">
               <div className="flex items-center justify-between">
