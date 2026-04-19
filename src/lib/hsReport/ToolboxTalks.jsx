@@ -48,9 +48,8 @@ function SummaryStrip({ talkCount, totalAttendees, operativesCovered, totalOpera
 function AttendeeHeader() {
   return (
     <View style={s.attendeeHeaderRow}>
-      <Text style={[s.attendeeHeaderText, { width: 140 }]}>Name</Text>
-      <Text style={[s.attendeeHeaderText, { width: 80 }]}>Role</Text>
-      <Text style={[s.attendeeHeaderText, { width: 130, textAlign: 'center' }]}>Signature</Text>
+      <Text style={[s.attendeeHeaderText, { width: 160 }]}>Name</Text>
+      <Text style={[s.attendeeHeaderText, { width: 160, textAlign: 'center' }]}>Signature</Text>
       <Text style={[s.attendeeHeaderText, { flex: 1 }]}>Signed at</Text>
     </View>
   )
@@ -64,7 +63,6 @@ function AttendeeRow({ sig, index }) {
   return (
     <View style={[s.attendeeRow, shaded ? s.rowShaded : null]} wrap={false}>
       <Text style={s.attendeeName}>{sig.operative_name || '\u2014'}</Text>
-      <Text style={s.attendeeRole}>{sig.role || '\u2014'}</Text>
       <View style={s.signatureCell}>
         {hasSignature ? (
           <Image src={sig.signatureDataUrl} style={s.signatureImage} />
@@ -264,29 +262,22 @@ const s = StyleSheet.create({
     backgroundColor: C.rowShade,
   },
   attendeeName: {
-    width: 140,
+    width: 160,
     fontSize: 9,
     fontWeight: FONT.medium,
     color: C.textPrimary,
     paddingRight: 4,
   },
-  attendeeRole: {
-    width: 80,
-    fontSize: 8,
-    color: C.textMuted,
-    fontWeight: FONT.regular,
-    paddingRight: 4,
-  },
   signatureCell: {
-    width: 130,
+    width: 160,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
   signatureImage: {
-    width: 100,
-    height: 33,
+    width: 120,
+    height: 40,
     objectFit: 'contain',
   },
   signedAt: {
