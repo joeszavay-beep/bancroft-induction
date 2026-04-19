@@ -1158,8 +1158,103 @@ export default function HSReportGenerator() {
         companyName,
       }
 
-      const blob = await pdf(<HSReportDocument data={reportData} />).toBlob()
-      const url = URL.createObjectURL(blob)
+      const rawBlob = await pdf(<HSReportDocument data={reportData} />).toBlob()
+
+      // Post-process with pdf-lib: deduplicate byte-identical image XObjects.
+      // react-pdf embeds one image XObject per <Image> node even when src is identical.
+      // We hash each image stream, keep the first occurrence, and rewrite duplicates
+      // to point at the canonical reference.
+      let finalBlob = rawBlob
+      try {
+        const { PDFDocument, PDFName, PDFRef, PDFRawStream, PDFStream } = await import('pdf-lib')
+        const rawBytes = new Uint8Array(await rawBlob.arrayBuffer())
+        const pdfDoc = await PDFDocument.load(rawBytes, { ignoreEncryption: true, updateMetadata: false })
+
+        // Build hash → canonical ref map across all pages
+        const hashToRef = new Map()
+        const refToHash = new Map()
+        const refsToRewrite = [] // [{ page, resourceName, canonicalRef }]
+
+        // Simple hash: sum first 256 bytes + length. Not crypto-grade but sufficient
+        // for detecting byte-identical PNG streams within one document.
+        function quickHash(bytes) {
+          if (!bytes || bytes.length === 0) return 'empty'
+          let h = bytes.length
+          const len = Math.min(bytes.length, 256)
+          for (let i = 0; i < len; i++) h = ((h << 5) - h + bytes[i]) | 0
+          return `${h}_${bytes.length}`
+        }
+
+        function getStreamBytes(obj) {
+          if (!obj) return null
+          // Drill through indirect references
+          if (obj instanceof PDFRef) obj = pdfDoc.context.lookup(obj)
+          if (!obj) return null
+          // PDFRawStream and PDFStream both have .contents or .getContents()
+          if (typeof obj.getContents === 'function') return obj.getContents()
+          if (obj.contents) return obj.contents instanceof Uint8Array ? obj.contents : null
+          return null
+        }
+
+        const pages = pdfDoc.getPages()
+        for (const page of pages) {
+          const resources = page.node.Resources()
+          if (!resources) continue
+          const xobjectDict = resources.get(PDFName.of('XObject'))
+          if (!xobjectDict) continue
+
+          // Enumerate XObject entries
+          const dict = pdfDoc.context.lookup(xobjectDict)
+          if (!dict || typeof dict.entries !== 'function') continue
+
+          for (const [name, ref] of dict.entries()) {
+            if (!(ref instanceof PDFRef)) continue
+            const obj = pdfDoc.context.lookup(ref)
+            if (!obj) continue
+
+            // Check if it's an image (Subtype /Image)
+            const subtype = obj.dict?.get?.(PDFName.of('Subtype'))
+            if (!subtype || subtype.toString() !== '/Image') continue
+
+            // Get stream bytes and compute hash
+            const streamBytes = getStreamBytes(obj)
+            if (!streamBytes) continue
+
+            // Include SMask bytes in hash if present
+            const smaskRef = obj.dict?.get?.(PDFName.of('SMask'))
+            let smaskBytes = null
+            if (smaskRef) smaskBytes = getStreamBytes(smaskRef)
+
+            const hash = quickHash(streamBytes) + (smaskBytes ? '_sm' + quickHash(smaskBytes) : '')
+
+            if (hashToRef.has(hash)) {
+              // Duplicate — schedule rewrite to canonical ref
+              const canonicalRef = hashToRef.get(hash)
+              if (canonicalRef !== ref) {
+                refsToRewrite.push({ dict, name, canonicalRef })
+              }
+            } else {
+              hashToRef.set(hash, ref)
+            }
+            refToHash.set(ref, hash)
+          }
+        }
+
+        // Apply rewrites
+        if (refsToRewrite.length > 0) {
+          for (const { dict, name, canonicalRef } of refsToRewrite) {
+            dict.set(name, canonicalRef)
+          }
+          const dedupedBytes = await pdfDoc.save()
+          finalBlob = new Blob([dedupedBytes], { type: 'application/pdf' })
+          console.log(`[PDF dedup] Merged ${refsToRewrite.length} duplicate image XObjects (${hashToRef.size} unique)`)
+        }
+      } catch (dedupErr) {
+        // Dedup is best-effort — if it fails, use the original blob
+        console.warn('[PDF dedup] Post-process failed, using original:', dedupErr.message)
+      }
+
+      const url = URL.createObjectURL(finalBlob)
       const link = document.createElement('a')
       link.href = url
       const pn = (reportData.project.name || 'Report').replace(/[^a-zA-Z0-9]/g, '_')
