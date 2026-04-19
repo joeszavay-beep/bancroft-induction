@@ -39,18 +39,7 @@ const CIS_OPTIONS = [
   { value: 0, label: '0% — Gross' },
 ]
 
-const REPORT_SECTION_DEFAULTS = [
-  { id: 'toolbox',   defaultName: 'Toolbox Talks' },
-  { id: 'training',  defaultName: 'Operative Training Matrix' },
-  { id: 'mgmt',      defaultName: 'Management Training' },
-  { id: 'equipment', defaultName: 'Equipment Register' },
-  { id: 'pm',        defaultName: 'PM Inspection' },
-  { id: 'env',       defaultName: 'Environmental Inspection' },
-  { id: 'operative', defaultName: 'Operative Inspection' },
-  { id: 'rams',      defaultName: 'RAMS Register' },
-  { id: 'labour',    defaultName: 'Labour Return' },
-  { id: 'safestart', defaultName: 'Safe Start Cards' },
-]
+import { DEFAULT_SECTIONS as REPORT_SECTION_DEFAULTS } from '../lib/hsReport/sectionRegistry'
 
 const SECTIONS = [
   { id: 'branding', label: 'Company Branding', icon: Palette },

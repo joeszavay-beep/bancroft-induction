@@ -3,20 +3,6 @@ import { C, FONT, SIZE } from './theme'
 import { formatDate } from './utils'
 import { KPITile, Eyebrow, AttentionCallout } from './primitives'
 
-// ── Section table of contents ──
-const CONTENTS_SECTIONS = [
-  { num: '01', title: 'Toolbox Talks', page: 2 },
-  { num: '02', title: 'Operative Training Matrix', page: 3 },
-  { num: '03', title: 'Management Training', page: 4 },
-  { num: '04', title: 'Equipment Register', page: 4 },
-  { num: '05', title: 'PM Inspection', page: 5 },
-  { num: '06', title: 'Environmental Inspection', page: 5 },
-  { num: '07', title: 'Operative Inspection', page: 6 },
-  { num: '08', title: 'RAMS Register', page: 6 },
-  { num: '09', title: 'Labour Return', page: 7 },
-  { num: '10', title: 'Safe Start Cards', page: 7 },
-]
-
 function InfoCol({ label, value }) {
   return (
     <View style={s.infoCol}>
@@ -37,7 +23,7 @@ function ContentsRow({ num, title, page }) {
   )
 }
 
-export default function CoverPage({ data, summary }) {
+export default function CoverPage({ data, summary, sections }) {
   const weekStartFmt = formatDate(data.weekStart)
   const weekEndFmt = formatDate(data.weekEnd)
   const passRate = summary.inspectionsTotal > 0
@@ -112,8 +98,8 @@ export default function CoverPage({ data, summary }) {
       {/* Contents list */}
       <View style={s.contents}>
         <Eyebrow text="In this report" />
-        {CONTENTS_SECTIONS.map(sec => (
-          <ContentsRow key={sec.num} num={sec.num} title={sec.title} page={sec.page} />
+        {(sections || []).filter(s => s.included).map(sec => (
+          <ContentsRow key={sec.id} num={String(sec.num).padStart(2, '0')} title={sec.name} page="" />
         ))}
       </View>
 

@@ -1,6 +1,7 @@
 import { Document, Text } from '@react-pdf/renderer'
 import { computeReportSummary, formatDate } from './utils'
 import { SUPERVISOR_ROLES } from './theme'
+import { buildSectionList } from './sectionRegistry'
 import { PageFrame, SectionHeader } from './primitives'
 import CoverPage from './CoverPage'
 import ToolboxTalks from './ToolboxTalks'
@@ -22,6 +23,9 @@ export default function HSReportDocument({ data }) {
     rawAttendance: data.rawAttendance,
     equipmentRows: data.equipmentRows,
   })
+
+  // Build section list from registry (commit 3 will pass company.settings.report.section_config)
+  const sections = buildSectionList(null)
 
   const coAbbr = (data.companyName || 'CO').substring(0, 3).toUpperCase()
   const pnAbbr = (data.project?.name || 'PRJ').substring(0, 2).toUpperCase()
@@ -51,7 +55,7 @@ export default function HSReportDocument({ data }) {
 
   return (
     <Document>
-      <CoverPage data={data} summary={summary} />
+      <CoverPage data={data} summary={summary} sections={sections} />
       {/* Section 1 — Toolbox Talks */}
       <ToolboxTalks
         rawTalks={data.rawTalks}
