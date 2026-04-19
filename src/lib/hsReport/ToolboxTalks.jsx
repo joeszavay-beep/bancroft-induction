@@ -19,7 +19,7 @@ function formatDateTime(d) {
 }
 
 // ── Summary strip ──
-function SummaryStrip({ talkCount, totalAttendees, operativesCovered, totalOperatives, unsigned }) {
+function SummaryStrip({ talkCount, totalAttendees, operativesCovered, totalOperatives }) {
   return (
     <View style={s.summaryRow}>
       <View style={[s.summaryTile, { backgroundColor: C.surfaceMuted, borderColor: C.border }]}>
@@ -34,12 +34,6 @@ function SummaryStrip({ talkCount, totalAttendees, operativesCovered, totalOpera
         <Text style={[s.summaryValue, { color: C.greenTextDark }]}>{operativesCovered}/{totalOperatives}</Text>
         <Text style={s.summaryLabel}>Operatives reached</Text>
       </View>
-      {unsigned > 0 && (
-        <View style={[s.summaryTile, { backgroundColor: C.redBg, borderColor: C.red }]}>
-          <Text style={[s.summaryValue, { color: C.redTextDark }]}>{unsigned}</Text>
-          <Text style={s.summaryLabel}>Unsigned</Text>
-        </View>
-      )}
     </View>
   )
 }
@@ -79,7 +73,6 @@ function AttendeeRow({ sig, index }) {
 function TalkBlock({ talk, isFirst }) {
   const sigs = talk.toolbox_signatures || []
   const signedSigs = sigs.filter(s => s.signatureDataUrl != null)
-  const unsignedCount = sigs.length - signedSigs.length
   const hasZeroAttendees = sigs.length === 0
 
   return (
@@ -89,7 +82,6 @@ function TalkBlock({ talk, isFirst }) {
         <View style={s.talkTitleRow}>
           <Text style={s.talkTitle}>{talk.title || '\u2014'}</Text>
           {hasZeroAttendees && <Pill text="No attendees" color="red" />}
-          {!hasZeroAttendees && unsignedCount > 0 && <Pill text={`Unsigned: ${unsignedCount}`} color="amber" />}
         </View>
         <Text style={s.talkMeta}>
           {formatDate(talk.created_at)} {'\u00b7'} {sigs.length} attendee{sigs.length !== 1 ? 's' : ''}
@@ -134,8 +126,6 @@ export default function ToolboxTalks({ rawTalks, operatives, pageProps }) {
   const allAttendeeIds = new Set()
   talks.forEach(t => (t.toolbox_signatures || []).forEach(s => { if (s.operative_id) allAttendeeIds.add(s.operative_id) }))
   const operativesCovered = allAttendeeIds.size
-  const unsigned = talks.reduce((sum, t) =>
-    sum + (t.toolbox_signatures || []).filter(s => s.signatureDataUrl == null).length, 0)
 
   // Empty state
   if (talks.length === 0) {
@@ -166,7 +156,6 @@ export default function ToolboxTalks({ rawTalks, operatives, pageProps }) {
         totalAttendees={totalAttendees}
         operativesCovered={operativesCovered}
         totalOperatives={totalOperatives}
-        unsigned={unsigned}
       />
       {talks.map((talk, i) => (
         <TalkBlock key={talk.id || i} talk={talk} isFirst={i === 0} />
