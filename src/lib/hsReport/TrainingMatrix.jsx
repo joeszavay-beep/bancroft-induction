@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from '@react-pdf/renderer'
-import { C, FONT, SIZE } from './theme'
+import { C, FONT, SIZE, SUPERVISOR_ROLES } from './theme'
 import { formatDate, classifyExpiry } from './utils'
 import { PageFrame, SectionHeader, Pill } from './primitives'
 
@@ -15,9 +15,6 @@ const CERT_COLS = [
 ]
 
 const CERT_KEYS = CERT_COLS.map(c => c.key)
-
-// Supervisor roles excluded from operative matrix (they go in Management Training section 03)
-const SUPERVISOR_ROLES = ['supervisor', 'foreman', 'manager', 'director']
 
 // ── Layout constants (landscape A4: 842 × 595pt, ~770pt content width) ──
 const COL = {
@@ -211,11 +208,9 @@ function Legend() {
 }
 
 // ── Main component ──
-export default function TrainingMatrix({ operatives, weekEnd, projectName, weekStart, weekEndFmt, clientName, reportRef }) {
+export default function TrainingMatrix({ operatives, weekEnd, projectName, weekStart, weekEndFmt, clientName, reportRef, sectionNumber = 2, title = 'Operative training matrix', contextLabel = 'operative' }) {
   const ops = Array.isArray(operatives) ? operatives : []
-  // Fix #2: Filter out supervisors — they belong in Management Training (section 03)
-  const nonSupervisors = ops.filter(op => !SUPERVISOR_ROLES.includes((op.role || '').toLowerCase()))
-  const sorted = [...nonSupervisors].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+  const sorted = [...ops].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
   const stats = computeSummary(sorted, weekEnd)
 
@@ -245,9 +240,9 @@ export default function TrainingMatrix({ operatives, weekEnd, projectName, weekS
     <PageFrame key={chunkIdx} {...pageProps} orientation="landscape">
       {chunkIdx === 0 && (
         <SectionHeader
-          number={2}
-          title="Operative training matrix"
-          context={`${sorted.length} operative${sorted.length !== 1 ? 's' : ''}`}
+          number={sectionNumber}
+          title={title}
+          context={`${sorted.length} ${contextLabel}${sorted.length !== 1 ? 's' : ''}`}
         />
       )}
       {chunkIdx === 0 && <SummaryStrip stats={stats} />}

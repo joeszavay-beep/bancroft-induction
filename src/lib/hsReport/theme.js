@@ -38,3 +38,7 @@ export const SIZE = {
   sectionGap: 20,
   rowHeight: 22,
 }
+
+// Single source of truth for supervisor-level roles.
+// Section 02 (operative training) excludes these; section 03 (management training) includes them.
+export const SUPERVISOR_ROLES = ['supervisor', 'foreman', 'manager', 'director']

@@ -1,5 +1,6 @@
 import { Document, Text } from '@react-pdf/renderer'
 import { computeReportSummary, formatDate } from './utils'
+import { SUPERVISOR_ROLES } from './theme'
 import { PageFrame, SectionHeader } from './primitives'
 import CoverPage from './CoverPage'
 import ToolboxTalks from './ToolboxTalks'
@@ -32,6 +33,20 @@ export default function HSReportDocument({ data }) {
     reportRef,
   }
 
+  // Pre-filter operatives for sections 02 and 03
+  const allOps = Array.isArray(data.operatives) ? data.operatives : []
+  const operativeOps = allOps.filter(op => !SUPERVISOR_ROLES.includes((op.role || '').toLowerCase()))
+  const supervisorOps = allOps.filter(op => SUPERVISOR_ROLES.includes((op.role || '').toLowerCase()))
+
+  const matrixProps = {
+    weekEnd: data.weekEnd,
+    projectName: data.project?.name,
+    weekStart: formatDate(data.weekStart),
+    weekEndFmt: formatDate(data.weekEnd),
+    clientName: data.companyName,
+    reportRef,
+  }
+
   return (
     <Document>
       <CoverPage data={data} summary={summary} />
@@ -42,27 +57,26 @@ export default function HSReportDocument({ data }) {
         pageProps={pageProps}
       />
 
-      {/* Section 2 — Operative Training Matrix */}
+      {/* Section 2 — Operative Training Matrix (excludes supervisors) */}
       <TrainingMatrix
-        operatives={data.operatives}
-        weekEnd={data.weekEnd}
-        projectName={data.project?.name}
-        weekStart={formatDate(data.weekStart)}
-        weekEndFmt={formatDate(data.weekEnd)}
-        clientName={data.companyName}
-        reportRef={reportRef}
+        operatives={operativeOps}
+        {...matrixProps}
       />
 
-      {/* Placeholder sections 3–4 */}
-      {[
-        { num: 3, title: 'Management training' },
-        { num: 4, title: 'Equipment register' },
-      ].map(sec => (
-        <PageFrame key={sec.num} projectName={data.project?.name} weekStart={formatDate(data.weekStart)} weekEnd={formatDate(data.weekEnd)} clientName={data.companyName} reportRef={reportRef}>
-          <SectionHeader number={sec.num} title={sec.title} />
-          <Text style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center', marginTop: 40 }}>Content will be added in Phase 3 & 4</Text>
-        </PageFrame>
-      ))}
+      {/* Section 3 — Management Training (supervisors only) */}
+      <TrainingMatrix
+        operatives={supervisorOps}
+        sectionNumber={3}
+        title="Management training"
+        contextLabel="supervisor"
+        {...matrixProps}
+      />
+
+      {/* Placeholder section 4 */}
+      <PageFrame projectName={data.project?.name} weekStart={formatDate(data.weekStart)} weekEnd={formatDate(data.weekEnd)} clientName={data.companyName} reportRef={reportRef}>
+        <SectionHeader number={4} title="Equipment register" />
+        <Text style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center', marginTop: 40 }}>Content will be added in Phase 3 & 4</Text>
+      </PageFrame>
 
       {/* Section 5 — PM Inspection */}
       <InspectionSection
