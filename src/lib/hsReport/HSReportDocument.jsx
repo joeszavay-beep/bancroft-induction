@@ -6,6 +6,7 @@ import CoverPage from './CoverPage'
 import ToolboxTalks from './ToolboxTalks'
 import TrainingMatrix from './TrainingMatrix'
 import InspectionSection from './InspectionSection'
+import EquipmentRegister from './EquipmentRegister'
 import RAMSRegister from './RAMSRegister'
 import LabourReturn from './LabourReturn'
 
@@ -72,11 +73,12 @@ export default function HSReportDocument({ data }) {
         {...matrixProps}
       />
 
-      {/* Placeholder section 4 */}
-      <PageFrame projectName={data.project?.name} weekStart={formatDate(data.weekStart)} weekEnd={formatDate(data.weekEnd)} clientName={data.companyName} reportRef={reportRef}>
-        <SectionHeader number={4} title="Equipment register" />
-        <Text style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center', marginTop: 40 }}>Content will be added in Phase 3 & 4</Text>
-      </PageFrame>
+      {/* Section 4 — Equipment Register */}
+      <EquipmentRegister
+        equipmentRows={data.equipmentRows}
+        projectName={data.project?.name}
+        pageProps={pageProps}
+      />
 
       {/* Section 5 — PM Inspection */}
       <InspectionSection
