@@ -166,6 +166,7 @@ export default function HSReportGenerator() {
   const [toolboxTalks, setToolboxTalks] = useState([])
   const rawTalksRef = useRef([])
   const rawRamsRef = useRef({ docs: [], signoffs: [] })
+  const rawAttendanceRef = useRef([])
   const [manualTalks, setManualTalks] = useState([])
 
   // Training
@@ -285,6 +286,7 @@ export default function HSReportGenerator() {
 
       // Attendance -> Labour Return
       const attendance = attendanceRes.data || []
+      rawAttendanceRef.current = attendance
       const labourMap = {}
       attendance.forEach(rec => {
         const op = (opsRes.data || []).find(o => o.id === rec.operative_id)
@@ -1151,6 +1153,7 @@ export default function HSReportGenerator() {
         ramsRows,
         rawRams: rawRamsRef.current,
         labourData: labourRows,
+        rawAttendance: rawAttendanceRef.current,
         safeStartCards,
         project: projectData || projects.find(p => p.id === selectedProject) || {},
         company,

@@ -62,21 +62,32 @@ export function classifyExpiry(dateValue, weekEndDate) {
  *             inspectionsTotal: number, expiringCertCount: number,
  *             attentionItems: Array<{ severity: string, message: string, page: number }> }}
  */
-export function computeReportSummary({ operatives, weekEnd, pmChecklist, envChecklist, opChecklist, labourData, equipmentRows }) {
+export function computeReportSummary({ operatives, weekEnd, pmChecklist, envChecklist, opChecklist, labourData, rawAttendance, equipmentRows }) {
   const attentionItems = []
 
-  // --- Total shifts from labour data (headcount per day, not hours) ---
+  // --- Total shifts: count sign_in events only (not sign_out) to avoid double-counting ---
   let totalShifts = 0
-  if (Array.isArray(labourData)) {
+  const signInOps = new Set()
+  if (Array.isArray(rawAttendance) && rawAttendance.length > 0) {
+    // Use raw attendance data: filter to sign_in only, count events, track unique operatives
+    rawAttendance.forEach(rec => {
+      if (rec.type === 'sign_in') {
+        totalShifts++
+        if (rec.operative_id) signInOps.add(rec.operative_id)
+      }
+    })
+  } else if (Array.isArray(labourData)) {
+    // Fallback to labourData if rawAttendance not available (halve to approximate)
     labourData.forEach(row => {
       if (Array.isArray(row.days)) {
         totalShifts += row.days.reduce((sum, d) => sum + (Number(d) || 0), 0)
       }
     })
+    totalShifts = Math.round(totalShifts / 2)
   }
 
-  // --- Operative count ---
-  const operativeCount = Array.isArray(operatives) ? operatives.length : 0
+  // --- Operative count: unique operatives who actually signed in, not roster size ---
+  const operativeCount = signInOps.size > 0 ? signInOps.size : (Array.isArray(operatives) ? operatives.length : 0)
 
   // --- Inspections passed ---
   let inspectionsPassed = 0

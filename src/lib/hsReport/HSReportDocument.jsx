@@ -15,6 +15,7 @@ export default function HSReportDocument({ data }) {
     envChecklist: data.envChecklist,
     opChecklist: data.opChecklist,
     labourData: data.labourData,
+    rawAttendance: data.rawAttendance,
     equipmentRows: data.equipmentRows,
   })
 
