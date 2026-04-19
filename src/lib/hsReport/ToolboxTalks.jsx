@@ -85,19 +85,17 @@ function TalkBlock({ talk, isFirst }) {
 
   return (
     <View style={s.talkBlock}>
-      {/* Talk header row */}
+      {/* Talk header: title + pill on row 1, meta on row 2 */}
       <View style={s.talkHeader}>
-        <View style={{ flex: 1 }}>
-          <View style={s.talkTitleRow}>
-            <Text style={s.talkTitle}>{talk.title || '\u2014'}</Text>
-            {hasZeroAttendees && <Pill text="No attendees" color="red" />}
-            {!hasZeroAttendees && unsignedCount > 0 && <Pill text={`Unsigned: ${unsignedCount}`} color="amber" />}
-          </View>
-          <Text style={s.talkMeta}>
-            {formatDate(talk.created_at)} {'\u00b7'} {sigs.length} attendee{sigs.length !== 1 ? 's' : ''}
-            {talk.description ? ` \u00b7 ${talk.description.length > 80 ? talk.description.slice(0, 80) + '\u2026' : talk.description}` : ''}
-          </Text>
+        <View style={s.talkTitleRow}>
+          <Text style={s.talkTitle}>{talk.title || '\u2014'}</Text>
+          {hasZeroAttendees && <Pill text="No attendees" color="red" />}
+          {!hasZeroAttendees && unsignedCount > 0 && <Pill text={`Unsigned: ${unsignedCount}`} color="amber" />}
         </View>
+        <Text style={s.talkMeta}>
+          {formatDate(talk.created_at)} {'\u00b7'} {sigs.length} attendee{sigs.length !== 1 ? 's' : ''}
+          {talk.description ? ` \u00b7 ${talk.description.length > 80 ? talk.description.slice(0, 80) + '\u2026' : talk.description}` : ''}
+        </Text>
       </View>
 
       {/* Attendee table */}
@@ -217,19 +215,22 @@ const s = StyleSheet.create({
   talkTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
-    marginBottom: 2,
+    marginBottom: 3,
   },
   talkTitle: {
     fontSize: 11,
     fontWeight: FONT.medium,
     color: C.textPrimary,
+    flex: 1,
   },
   talkMeta: {
     fontSize: 8,
     color: C.textMuted,
     fontWeight: FONT.regular,
     lineHeight: 1.3,
+    marginTop: 1,
   },
 
   // Attendee table
