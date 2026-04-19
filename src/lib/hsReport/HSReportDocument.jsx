@@ -6,6 +6,7 @@ import ToolboxTalks from './ToolboxTalks'
 import TrainingMatrix from './TrainingMatrix'
 import InspectionSection from './InspectionSection'
 import RAMSRegister from './RAMSRegister'
+import LabourReturn from './LabourReturn'
 
 export default function HSReportDocument({ data }) {
   const summary = computeReportSummary({
@@ -94,16 +95,18 @@ export default function HSReportDocument({ data }) {
       {/* Section 8 — RAMS Register */}
       <RAMSRegister rawRams={data.rawRams} pageProps={pageProps} />
 
-      {/* Placeholder sections 9–10 */}
-      {[
-        { num: 9, title: 'Labour return' },
-        { num: 10, title: 'Safe start cards' },
-      ].map(sec => (
-        <PageFrame key={sec.num} projectName={data.project?.name} weekStart={formatDate(data.weekStart)} weekEnd={formatDate(data.weekEnd)} clientName={data.companyName} reportRef={reportRef}>
-          <SectionHeader number={sec.num} title={sec.title} />
-          <Text style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center', marginTop: 40 }}>Content will be added in Phase 3 & 4</Text>
-        </PageFrame>
-      ))}
+      {/* Section 9 — Labour Return */}
+      <LabourReturn
+        rawAttendance={data.rawAttendance}
+        operatives={data.operatives}
+        pageProps={pageProps}
+      />
+
+      {/* Placeholder section 10 */}
+      <PageFrame projectName={data.project?.name} weekStart={formatDate(data.weekStart)} weekEnd={formatDate(data.weekEnd)} clientName={data.companyName} reportRef={reportRef}>
+        <SectionHeader number={10} title="Safe start cards" />
+        <Text style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center', marginTop: 40 }}>Content will be added in Phase 3 & 4</Text>
+      </PageFrame>
     </Document>
   )
 }
