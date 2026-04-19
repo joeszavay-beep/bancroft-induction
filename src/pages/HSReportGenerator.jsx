@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
 import { getSession } from '../lib/storage'
+import { buildSectionList } from '../lib/hsReport/sectionRegistry'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import { jsPDF } from 'jspdf'
@@ -54,19 +55,21 @@ const SS_ITEMS = [
   'Environment Changed',
 ]
 
+// Icon map for sidebar — keyed by registry section id
+const SECTION_ICONS = {
+  toolbox: BookOpen, training: Users, mgmt: Shield, equipment: Wrench,
+  pm: ClipboardList, env: Leaf, operative: HardHat, rams: FileCheck,
+  labour: Calendar, safestart: AlertTriangle,
+}
+
+// Build sidebar sections from registry + non-registry items (Settings, Cover Page)
+const registrySections = buildSectionList(null).map(s => ({
+  id: s.id, label: s.name, icon: SECTION_ICONS[s.id] || FileText,
+}))
 const SECTIONS = [
   { id: 'settings', label: 'Report Settings', icon: Settings },
   { id: 'cover', label: 'Cover Page', icon: FileText },
-  { id: 'toolbox', label: 'Toolbox Talks', icon: BookOpen },
-  { id: 'training', label: 'Training Matrix', icon: Users },
-  { id: 'mgmt', label: 'Management Training', icon: Shield },
-  { id: 'equipment', label: 'Equipment Register', icon: Wrench },
-  { id: 'pm', label: 'PM Inspection', icon: ClipboardList },
-  { id: 'env', label: 'Environmental Inspection', icon: Leaf },
-  { id: 'operative', label: 'Operative Inspection', icon: HardHat },
-  { id: 'rams', label: 'RAMS Matrix', icon: FileCheck },
-  { id: 'labour', label: 'Labour Return', icon: Calendar },
-  { id: 'safestart', label: 'Safe Start Cards', icon: AlertTriangle },
+  ...registrySections,
 ]
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
