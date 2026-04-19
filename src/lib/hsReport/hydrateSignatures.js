@@ -10,25 +10,22 @@
  * @param {Array} signatures — array of { signature_url, ...rest }
  * @returns {Promise<Array>} — same array with signatureDataUrl added
  */
-// Module-level cache shared across all calls within a report generation.
-// Cleared at the start of each report via clearSignatureCache().
-const cache = new Map()
-
-export function clearSignatureCache() {
-  cache.clear()
-}
-
 export async function hydrateSignatures(signatures) {
   if (!Array.isArray(signatures) || signatures.length === 0) return signatures
 
-  // Collect unique non-null URLs that aren't already cached
+  // In-memory cache: URL → { uri: dataUrl } object (or null on failure)
+  // Storing as an object allows @react-pdf/renderer to dedupe by reference —
+  // same object === same embedded image, preventing duplicate PDF image objects.
+  const cache = new Map()
+
+  // Collect unique non-null URLs
   const uniqueUrls = [...new Set(
     signatures
       .map(s => s.signature_url)
-      .filter(url => url != null && url !== '' && !cache.has(url))
+      .filter(url => url != null && url !== '')
   )]
 
-  // Fetch and rasterize only uncached URLs in parallel
+  // Fetch and rasterize all unique URLs in parallel
   await Promise.all(uniqueUrls.map(async (url) => {
     try {
       const resp = await fetch(url)
