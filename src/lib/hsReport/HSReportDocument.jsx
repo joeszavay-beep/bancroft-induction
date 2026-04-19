@@ -5,6 +5,7 @@ import CoverPage from './CoverPage'
 import ToolboxTalks from './ToolboxTalks'
 import TrainingMatrix from './TrainingMatrix'
 import InspectionSection from './InspectionSection'
+import RAMSRegister from './RAMSRegister'
 
 export default function HSReportDocument({ data }) {
   const summary = computeReportSummary({
@@ -89,9 +90,11 @@ export default function HSReportDocument({ data }) {
         pageProps={pageProps}
       />
 
-      {/* Placeholder sections 8–10 */}
+      {/* Section 8 — RAMS Register */}
+      <RAMSRegister rawRams={data.rawRams} pageProps={pageProps} />
+
+      {/* Placeholder sections 9–10 */}
       {[
-        { num: 8, title: 'RAMS register' },
         { num: 9, title: 'Labour return' },
         { num: 10, title: 'Safe start cards' },
       ].map(sec => (

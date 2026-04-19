@@ -165,6 +165,7 @@ export default function HSReportGenerator() {
   // Toolbox Talks
   const [toolboxTalks, setToolboxTalks] = useState([])
   const rawTalksRef = useRef([])
+  const rawRamsRef = useRef({ docs: [], signoffs: [] })
   const [manualTalks, setManualTalks] = useState([])
 
   // Training
@@ -279,6 +280,8 @@ export default function HSReportGenerator() {
         fromDb: true,
       }))
       setRamsRows(ramsData)
+      // Store raw RAMS data for PDF component
+      rawRamsRef.current = { docs, signoffs: soffs }
 
       // Attendance -> Labour Return
       const attendance = attendanceRes.data || []
@@ -1146,6 +1149,7 @@ export default function HSReportGenerator() {
         opInspector: opInspector || null,
         opComments: opComments || null,
         ramsRows,
+        rawRams: rawRamsRef.current,
         labourData: labourRows,
         safeStartCards,
         project: projectData || projects.find(p => p.id === selectedProject) || {},
