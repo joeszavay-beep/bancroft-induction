@@ -157,7 +157,7 @@ function DataRow({ op, index, weekEnd }) {
     <View style={[s.dataRow, shaded ? s.rowShaded : null]}>
       <Text style={s.numCol}>{index + 1}</Text>
       <Text style={s.nameCol}>{op.name || '\u2014'}</Text>
-      <Text style={s.roleCol}>{op.role || '\u2014'}</Text>
+      <Text style={s.roleCol}>{op.role || 'Role unknown'}</Text>
       {CERT_COLS.map(col => (
         <CertCell key={col.key} value={op[col.key]} weekEnd={weekEnd} width={col.width} />
       ))}
@@ -172,7 +172,7 @@ function MissingRecordsRow({ op, index }) {
     <View style={[s.dataRow, shaded ? s.rowShaded : null]}>
       <Text style={s.numCol}>{index + 1}</Text>
       <Text style={s.nameCol}>{op.name || '—'}</Text>
-      <Text style={s.roleCol}>{op.role || '—'}</Text>
+      <Text style={s.roleCol}>{op.role || 'Role unknown'}</Text>
       <View style={s.missingSpan}>
         <Pill text="MISSING RECORDS — chase this week" color="red" />
       </View>
@@ -256,7 +256,7 @@ export default function TrainingMatrix({ operatives, weekEnd, projectName, weekS
 
       {chunk.length === 0 && (
         <View style={s.emptyRow}>
-          <Text style={s.emptyText}>No operatives recorded for this period</Text>
+          <Text style={s.emptyText}>No operative training records for this period</Text>
         </View>
       )}
 

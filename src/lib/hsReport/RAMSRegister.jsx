@@ -25,7 +25,7 @@ function SummaryStrip({ stats }) {
   const tiles = [
     { label: 'Active',              value: stats.active,     bg: C.surfaceMuted, txt: C.textPrimary,    border: C.border },
     { label: 'Review overdue',      value: stats.overdue,    bg: C.redBg,        txt: C.redTextDark,    border: C.red },
-    { label: 'Review within 30d',   value: stats.soon,       bg: C.amberBg,      txt: C.amberTextDark,  border: C.amber },
+    { label: 'Review \u226430d',   value: stats.soon,       bg: C.amberBg,      txt: C.amberTextDark,  border: C.amber },
     { label: 'Sign-off incomplete', value: stats.incomplete,  bg: C.redBg,        txt: C.redTextDark,    border: C.red },
   ]
   return (

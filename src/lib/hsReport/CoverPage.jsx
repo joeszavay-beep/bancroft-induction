@@ -79,18 +79,18 @@ export default function CoverPage({ data, summary }) {
         <KPITile
           label="Shifts worked"
           value={summary.totalShifts > 0 ? summary.totalShifts : '\u2014'}
-          context={summary.totalShifts > 0 ? 'Headcount \u00b7 week' : 'No data'}
+          context={summary.totalShifts > 0 ? 'Headcount \u00b7 week' : 'No data this period'}
         />
         <KPITile
           label="Operatives on site"
           value={summary.operativeCount > 0 ? summary.operativeCount : '\u2014'}
-          context={summary.operativeCount > 0 ? 'Unique sign-ins' : 'No data'}
+          context={summary.operativeCount > 0 ? 'Unique sign-ins' : 'No data this period'}
         />
         <KPITile
           label="Inspections passed"
           value={summary.inspectionsTotal > 0 ? `${summary.inspectionsPassed}/${summary.inspectionsTotal}` : '\u2014'}
           color={passColour}
-          context={summary.inspectionsTotal > 0 ? `${Math.round(passRate * 100)}% pass rate` : 'No data'}
+          context={summary.inspectionsTotal > 0 ? `${Math.round(passRate * 100)}% pass rate` : 'No data this period'}
         />
         <KPITile
           label="Urgent certs"
@@ -98,7 +98,7 @@ export default function CoverPage({ data, summary }) {
           color={summary.expiringCertCount > 0 ? 'red' : 'neutral'}
           context={summary.expiringCertCount > 0
             ? `${summary.expiredCertCount} Expired \u00b7 ${summary.criticalCertCount} Expiring \u226430d`
-            : 'All current'}
+            : 'No data this period'}
         />
       </View>
 
