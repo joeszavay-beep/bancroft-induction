@@ -117,7 +117,7 @@ function TotalsRow({ dayCounts, grandTotal, avgDaily }) {
         <Text key={i} style={[s.dayCell, { fontWeight: FONT.medium }]}>{d > 0 ? d : '\u2014'}</Text>
       ))}
       <Text style={[s.totalCell, { fontWeight: FONT.medium }]}>{grandTotal}</Text>
-      <Text style={[s.avgCell, { fontWeight: FONT.medium }]}>{avgDaily}</Text>
+      <Text style={[s.avgCell, { fontWeight: FONT.medium, color: C.textPrimary }]}>{avgDaily}</Text>
     </View>
   )
 }
