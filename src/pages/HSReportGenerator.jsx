@@ -164,6 +164,7 @@ export default function HSReportGenerator() {
   // ── Section Data ──
   // Toolbox Talks
   const [toolboxTalks, setToolboxTalks] = useState([])
+  const rawTalksRef = useRef([])
   const [manualTalks, setManualTalks] = useState([])
 
   // Training
@@ -244,8 +245,9 @@ export default function HSReportGenerator() {
           .gte('created_at', ws.toISOString()).lte('created_at', we.toISOString()),
       ])
 
-      // Toolbox Talks
-      const talks = (talksRes.data || []).map(t => ({
+      // Toolbox Talks — store both flattened (for UI) and raw (for PDF with signatures)
+      const rawTalks = talksRes.data || []
+      const talks = rawTalks.map(t => ({
         date: fmtUK(t.created_at),
         topic: t.topic || t.title || '',
         attendees: (t.toolbox_signatures || []).length,
@@ -253,6 +255,8 @@ export default function HSReportGenerator() {
         fromDb: true,
       }))
       setToolboxTalks(talks)
+      // Store raw talks with nested signatures for PDF generation
+      rawTalksRef.current = rawTalks
 
       // Operatives
       setOperatives(opsRes.data || [])
@@ -1113,13 +1117,23 @@ export default function HSReportGenerator() {
     if (!selectedProject) return toast.error('Select a project first')
     setPreviewGenerating(true)
     try {
-      const [{ pdf }, { default: HSReportDocument }] = await Promise.all([
+      const [{ pdf }, { default: HSReportDocument }, { hydrateSignatures }] = await Promise.all([
         import('@react-pdf/renderer'),
         import('../lib/hsReport/HSReportDocument'),
+        import('../lib/hsReport/hydrateSignatures'),
       ])
+
+      // Hydrate signatures for all raw talks
+      const rawTalks = rawTalksRef.current || []
+      const hydratedTalks = await Promise.all(rawTalks.map(async (talk) => {
+        const sigs = talk.toolbox_signatures || []
+        const hydrated = await hydrateSignatures(sigs)
+        return { ...talk, toolbox_signatures: hydrated }
+      }))
 
       const reportData = {
         allTalks: [...toolboxTalks, ...manualTalks],
+        rawTalks: hydratedTalks,
         operatives,
         equipmentRows,
         pmChecklist: pmChecks,

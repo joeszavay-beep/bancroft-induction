@@ -170,7 +170,7 @@ export default function InspectionSection({ sectionNumber, title, checklist, ins
         <SectionHeader
           number={sectionNumber}
           title={title}
-          context={headerContext}
+          context={[inspectorName ? `Inspector: ${inspectorName}` : null, headerContext].filter(Boolean).join(' \u00b7 ')}
         />
       )}
 
@@ -182,13 +182,6 @@ export default function InspectionSection({ sectionNumber, title, checklist, ins
       )}
 
       {chunkIdx === 0 && items.length > 0 && <SummaryStrip stats={stats} />}
-
-      {/* Inspector metadata */}
-      {chunkIdx === 0 && inspectorName && (
-        <Text style={s.inspectorMeta}>
-          Inspector: {inspectorName}
-        </Text>
-      )}
 
       {chunk.length === 0 && (
         <View style={s.emptyRow}>

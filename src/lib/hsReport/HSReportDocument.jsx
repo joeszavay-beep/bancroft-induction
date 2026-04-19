@@ -2,6 +2,7 @@ import { Document, Text } from '@react-pdf/renderer'
 import { computeReportSummary, formatDate } from './utils'
 import { PageFrame, SectionHeader } from './primitives'
 import CoverPage from './CoverPage'
+import ToolboxTalks from './ToolboxTalks'
 import TrainingMatrix from './TrainingMatrix'
 import InspectionSection from './InspectionSection'
 
@@ -31,11 +32,12 @@ export default function HSReportDocument({ data }) {
   return (
     <Document>
       <CoverPage data={data} summary={summary} />
-      {/* Section 1 placeholder */}
-      <PageFrame projectName={data.project?.name} weekStart={formatDate(data.weekStart)} weekEnd={formatDate(data.weekEnd)} clientName={data.companyName} reportRef={reportRef}>
-        <SectionHeader number={1} title="Toolbox talks" />
-        <Text style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center', marginTop: 40 }}>Content will be added in Phase 3 & 4</Text>
-      </PageFrame>
+      {/* Section 1 — Toolbox Talks */}
+      <ToolboxTalks
+        rawTalks={data.rawTalks}
+        operatives={data.operatives}
+        pageProps={pageProps}
+      />
 
       {/* Section 2 — Operative Training Matrix */}
       <TrainingMatrix
