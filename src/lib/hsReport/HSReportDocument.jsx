@@ -9,6 +9,7 @@ import InspectionSection from './InspectionSection'
 import EquipmentRegister from './EquipmentRegister'
 import RAMSRegister from './RAMSRegister'
 import LabourReturn from './LabourReturn'
+import SafeStartCards from './SafeStartCards'
 
 export default function HSReportDocument({ data }) {
   const summary = computeReportSummary({
@@ -118,11 +119,14 @@ export default function HSReportDocument({ data }) {
         pageProps={pageProps}
       />
 
-      {/* Placeholder section 10 */}
-      <PageFrame projectName={data.project?.name} weekStart={formatDate(data.weekStart)} weekEnd={formatDate(data.weekEnd)} clientName={data.companyName} reportRef={reportRef}>
-        <SectionHeader number={10} title="Safe start cards" />
-        <Text style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center', marginTop: 40 }}>Content will be added in Phase 3 & 4</Text>
-      </PageFrame>
+      {/* Section 10 — Safe Start Cards */}
+      <SafeStartCards
+        safeStartCards={data.safeStartCards}
+        safeStartCompany={data.safeStartCompany}
+        safeStartSupervisor={data.safeStartSupervisor}
+        safeStartTrade={data.safeStartTrade}
+        pageProps={pageProps}
+      />
     </Document>
   )
 }
