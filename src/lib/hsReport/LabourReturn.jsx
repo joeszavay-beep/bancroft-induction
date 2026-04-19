@@ -123,14 +123,14 @@ function TotalsRow({ dayCounts, grandTotal, avgDaily }) {
 }
 
 // ── Main component ──
-export default function LabourReturn({ rawAttendance, operatives, pageProps }) {
+export default function LabourReturn({ rawAttendance, operatives, pageProps, theme }) {
   const stats = buildTradeGrid(rawAttendance, operatives)
 
   // Empty state
   if (stats.grandTotal === 0) {
     return (
       <PageFrame {...pageProps}>
-        <SectionHeader number={9} title="Labour return" context="0 shifts" />
+        <SectionHeader number={9} title="Labour return" context="0 shifts" theme={theme} />
         <View style={s.emptyRow}>
           <Text style={s.emptyText}>No attendance recorded for this period</Text>
         </View>
@@ -152,10 +152,11 @@ export default function LabourReturn({ rawAttendance, operatives, pageProps }) {
           number={9}
           title="Labour return"
           context={`${stats.grandTotal} shifts \u00b7 ${stats.uniqueOps} operatives`}
+          theme={theme}
         />
       )}
       {chunkIdx > 0 && (
-        <SectionHeader number={9} title="Labour return (continued)" />
+        <SectionHeader number={9} title="Labour return (continued)" theme={theme} />
       )}
       {chunkIdx === 0 && <SummaryStrip stats={stats} />}
 

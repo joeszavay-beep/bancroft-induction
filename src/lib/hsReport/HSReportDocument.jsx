@@ -1,6 +1,6 @@
 import { Document, Text } from '@react-pdf/renderer'
 import { computeReportSummary, formatDate } from './utils'
-import { SUPERVISOR_ROLES } from './theme'
+import { C, SUPERVISOR_ROLES } from './theme'
 import { buildSectionList } from './sectionRegistry'
 import { PageFrame, SectionHeader } from './primitives'
 import CoverPage from './CoverPage'
@@ -26,6 +26,20 @@ export default function HSReportDocument({ data }) {
 
   // Build section list from registry (commit 3 will pass company.settings.report.section_config)
   const sections = buildSectionList(null)
+
+  // Dynamic theme — override navy/blue from company brand colours
+  const theme = {
+    navy: data.company?.secondary_colour || C.navy,
+    navyLight: C.navyLight,
+    blue: data.company?.primary_colour || C.blue,
+    blueLight: C.blueLight,
+    green: C.green, greenBg: C.greenBg, greenText: C.greenText, greenTextDark: C.greenTextDark,
+    amber: C.amber, amberBg: C.amberBg, amberText: C.amberText, amberTextDark: C.amberTextDark,
+    red: C.red, redBg: C.redBg, redBgLight: C.redBgLight, redText: C.redText, redTextDark: C.redTextDark,
+    textPrimary: C.textPrimary, textSecondary: C.textSecondary, textMuted: C.textMuted, textFaint: C.textFaint,
+    empty: C.empty, border: C.border, borderMuted: C.borderMuted, rowShade: C.rowShade, surfaceMuted: C.surfaceMuted,
+    white: C.white,
+  }
 
   const coAbbr = (data.companyName || 'CO').substring(0, 3).toUpperCase()
   const pnAbbr = (data.project?.name || 'PRJ').substring(0, 2).toUpperCase()
@@ -55,17 +69,19 @@ export default function HSReportDocument({ data }) {
 
   return (
     <Document>
-      <CoverPage data={data} summary={summary} sections={sections} />
+      <CoverPage data={data} summary={summary} sections={sections} theme={theme} />
       {/* Section 1 — Toolbox Talks */}
       <ToolboxTalks
         rawTalks={data.rawTalks}
         operatives={data.operatives}
         pageProps={pageProps}
+        theme={theme}
       />
 
       {/* Section 2 — Operative Training Matrix (excludes supervisors) */}
       <TrainingMatrix
         operatives={operativeOps}
+        theme={theme}
         {...matrixProps}
       />
 
@@ -75,6 +91,7 @@ export default function HSReportDocument({ data }) {
         sectionNumber={3}
         title="Management training"
         contextLabel="supervisor"
+        theme={theme}
         {...matrixProps}
       />
 
@@ -83,6 +100,7 @@ export default function HSReportDocument({ data }) {
         equipmentRows={data.equipmentRows}
         projectName={data.project?.name}
         pageProps={pageProps}
+        theme={theme}
       />
 
       {/* Section 5 — PM Inspection */}
@@ -93,6 +111,7 @@ export default function HSReportDocument({ data }) {
         inspectorName={data.pmInspector}
         notes={data.pmComments}
         pageProps={pageProps}
+        theme={theme}
       />
       {/* Section 6 — Environmental Inspection */}
       <InspectionSection
@@ -102,6 +121,7 @@ export default function HSReportDocument({ data }) {
         inspectorName={data.envInspector}
         notes={data.envComments}
         pageProps={pageProps}
+        theme={theme}
       />
       {/* Section 7 — Operative Inspection */}
       <InspectionSection
@@ -111,16 +131,18 @@ export default function HSReportDocument({ data }) {
         inspectorName={data.opInspector}
         notes={data.opComments}
         pageProps={pageProps}
+        theme={theme}
       />
 
       {/* Section 8 — RAMS Register */}
-      <RAMSRegister rawRams={data.rawRams} pageProps={pageProps} />
+      <RAMSRegister rawRams={data.rawRams} pageProps={pageProps} theme={theme} />
 
       {/* Section 9 — Labour Return */}
       <LabourReturn
         rawAttendance={data.rawAttendance}
         operatives={data.operatives}
         pageProps={pageProps}
+        theme={theme}
       />
 
       {/* Section 10 — Safe Start Cards */}
@@ -130,6 +152,7 @@ export default function HSReportDocument({ data }) {
         safeStartSupervisor={data.safeStartSupervisor}
         safeStartTrade={data.safeStartTrade}
         pageProps={pageProps}
+        theme={theme}
       />
     </Document>
   )

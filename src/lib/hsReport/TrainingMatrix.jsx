@@ -208,7 +208,7 @@ function Legend() {
 }
 
 // ── Main component ──
-export default function TrainingMatrix({ operatives, weekEnd, projectName, weekStart, weekEndFmt, clientName, reportRef, sectionNumber = 2, title = 'Operative training matrix', contextLabel = 'operative' }) {
+export default function TrainingMatrix({ operatives, weekEnd, projectName, weekStart, weekEndFmt, clientName, reportRef, sectionNumber = 2, title = 'Operative training matrix', contextLabel = 'operative', theme }) {
   const ops = Array.isArray(operatives) ? operatives : []
   const sorted = [...ops].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
@@ -243,6 +243,7 @@ export default function TrainingMatrix({ operatives, weekEnd, projectName, weekS
           number={sectionNumber}
           title={title}
           context={`${sorted.length} ${contextLabel}${sorted.length !== 1 ? 's' : ''}`}
+          theme={theme}
         />
       )}
       {chunkIdx === 0 && <SummaryStrip stats={stats} />}

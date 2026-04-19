@@ -128,7 +128,7 @@ function DataRow({ row, index }) {
 }
 
 // ── Main component ──
-export default function EquipmentRegister({ equipmentRows, projectName, pageProps }) {
+export default function EquipmentRegister({ equipmentRows, projectName, pageProps, theme }) {
   // Resolve data — use demo fallback for Riverside Tower when empty
   let rows = Array.isArray(equipmentRows) && equipmentRows.length > 0
     ? equipmentRows
@@ -138,7 +138,7 @@ export default function EquipmentRegister({ equipmentRows, projectName, pageProp
   if (rows.length === 0) {
     return (
       <PageFrame {...pageProps}>
-        <SectionHeader number={4} title="Equipment register" context="0 items" />
+        <SectionHeader number={4} title="Equipment register" context="0 items" theme={theme} />
         <View style={s.emptyRow}>
           <Text style={s.emptyText}>No equipment on register for this period</Text>
         </View>
@@ -171,10 +171,11 @@ export default function EquipmentRegister({ equipmentRows, projectName, pageProp
           number={4}
           title="Equipment register"
           context={`${total} item${total !== 1 ? 's' : ''}`}
+          theme={theme}
         />
       )}
       {chunkIdx > 0 && (
-        <SectionHeader number={4} title="Equipment register (continued)" />
+        <SectionHeader number={4} title="Equipment register (continued)" theme={theme} />
       )}
       {chunkIdx === 0 && <SummaryStrip stats={{ total, inspected, failed, notInspected }} />}
 

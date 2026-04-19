@@ -117,7 +117,7 @@ function TalkBlock({ talk, isFirst }) {
 }
 
 // ── Main component ──
-export default function ToolboxTalks({ rawTalks, operatives, pageProps }) {
+export default function ToolboxTalks({ rawTalks, operatives, pageProps, theme }) {
   const talks = Array.isArray(rawTalks) ? rawTalks : []
   const totalOperatives = Array.isArray(operatives) ? operatives.length : 0
 
@@ -131,7 +131,7 @@ export default function ToolboxTalks({ rawTalks, operatives, pageProps }) {
   if (talks.length === 0) {
     return (
       <PageFrame {...pageProps}>
-        <SectionHeader number={1} title="Toolbox talks" context="0 talks" />
+        <SectionHeader number={1} title="Toolbox talks" context="0 talks" theme={theme} />
         <View style={s.emptyRow}>
           <Text style={s.emptyText}>No toolbox talks recorded for this period</Text>
         </View>
@@ -150,6 +150,7 @@ export default function ToolboxTalks({ rawTalks, operatives, pageProps }) {
         number={1}
         title="Toolbox talks"
         context={`${talks.length} talk${talks.length !== 1 ? 's' : ''} delivered`}
+        theme={theme}
       />
       <SummaryStrip
         talkCount={talks.length}

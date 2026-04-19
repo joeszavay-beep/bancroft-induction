@@ -1,4 +1,4 @@
-import { Page, View, Text, StyleSheet } from '@react-pdf/renderer'
+import { Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer'
 import { C, FONT, SIZE } from './theme'
 import { formatDate } from './utils'
 import { KPITile, Eyebrow, AttentionCallout } from './primitives'
@@ -12,10 +12,10 @@ function InfoCol({ label, value }) {
   )
 }
 
-function ContentsRow({ num, title, page }) {
+function ContentsRow({ num, title, page, theme }) {
   return (
     <View style={s.contentsRow}>
-      <Text style={s.contentsNum}>{num}</Text>
+      <Text style={[s.contentsNum, { color: theme?.blue || C.blue }]}>{num}</Text>
       <Text style={s.contentsTitle}>{title}</Text>
       <View style={s.contentsDots} />
       <Text style={s.contentsPage}>{page}</Text>
@@ -23,7 +23,7 @@ function ContentsRow({ num, title, page }) {
   )
 }
 
-export default function CoverPage({ data, summary, sections }) {
+export default function CoverPage({ data, summary, sections, theme }) {
   const weekStartFmt = formatDate(data.weekStart)
   const weekEndFmt = formatDate(data.weekEnd)
   const passRate = summary.inspectionsTotal > 0
@@ -40,10 +40,13 @@ export default function CoverPage({ data, summary, sections }) {
   return (
     <Page size="A4" style={s.page}>
       {/* Navy header band */}
-      <View style={s.headerBand}>
+      <View style={[s.headerBand, { backgroundColor: theme?.navy || C.navy }]}>
         <View style={s.headerLeft}>
-          <Text style={s.wordmark}>CORESITE</Text>
-          <Text style={s.subtitle}>Construction Management Platform</Text>
+          {data.company?.logo_url ? (
+            <Image src={data.company.logo_url} style={s.logoImage} />
+          ) : (
+            <Text style={s.wordmark}>{data.companyName || 'Company'}</Text>
+          )}
         </View>
         <View style={s.headerRight}>
           <Text style={s.reportTitle}>Weekly H&S Report</Text>
@@ -99,7 +102,7 @@ export default function CoverPage({ data, summary, sections }) {
       <View style={s.contents}>
         <Eyebrow text="In this report" />
         {(sections || []).filter(s => s.included).map(sec => (
-          <ContentsRow key={sec.id} num={String(sec.num).padStart(2, '0')} title={sec.name} page="" />
+          <ContentsRow key={sec.id} num={String(sec.num).padStart(2, '0')} title={sec.name} page="" theme={theme} />
         ))}
       </View>
 
@@ -127,7 +130,6 @@ const s = StyleSheet.create({
 
   // ── Header band ──
   headerBand: {
-    backgroundColor: C.navy,
     paddingVertical: 28,
     paddingHorizontal: SIZE.pageH,
     flexDirection: 'row',
@@ -138,17 +140,17 @@ const s = StyleSheet.create({
   headerLeft: {
     justifyContent: 'flex-end',
   },
+  logoImage: {
+    maxHeight: 40,
+    maxWidth: 180,
+    objectFit: 'contain',
+  },
   wordmark: {
     fontSize: 26,
     fontWeight: FONT.medium,
     color: C.white,
     letterSpacing: 3,
     marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 10,
-    color: C.blueLight,
-    fontWeight: FONT.regular,
   },
   headerRight: {
     alignItems: 'flex-end',
@@ -222,7 +224,6 @@ const s = StyleSheet.create({
   contentsNum: {
     fontSize: 9,
     fontWeight: FONT.medium,
-    color: C.blue,
     width: 24,
   },
   contentsTitle: {

@@ -90,7 +90,7 @@ function DataRow({ item, dayValues, index }) {
 }
 
 // ── Main component ──
-export default function SafeStartCards({ safeStartCards, safeStartCompany, safeStartSupervisor, safeStartTrade, pageProps }) {
+export default function SafeStartCards({ safeStartCards, safeStartCompany, safeStartSupervisor, safeStartTrade, pageProps, theme }) {
   const cards = Array.isArray(safeStartCards) ? safeStartCards : []
 
   // Check if any day has data
@@ -100,7 +100,7 @@ export default function SafeStartCards({ safeStartCards, safeStartCompany, safeS
   if (daysWithData === 0) {
     return (
       <PageFrame {...pageProps}>
-        <SectionHeader number={10} title="Safe start cards" context="0 of 7 days recorded" />
+        <SectionHeader number={10} title="Safe start cards" context="0 of 7 days recorded" theme={theme} />
         <View style={s.emptyRow}>
           <Text style={s.emptyText}>No safe start records for this period</Text>
         </View>
@@ -144,6 +144,7 @@ export default function SafeStartCards({ safeStartCards, safeStartCompany, safeS
         number={10}
         title="Safe start cards"
         context={`${daysWithData} of 7 days recorded`}
+        theme={theme}
       />
 
       <SummaryStrip stats={{ total: totalCells, confirmed, flagged, notRecorded }} />

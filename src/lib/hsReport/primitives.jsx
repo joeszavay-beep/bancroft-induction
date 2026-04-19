@@ -187,14 +187,16 @@ const kpiStyles = StyleSheet.create({
 })
 
 // ── SectionHeader ──
-export function SectionHeader({ number, title, context }) {
+export function SectionHeader({ number, title, context, theme }) {
+  const navyColor = theme?.navy || C.navy
+  const blueColor = theme?.blueLight || C.blueLight
   return (
-    <View style={shStyles.band}>
+    <View style={[shStyles.band, { backgroundColor: navyColor }]}>
       <View style={shStyles.left}>
-        <Text style={shStyles.number}>{String(number).padStart(2, '0')}</Text>
+        <Text style={[shStyles.number, { color: blueColor }]}>{String(number).padStart(2, '0')}</Text>
         <Text style={shStyles.title}>{title}</Text>
       </View>
-      {context ? <Text style={shStyles.context}>{context}</Text> : null}
+      {context ? <Text style={[shStyles.context, { color: blueColor }]}>{context}</Text> : null}
     </View>
   )
 }

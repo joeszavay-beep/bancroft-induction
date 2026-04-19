@@ -130,7 +130,7 @@ function DataRow({ item, index, showComments }) {
 }
 
 // ── Main component ──
-export default function InspectionSection({ sectionNumber, title, checklist, inspectorName, notes, pageProps }) {
+export default function InspectionSection({ sectionNumber, title, checklist, inspectorName, notes, pageProps, theme }) {
   const items = Array.isArray(checklist) ? checklist : []
   const { assessed, notAssessed } = sortAndSplitChecklist(items)
 
@@ -171,6 +171,7 @@ export default function InspectionSection({ sectionNumber, title, checklist, ins
           number={sectionNumber}
           title={title}
           context={[inspectorName ? `Inspector: ${inspectorName}` : null, headerContext].filter(Boolean).join(' \u00b7 ')}
+          theme={theme}
         />
       )}
 
@@ -178,6 +179,7 @@ export default function InspectionSection({ sectionNumber, title, checklist, ins
         <SectionHeader
           number={sectionNumber}
           title={`${title} (continued)`}
+          theme={theme}
         />
       )}
 

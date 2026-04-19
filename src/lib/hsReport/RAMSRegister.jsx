@@ -118,7 +118,7 @@ function Legend() {
 }
 
 // ── Main component ──
-export default function RAMSRegister({ rawRams, pageProps }) {
+export default function RAMSRegister({ rawRams, pageProps, theme }) {
   const docs = rawRams?.docs || []
   const signoffs = rawRams?.signoffs || []
 
@@ -146,7 +146,7 @@ export default function RAMSRegister({ rawRams, pageProps }) {
   if (rows.length === 0) {
     return (
       <PageFrame {...pageProps}>
-        <SectionHeader number={8} title="RAMS register" context="0 documents" />
+        <SectionHeader number={8} title="RAMS register" context="0 documents" theme={theme} />
         <View style={s.emptyRow}>
           <Text style={s.emptyText}>No RAMS documents registered for this project</Text>
         </View>
@@ -168,10 +168,11 @@ export default function RAMSRegister({ rawRams, pageProps }) {
           number={8}
           title="RAMS register"
           context={`${active} document${active !== 1 ? 's' : ''}`}
+          theme={theme}
         />
       )}
       {chunkIdx > 0 && (
-        <SectionHeader number={8} title="RAMS register (continued)" />
+        <SectionHeader number={8} title="RAMS register (continued)" theme={theme} />
       )}
       {chunkIdx === 0 && <SummaryStrip stats={{ active, overdue, soon, incomplete }} />}
 
