@@ -56,7 +56,10 @@ CREATE POLICY "Allow all on documents" ON documents FOR ALL USING (true) WITH CH
 CREATE POLICY "Allow all on operatives" ON operatives FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on signatures" ON signatures FOR ALL USING (true) WITH CHECK (true);
 
--- 7. Create indexes for performance
+-- 7. H&S report personalisation settings (JSONB on companies table)
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}';
+
+-- 8. Create indexes for performance
 CREATE INDEX idx_documents_project ON documents(project_id);
 CREATE INDEX idx_operatives_project ON operatives(project_id);
 CREATE INDEX idx_signatures_operative ON signatures(operative_id);
