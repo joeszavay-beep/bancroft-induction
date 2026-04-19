@@ -125,9 +125,17 @@ export default function SafeStartCards({ safeStartCards, safeStartCompany, safeS
   }
   const notRecorded = totalCells - confirmed - flagged
 
-  // Reconciliation check
+  // Reconciliation checks
   if (confirmed + flagged + notRecorded !== totalCells) {
     console.warn(`[SafeStartCards] Pill reconciliation failed: ${confirmed} + ${flagged} + ${notRecorded} !== ${totalCells}`)
+  }
+
+  // Day-column alignment check: subtitle day count must match non-empty column count
+  const nonEmptyColumns = DAY_HEADERS.map((_, colIdx) => {
+    return cards[colIdx]?.checks?.some(c => c.value && c.value !== '') || false
+  }).filter(Boolean).length
+  if (daysWithData !== nonEmptyColumns) {
+    console.warn(`[SafeStartCards] Day alignment mismatch: subtitle says ${daysWithData} days but ${nonEmptyColumns} columns have data`)
   }
 
   return (

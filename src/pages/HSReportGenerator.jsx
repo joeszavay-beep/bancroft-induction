@@ -87,9 +87,13 @@ function mondayOfWeek(dateStr) {
 }
 
 function addDays(dateStr, n) {
-  const d = new Date(dateStr)
-  d.setDate(d.getDate() + n)
-  return d.toISOString().split('T')[0]
+  // Parse as local date components to avoid UTC/local timezone off-by-one
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(y, m - 1, d + n)
+  const yy = dt.getFullYear()
+  const mm = String(dt.getMonth() + 1).padStart(2, '0')
+  const dd = String(dt.getDate()).padStart(2, '0')
+  return `${yy}-${mm}-${dd}`
 }
 
 function draftKey(projectId, weekStart) {
