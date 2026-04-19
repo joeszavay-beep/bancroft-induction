@@ -135,7 +135,7 @@ export default function ToolboxTalks({ rawTalks, operatives, pageProps }) {
   talks.forEach(t => (t.toolbox_signatures || []).forEach(s => { if (s.operative_id) allAttendeeIds.add(s.operative_id) }))
   const operativesCovered = allAttendeeIds.size
   const unsigned = talks.reduce((sum, t) =>
-    sum + (t.toolbox_signatures || []).filter(s => !s.signatureDataUrl && !s.signature_url).length, 0)
+    sum + (t.toolbox_signatures || []).filter(s => s.signatureDataUrl == null).length, 0)
 
   // Empty state
   if (talks.length === 0) {
