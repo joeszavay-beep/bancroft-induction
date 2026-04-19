@@ -13,7 +13,9 @@
 export async function hydrateSignatures(signatures) {
   if (!Array.isArray(signatures) || signatures.length === 0) return signatures
 
-  // In-memory cache: URL → data URL (or null on failure)
+  // In-memory cache: URL → { uri: dataUrl } object (or null on failure)
+  // Storing as an object allows @react-pdf/renderer to dedupe by reference —
+  // same object === same embedded image, preventing duplicate PDF image objects.
   const cache = new Map()
 
   // Collect unique non-null URLs
@@ -33,13 +35,11 @@ export async function hydrateSignatures(signatures) {
       const blob = await resp.blob()
 
       if (contentType.includes('svg') || url.endsWith('.svg')) {
-        // SVG → rasterize to PNG via offscreen canvas
         const dataUrl = await rasterizeSvg(blob)
-        cache.set(url, dataUrl)
+        cache.set(url, dataUrl ? { uri: dataUrl } : null)
       } else {
-        // PNG/JPEG → convert blob to base64 data URL
         const dataUrl = await blobToDataUrl(blob)
-        cache.set(url, dataUrl)
+        cache.set(url, dataUrl ? { uri: dataUrl } : null)
       }
     } catch (err) {
       console.warn(`[hydrateSignatures] Failed to fetch ${url}:`, err.message)
@@ -47,10 +47,12 @@ export async function hydrateSignatures(signatures) {
     }
   }))
 
-  // Attach hydrated data URLs to each signature row
+  // Attach hydrated image sources to each signature row.
+  // Each signatureDataUrl is either a { uri: 'data:...' } object (shared by reference
+  // across all rows with the same URL, enabling react-pdf deduplication) or null.
   return signatures.map(sig => ({
     ...sig,
-    signatureDataUrl: sig.signature_url ? (cache.get(sig.signature_url) || null) : null,
+    signatureDataUrl: sig.signature_url ? (cache.get(sig.signature_url) ?? null) : null,
   }))
 }
 
