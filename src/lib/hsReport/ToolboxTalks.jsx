@@ -78,7 +78,8 @@ function AttendeeRow({ sig, index }) {
 // ── Single talk block ──
 function TalkBlock({ talk, isFirst }) {
   const sigs = talk.toolbox_signatures || []
-  const unsignedCount = sigs.filter(s => !s.signatureDataUrl && !s.signature_url).length
+  const signedSigs = sigs.filter(s => s.signatureDataUrl != null)
+  const unsignedCount = sigs.length - signedSigs.length
   const hasZeroAttendees = sigs.length === 0
 
   return (
@@ -96,13 +97,20 @@ function TalkBlock({ talk, isFirst }) {
         </Text>
       </View>
 
-      {/* Attendee table */}
-      {sigs.length > 0 && (
+      {/* Attendee table — only signed rows rendered */}
+      {sigs.length > 0 && signedSigs.length > 0 && (
         <View style={s.attendeeTable}>
           <AttendeeHeader />
-          {sigs.map((sig, i) => (
+          {signedSigs.map((sig, i) => (
             <AttendeeRow key={sig.id || i} sig={sig} index={i} />
           ))}
+        </View>
+      )}
+
+      {/* Has attendees but none signed */}
+      {sigs.length > 0 && signedSigs.length === 0 && (
+        <View style={s.noAttendeesBox}>
+          <Text style={s.noAttendeesText}>No signed attendees for this talk</Text>
         </View>
       )}
 
