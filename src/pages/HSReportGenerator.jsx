@@ -1117,11 +1117,15 @@ export default function HSReportGenerator() {
     if (!selectedProject) return toast.error('Select a project first')
     setPreviewGenerating(true)
     try {
-      const [{ pdf }, { default: HSReportDocument }, { hydrateSignatures }] = await Promise.all([
+      const [{ pdf }, { default: HSReportDocument }, sigModule] = await Promise.all([
         import('@react-pdf/renderer'),
         import('../lib/hsReport/HSReportDocument'),
         import('../lib/hsReport/hydrateSignatures'),
       ])
+      const { hydrateSignatures, clearSignatureCache } = sigModule
+
+      // Clear cache from any previous report generation in this session
+      clearSignatureCache()
 
       // Hydrate signatures for all raw talks
       const rawTalks = rawTalksRef.current || []
