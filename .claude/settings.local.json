@@ -63,7 +63,8 @@
       "Bash(npx -y acorn-jsx --ecma2020 src/pages/HSObservations.jsx)",
       "Bash(npx -y acorn --ecma2022 --module --jsx src/pages/DocumentHub.jsx)",
       "Bash(echo \"exit: $?\")",
-      "Bash(sudo chown:*)"
+      "Bash(sudo chown:*)",
+      "Bash(git revert:*)"
     ]
   }
 }
