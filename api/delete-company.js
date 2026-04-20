@@ -24,7 +24,9 @@ export default async function handler(req, res) {
 
     // Delete in dependency order — deepest children first
     const companyTables = [
+      // Deep children first
       'audit_logs', 'cis_records', 'timesheet_entries', 'sub_invoices',
+      'payment_applications', 'contra_charges', 'daywork_sheets', 'job_documents',
       'job_variations', 'job_operatives', 'subcontractor_jobs',
       'operative_invoices', 'markup_lines', 'progress_snapshots',
       'programme_activities', 'drawing_layers', 'design_drawings',
@@ -32,13 +34,17 @@ export default async function handler(req, res) {
       'labour_proposals', 'labour_bookings', 'labour_requests',
       'agency_connections',
       'snag_comments', 'snags',
+      'permit_signatures', 'permits', 'permit_templates',
       'toolbox_signatures', 'toolbox_talks',
+      'document_signoffs', 'document_audit_log', 'document_hub', 'document_packs',
       'signatures', 'documents', 'drawings',
-      'site_attendance', 'notifications',
+      'site_attendance', 'site_diary', 'notifications',
+      'hs_observations',
       'inspection_templates', 'inspections',
       'aftercare_defects', 'chat_messages',
       'progress_item_history', 'progress_items', 'progress_zones', 'progress_drawings',
       'bim_drawing_calibration', 'bim_elements', 'bim_models',
+      // Parent tables last
       'operatives', 'projects', 'profiles', 'managers', 'settings',
     ]
 
