@@ -68,7 +68,39 @@ CREATE POLICY "Allow all on signatures" ON signatures FOR ALL USING (true) WITH 
 -- 7. H&S report personalisation settings (JSONB on companies table)
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}';
 
--- 8. Create indexes for performance
+-- 8. Cascade delete function for operatives (called by /api/delete-operative)
+CREATE OR REPLACE FUNCTION delete_operative_cascade(op_id UUID)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  op_record RECORD;
+BEGIN
+  SELECT id, name, email, card_front_url, card_back_url, photo_url
+    INTO op_record FROM operatives WHERE id = op_id;
+  IF NOT FOUND THEN
+    RETURN json_build_object('error', 'Operative not found');
+  END IF;
+  DELETE FROM site_attendance WHERE operative_id = op_id;
+  DELETE FROM toolbox_signatures WHERE operative_id = op_id;
+  DELETE FROM chat_messages WHERE operative_id = op_id;
+  DELETE FROM notifications WHERE user_id = op_id;
+  DELETE FROM job_operatives WHERE operative_id = op_id;
+  DELETE FROM operative_availability WHERE operative_id = op_id;
+  DELETE FROM operative_certifications WHERE operative_id = op_id;
+  DELETE FROM labour_bookings WHERE operative_id = op_id;
+  DELETE FROM operatives WHERE id = op_id;
+  RETURN json_build_object(
+    'success', true, 'name', op_record.name, 'email', op_record.email,
+    'card_front_url', op_record.card_front_url,
+    'card_back_url', op_record.card_back_url,
+    'photo_url', op_record.photo_url
+  );
+END;
+$$;
+
+-- 9. Create indexes for performance
 CREATE INDEX idx_documents_project ON documents(project_id);
 CREATE INDEX idx_operative_projects_operative ON operative_projects(operative_id);
 CREATE INDEX idx_operative_projects_project ON operative_projects(project_id);
