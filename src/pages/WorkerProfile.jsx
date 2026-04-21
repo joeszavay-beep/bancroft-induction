@@ -57,6 +57,22 @@ export default function WorkerProfile() {
     toast.success(`Assigned to ${proj?.name}`)
   }
 
+  async function handleRemove(projectId) {
+    const proj = (operative.operative_projects || []).find(r => r.project_id === projectId)
+    const name = proj?.projects?.name || 'project'
+    const { error } = await supabase
+      .from('operative_projects')
+      .delete()
+      .eq('operative_id', id)
+      .eq('project_id', projectId)
+    if (error) { toast.error('Failed to remove from project'); return }
+    setOperative(prev => ({
+      ...prev,
+      operative_projects: (prev.operative_projects || []).filter(r => r.project_id !== projectId),
+    }))
+    toast.success(`Removed from ${name}`)
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -120,13 +136,22 @@ export default function WorkerProfile() {
         {/* Project */}
         <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm">
           <div className="px-5 py-3 border-b border-[#E2E6EA] bg-[#F5F6F8]">
-            <p className="text-xs font-semibold text-[#6B7A99] flex items-center gap-1.5"><Briefcase size={12} /> Project</p>
+            <p className="text-xs font-semibold text-[#6B7A99] flex items-center gap-1.5"><Briefcase size={12} /> Projects</p>
           </div>
           <div className="p-5 space-y-3">
             {(operative.operative_projects || []).length > 0 && (
               <div className="space-y-1.5">
                 {operative.operative_projects.map(r => (
-                  <p key={r.project_id} className="text-sm font-medium text-[#1A1A2E]">{r.projects?.name}</p>
+                  <div key={r.project_id} className="flex items-center justify-between group">
+                    <p className="text-sm font-medium text-[#1A1A2E]">{r.projects?.name}</p>
+                    <button
+                      onClick={() => handleRemove(r.project_id)}
+                      className="p-1 text-[#B0B8C9] hover:text-[#DA3633] opacity-0 group-hover:opacity-100 transition-all"
+                      title="Remove from project"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
