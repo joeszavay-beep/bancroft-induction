@@ -37,6 +37,7 @@ import InviteExistingWorkers from './pages/InviteExistingWorkers'
 import InvitationsPipeline from './pages/InvitationsPipeline'
 import AllWorkers from './pages/AllWorkers'
 import AddNewWorker from './pages/AddNewWorker'
+import WorkerProfile from './pages/WorkerProfile'
 import DailySiteDiary from './pages/DailySiteDiary'
 import ContractorPerformance from './pages/ContractorPerformance'
 import Inspections from './pages/Inspections'
@@ -114,6 +115,7 @@ function AppLayout() {
         <Route path="/projects" element={<PMDashboard key="projects" initialTab="projects" />} />
         <Route path="/workers" element={<AllWorkers />} />
         <Route path="/workers/new" element={<AddNewWorker />} />
+        <Route path="/workers/:id" element={<WorkerProfile />} />
         <Route path="/invite-workers" element={<InviteNewWorkers />} />
         <Route path="/invite-existing" element={<InviteExistingWorkers />} />
         <Route path="/pipeline" element={<InvitationsPipeline />} />

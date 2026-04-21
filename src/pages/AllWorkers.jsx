@@ -113,7 +113,7 @@ export default function AllWorkers() {
                   const expiringSoon = expiryFields.filter(f => new Date(f.date) >= today && new Date(f.date) <= thirtyDays)
                   const certStatus = expired.length > 0 ? 'expired' : expiringSoon.length > 0 ? 'warning' : expiryFields.length > 0 ? 'valid' : 'none'
                   return (
-                    <tr key={op.id} className="border-t border-[#E2E6EA] hover:bg-[#F5F6F8]/50">
+                    <tr key={op.id} className="border-t border-[#E2E6EA] hover:bg-[#F5F6F8]/50 cursor-pointer" onClick={() => navigate(`/app/workers/${op.id}`)}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
                           {op.photo_url ? (
@@ -155,7 +155,7 @@ export default function AllWorkers() {
                           <span className="text-[10px] text-[#B0B8C9]">No certs</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
                           <button onClick={() => setVerifyWorker(op)} className={`p-1.5 transition-colors ${op.card_verified === true ? 'text-[#2EA043]' : op.card_front_url || op.card_number ? 'text-amber-500' : 'text-[#B0B8C9]'} hover:text-[#1B6FC8]`} title="Card verification">
                             <CreditCard size={14} />
