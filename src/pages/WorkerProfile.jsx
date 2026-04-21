@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Phone, Briefcase, ShieldCheck, CheckCircle2, ZoomIn, X } from 'lucide-react'
+import { ArrowLeft, Phone, Briefcase, ShieldCheck, CheckCircle2, ZoomIn, X, Camera } from 'lucide-react'
 import { getSession } from '../lib/storage'
 
 export default function WorkerProfile() {
@@ -16,6 +16,22 @@ export default function WorkerProfile() {
   const [selectedProject, setSelectedProject] = useState('')
   const [assigning, setAssigning] = useState(false)
   const [lightbox, setLightbox] = useState(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+
+  async function handlePhotoUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingPhoto(true)
+    const filePath = `photos/${id}_${crypto.randomUUID()}.jpg`
+    const { error: upErr } = await supabase.storage.from('documents').upload(filePath, file, { contentType: file.type })
+    if (upErr) { setUploadingPhoto(false); toast.error('Failed to upload photo'); return }
+    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
+    const { error: dbErr } = await supabase.from('operatives').update({ photo_url: urlData.publicUrl }).eq('id', id)
+    setUploadingPhoto(false)
+    if (dbErr) { toast.error('Failed to save photo'); return }
+    setOperative(prev => ({ ...prev, photo_url: urlData.publicUrl }))
+    toast.success('Photo updated')
+  }
 
   useEffect(() => {
     async function load() {
@@ -106,13 +122,23 @@ export default function WorkerProfile() {
         {/* Identity */}
         <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm p-5">
           <div className="flex items-center gap-4">
-            {operative.photo_url ? (
-              <img src={operative.photo_url} alt="" className="w-16 h-16 rounded-full object-cover" />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-[#1B6FC8]/10 flex items-center justify-center text-[#1B6FC8] text-xl font-bold">
-                {operative.name.charAt(0).toUpperCase()}
+            <label className="relative w-16 h-16 rounded-full shrink-0 cursor-pointer group">
+              {operative.photo_url ? (
+                <img src={operative.photo_url} alt="" className="w-16 h-16 rounded-full object-cover" />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-[#1B6FC8]/10 flex items-center justify-center text-[#1B6FC8] text-xl font-bold">
+                  {operative.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
+                {uploadingPhoto ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Camera size={18} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                )}
               </div>
-            )}
+              <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={uploadingPhoto} />
+            </label>
             <div>
               <h2 className="text-lg font-bold text-[#1A1A2E]">{operative.name}</h2>
               {(operative.role || operative.trade) && (
