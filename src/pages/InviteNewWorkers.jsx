@@ -41,13 +41,16 @@ export default function InviteNewWorkers() {
       email: email.trim(),
       mobile: mobile.trim() || null,
       company_id: cid,
-      project_id: selectedProject || null,
     }).select().single()
 
     if (error) {
       setSaving(false)
       toast.error('Failed to create worker')
       return
+    }
+
+    if (selectedProject && data) {
+      await supabase.from('operative_projects').insert({ operative_id: data.id, project_id: selectedProject })
     }
 
     // Send invite email
@@ -125,11 +128,13 @@ export default function InviteNewWorkers() {
         email: row.email,
         mobile: row.mobile || null,
         company_id: cid,
-        project_id: bulkProject || null,
       }).select().single()
       if (error) {
         failCount++
         continue
+      }
+      if (bulkProject && data) {
+        await supabase.from('operative_projects').insert({ operative_id: data.id, project_id: bulkProject })
       }
       if (data) {
         await authFetch('/api/invite', {

@@ -8,7 +8,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight, Camera, X,
   Send, ZoomIn, Upload, ArrowLeft, Paperclip, PoundSterling, Shield, Briefcase
 } from 'lucide-react'
-import { getSession, removeSession } from '../lib/storage'
+import { getSession, removeSession, getOperativeSession } from '../lib/storage'
 import { formatMoney } from '../lib/subcontractor'
 
 const QUICK_MESSAGES = [
@@ -57,9 +57,9 @@ export default function OperativeDashboard() {
     const cid = opData.company_id
 
     // Find all operative records for this person (may be on multiple projects)
-    const { data: allOpRecords } = await supabase.from('operatives').select('id, project_id')
+    const { data: allOpRecords } = await supabase.from('operatives').select('id, operative_projects(project_id)')
       .eq('company_id', cid).eq('email', opData.email)
-    const projectIds = [...new Set((allOpRecords || []).map(o => o.project_id).filter(Boolean))]
+    const projectIds = [...new Set((allOpRecords || []).flatMap(o => (o.operative_projects || []).map(r => r.project_id)))]
     const operativeIds = (allOpRecords || []).map(o => o.id)
 
     const [docs, sigs, snagData, talkData, talkSigData, notifData] = await Promise.all([
@@ -146,9 +146,8 @@ export default function OperativeDashboard() {
   }
 
   useEffect(() => {
-    const session = getSession('operative_session')
-    if (!session) { navigate('/worker-login'); return }
-    const data = JSON.parse(session)
+    const data = getOperativeSession()
+    if (!data) { navigate('/worker-login'); return }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setOp(data)
     loadData(data)
@@ -472,7 +471,7 @@ function HomeTab({ op, unsignedDocs, unsignedTalks, snags, pendingActions, navig
       {/* Welcome */}
       <div className="bg-[#1A2744] rounded-xl p-5 text-white">
         <p className="text-lg font-bold">Hi {op.name?.split(' ')[0]}</p>
-        <p className="text-sm text-white/50">{op.project_name || 'No project assigned'}{op.role ? ` · ${op.role}` : ''}</p>
+        <p className="text-sm text-white/50">{op.projects?.map(p => p.name).join(', ') || 'No project assigned'}{op.role ? ` · ${op.role}` : ''}</p>
         {pendingActions > 0 ? (
           <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/10">
             <span className="text-3xl font-bold" style={{ color: primaryColor }}>{pendingActions}</span>
@@ -857,7 +856,7 @@ function ProfileTab({ op, handleLogout, navigate, primaryColor }) {
           )}
           <h2 className="text-lg font-bold text-white mt-3">{op.name}</h2>
           <p className="text-sm text-white/50">{op.role || 'Operative'}</p>
-          <p className="text-xs text-white/30 mt-1">{op.company_name} · {op.project_name}</p>
+          <p className="text-xs text-white/30 mt-1">{op.company_name} · {op.projects?.map(p => p.name).join(', ') || ''}</p>
         </div>
       </div>
 

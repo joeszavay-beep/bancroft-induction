@@ -56,7 +56,7 @@ export default function PMDashboard({ initialTab }) {
 
     const [pData, oData, dData, sData] = await Promise.all([
       fetchAndCache('projects', (sb) => sb.from('projects').select('*').eq('company_id', cid).order('created_at', { ascending: false })),
-      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*').eq('company_id', cid).order('name')),
+      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', cid).order('name')),
       fetchAndCache('documents', (sb) => sb.from('documents').select('*').eq('company_id', cid).order('created_at', { ascending: false })),
       fetchAndCache('signatures', (sb) => sb.from('signatures').select('*').eq('company_id', cid).order('signed_at', { ascending: false })),
     ])
@@ -76,7 +76,7 @@ export default function PMDashboard({ initialTab }) {
     const projectIds = new Set(filteredProjects.map(proj => proj.id))
 
     setProjects(filteredProjects)
-    setOperatives((oData || []).filter(op => !op.project_id || projectIds.has(op.project_id)))
+    setOperatives((oData || []).filter(op => !op.operative_projects?.length || op.operative_projects.some(r => projectIds.has(r.project_id))))
     setDocuments((dData || []).filter(doc => projectIds.has(doc.project_id)))
     setSignatures((sData || []).filter(sig => projectIds.has(sig.project_id)))
     setLoading(false)
@@ -121,13 +121,14 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
   // eslint-disable-next-line react-hooks/purity
   const now = useMemo(() => Date.now(), [operatives])
   const needsAttention = operatives
-    .filter(op => op.project_id)
-    .map(op => {
-      const projDocs = documents.filter(d => d.project_id === op.project_id)
+    .filter(op => op.operative_projects?.length)
+    .flatMap(op => {
+      return (op.operative_projects || []).map(r => {
+      const projDocs = documents.filter(d => d.project_id === r.project_id)
       const validSigs = signatures.filter(s => s.operative_id === op.id && !s.invalidated)
       const signedDocIds = new Set(validSigs.map(s => s.document_id))
       const unsignedDocs = projDocs.filter(d => !signedDocIds.has(d.id))
-      const project = projects.find(p => p.id === op.project_id)
+      const project = projects.find(p => p.id === r.project_id)
 
       // Check if operative was created more than 24 hours ago with pending docs
       const createdAt = new Date(op.created_at).getTime()
@@ -140,6 +141,7 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
         pendingDocs: unsignedDocs.length,
         overdue,
       }
+      })
     })
     .filter(op => op.pendingDocs > 0)
     .sort((a, b) => b.overdue - a.overdue || b.pendingDocs - a.pendingDocs)
@@ -390,7 +392,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
       ].map(p => p.catch(() => {})))
 
       // Unassign operatives
-      await supabase.from('operatives').update({ project_id: null }).eq('project_id', id)
+      await supabase.from('operative_projects').delete().eq('project_id', id)
 
       // Finally delete the project
       const { error } = await supabase.from('projects').delete().eq('id', id)
@@ -450,7 +452,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
     setExportingAudit(project.id)
     try {
       const projDocs = documents.filter(d => d.project_id === project.id)
-      const projOps = operatives.filter(o => o.project_id === project.id)
+      const projOps = operatives.filter(o => o.operative_projects?.some(r => r.project_id === project.id))
       const projSigs = signatures.filter(s => s.project_id === project.id)
       await generateAuditReport({
         project,
@@ -470,7 +472,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
   async function handleArchive(project) {
     setArchivingProject(project.id)
     try {
-      const projOps = operatives.filter(o => o.project_id === project.id)
+      const projOps = operatives.filter(o => o.operative_projects?.some(r => r.project_id === project.id))
       const projDocs = documents.filter(d => d.project_id === project.id)
       const projSigs = signatures.filter(s => s.project_id === project.id)
 
@@ -768,7 +770,6 @@ function TeamTab({ operatives, projects, onRefresh }) {
     setSaving(true)
     const { data, error } = await supabase.from('operatives').insert({
       name: name.trim(),
-      project_id: projectId,
       mobile: mobile.trim() || null,
       email: email.trim() || null,
       company_id: cid,
@@ -777,6 +778,9 @@ function TeamTab({ operatives, projects, onRefresh }) {
       setSaving(false)
       toast.error('Failed to add operative')
       return
+    }
+    if (projectId && data) {
+      await supabase.from('operative_projects').insert({ operative_id: data.id, project_id: projectId })
     }
     // Send invite email/SMS
     if (data && (email.trim() || mobile.trim())) {
@@ -853,7 +857,7 @@ function TeamTab({ operatives, projects, onRefresh }) {
       ) : (
         <div className="space-y-2">
           {operatives.map(op => {
-            const proj = projects.find(p => p.id === op.project_id)
+            const proj = op.operative_projects?.[0] ? projects.find(p => p.id === op.operative_projects[0].project_id) : null
             return (
               <div key={op.id} className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3">
                 <label className="relative w-12 h-12 rounded-full shrink-0 cursor-pointer group">
@@ -1128,7 +1132,7 @@ function SnagsTab({ projects, navigate }) {
     const [dData, sData, oData] = await Promise.all([
       fetchAndCache('drawings', (sb) => sb.from('drawings').select('*').eq('company_id', cid).order('uploaded_at', { ascending: false })),
       fetchAndCache('snags', (sb) => sb.from('snags').select('*').eq('company_id', cid).order('snag_number')),
-      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*').eq('company_id', cid).order('name')),
+      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', cid).order('name')),
     ])
     setDrawings(dData || [])
     setAllSnags(sData || [])

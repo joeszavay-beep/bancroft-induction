@@ -19,7 +19,7 @@ export default function InvitationsPipeline() {
     setLoading(true)
     if (!cid) { setLoading(false); return }
     const [o, d, s, p] = await Promise.all([
-      supabase.from('operatives').select('*, projects(name)').eq('company_id', cid).order('created_at', { ascending: false }),
+      supabase.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', cid).order('created_at', { ascending: false }),
       supabase.from('documents').select('*').eq('company_id', cid),
       supabase.from('signatures').select('*').eq('company_id', cid).eq('invalidated', false),
       supabase.from('projects').select('*').eq('company_id', cid).order('name'),
@@ -179,7 +179,7 @@ export default function InvitationsPipeline() {
                     <tr key={op.id} className="border-t border-[#E2E6EA] hover:bg-[#F5F6F8]/50">
                       <td className="px-4 py-3 text-[#6B7A99]">{company?.name || '—'}</td>
                       <td className="px-4 py-3 font-medium text-[#1A1A2E]">{op.name}</td>
-                      <td className="px-4 py-3 text-[#6B7A99]">{op.projects?.name || '—'}</td>
+                      <td className="px-4 py-3 text-[#6B7A99]">{op.operative_projects?.[0]?.projects?.name || '—'}</td>
                       <td className="px-4 py-3">
                         {profileDone ? (
                           <span className="text-[#2EA043] flex items-center gap-1"><Check size={14} /> Complete</span>

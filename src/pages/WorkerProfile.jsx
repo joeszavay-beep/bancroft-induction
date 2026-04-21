@@ -21,13 +21,13 @@ export default function WorkerProfile() {
     async function load() {
       const { data } = await supabase
         .from('operatives')
-        .select('*, projects(name)')
+        .select('*, operative_projects(project_id, assigned_at, projects(name))')
         .eq('id', id)
         .single()
       if (!data) { navigate('/app/workers'); return }
       setOperative(data)
 
-      if (!data.project_id && cid) {
+      if (cid) {
         const { data: projs } = await supabase
           .from('projects')
           .select('id, name')
@@ -44,13 +44,16 @@ export default function WorkerProfile() {
     if (!selectedProject) return
     setAssigning(true)
     const { error } = await supabase
-      .from('operatives')
-      .update({ project_id: selectedProject })
-      .eq('id', id)
+      .from('operative_projects')
+      .insert({ operative_id: id, project_id: selectedProject })
     setAssigning(false)
     if (error) { toast.error('Failed to assign project'); return }
     const proj = projects.find(p => p.id === selectedProject)
-    setOperative(prev => ({ ...prev, project_id: selectedProject, projects: { name: proj?.name } }))
+    setOperative(prev => ({
+      ...prev,
+      operative_projects: [...(prev.operative_projects || []), { project_id: selectedProject, projects: { name: proj?.name } }],
+    }))
+    setSelectedProject('')
     toast.success(`Assigned to ${proj?.name}`)
   }
 
@@ -119,28 +122,41 @@ export default function WorkerProfile() {
           <div className="px-5 py-3 border-b border-[#E2E6EA] bg-[#F5F6F8]">
             <p className="text-xs font-semibold text-[#6B7A99] flex items-center gap-1.5"><Briefcase size={12} /> Project</p>
           </div>
-          <div className="p-5">
-            {operative.project_id ? (
-              <p className="text-sm font-medium text-[#1A1A2E]">{operative.projects?.name}</p>
-            ) : (
-              <div className="flex items-center gap-3">
-                <select
-                  value={selectedProject}
-                  onChange={e => setSelectedProject(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]"
-                >
-                  <option value="">— Select project —</option>
-                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-                <button
-                  onClick={handleAssign}
-                  disabled={!selectedProject || assigning}
-                  className="px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] disabled:opacity-50 text-white text-sm font-medium rounded-md transition-colors"
-                >
-                  {assigning ? 'Assigning...' : 'Assign'}
-                </button>
+          <div className="p-5 space-y-3">
+            {(operative.operative_projects || []).length > 0 && (
+              <div className="space-y-1.5">
+                {operative.operative_projects.map(r => (
+                  <p key={r.project_id} className="text-sm font-medium text-[#1A1A2E]">{r.projects?.name}</p>
+                ))}
               </div>
             )}
+            {(operative.operative_projects || []).length === 0 && (
+              <p className="text-sm text-[#B0B8C9]">No project assigned</p>
+            )}
+            {(() => {
+              const assignedIds = new Set((operative.operative_projects || []).map(r => r.project_id))
+              const available = projects.filter(p => !assignedIds.has(p.id))
+              if (available.length === 0) return null
+              return (
+                <div className="flex items-center gap-3">
+                  <select
+                    value={selectedProject}
+                    onChange={e => setSelectedProject(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]"
+                  >
+                    <option value="">— Add to project —</option>
+                    {available.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                  <button
+                    onClick={handleAssign}
+                    disabled={!selectedProject || assigning}
+                    className="px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] disabled:opacity-50 text-white text-sm font-medium rounded-md transition-colors"
+                  >
+                    {assigning ? 'Assigning...' : 'Assign'}
+                  </button>
+                </div>
+              )
+            })()}
           </div>
         </div>
 

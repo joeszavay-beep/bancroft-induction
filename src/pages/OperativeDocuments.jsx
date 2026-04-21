@@ -16,7 +16,7 @@ export default function OperativeDocuments() {
     setLoading(true)
     const { data: op } = await supabase
       .from('operatives')
-      .select('*, projects(id, name)')
+      .select('*, operative_projects(project_id, projects(id, name))')
       .eq('id', operativeId)
       .single()
 
@@ -29,7 +29,7 @@ export default function OperativeDocuments() {
     const { data: docs } = await supabase
       .from('documents')
       .select('*')
-      .eq('project_id', op.project_id)
+      .in('project_id', (op.operative_projects || []).map(r => r.project_id))
       .order('created_at')
 
     const { data: sigs } = await supabase
@@ -71,7 +71,7 @@ export default function OperativeDocuments() {
         </button>
         <div className="min-w-0">
           <h1 className="text-lg font-bold text-slate-900 truncate">{operative?.name}</h1>
-          <p className="text-xs text-slate-500 truncate">{operative?.projects?.name}</p>
+          <p className="text-xs text-slate-500 truncate">{operative?.operative_projects?.[0]?.projects?.name}</p>
         </div>
       </header>
 

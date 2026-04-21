@@ -106,7 +106,7 @@ export default function PMLogin() {
     try {
       const { data: ops } = await supabase
         .from('operatives')
-        .select('*, projects(name), companies(name, logo_url, primary_colour)')
+        .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
         .eq('email', email.trim().toLowerCase())
         .eq('date_of_birth', dob)
 
@@ -119,8 +119,9 @@ export default function PMLogin() {
       const op = ops[0]
       setSession('operative_session', JSON.stringify({
         id: op.id, name: op.name, email: op.email, role: op.role,
-        photo_url: op.photo_url, project_id: op.project_id,
-        project_name: op.projects?.name, company_id: op.company_id,
+        photo_url: op.photo_url,
+        projects: (op.operative_projects || []).map(r => ({ id: r.project_id, name: r.projects?.name })),
+        company_id: op.company_id,
         company_name: op.companies?.name, company_logo: op.companies?.logo_url,
         primary_colour: op.companies?.primary_colour || '#1B6FC8',
       }))

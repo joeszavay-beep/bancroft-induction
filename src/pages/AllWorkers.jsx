@@ -19,7 +19,7 @@ export default function AllWorkers() {
   async function loadData() {
     setLoading(true)
     if (!cid) { setLoading(false); return }
-    const { data } = await supabase.from('operatives').select('*, projects(name)').eq('company_id', cid).order('name')
+    const { data } = await supabase.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', cid).order('name')
     setOperatives(data || [])
     setLoading(false)
   }
@@ -129,7 +129,7 @@ export default function AllWorkers() {
                       <td className="px-4 py-3 text-[#6B7A99]">{op.role || '—'}</td>
                       <td className="px-4 py-3 text-[#6B7A99] hidden sm:table-cell">{op.email || '—'}</td>
                       <td className="px-4 py-3 text-[#6B7A99] hidden sm:table-cell">{op.mobile || '—'}</td>
-                      <td className="px-4 py-3 text-[#6B7A99]">{op.projects?.name || '—'}</td>
+                      <td className="px-4 py-3 text-[#6B7A99]">{(() => { const names = op.operative_projects?.map(r => r.projects?.name).filter(Boolean) || []; return names.length === 0 ? '—' : names.length === 1 ? names[0] : `${names[0]} (+${names.length - 1})` })()}</td>
                       <td className="px-4 py-3 hidden md:table-cell">
                         {op.cscs_number ? (
                           <div>

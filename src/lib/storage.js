@@ -21,3 +21,22 @@ export function removeSession(key) {
 export function hasStoredSession() {
   return !!store.getItem('pm_auth') || !!store.getItem('operative_session')
 }
+
+/**
+ * Read operative session with backward-compat shim.
+ * Old shape: { project_id, project_name, ... }
+ * New shape: { projects: [{ id, name }], ... }
+ */
+export function getOperativeSession() {
+  const raw = store.getItem('operative_session')
+  if (!raw) return null
+  try {
+    const data = JSON.parse(raw)
+    if (!data.projects && (data.project_id || data.project_name)) {
+      data.projects = data.project_id ? [{ id: data.project_id, name: data.project_name }] : []
+      delete data.project_id
+      delete data.project_name
+    }
+    return data
+  } catch { return null }
+}

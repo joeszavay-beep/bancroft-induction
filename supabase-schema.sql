@@ -27,8 +27,15 @@ CREATE TABLE operatives (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   role TEXT,
-  project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 3b. Operative-project many-to-many junction
+CREATE TABLE operative_projects (
+  operative_id UUID REFERENCES operatives(id) ON DELETE CASCADE,
+  project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+  assigned_at TIMESTAMPTZ DEFAULT now(),
+  PRIMARY KEY (operative_id, project_id)
 );
 
 -- 4. Signatures table
@@ -48,12 +55,14 @@ CREATE TABLE signatures (
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE operatives ENABLE ROW LEVEL SECURITY;
+ALTER TABLE operative_projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE signatures ENABLE ROW LEVEL SECURITY;
 
 -- 6. Create policies to allow all operations (public access via anon key)
 CREATE POLICY "Allow all on projects" ON projects FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on documents" ON documents FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on operatives" ON operatives FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all on operative_projects" ON operative_projects FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on signatures" ON signatures FOR ALL USING (true) WITH CHECK (true);
 
 -- 7. H&S report personalisation settings (JSONB on companies table)
@@ -61,7 +70,8 @@ ALTER TABLE companies ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}';
 
 -- 8. Create indexes for performance
 CREATE INDEX idx_documents_project ON documents(project_id);
-CREATE INDEX idx_operatives_project ON operatives(project_id);
+CREATE INDEX idx_operative_projects_operative ON operative_projects(operative_id);
+CREATE INDEX idx_operative_projects_project ON operative_projects(project_id);
 CREATE INDEX idx_signatures_operative ON signatures(operative_id);
 CREATE INDEX idx_signatures_project ON signatures(project_id);
 CREATE INDEX idx_signatures_document ON signatures(document_id);

@@ -33,8 +33,8 @@ export default function SiteSignIn() {
           .single(),
         supabase
           .from('operatives')
-          .select('id, name, role, photo_url')
-          .eq('project_id', projectId)
+          .select('id, name, role, photo_url, operative_projects!inner(project_id)')
+          .eq('operative_projects.project_id', projectId)
           .order('name'),
         supabase
           .from('site_attendance')

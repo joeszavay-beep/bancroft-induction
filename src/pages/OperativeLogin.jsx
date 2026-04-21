@@ -38,7 +38,7 @@ export default function OperativeLogin() {
         // Auth succeeded — find the operative record
         const { data: ops } = await supabase
           .from('operatives')
-          .select('*, projects(name), companies(name, logo_url, primary_colour)')
+          .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
           .eq('email', email.trim().toLowerCase())
 
         if (ops?.length) {
@@ -50,7 +50,7 @@ export default function OperativeLogin() {
       if (!operative) {
         const { data: ops } = await supabase
           .from('operatives')
-          .select('*, projects(name), companies(name, logo_url, primary_colour)')
+          .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
           .eq('email', email.trim().toLowerCase())
 
         if (ops?.length) {
@@ -75,8 +75,7 @@ export default function OperativeLogin() {
         email: operative.email,
         role: operative.role,
         photo_url: operative.photo_url,
-        project_id: operative.project_id,
-        project_name: operative.projects?.name,
+        projects: (operative.operative_projects || []).map(r => ({ id: r.project_id, name: r.projects?.name })),
         company_id: operative.company_id,
         company_name: operative.companies?.name,
         company_logo: operative.companies?.logo_url,

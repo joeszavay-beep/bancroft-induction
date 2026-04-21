@@ -17,7 +17,7 @@ export default function InviteExistingWorkers() {
   async function loadData() {
     if (!cid) { setLoading(false); return }
     const [o, p] = await Promise.all([
-      supabase.from('operatives').select('*, projects(name)').eq('company_id', cid).order('name'),
+      supabase.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', cid).order('name'),
       supabase.from('projects').select('*').eq('company_id', cid).order('name'),
     ])
     setOperatives(o.data || [])
@@ -37,7 +37,7 @@ export default function InviteExistingWorkers() {
     }
     setSending(op.id)
     // Update operative's project assignment
-    await supabase.from('operatives').update({ project_id: selectedProject }).eq('id', op.id)
+    await supabase.from('operative_projects').upsert({ operative_id: op.id, project_id: selectedProject })
 
     // Send invite email
     const proj = projects.find(p => p.id === selectedProject)
@@ -113,13 +113,13 @@ export default function InviteExistingWorkers() {
                   <tr><td colSpan={5} className="px-4 py-8 text-center text-[#6B7A99]">No workers found</td></tr>
                 ) : (
                   filtered.map(op => {
-                    const isAssigned = selectedProject && op.project_id === selectedProject
+                    const isAssigned = selectedProject && op.operative_projects?.some(r => r.project_id === selectedProject)
                     return (
                       <tr key={op.id} className="border-t border-[#E2E6EA] hover:bg-[#F5F6F8]/50">
                         <td className="px-4 py-3 font-medium text-[#1A1A2E]">{op.name}</td>
                         <td className="px-4 py-3 text-[#6B7A99]">{op.email || '—'}</td>
                         <td className="px-4 py-3 text-[#6B7A99]">{op.mobile || '—'}</td>
-                        <td className="px-4 py-3 text-[#6B7A99]">{op.projects?.name || '—'}</td>
+                        <td className="px-4 py-3 text-[#6B7A99]">{op.operative_projects?.map(r => r.projects?.name).filter(Boolean).join(', ') || '—'}</td>
                         <td className="px-4 py-3">
                           {isAssigned ? (
                             <span className="inline-flex items-center gap-1 text-xs text-[#2EA043] font-medium">

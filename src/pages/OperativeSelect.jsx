@@ -12,7 +12,7 @@ export default function OperativeSelect() {
   async function loadOperatives() {
     const { data } = await supabase
       .from('operatives')
-      .select('*, projects(name)')
+      .select('*, operative_projects(project_id, projects(name))')
       .order('name')
     setOperatives(data || [])
     setLoading(false)
@@ -79,7 +79,7 @@ export default function OperativeSelect() {
                 <div className="flex-1 min-w-0">
                   <p className="text-slate-900 font-semibold truncate">{op.name}</p>
                   <p className="text-xs text-slate-400 truncate">
-                    {op.role && `${op.role} · `}{op.projects?.name || 'Unassigned'}
+                    {op.role && `${op.role} · `}{op.operative_projects?.[0]?.projects?.name || 'Unassigned'}
                   </p>
                 </div>
               </button>

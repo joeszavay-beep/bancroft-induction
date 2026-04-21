@@ -359,7 +359,7 @@ function CompanyDetailView({ company: initialCompany, onBack }) {
     setLoading(true)
     const [u, w, p] = await Promise.all([
       supabase.from('managers').select('*').eq('company_id', company.id).order('name'),
-      supabase.from('operatives').select('*, projects(name)').eq('company_id', company.id).order('name'),
+      supabase.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', company.id).order('name'),
       supabase.from('projects').select('*').eq('company_id', company.id).order('name'),
     ])
     setUsers(u.data || [])
@@ -530,7 +530,7 @@ function CompanyDetailView({ company: initialCompany, onBack }) {
                       <td className="px-4 py-3 text-[#6B7A99]">{w.role || '—'}</td>
                       <td className="px-4 py-3 text-[#6B7A99]">{w.email || '—'}</td>
                       <td className="px-4 py-3 text-[#6B7A99]">{w.mobile || '—'}</td>
-                      <td className="px-4 py-3 text-[#6B7A99]">{w.projects?.name || '—'}</td>
+                      <td className="px-4 py-3 text-[#6B7A99]">{w.operative_projects?.[0]?.projects?.name || '—'}</td>
                       <td className="px-4 py-3 text-[#6B7A99]">{w.date_of_birth || '—'}</td>
                       <td className="px-4 py-3 text-[#6B7A99] font-mono text-xs">{w.ni_number || '—'}</td>
                       <td className="px-4 py-3 text-[#6B7A99]">{w.next_of_kin ? `${w.next_of_kin} (${w.next_of_kin_phone || ''})` : '—'}</td>

@@ -46,7 +46,7 @@ export default function OperativeProfile() {
   async function loadOperative() {
     const { data } = await supabase
       .from('operatives')
-      .select('*, projects(name), companies(name, logo_url, primary_colour)')
+      .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
       .eq('id', operativeId)
       .single()
     if (!data) { navigate('/worker'); return }
@@ -161,8 +161,9 @@ export default function OperativeProfile() {
       setSession('operative_session', JSON.stringify({
         id: operative.id, name: operative.name, email: email.trim() || operative.email,
         role: (role === 'Other' ? otherRole.trim() : role.trim()) || operative.role,
-        photo_url: operative.photo_url, project_id: operative.project_id,
-        project_name: operative.projects?.name, company_id: operative.company_id,
+        photo_url: operative.photo_url,
+        projects: (operative.operative_projects || []).map(r => ({ id: r.project_id, name: r.projects?.name })),
+        company_id: operative.company_id,
         company_name: operative.companies?.name, company_logo: operative.companies?.logo_url,
         primary_colour: operative.companies?.primary_colour || '#1B6FC8',
       }))
@@ -196,7 +197,7 @@ export default function OperativeProfile() {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold truncate">{isFirstTime ? 'Complete Your Profile' : 'My Profile'}</p>
           <p className="text-[11px] text-white/50 truncate">
-            {operative?.companies?.name || 'CoreSite'} {operative?.projects?.name ? `· ${operative.projects.name}` : ''}
+            {operative?.companies?.name || 'CoreSite'} {operative?.operative_projects?.[0]?.projects?.name ? `· ${operative.operative_projects[0].projects.name}` : ''}
           </p>
         </div>
         {operative?.companies?.logo_url && (

@@ -99,7 +99,6 @@ export default function AddNewWorker() {
       email: email.trim() || null,
       next_of_kin: nokName.trim() || null,
       next_of_kin_phone: nokPhone.trim() || null,
-      project_id: projectId || null,
       photo_url: photoUrl,
       company_id: cid,
       cscs_number: cscsNumber.trim() || null,
@@ -115,6 +114,10 @@ export default function AddNewWorker() {
       setSaving(false)
       toast.error('Failed to add worker')
       return
+    }
+
+    if (projectId && data) {
+      await supabase.from('operative_projects').insert({ operative_id: data.id, project_id: projectId })
     }
 
     if (sendInvite && email.trim() && data) {

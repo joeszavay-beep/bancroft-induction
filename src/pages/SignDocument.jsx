@@ -27,7 +27,7 @@ export default function SignDocument() {
   async function loadData() {
     const [docRes, opRes, existingSigRes] = await Promise.all([
       supabase.from('documents').select('*, projects(name)').eq('id', documentId).single(),
-      supabase.from('operatives').select('*').eq('id', operativeId).single(),
+      supabase.from('operatives').select('*, operative_projects(project_id)').eq('id', operativeId).single(),
       supabase.from('signatures').select('id').eq('operative_id', operativeId).eq('document_id', documentId).eq('invalidated', false).limit(1),
     ])
     setDocument(docRes.data)
@@ -71,7 +71,7 @@ export default function SignDocument() {
     const { data: docs } = await supabase
       .from('documents')
       .select('id')
-      .eq('project_id', operative.project_id)
+      .in('project_id', (operative.operative_projects || []).map(r => r.project_id))
 
     const { data: sigs } = await supabase
       .from('signatures')
@@ -100,7 +100,7 @@ export default function SignDocument() {
         value: JSON.stringify({
           type: 'completion',
           operative_name: operative.name,
-          project_id: operative.project_id,
+          project_id: operative.operative_projects?.[0]?.project_id || null,
           timestamp: new Date().toISOString(),
           read: false,
         }),
@@ -160,7 +160,7 @@ export default function SignDocument() {
       const { error: dbErr } = await supabase.from('signatures').insert({
         operative_id: operativeId,
         document_id: documentId,
-        project_id: operative.project_id,
+        project_id: document.project_id,
         company_id: operative.company_id,
         operative_name: operative.name,
         document_title: document.title,

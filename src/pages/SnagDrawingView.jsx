@@ -122,13 +122,13 @@ export default function SnagDrawingView() {
     const [proj, snagsList, opsList] = await Promise.all([
       fetchAndCache('projects', (sb) => sb.from('projects').select('*').eq('id', d.project_id).single()),
       fetchAndCache('snags', (sb) => sb.from('snags').select('*').eq('drawing_id', drawingId).order('snag_number')),
-      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*').eq('project_id', d.project_id).order('name')),
+      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*, operative_projects(project_id)').eq('company_id', JSON.parse(getSession('manager_data') || '{}').company_id).order('name')),
     ])
 
     setProject(Array.isArray(proj) ? proj.find(r => r.id === d.project_id) : proj)
     const snags = Array.isArray(snagsList) ? snagsList.filter(s => s.drawing_id === drawingId) : (snagsList || [])
     setSnags(snags.sort((a, b) => (a.snag_number || 0) - (b.snag_number || 0)))
-    const ops = Array.isArray(opsList) ? opsList.filter(o => o.project_id === d.project_id) : (opsList || [])
+    const ops = Array.isArray(opsList) ? opsList.filter(o => o.operative_projects?.some(r => r.project_id === d.project_id)) : (opsList || [])
     setOperatives(ops.sort((a, b) => (a.name || '').localeCompare(b.name || '')))
 
     // Load company branding for PDF exports
