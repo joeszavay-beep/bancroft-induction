@@ -9,6 +9,7 @@ import {
   CheckCircle2, XCircle, LogOut, Shield, Eye, ChevronDown, ArrowLeft, Key, UserPlus
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
+import { authFetch } from '../lib/authFetch'
 
 export default function SuperAdminPanel() {
   const navigate = useNavigate()
@@ -353,6 +354,9 @@ function CompanyDetailView({ company: initialCompany, onBack }) {
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [resetting, setResetting] = useState(null)
+  const [deleteWorker, setDeleteWorker] = useState(null)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
   const features = company.features || {}
 
   async function loadAll() {
@@ -369,6 +373,34 @@ function CompanyDetailView({ company: initialCompany, onBack }) {
   }
 
   useEffect(() => { loadAll() }, [company.id])
+
+  async function handleDeleteWorker() {
+    if (deleteConfirm !== 'DELETE' || !deleteWorker) return
+    setDeleting(true)
+    try {
+      const res = await authFetch('/api/delete-operative', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operativeId: deleteWorker.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        toast.error(data.error || 'Failed to delete worker')
+        setDeleting(false)
+        return
+      }
+      toast.success('Worker deleted')
+      if (data.warnings?.length) {
+        data.warnings.forEach(w => toast(w, { icon: '⚠️', duration: 5000 }))
+      }
+      setDeleteWorker(null)
+      setDeleteConfirm('')
+      loadAll()
+    } catch (err) {
+      toast.error(`Delete failed: ${err.message}`)
+    }
+    setDeleting(false)
+  }
 
   async function resetPassword(user) {
     // eslint-disable-next-line react-hooks/purity
@@ -508,11 +540,12 @@ function CompanyDetailView({ company: initialCompany, onBack }) {
                     <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">DOB</th>
                     <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">NI</th>
                     <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]">Next of Kin</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#6B7A99]"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {workers.length === 0 ? (
-                    <tr><td colSpan={8} className="px-4 py-8 text-center text-[#6B7A99]">No workers</td></tr>
+                    <tr><td colSpan={9} className="px-4 py-8 text-center text-[#6B7A99]">No workers</td></tr>
                   ) : workers.map(w => (
                     <tr key={w.id} className="border-t border-[#E2E6EA] hover:bg-[#F5F6F8]/50">
                       <td className="px-4 py-3">
@@ -534,6 +567,11 @@ function CompanyDetailView({ company: initialCompany, onBack }) {
                       <td className="px-4 py-3 text-[#6B7A99]">{w.date_of_birth || '—'}</td>
                       <td className="px-4 py-3 text-[#6B7A99] font-mono text-xs">{w.ni_number || '—'}</td>
                       <td className="px-4 py-3 text-[#6B7A99]">{w.next_of_kin ? `${w.next_of_kin} (${w.next_of_kin_phone || ''})` : '—'}</td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => { setDeleteWorker(w); setDeleteConfirm('') }} className="p-1.5 text-[#B0B8C9] hover:text-[#DA3633] transition-colors" title="Delete worker">
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -594,6 +632,40 @@ function CompanyDetailView({ company: initialCompany, onBack }) {
             </div>
           )}
         </>
+      )}
+
+      {deleteWorker && (
+        <Modal open onClose={() => { setDeleteWorker(null); setDeleteConfirm('') }}>
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold text-[#1A1A2E]">Permanently delete {deleteWorker.name}?</h3>
+            <p className="text-sm text-[#6B7A99]">
+              This will remove the worker and <strong>ALL</strong> associated data (attendance, inductions, signatures, snags, card photos, etc). This cannot be undone.
+            </p>
+            <div>
+              <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Type DELETE to confirm</label>
+              <input
+                value={deleteConfirm}
+                onChange={e => setDeleteConfirm(e.target.value)}
+                placeholder="DELETE"
+                className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#DA3633]"
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setDeleteWorker(null); setDeleteConfirm('') }} className="px-4 py-2 text-sm text-[#6B7A99] hover:text-[#1A1A2E] transition-colors">
+                Cancel
+              </button>
+              <LoadingButton
+                loading={deleting}
+                onClick={handleDeleteWorker}
+                disabled={deleteConfirm !== 'DELETE'}
+                className="px-4 py-2 bg-[#DA3633] hover:bg-[#b92d2a] disabled:opacity-40 text-white text-sm font-medium rounded-md transition-colors"
+              >
+                Delete permanently
+              </LoadingButton>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   )
