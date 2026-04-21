@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { authFetch } from '../lib/authFetch'
 import toast from 'react-hot-toast'
@@ -16,6 +16,15 @@ export default function InviteNewWorkers() {
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkRows, setBulkRows] = useState(null)
   const [bulkFileName, setBulkFileName] = useState('')
+  const [projects, setProjects] = useState([])
+  const [selectedProject, setSelectedProject] = useState('')
+  const [bulkProject, setBulkProject] = useState('')
+
+  useEffect(() => {
+    if (!cid) return
+    supabase.from('projects').select('id, name').eq('company_id', cid).order('name')
+      .then(({ data }) => setProjects(data || []))
+  }, [])
 
   async function handleSend(e) {
     e.preventDefault()
@@ -32,6 +41,7 @@ export default function InviteNewWorkers() {
       email: email.trim(),
       mobile: mobile.trim() || null,
       company_id: cid,
+      project_id: selectedProject || null,
     }).select().single()
 
     if (error) {
@@ -50,14 +60,14 @@ export default function InviteNewWorkers() {
           operativeName: fullName,
           email: email.trim(),
           mobile: mobile.trim() || null,
-          projectName: 'CoreSite',
+          projectName: projects.find(p => p.id === selectedProject)?.name || 'CoreSite',
         }),
       }).catch(() => {})
     }
 
     setSaving(false)
     toast.success(`Invitation sent to ${fullName}`)
-    setFirstName(''); setLastName(''); setEmail(''); setMobile('')
+    setFirstName(''); setLastName(''); setEmail(''); setMobile(''); setSelectedProject('')
   }
 
   function handleCsvUpload(e) {
@@ -115,6 +125,7 @@ export default function InviteNewWorkers() {
         email: row.email,
         mobile: row.mobile || null,
         company_id: cid,
+        project_id: bulkProject || null,
       }).select().single()
       if (error) {
         failCount++
@@ -129,7 +140,7 @@ export default function InviteNewWorkers() {
             operativeName: fullName,
             email: row.email,
             mobile: row.mobile || null,
-            projectName: 'CoreSite',
+            projectName: projects.find(p => p.id === bulkProject)?.name || 'CoreSite',
           }),
         }).catch(() => { failCount++ })
         successCount++
@@ -178,6 +189,14 @@ export default function InviteNewWorkers() {
               <input type="tel" value={mobile} onChange={e => setMobile(e.target.value)} placeholder=""
                 className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]" />
             </div>
+            <div>
+              <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Project</label>
+              <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)}
+                className="w-full px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]">
+                <option value="">— No project —</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
           </div>
           <div className="flex justify-end">
             <LoadingButton loading={saving} type="submit" className="px-6 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm rounded-md w-full sm:w-auto">
@@ -194,6 +213,14 @@ export default function InviteNewWorkers() {
         </div>
         <div className="p-5">
           <p className="text-sm text-[#6B7A99] mb-3">Upload a CSV file with columns: First Name, Last Name, Email, Mobile</p>
+          <div className="mb-3">
+            <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Assign all to project</label>
+            <select value={bulkProject} onChange={e => setBulkProject(e.target.value)}
+              className="w-full sm:w-64 px-3 py-2.5 border border-[#E2E6EA] rounded-md text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B6FC8]">
+              <option value="">— No project —</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
           <label className="flex items-center justify-center gap-2 w-full px-4 py-6 border-2 border-dashed border-[#E2E6EA] rounded-lg cursor-pointer hover:border-[#1B6FC8] transition-colors">
             <span className="text-sm text-[#6B7A99]">{bulkFileName || 'Click to upload CSV file'}</span>
             <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
