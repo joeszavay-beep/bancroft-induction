@@ -100,6 +100,12 @@ BEGIN
 END;
 $$;
 
+-- Lock down: only callable via service_role (server-side API endpoints)
+REVOKE EXECUTE ON FUNCTION delete_operative_cascade(UUID) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION delete_operative_cascade(UUID) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION delete_operative_cascade(UUID) FROM anon;
+GRANT EXECUTE ON FUNCTION delete_operative_cascade(UUID) TO service_role;
+
 -- 9. Create indexes for performance
 CREATE INDEX idx_documents_project ON documents(project_id);
 CREATE INDEX idx_operative_projects_operative ON operative_projects(operative_id);

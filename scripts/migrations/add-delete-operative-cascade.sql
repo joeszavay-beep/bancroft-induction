@@ -59,3 +59,9 @@ BEGIN
   );
 END;
 $$;
+
+-- Lock down: only callable via service_role (i.e. server-side API endpoints)
+REVOKE EXECUTE ON FUNCTION delete_operative_cascade(UUID) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION delete_operative_cascade(UUID) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION delete_operative_cascade(UUID) FROM anon;
+GRANT EXECUTE ON FUNCTION delete_operative_cascade(UUID) TO service_role;
