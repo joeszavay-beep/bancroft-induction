@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Phone, Briefcase, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Phone, Briefcase, ShieldCheck, CheckCircle2, ZoomIn, X } from 'lucide-react'
 import { getSession } from '../lib/storage'
 
 export default function WorkerProfile() {
@@ -15,6 +15,7 @@ export default function WorkerProfile() {
   const [projects, setProjects] = useState([])
   const [selectedProject, setSelectedProject] = useState('')
   const [assigning, setAssigning] = useState(false)
+  const [lightbox, setLightbox] = useState(null)
 
   useEffect(() => {
     async function load() {
@@ -143,21 +144,67 @@ export default function WorkerProfile() {
           </div>
         </div>
 
-        {/* CSCS & Certifications */}
+        {/* CSCS / ECS Card & Certifications */}
         <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm">
           <div className="px-5 py-3 border-b border-[#E2E6EA] bg-[#F5F6F8]">
-            <p className="text-xs font-semibold text-[#6B7A99] flex items-center gap-1.5"><ShieldCheck size={12} /> CSCS & Certifications</p>
+            <p className="text-xs font-semibold text-[#6B7A99] flex items-center gap-1.5"><ShieldCheck size={12} /> CSCS / ECS Card & Certifications</p>
           </div>
           <div className="p-5 space-y-4">
-            {operative.cscs_number ? (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Field label="CSCS Number" value={operative.cscs_number} />
-                <Field label="Card Type" value={operative.cscs_type} />
-                <Field label="Expiry" value={operative.cscs_expiry ? new Date(operative.cscs_expiry).toLocaleDateString('en-GB') : null} />
-              </div>
-            ) : (
-              <p className="text-sm text-[#B0B8C9]">No CSCS card on file</p>
-            )}
+            {(() => {
+              const cardNumber = operative.card_number || operative.cscs_number
+              const cardType = operative.card_type || operative.cscs_type
+              const cardExpiry = operative.card_expiry || operative.cscs_expiry
+              if (!cardNumber && !cardType) return <p className="text-sm text-[#B0B8C9]">No CSCS / ECS card on file</p>
+              return (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <Field label="Card Number" value={cardNumber} />
+                    <Field label="Card Type" value={cardType} />
+                    <Field label="Expiry" value={cardExpiry ? new Date(cardExpiry).toLocaleDateString('en-GB') : null} />
+                  </div>
+
+                  {(operative.card_front_url || operative.card_back_url) && (
+                    <div className="grid grid-cols-2 gap-3">
+                      {operative.card_front_url && (
+                        <div>
+                          <p className="text-[11px] text-[#6B7A99] font-medium uppercase tracking-wider mb-1">Front</p>
+                          <div className="relative group rounded-lg overflow-hidden border border-[#E2E6EA] cursor-pointer" onClick={() => setLightbox(operative.card_front_url)}>
+                            <img src={operative.card_front_url} alt="Card front" className="w-full h-24 object-cover" />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                              <ZoomIn size={18} className="text-white opacity-0 group-hover:opacity-100 drop-shadow" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {operative.card_back_url && (
+                        <div>
+                          <p className="text-[11px] text-[#6B7A99] font-medium uppercase tracking-wider mb-1">Back</p>
+                          <div className="relative group rounded-lg overflow-hidden border border-[#E2E6EA] cursor-pointer" onClick={() => setLightbox(operative.card_back_url)}>
+                            <img src={operative.card_back_url} alt="Card back" className="w-full h-24 object-cover" />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                              <ZoomIn size={18} className="text-white opacity-0 group-hover:opacity-100 drop-shadow" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {operative.card_verified === true && (
+                    <div className="flex items-center gap-2 p-2.5 bg-[#ECFDF5] border border-[#A7F3D0] rounded-lg">
+                      <CheckCircle2 size={14} className="text-[#059669]" />
+                      <span className="text-xs text-[#065F46] font-medium">Verified by {operative.card_verified_by} · {new Date(operative.card_verified_at).toLocaleDateString('en-GB')}</span>
+                    </div>
+                  )}
+                  {operative.card_verified === false && (
+                    <div className="flex items-center gap-2 p-2.5 bg-[#FEF2F2] border border-[#FECACA] rounded-lg">
+                      <ShieldCheck size={14} className="text-[#DC2626]" />
+                      <span className="text-xs text-[#991B1B] font-medium">Card rejected — please upload a valid card</span>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
 
             {certs.some(c => c.date) && (
               <div className="border-t border-[#E2E6EA] pt-4">
@@ -181,6 +228,13 @@ export default function WorkerProfile() {
           </div>
         </div>
       </div>
+
+      {lightbox && (
+        <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <img src={lightbox} alt="Card" className="max-w-full max-h-full object-contain rounded-lg" />
+          <button onClick={() => setLightbox(null)} className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20"><X size={24} /></button>
+        </div>
+      )}
     </div>
   )
 }
