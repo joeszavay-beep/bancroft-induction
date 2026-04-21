@@ -94,7 +94,7 @@ export default function WorkerProfile() {
   ]
 
   return (
-    <div>
+    <div className="max-w-6xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => navigate('/app/workers')} className="p-1.5 hover:bg-[#F5F6F8] rounded-lg transition-colors">
           <ArrowLeft size={20} className="text-[#6B7A99]" />
@@ -102,7 +102,7 @@ export default function WorkerProfile() {
         <h1 className="text-2xl font-bold text-[#1A1A2E]">Worker Profile</h1>
       </div>
 
-      <div className="max-w-2xl space-y-4">
+      <div className="space-y-4">
         {/* Identity */}
         <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm p-5">
           <div className="flex items-center gap-4">
