@@ -6,7 +6,7 @@ import { Box, ZapOff, Layers, List } from 'lucide-react'
  * BIM element overlay for drawing viewers.
  * Renders small category-colored dots on the drawing at calibrated positions.
  */
-export default function BIMOverlay({ elements, calibration, visible, onElementClick, selectedElementId, hoveredElementId }) {
+export default function BIMOverlay({ elements, calibration, visible, onElementClick, selectedElementId, hoveredElementId, zoomScale = 1 }) {
   const [localHoveredId, setLocalHoveredId] = useState(null)
 
   if (!visible || !calibration || !elements?.length) return null
@@ -28,8 +28,8 @@ export default function BIMOverlay({ elements, calibration, visible, onElementCl
         return (
           <button
             key={el.id}
-            className="absolute -translate-x-1/2 -translate-y-1/2 z-[5]"
-            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+            className="absolute z-[5]"
+            style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: `translate(-50%, -50%) scale(${1 / zoomScale})`, transformOrigin: 'center center' }}
             onMouseEnter={() => setLocalHoveredId(el.id)}
             onMouseLeave={() => setLocalHoveredId(null)}
             onClick={(e) => { e.stopPropagation(); onElementClick?.(el, e) }}

@@ -54,6 +54,7 @@ export default function SnagDrawingView() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imgError, setImgError] = useState(false)
+  const [zoomScale, setZoomScale] = useState(1)
 
   // BIM state
   const [bimModels, setBimModels] = useState([])
@@ -398,6 +399,7 @@ export default function SnagDrawingView() {
             minScale={0.3}
             maxScale={10}
             centerOnInit
+            onTransformed={(_, state) => setZoomScale(state.scale)}
             panning={{ velocityDisabled: false }}
             wheel={{ step: 0.08, smoothStep: 0.004 }}
             doubleClick={{ disabled: true }}
@@ -454,8 +456,8 @@ export default function SnagDrawingView() {
                         <button
                           key={snag.id}
                           onClick={(e) => { e.stopPropagation(); if (!placingPin) setSelectedSnag(snag) }}
-                          className={`absolute -translate-x-1/2 -translate-y-full z-10 group ${isPending ? 'opacity-75' : ''}`}
-                          style={{ left: `${snag.pin_x}%`, top: `${snag.pin_y}%`, pointerEvents: placingPin ? 'none' : 'auto' }}
+                          className={`absolute z-10 group ${isPending ? 'opacity-75' : ''}`}
+                          style={{ left: `${snag.pin_x}%`, top: `${snag.pin_y}%`, transform: `translate(-50%, -100%) scale(${1 / zoomScale})`, transformOrigin: 'center bottom', pointerEvents: placingPin ? 'none' : 'auto' }}
                           title={`#${snag.snag_number}: ${snag.description?.slice(0, 40)}${isPending ? ' (pending sync)' : ''}`}
                         >
                           <svg width="28" height="36" viewBox="0 0 28 36" className="drop-shadow-md group-hover:scale-110 transition-transform">
@@ -481,6 +483,7 @@ export default function SnagDrawingView() {
                         })}
                         calibration={bimCalibration}
                         visible={bimVisible}
+                        zoomScale={zoomScale}
                         onElementClick={async (el, e) => {
                           // Fetch linked snags for popup
                           const { data: elSnags } = await supabase.from('snags').select('id, snag_number, description, status').eq('bim_element_id', el.id)
@@ -496,7 +499,7 @@ export default function SnagDrawingView() {
 
                     {/* Pending pin */}
                     {pendingPin && (
-                      <div className="absolute -translate-x-1/2 -translate-y-full z-10 animate-bounce" style={{ left: `${pendingPin.x}%`, top: `${pendingPin.y}%` }}>
+                      <div className="absolute z-10 animate-bounce" style={{ left: `${pendingPin.x}%`, top: `${pendingPin.y}%`, transform: `translate(-50%, -100%) scale(${1 / zoomScale})`, transformOrigin: 'center bottom' }}>
                         <svg width="28" height="36" viewBox="0 0 28 36">
                           <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.268 21.732 0 14 0z" fill="#ef4444" />
                           <text x="14" y="17" textAnchor="middle" fontSize="10" fontWeight="700" fill="white">?</text>
