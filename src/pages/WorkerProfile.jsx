@@ -146,7 +146,7 @@ export default function WorkerProfile() {
                     <p className="text-sm font-medium text-[#1A1A2E]">{r.projects?.name}</p>
                     <button
                       onClick={() => handleRemove(r.project_id)}
-                      className="p-1 text-[#B0B8C9] hover:text-[#DA3633] opacity-0 group-hover:opacity-100 transition-all"
+                      className="p-1 text-[#B0B8C9] hover:text-[#DA3633] transition-colors"
                       title="Remove from project"
                     >
                       <X size={14} />
