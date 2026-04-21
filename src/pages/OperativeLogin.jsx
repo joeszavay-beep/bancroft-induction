@@ -39,7 +39,7 @@ export default function OperativeLogin() {
         const { data: ops } = await supabase
           .from('operatives')
           .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
-          .eq('email', email.trim().toLowerCase())
+          .ilike('email', email.trim().toLowerCase())
 
         if (ops?.length) {
           operative = ops[0]
@@ -51,7 +51,7 @@ export default function OperativeLogin() {
         const { data: ops } = await supabase
           .from('operatives')
           .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
-          .eq('email', email.trim().toLowerCase())
+          .ilike('email', email.trim().toLowerCase())
 
         if (ops?.length) {
           // Check if password matches DOB (legacy support)

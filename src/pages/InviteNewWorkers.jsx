@@ -38,7 +38,7 @@ export default function InviteNewWorkers() {
     // Create operative record
     const { data, error } = await supabase.from('operatives').insert({
       name: fullName,
-      email: email.trim(),
+      email: email.trim().toLowerCase(),
       mobile: mobile.trim() || null,
       company_id: cid,
     }).select().single()
@@ -61,7 +61,7 @@ export default function InviteNewWorkers() {
         body: JSON.stringify({
           operativeId: data.id,
           operativeName: fullName,
-          email: email.trim(),
+          email: email.trim().toLowerCase(),
           mobile: mobile.trim() || null,
           projectName: projects.find(p => p.id === selectedProject)?.name || 'CoreSite',
         }),
@@ -125,7 +125,7 @@ export default function InviteNewWorkers() {
       const fullName = `${row.firstName} ${row.lastName}`
       const { data, error } = await supabase.from('operatives').insert({
         name: fullName,
-        email: row.email,
+        email: row.email.toLowerCase(),
         mobile: row.mobile || null,
         company_id: cid,
       }).select().single()

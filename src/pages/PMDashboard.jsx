@@ -771,7 +771,7 @@ function TeamTab({ operatives, projects, onRefresh }) {
     const { data, error } = await supabase.from('operatives').insert({
       name: name.trim(),
       mobile: mobile.trim() || null,
-      email: email.trim() || null,
+      email: email.trim().toLowerCase() || null,
       company_id: cid,
     }).select().single()
     if (error) {
@@ -791,7 +791,7 @@ function TeamTab({ operatives, projects, onRefresh }) {
         body: JSON.stringify({
           operativeId: data.id,
           operativeName: name.trim(),
-          email: email.trim() || null,
+          email: email.trim().toLowerCase() || null,
           mobile: mobile.trim() || null,
           projectName: proj?.name || '',
         }),

@@ -96,7 +96,7 @@ export default function AddNewWorker() {
       ni_number: niNumber.trim().toUpperCase() || null,
       address: postcode.trim() || null,
       mobile: mobile.trim() || null,
-      email: email.trim() || null,
+      email: email.trim().toLowerCase() || null,
       next_of_kin: nokName.trim() || null,
       next_of_kin_phone: nokPhone.trim() || null,
       photo_url: photoUrl,
