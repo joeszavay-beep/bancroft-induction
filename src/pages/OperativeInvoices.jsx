@@ -195,22 +195,23 @@ export default function OperativeInvoices() {
     const nextNum = (existingNums.length > 0 ? Math.max(...existingNums) : 0) + 1
     const ref = `OP-${String(nextNum).padStart(3, '0')}`
 
+    const today = new Date().toISOString().slice(0, 10)
+    const projName = sel.type === 'project' ? projects.find(p => p.id === sel.id)?.name : null
     const record = {
       operative_id: op.id,
       job_id: jo?.job_id || null,
       job_operative_id: jo?.id || null,
-      project_id: sel.type === 'project' ? sel.id : null,
       company_id: op.company_id,
       invoice_ref: ref,
-      period_from: periodFrom || null,
-      period_to: periodTo || null,
+      period_from: periodFrom || today,
+      period_to: periodTo || today,
       gross_amount: gross,
       cis_deduction: cis,
       net_amount: net,
       line_items: validItems,
       status: asDraft ? 'draft' : 'submitted',
       submitted_at: asDraft ? null : new Date().toISOString(),
-      notes: notes.trim() || null,
+      notes: [projName ? `Project: ${projName}` : null, notes.trim() || null].filter(Boolean).join('\n') || null,
     }
 
     const { data: inserted, error } = await supabase.from('operative_invoices').insert(record).select().single()
