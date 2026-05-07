@@ -148,6 +148,7 @@ export default function OperativeCerts() {
 
   async function saveCert() {
     if (!editCert || !operative) return
+    if (!certExpiry) { toast.error('Please select an expiry date'); return }
     setUploading(true)
 
     try {
