@@ -62,10 +62,13 @@ export default function SiteSignIn() {
     }
   }, [])
 
-  // Auto-dismiss success
+  // Auto-dismiss success and reload attendance so button flips
   useEffect(() => {
     if (!success) return
-    const timer = setTimeout(() => setSuccess(null), 4000)
+    const timer = setTimeout(() => {
+      setSuccess(null)
+      if (operative) loadOperativeAndAttendance(operative.id, projectId)
+    }, 4000)
     return () => clearTimeout(timer)
   }, [success])
 
