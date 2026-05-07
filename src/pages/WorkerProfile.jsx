@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Phone, Briefcase, ShieldCheck, CheckCircle2, ZoomIn, X, Camera } from 'lucide-react'
+import { ArrowLeft, Phone, Briefcase, ShieldCheck, CheckCircle2, ZoomIn, X, Camera, User, Users, FileText } from 'lucide-react'
 import { getSession } from '../lib/storage'
 
 export default function WorkerProfile() {
@@ -17,6 +17,7 @@ export default function WorkerProfile() {
   const [assigning, setAssigning] = useState(false)
   const [lightbox, setLightbox] = useState(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [certDocs, setCertDocs] = useState({})
 
   async function handlePhotoUpload(e) {
     const file = e.target.files?.[0]
@@ -42,6 +43,18 @@ export default function WorkerProfile() {
         .single()
       if (!data) { navigate('/app/workers'); return }
       setOperative(data)
+
+      // Load uploaded cert documents from storage
+      const docs = {}
+      for (const key of ['cscs', 'ipaf', 'pasma', 'sssts', 'smsts', 'first_aid']) {
+        const folder = `certs/${id}/${key}`
+        const { data: files } = await supabase.storage.from('documents').list(folder, { limit: 1 })
+        if (files?.length > 0) {
+          const { data: urlData } = supabase.storage.from('documents').getPublicUrl(`${folder}/${files[0].name}`)
+          docs[key] = urlData.publicUrl
+        }
+      }
+      setCertDocs(docs)
 
       if (cid) {
         const { data: projs } = await supabase
@@ -102,11 +115,12 @@ export default function WorkerProfile() {
   const today = new Date()
   const thirtyDays = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
   const certs = [
-    { label: 'CSCS', date: operative.cscs_expiry },
-    { label: 'IPAF', date: operative.ipaf_expiry },
-    { label: 'PASMA', date: operative.pasma_expiry },
-    { label: 'SSSTS', date: operative.sssts_expiry },
-    { label: 'First Aid', date: operative.first_aid_expiry },
+    { key: 'cscs', label: 'CSCS', date: operative.cscs_expiry },
+    { key: 'ipaf', label: 'IPAF', date: operative.ipaf_expiry },
+    { key: 'pasma', label: 'PASMA', date: operative.pasma_expiry },
+    { key: 'sssts', label: 'SSSTS', date: operative.sssts_expiry },
+    { key: 'smsts', label: 'SMSTS', date: operative.smsts_expiry },
+    { key: 'first_aid', label: 'First Aid', date: operative.first_aid_expiry },
   ]
 
   return (
@@ -148,6 +162,18 @@ export default function WorkerProfile() {
           </div>
         </div>
 
+        {/* Personal Details */}
+        <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm">
+          <div className="px-5 py-3 border-b border-[#E2E6EA] bg-[#F5F6F8]">
+            <p className="text-xs font-semibold text-[#6B7A99] flex items-center gap-1.5"><User size={12} /> Personal Details</p>
+          </div>
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Field label="Date of Birth" value={operative.date_of_birth ? new Date(operative.date_of_birth).toLocaleDateString('en-GB') : null} />
+            <Field label="NI Number" value={operative.ni_number} />
+            <Field label="Address" value={operative.address} />
+          </div>
+        </div>
+
         {/* Contact */}
         <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm">
           <div className="px-5 py-3 border-b border-[#E2E6EA] bg-[#F5F6F8]">
@@ -156,6 +182,17 @@ export default function WorkerProfile() {
           <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Email" value={operative.email} />
             <Field label="Mobile" value={operative.mobile} />
+          </div>
+        </div>
+
+        {/* Next of Kin */}
+        <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm">
+          <div className="px-5 py-3 border-b border-[#E2E6EA] bg-[#F5F6F8]">
+            <p className="text-xs font-semibold text-[#6B7A99] flex items-center gap-1.5"><Users size={12} /> Emergency Contact</p>
+          </div>
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Next of Kin" value={operative.next_of_kin} />
+            <Field label="Phone" value={operative.next_of_kin_phone} />
           </div>
         </div>
 
@@ -275,19 +312,31 @@ export default function WorkerProfile() {
               )
             })()}
 
-            {certs.some(c => c.date) && (
+            {certs.some(c => c.date || certDocs[c.key]) && (
               <div className="border-t border-[#E2E6EA] pt-4">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {certs.filter(c => c.date).map(c => {
-                    const d = new Date(c.date)
-                    const expired = d < today
-                    const expiring = !expired && d <= thirtyDays
+                  {certs.filter(c => c.date || certDocs[c.key]).map(c => {
+                    const d = c.date ? new Date(c.date) : null
+                    const expired = d && d < today
+                    const expiring = d && !expired && d <= thirtyDays
+                    const hasDoc = !!certDocs[c.key]
                     return (
-                      <div key={c.label} className={`px-3 py-2 rounded-lg border text-xs ${expired ? 'bg-[#DA3633]/5 border-[#DA3633]/20' : expiring ? 'bg-[#D29922]/5 border-[#D29922]/20' : 'bg-[#2EA043]/5 border-[#2EA043]/20'}`}>
-                        <p className="font-semibold text-[#1A1A2E]">{c.label}</p>
-                        <p className={expired ? 'text-[#DA3633]' : expiring ? 'text-[#D29922]' : 'text-[#2EA043]'}>
-                          {expired ? 'Expired ' : expiring ? 'Expiring ' : ''}{d.toLocaleDateString('en-GB')}
-                        </p>
+                      <div key={c.key} className={`px-3 py-2 rounded-lg border text-xs ${expired ? 'bg-[#DA3633]/5 border-[#DA3633]/20' : expiring ? 'bg-[#D29922]/5 border-[#D29922]/20' : d ? 'bg-[#2EA043]/5 border-[#2EA043]/20' : 'bg-[#F5F6F8] border-[#E2E6EA]'}`}>
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-[#1A1A2E]">{c.label}</p>
+                          {hasDoc && (
+                            <a href={certDocs[c.key]} target="_blank" rel="noopener noreferrer" className="text-[#1B6FC8] hover:text-[#1558A0]" title="View uploaded document">
+                              <FileText size={13} />
+                            </a>
+                          )}
+                        </div>
+                        {d ? (
+                          <p className={expired ? 'text-[#DA3633]' : expiring ? 'text-[#D29922]' : 'text-[#2EA043]'}>
+                            {expired ? 'Expired ' : expiring ? 'Expiring ' : ''}{d.toLocaleDateString('en-GB')}
+                          </p>
+                        ) : (
+                          <p className="text-[#B0B8C9]">No expiry set</p>
+                        )}
                       </div>
                     )
                   })}
