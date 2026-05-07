@@ -70,9 +70,12 @@ export default function OperativeCerts() {
   const [certType, setCertType] = useState('')
   const [certFile, setCertFile] = useState(null)
   const [certPreview, setCertPreview] = useState(null)
+  const [certBackFile, setCertBackFile] = useState(null)
+  const [certBackPreview, setCertBackPreview] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [existingDocs, setExistingDocs] = useState({})
   const fileRef = useRef(null)
+  const fileBackRef = useRef(null)
 
   useEffect(() => {
     const session = getSession('operative_session')
@@ -116,21 +119,30 @@ export default function OperativeCerts() {
     setCertNumber(fields.number ? (operative?.[fields.number] || '') : '')
     setCertType(fields.type ? (operative?.[fields.type] || '') : '')
     setCertFile(null)
-    setCertPreview(existingDocs[certKey] || null)
+    setCertBackFile(null)
+    if (certKey === 'cscs') {
+      setCertPreview(operative?.card_front_url || null)
+      setCertBackPreview(operative?.card_back_url || null)
+    } else {
+      setCertPreview(existingDocs[certKey] || null)
+      setCertBackPreview(null)
+    }
   }
 
-  function handleFileChange(e) {
+  function handleFileChange(e, side) {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 10 * 1024 * 1024) {
       toast.error('File must be under 10MB')
       return
     }
-    setCertFile(file)
-    if (file.type.startsWith('image/')) {
-      setCertPreview(URL.createObjectURL(file))
+    const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null
+    if (side === 'back') {
+      setCertBackFile(file)
+      setCertBackPreview(preview)
     } else {
-      setCertPreview(null)
+      setCertFile(file)
+      setCertPreview(preview)
     }
   }
 
@@ -159,12 +171,31 @@ export default function OperativeCerts() {
         }
       }
 
-      // Upload document if provided
-      if (certFile) {
+      // Upload document(s)
+      if (editCert.key === 'cscs') {
+        // CSCS/ECS: front and back card photos
+        const cardUpdates = {}
+        for (const [file, side, urlField] of [[certFile, 'front', 'card_front_url'], [certBackFile, 'back', 'card_back_url']]) {
+          if (!file) continue
+          const ext = file.name.split('.').pop()
+          const path = `cards/${operative.id}/${side}_${Date.now()}.${ext}`
+          const { error: upErr } = await supabase.storage.from('documents').upload(path, file, { contentType: file.type })
+          if (upErr) { toast.error(`Failed to upload ${side} photo`); setUploading(false); return }
+          const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+          cardUpdates[urlField] = urlData.publicUrl
+        }
+        // Reset verification when card photos change
+        if (Object.keys(cardUpdates).length > 0) {
+          const { error: cardErr } = await supabase.from('operatives').update({
+            ...cardUpdates, card_verified: null, card_verified_by: null, card_verified_at: null,
+          }).eq('id', operative.id)
+          if (cardErr) { toast.error('Failed to save card photos'); setUploading(false); return }
+        }
+      } else if (certFile) {
+        // Other certs: single document upload
         const ext = certFile.name.split('.').pop()
         const path = `certs/${operative.id}/${editCert.key}/${Date.now()}.${ext}`
 
-        // Remove old files in this folder first
         const folder = `certs/${operative.id}/${editCert.key}`
         const { data: oldFiles } = await supabase.storage.from('documents').list(folder)
         if (oldFiles?.length > 0) {
@@ -172,11 +203,7 @@ export default function OperativeCerts() {
         }
 
         const { error: upErr } = await supabase.storage.from('documents').upload(path, certFile)
-        if (upErr) {
-          toast.error('Failed to upload document')
-          setUploading(false)
-          return
-        }
+        if (upErr) { toast.error('Failed to upload document'); setUploading(false); return }
       }
 
       toast.success(`${editCert.name} updated`)
@@ -375,54 +402,52 @@ export default function OperativeCerts() {
             </div>
 
             {/* File upload area */}
-            <div>
-              <label className="text-xs text-[#6B7A99] font-medium mb-1.5 block">Card Photo / Document</label>
-              {certPreview || certFile ? (
-                <div className="relative">
-                  {certPreview ? (
-                    <img src={certPreview} alt="Certificate" className="w-full h-48 object-contain rounded-lg border border-[#E2E6EA] bg-slate-50" />
-                  ) : (
-                    <div className="w-full h-24 rounded-lg border border-[#E2E6EA] bg-slate-50 flex items-center justify-center gap-2">
-                      <FileText size={20} className="text-slate-400" />
-                      <p className="text-sm text-slate-600">{certFile.name}</p>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => { setCertFile(null); setCertPreview(existingDocs[editCert.key] || null) }}
-                    className="absolute top-2 right-2 w-6 h-6 bg-white/90 rounded-full flex items-center justify-center shadow-sm"
-                  >
-                    <X size={14} className="text-slate-600" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  className="w-full border-2 border-dashed border-[#E2E6EA] rounded-lg p-6 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors"
-                >
-                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
-                    <Camera size={20} className="text-blue-500" />
+            {editCert.key === 'cscs' ? (
+              <div className="grid grid-cols-2 gap-3">
+                <CardUploadSlot label="Front of Card" preview={certPreview} file={certFile}
+                  onPick={() => fileRef.current?.click()}
+                  onClear={() => { setCertFile(null); setCertPreview(operative?.card_front_url || null) }} />
+                <CardUploadSlot label="Back of Card" preview={certBackPreview} file={certBackFile}
+                  onPick={() => fileBackRef.current?.click()}
+                  onClear={() => { setCertBackFile(null); setCertBackPreview(operative?.card_back_url || null) }} />
+                <input ref={fileRef} type="file" accept="image/*,.pdf" capture="environment" onChange={e => handleFileChange(e, 'front')} className="hidden" />
+                <input ref={fileBackRef} type="file" accept="image/*,.pdf" capture="environment" onChange={e => handleFileChange(e, 'back')} className="hidden" />
+              </div>
+            ) : (
+              <div>
+                <label className="text-xs text-[#6B7A99] font-medium mb-1.5 block">Card Photo / Document</label>
+                {certPreview || certFile ? (
+                  <div className="relative">
+                    {certPreview ? (
+                      <img src={certPreview} alt="Certificate" className="w-full h-48 object-contain rounded-lg border border-[#E2E6EA] bg-slate-50" />
+                    ) : (
+                      <div className="w-full h-24 rounded-lg border border-[#E2E6EA] bg-slate-50 flex items-center justify-center gap-2">
+                        <FileText size={20} className="text-slate-400" />
+                        <p className="text-sm text-slate-600">{certFile.name}</p>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { setCertFile(null); setCertPreview(existingDocs[editCert.key] || null) }}
+                      className="absolute top-2 right-2 w-6 h-6 bg-white/90 rounded-full flex items-center justify-center shadow-sm"
+                    >
+                      <X size={14} className="text-slate-600" />
+                    </button>
                   </div>
-                  <p className="text-sm font-medium text-slate-600">Take a photo or choose file</p>
-                  <p className="text-[11px] text-slate-400">JPG, PNG or PDF up to 10MB</p>
-                </button>
-              )}
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*,.pdf"
-                capture="environment"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              {!certFile && !certPreview && (
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-800"
-                >
-                  Browse files instead
-                </button>
-              )}
-            </div>
+                ) : (
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    className="w-full border-2 border-dashed border-[#E2E6EA] rounded-lg p-6 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+                      <Camera size={20} className="text-blue-500" />
+                    </div>
+                    <p className="text-sm font-medium text-slate-600">Take a photo or choose file</p>
+                    <p className="text-[11px] text-slate-400">JPG, PNG or PDF up to 10MB</p>
+                  </button>
+                )}
+                <input ref={fileRef} type="file" accept="image/*,.pdf" capture="environment" onChange={e => handleFileChange(e, 'front')} className="hidden" />
+              </div>
+            )}
 
             {/* CSCS-specific fields */}
             {editCert.key === 'cscs' && (
@@ -473,5 +498,39 @@ export default function OperativeCerts() {
         </Modal>
       )}
     </WorkerSidebarLayout>
+  )
+}
+
+function CardUploadSlot({ label, preview, file, onPick, onClear }) {
+  return (
+    <div>
+      <label className="text-xs text-[#6B7A99] font-medium mb-1.5 block">{label}</label>
+      {preview || file ? (
+        <div className="relative">
+          {preview ? (
+            <img src={preview} alt={label} className="w-full h-28 object-cover rounded-lg border border-[#E2E6EA]" />
+          ) : (
+            <div className="w-full h-28 rounded-lg border border-[#E2E6EA] bg-slate-50 flex items-center justify-center gap-1.5">
+              <FileText size={16} className="text-slate-400" />
+              <p className="text-[11px] text-slate-600 truncate max-w-[80px]">{file.name}</p>
+            </div>
+          )}
+          <button
+            onClick={onClear}
+            className="absolute top-1.5 right-1.5 w-5 h-5 bg-white/90 rounded-full flex items-center justify-center shadow-sm"
+          >
+            <X size={10} className="text-slate-600" />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={onPick}
+          className="w-full border-2 border-dashed border-[#E2E6EA] rounded-lg h-28 flex flex-col items-center justify-center gap-1.5 hover:border-blue-300 transition-colors"
+        >
+          <Camera size={18} className="text-[#B0B8C9]" />
+          <span className="text-[10px] text-[#B0B8C9]">Take photo</span>
+        </button>
+      )}
+    </div>
   )
 }
