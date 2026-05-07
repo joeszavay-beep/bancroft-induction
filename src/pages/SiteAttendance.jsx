@@ -302,19 +302,64 @@ export default function SiteAttendance() {
   function printQR() {
     const content = qrRef.current
     if (!content) return
+    const primaryColour = company?.primary_colour || '#1B6FC8'
     const win = window.open('', '_blank')
     win.document.write(`
-      <html><head><title>QR Poster</title>
+      <html><head><title>QR Sign-In — ${qrProject?.name || 'Site'}</title>
       <style>
-        body { margin: 0; padding: 40px; font-family: Arial, sans-serif; text-align: center; }
-        @media print { body { padding: 20mm; } }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @page { size: A4 portrait; margin: 0; }
+        body { width: 210mm; height: 297mm; font-family: -apple-system, 'Segoe UI', Arial, sans-serif; background: white; }
+        .poster { width: 100%; height: 100%; display: flex; flex-direction: column; }
+        .header { background: ${primaryColour}; padding: 28mm 20mm 22mm; text-align: center; }
+        .header img { max-height: 18mm; max-width: 60mm; margin-bottom: 6mm; }
+        .header h1 { color: white; font-size: 28pt; font-weight: 800; letter-spacing: -0.5px; }
+        .header p { color: rgba(255,255,255,0.8); font-size: 12pt; margin-top: 3mm; }
+        .body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15mm 20mm; }
+        .qr-frame { border: 3px solid ${primaryColour}; border-radius: 6mm; padding: 8mm; display: inline-block; }
+        .qr-frame svg { display: block; }
+        .instructions { margin-top: 12mm; text-align: center; }
+        .instructions h2 { font-size: 20pt; font-weight: 700; color: #1A1A2E; }
+        .instructions p { font-size: 11pt; color: #6B7A99; margin-top: 3mm; max-width: 120mm; }
+        .steps { display: flex; gap: 12mm; margin-top: 10mm; justify-content: center; }
+        .step { text-align: center; width: 36mm; }
+        .step-num { width: 10mm; height: 10mm; border-radius: 50%; background: ${primaryColour}; color: white; font-size: 11pt; font-weight: 700; display: flex; align-items: center; justify-content: center; margin: 0 auto 3mm; }
+        .step-label { font-size: 9pt; color: #1A1A2E; font-weight: 600; }
+        .step-desc { font-size: 8pt; color: #6B7A99; margin-top: 1mm; }
+        .footer { border-top: 1px solid #E2E6EA; padding: 6mm 20mm; display: flex; align-items: center; justify-content: space-between; }
+        .footer-left { font-size: 8pt; color: #B0B8C9; }
+        .footer-right { font-size: 8pt; color: #B0B8C9; }
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
       </style>
-      </head><body>${content.innerHTML}</body></html>
+      </head><body>
+        <div class="poster">
+          <div class="header">
+            ${company?.logo_url ? `<img src="${company.logo_url}" alt="" /><br/>` : ''}
+            <h1>${company?.name || 'Site Sign-In'}</h1>
+            <p>${qrProject?.name || ''}</p>
+          </div>
+          <div class="body">
+            <div class="qr-frame">${content.querySelector('svg')?.outerHTML || ''}</div>
+            <div class="instructions">
+              <h2>Scan to Sign In / Out</h2>
+              <p>All operatives must sign in when arriving and sign out when leaving site.</p>
+            </div>
+            <div class="steps">
+              <div class="step"><div class="step-num">1</div><div class="step-label">Open Camera</div><div class="step-desc">Point your phone at the QR code</div></div>
+              <div class="step"><div class="step-num">2</div><div class="step-label">Tap the Link</div><div class="step-desc">Open the sign-in page</div></div>
+              <div class="step"><div class="step-num">3</div><div class="step-label">Confirm</div><div class="step-desc">Tap Sign In or Sign Out</div></div>
+            </div>
+          </div>
+          <div class="footer">
+            <div class="footer-left">Powered by CoreSite</div>
+            <div class="footer-right">${qrProject?.name || ''} · ${new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</div>
+          </div>
+        </div>
+      </body></html>
     `)
     win.document.close()
     win.focus()
-    win.print()
-    win.close()
+    setTimeout(() => { win.print(); win.close() }, 300)
   }
 
   if (loading) {
@@ -700,23 +745,44 @@ export default function SiteAttendance() {
 
         {qrProject && (
           <div className="mt-5 space-y-4">
-            <div ref={qrRef} className="mx-auto max-w-md p-8 rounded-xl border text-center space-y-6"
-              style={{ backgroundColor: 'white', borderColor: 'var(--border-color)' }}>
-              <div>
-                <p className="text-lg font-bold text-gray-800">{company?.name || 'Company'}</p>
-                <p className="text-sm text-gray-500 mt-1">{qrProject.name}</p>
+            {/* Poster preview */}
+            <div ref={qrRef} className="mx-auto max-w-md rounded-xl overflow-hidden border shadow-sm"
+              style={{ borderColor: 'var(--border-color)' }}>
+              {/* Header band */}
+              <div className="px-6 py-5 text-center" style={{ backgroundColor: 'var(--primary-color)' }}>
+                {company?.logo_url && (
+                  <img src={company.logo_url} alt="" className="h-8 max-w-[160px] object-contain mx-auto mb-3" />
+                )}
+                <p className="text-lg font-bold text-white">{company?.name || 'Site Sign-In'}</p>
+                <p className="text-xs text-white/70 mt-1">{qrProject.name}</p>
               </div>
-              <div className="flex justify-center">
-                <QRCodeSVG
-                  value={`${window.location.origin}/site/${qrProject.id}`}
-                  size={220}
-                  level="H"
-                  includeMargin
-                />
+              {/* QR */}
+              <div className="bg-white px-6 py-6 flex flex-col items-center">
+                <div className="p-3 border-2 rounded-xl" style={{ borderColor: 'var(--primary-color)' }}>
+                  <QRCodeSVG
+                    value={`${window.location.origin}/site/${qrProject.id}`}
+                    size={200}
+                    level="H"
+                    includeMargin={false}
+                  />
+                </div>
+                <p className="text-base font-bold text-[#1A1A2E] mt-4">Scan to Sign In / Out</p>
+                <p className="text-xs text-[#6B7A99] mt-1 text-center max-w-[260px]">All operatives must sign in when arriving and sign out when leaving site.</p>
+                {/* Steps */}
+                <div className="flex gap-6 mt-4">
+                  {[['1', 'Open Camera'], ['2', 'Tap Link'], ['3', 'Confirm']].map(([n, label]) => (
+                    <div key={n} className="text-center">
+                      <div className="w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center mx-auto"
+                        style={{ backgroundColor: 'var(--primary-color)' }}>{n}</div>
+                      <p className="text-[10px] font-semibold text-[#1A1A2E] mt-1">{label}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div>
-                <p className="text-base font-semibold text-gray-700">Scan this QR code to sign in or out</p>
-                <p className="text-xs text-gray-400 mt-3">Powered by CoreSite</p>
+              {/* Footer */}
+              <div className="bg-[#F5F6F8] px-6 py-2.5 flex items-center justify-between border-t border-[#E2E6EA]">
+                <p className="text-[10px] text-[#B0B8C9]">Powered by CoreSite</p>
+                <p className="text-[10px] text-[#B0B8C9]">{qrProject.name}</p>
               </div>
             </div>
 
