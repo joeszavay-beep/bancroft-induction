@@ -221,7 +221,9 @@ export default function WorkerProfile() {
               const cardNumber = operative.card_number || operative.cscs_number
               const cardType = operative.card_type || operative.cscs_type
               const cardExpiry = operative.card_expiry || operative.cscs_expiry
-              if (!cardNumber && !cardType) return <p className="text-sm text-[#B0B8C9]">No CSCS / ECS card on file</p>
+              const cardFront = operative.card_front_url
+              const cardBack = operative.card_back_url
+              if (!cardNumber && !cardType && !cardFront && !cardBack) return <p className="text-sm text-[#B0B8C9]">No CSCS / ECS card on file</p>
               return (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -230,24 +232,24 @@ export default function WorkerProfile() {
                     <Field label="Expiry" value={cardExpiry ? new Date(cardExpiry).toLocaleDateString('en-GB') : null} />
                   </div>
 
-                  {(operative.card_front_url || operative.card_back_url) && (
+                  {(cardFront || cardBack) && (
                     <div className="grid grid-cols-2 gap-3">
-                      {operative.card_front_url && (
+                      {cardFront && (
                         <div>
                           <p className="text-[11px] text-[#6B7A99] font-medium uppercase tracking-wider mb-1">Front</p>
-                          <div className="relative group rounded-lg overflow-hidden border border-[#E2E6EA] cursor-pointer" onClick={() => setLightbox(operative.card_front_url)}>
-                            <img src={operative.card_front_url} alt="Card front" className="w-full h-24 object-cover" />
+                          <div className="relative group rounded-lg overflow-hidden border border-[#E2E6EA] cursor-pointer" onClick={() => setLightbox(cardFront)}>
+                            <img src={cardFront} alt="Card front" className="w-full h-24 object-cover" />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                               <ZoomIn size={18} className="text-white opacity-0 group-hover:opacity-100 drop-shadow" />
                             </div>
                           </div>
                         </div>
                       )}
-                      {operative.card_back_url && (
+                      {cardBack && (
                         <div>
                           <p className="text-[11px] text-[#6B7A99] font-medium uppercase tracking-wider mb-1">Back</p>
-                          <div className="relative group rounded-lg overflow-hidden border border-[#E2E6EA] cursor-pointer" onClick={() => setLightbox(operative.card_back_url)}>
-                            <img src={operative.card_back_url} alt="Card back" className="w-full h-24 object-cover" />
+                          <div className="relative group rounded-lg overflow-hidden border border-[#E2E6EA] cursor-pointer" onClick={() => setLightbox(cardBack)}>
+                            <img src={cardBack} alt="Card back" className="w-full h-24 object-cover" />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                               <ZoomIn size={18} className="text-white opacity-0 group-hover:opacity-100 drop-shadow" />
                             </div>
