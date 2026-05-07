@@ -295,20 +295,6 @@ export default function OperativeInvoices() {
 
   const primaryColor = op.primary_colour || '#1B6FC8'
 
-  if (!isSelfEmployed && !loading) {
-    return (
-      <WorkerSidebarLayout op={op}>
-        <div className="max-w-lg mx-auto py-16 text-center">
-          <FileText size={48} className="mx-auto text-slate-300 mb-4" />
-          <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Invoicing Not Available</h2>
-          <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>
-            Self-service invoicing is only available for self-employed operatives. Contact your manager if you believe this is incorrect.
-          </p>
-        </div>
-      </WorkerSidebarLayout>
-    )
-  }
-
   return (
     <WorkerSidebarLayout op={op}>
       <div className="max-w-2xl mx-auto space-y-4">
