@@ -32,13 +32,13 @@ function formatBytes(bytes) {
 }
 
 async function loadPdfDoc(arrayBuffer) {
+  // Always work with a copy — the original may have been transferred to a web worker
+  const buf = arrayBuffer.slice ? arrayBuffer.slice(0) : new Uint8Array(arrayBuffer)
   try {
-    return await PDFDocument.load(arrayBuffer, { ignoreEncryption: true, updateMetadata: false })
+    return await PDFDocument.load(buf, { ignoreEncryption: true, updateMetadata: false })
   } catch {
-    // Retry with a copy of the buffer in case the original was detached
     try {
-      const copy = arrayBuffer.slice ? arrayBuffer.slice(0) : new Uint8Array(arrayBuffer)
-      return await PDFDocument.load(copy, { ignoreEncryption: true, updateMetadata: false, throwOnInvalidObject: false })
+      return await PDFDocument.load(buf, { ignoreEncryption: true, updateMetadata: false, throwOnInvalidObject: false })
     } catch {
       throw new Error('Failed to load PDF. The file may be encrypted or corrupted.')
     }
@@ -47,7 +47,7 @@ async function loadPdfDoc(arrayBuffer) {
 
 async function getPdfPageCount(arrayBuffer) {
   try {
-    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise
     return pdf.numPages
   } catch {
     return null
@@ -55,7 +55,7 @@ async function getPdfPageCount(arrayBuffer) {
 }
 
 async function renderPageThumbnail(arrayBuffer, pageNum, width = 120) {
-  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise
   const page = await pdf.getPage(pageNum)
   const vp = page.getViewport({ scale: 1 })
   const scale = width / vp.width
