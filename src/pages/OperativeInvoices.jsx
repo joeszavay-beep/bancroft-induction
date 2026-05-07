@@ -37,10 +37,12 @@ export default function OperativeInvoices() {
   const [invoiceFiles, setInvoiceFiles] = useState([])
   const [uploadingFiles, setUploadingFiles] = useState(false)
 
+  const [projects, setProjects] = useState([])
+
   async function loadData(opData) {
     setLoading(true)
 
-    // Check job_operatives for self-employed status
+    // Load job_operatives (subcontractor jobs)
     const { data: joData } = await supabase
       .from('job_operatives')
       .select('*, subcontractor_jobs(id, name)')
@@ -48,8 +50,13 @@ export default function OperativeInvoices() {
 
     const joList = joData || []
     setJobOps(joList)
-    const selfEmp = joList.some(jo => jo.employment_status === 'self_employed')
-    setIsSelfEmployed(selfEmp)
+
+    // Load project assignments
+    const { data: projData } = await supabase
+      .from('operative_projects')
+      .select('project_id, projects(id, name)')
+      .eq('operative_id', opData.id)
+    setProjects((projData || []).map(r => r.projects).filter(Boolean))
 
     // Try to load invoices from operative_invoices table
     try {
@@ -158,6 +165,14 @@ export default function OperativeInvoices() {
     return uploaded
   }
 
+  function parseSelection(sel) {
+    if (!sel) return { type: null }
+    if (sel.startsWith('proj:')) return { type: 'project', id: sel.slice(5) }
+    if (sel.startsWith('jo:')) return { type: 'job', id: sel.slice(3) }
+    // Legacy: treat bare IDs as job_operative
+    return { type: 'job', id: sel }
+  }
+
   async function submitInvoice(asDraft = false) {
     if (!selectedJobOp) return
     if (!tableExists) { toast.error('Invoice system coming soon'); return }
@@ -165,7 +180,8 @@ export default function OperativeInvoices() {
     if (validItems.length === 0 && !asDraft) { toast.error('Add at least one line item'); return }
 
     setSubmitting(true)
-    const jo = jobOps.find(j => j.id === selectedJobOp)
+    const sel = parseSelection(selectedJobOp)
+    const jo = sel.type === 'job' ? jobOps.find(j => j.id === sel.id) : null
     const gross = validItems.reduce((sum, item) => sum + item.amount, 0)
     const cisRate = jo?.cis_rate || 20
     const cis = calculateCIS(gross, cisRate)
@@ -181,8 +197,9 @@ export default function OperativeInvoices() {
 
     const record = {
       operative_id: op.id,
-      job_id: jo.job_id,
-      job_operative_id: jo.id,
+      job_id: jo?.job_id || null,
+      job_operative_id: jo?.id || null,
+      project_id: sel.type === 'project' ? sel.id : null,
       company_id: op.company_id,
       invoice_ref: ref,
       period_from: periodFrom || null,
@@ -248,7 +265,8 @@ export default function OperativeInvoices() {
     if (validItems.length === 0 && resubmit) { toast.error('Add at least one line item'); return }
 
     setSubmitting(true)
-    const jo = jobOps.find(j => j.id === selectedJobOp)
+    const sel = parseSelection(selectedJobOp)
+    const jo = sel.type === 'job' ? jobOps.find(j => j.id === sel.id) : null
     const gross = validItems.reduce((sum, item) => sum + item.amount, 0)
     const cisRate = jo?.cis_rate || 20
     const cis = calculateCIS(gross, cisRate)
@@ -465,9 +483,14 @@ export default function OperativeInvoices() {
                   onChange={e => setSelectedJobOp(e.target.value || null)}
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-blue-400"
                 >
-                  <option value="">Select a job...</option>
+                  <option value="">Select a job / project...</option>
+                  {projects.map(p => (
+                    <option key={`proj:${p.id}`} value={`proj:${p.id}`}>
+                      {p.name}
+                    </option>
+                  ))}
                   {jobOps.map(jo => (
-                    <option key={jo.id} value={jo.id}>
+                    <option key={`jo:${jo.id}`} value={`jo:${jo.id}`}>
                       {jo.subcontractor_jobs?.name || 'Job'} — {jo.trade_role || jo.pay_type}
                     </option>
                   ))}
@@ -489,7 +512,7 @@ export default function OperativeInvoices() {
               </div>
 
               {/* Auto-populate button */}
-              {selectedJobOp && periodFrom && periodTo && (
+              {selectedJobOp && parseSelection(selectedJobOp).type === 'job' && periodFrom && periodTo && (
                 <button onClick={populateFromTimesheet} className="w-full flex items-center justify-center gap-2 py-2 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
                   <RefreshCw size={12} /> Auto-populate from timesheet
                 </button>
