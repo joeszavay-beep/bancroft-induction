@@ -426,170 +426,79 @@ export default function SiteSignIn() {
           />
         </div>
 
-        {/* Currently on site count */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px',
-          background: '#fff', borderRadius: 10, marginBottom: 16,
-          border: '1px solid #e2e8f0',
-        }}>
-          <Users size={18} color={primaryColour} />
-          <span style={{ fontSize: 15, fontWeight: 600, color: '#1e293b' }}>
-            Currently on site: {currentlyOnSite.length}
-          </span>
-        </div>
-
-        {/* Currently on site — tap to sign out */}
-        {!searchQuery && currentlyOnSite.length > 0 && (
-          <div style={{ marginBottom: 20 }}>
-            <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 8px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Tap your name to sign out
+        {/* Prompt — no list of names visible */}
+        {!searchQuery && (
+          <div style={{
+            background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
+            padding: '24px 20px', textAlign: 'center', marginBottom: 20,
+          }}>
+            <Users size={28} color={primaryColour} style={{ marginBottom: 8 }} />
+            <p style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', margin: '0 0 4px' }}>
+              Find your name to sign in or out
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {currentlyOnSite.map((record) => {
-                const op = operatives.find(o => o.id === record.operative_id) || { id: record.operative_id, name: record.operative_name }
-                return (
-                  <button
-                    key={record.operative_id}
-                    onClick={() => setSelectedOperative(op)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-                      background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10,
-                      cursor: 'pointer', textAlign: 'left', width: '100%',
-                    }}
-                  >
-                    {op.photo_url ? (
-                      <img src={op.photo_url} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{
-                        width: 40, height: 40, borderRadius: '50%', background: '#2EA043',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff', fontSize: 14, fontWeight: 700,
-                      }}>
-                        {getInitials(op.name)}
-                      </div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#166534' }}>{op.name}</p>
-                      <p style={{ margin: 0, fontSize: 12, color: '#4ade80' }}>
-                        On site since {formatTime(record.recorded_at)}
-                      </p>
-                    </div>
-                    <LogOut size={18} color="#DA3633" />
-                  </button>
-                )
-              })}
-            </div>
+            <p style={{ fontSize: 13, color: '#94a3b8', margin: 0 }}>
+              Type your name in the search box above
+            </p>
           </div>
         )}
 
-        {/* Operatives list (search results) */}
+        {/* Search results — only shown when searching */}
         {searchQuery.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 8px', fontWeight: 500 }}>
               {filteredOperatives.length} result{filteredOperatives.length !== 1 ? 's' : ''}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {filteredOperatives.map((op) => (
-                <button
-                  key={op.id}
-                  onClick={() => {
-                    setSelectedOperative(op)
-                    setSearchQuery('')
-                  }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-                    background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10,
-                    cursor: 'pointer', width: '100%', textAlign: 'left',
-                    transition: 'background 0.15s',
-                  }}
-                  onTouchStart={(e) => { e.currentTarget.style.background = '#f1f5f9' }}
-                  onTouchEnd={(e) => { e.currentTarget.style.background = '#fff' }}
-                >
-                  {op.photo_url ? (
-                    <img
-                      src={op.photo_url}
-                      alt={op.name}
-                      style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: 44, height: 44, borderRadius: '50%', background: primaryColour,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: '#fff', fontSize: 16, fontWeight: 700, flexShrink: 0,
-                    }}>
-                      {getInitials(op.name)}
-                    </div>
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: '#1e293b' }}>{op.name}</div>
-                    {op.role && (
-                      <div style={{ fontSize: 13, color: '#64748b', marginTop: 1 }}>{op.role}</div>
+              {filteredOperatives.map((op) => {
+                const isOnSite = currentlyOnSite.some(r => r.operative_id === op.id)
+                return (
+                  <button
+                    key={op.id}
+                    onClick={() => {
+                      setSelectedOperative(op)
+                      setSearchQuery('')
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+                      background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10,
+                      cursor: 'pointer', width: '100%', textAlign: 'left',
+                      transition: 'background 0.15s',
+                    }}
+                    onTouchStart={(e) => { e.currentTarget.style.background = '#f1f5f9' }}
+                    onTouchEnd={(e) => { e.currentTarget.style.background = '#fff' }}
+                  >
+                    {op.photo_url ? (
+                      <img
+                        src={op.photo_url}
+                        alt={op.name}
+                        style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: 44, height: 44, borderRadius: '50%', background: primaryColour,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#fff', fontSize: 16, fontWeight: 700, flexShrink: 0,
+                      }}>
+                        {getInitials(op.name)}
+                      </div>
                     )}
-                  </div>
-                </button>
-              ))}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: '#1e293b' }}>{op.name}</div>
+                      {op.role && (
+                        <div style={{ fontSize: 13, color: '#64748b', marginTop: 1 }}>{op.role}</div>
+                      )}
+                    </div>
+                    {isOnSite && (
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#2EA043', flexShrink: 0 }} title="On site" />
+                    )}
+                  </button>
+                )
+              })}
               {filteredOperatives.length === 0 && (
                 <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14, padding: 20 }}>
                   No workers found matching "{searchQuery}"
                 </p>
               )}
-            </div>
-          </div>
-        )}
-
-        {/* Currently on site list */}
-        {currentlyOnSite.length > 0 && (
-          <div>
-            <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 8px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              On site today
-            </p>
-            <div style={{
-              background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0',
-              overflow: 'hidden',
-            }}>
-              {currentlyOnSite.map((record, i) => {
-                const op = operatives.find((o) => o.id === record.operative_id)
-                const name = record.operative_name || op?.name || 'Unknown'
-                const role = op?.role || ''
-                const photoUrl = op?.photo_url || null
-
-                return (
-                  <div
-                    key={record.id || i}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '12px 14px',
-                      borderBottom: i < currentlyOnSite.length - 1 ? '1px solid #f1f5f9' : 'none',
-                    }}
-                  >
-                    {photoUrl ? (
-                      <img
-                        src={photoUrl}
-                        alt={name}
-                        style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-                      />
-                    ) : (
-                      <div style={{
-                        width: 36, height: 36, borderRadius: '50%', background: '#e2e8f0',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#64748b', fontSize: 13, fontWeight: 700, flexShrink: 0,
-                      }}>
-                        {getInitials(name)}
-                      </div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>{name}</div>
-                      {role && (
-                        <div style={{ fontSize: 12, color: '#94a3b8' }}>{role}</div>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#94a3b8', fontSize: 13, flexShrink: 0 }}>
-                      <Clock size={13} />
-                      {formatTime(record.recorded_at)}
-                    </div>
-                  </div>
-                )
-              })}
             </div>
           </div>
         )}
