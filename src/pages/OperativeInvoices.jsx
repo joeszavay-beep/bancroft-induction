@@ -466,7 +466,7 @@ export default function OperativeInvoices() {
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-blue-400"
                 >
                   <option value="">Select a job...</option>
-                  {jobOps.filter(j => j.employment_status === 'self_employed').map(jo => (
+                  {jobOps.map(jo => (
                     <option key={jo.id} value={jo.id}>
                       {jo.subcontractor_jobs?.name || 'Job'} — {jo.trade_role || jo.pay_type}
                     </option>
