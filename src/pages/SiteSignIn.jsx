@@ -1,126 +1,156 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Search, LogIn, LogOut, MapPin, Clock, Users, CheckCircle2, ArrowLeft, Shield } from 'lucide-react'
+import { LogIn, LogOut, MapPin, Clock, CheckCircle2, Shield, Mail, Lock, Eye, EyeOff, HardHat } from 'lucide-react'
+import { getSession, setSession } from '../lib/storage'
 
 export default function SiteSignIn() {
   const { projectId } = useParams()
 
   const [project, setProject] = useState(null)
-  const [operatives, setOperatives] = useState([])
+  const [operative, setOperative] = useState(null) // the logged-in operative
   const [attendance, setAttendance] = useState([])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedOperative, setSelectedOperative] = useState(null)
   const [loading, setLoading] = useState(true)
   const [recording, setRecording] = useState(false)
-  const [success, setSuccess] = useState(null) // { type, name, time }
+  const [success, setSuccess] = useState(null)
   const [geoPosition, setGeoPosition] = useState(null)
 
-  // Fetch project, operatives, and today's attendance on mount
+  // Login form state
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [authError, setAuthError] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
+
+  // Load project + check existing session
   useEffect(() => {
     if (!projectId) return
 
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-
-    const fetchData = async () => {
+    async function init() {
       setLoading(true)
-      const [projectRes, operativesRes, attendanceRes] = await Promise.all([
-        supabase
-          .from('projects')
-          .select('*, companies(name, primary_colour)')
-          .eq('id', projectId)
-          .single(),
-        supabase
-          .from('operatives')
-          .select('id, name, role, photo_url, operative_projects!inner(project_id)')
-          .eq('operative_projects.project_id', projectId)
-          .order('name'),
-        supabase
-          .from('site_attendance')
-          .select('*')
-          .eq('project_id', projectId)
-          .gte('recorded_at', todayStart.toISOString())
-          .order('recorded_at', { ascending: false }),
-      ])
 
-      if (projectRes.data) setProject(projectRes.data)
-      if (operativesRes.data) setOperatives(operativesRes.data)
-      if (attendanceRes.data) setAttendance(attendanceRes.data)
+      // Load project
+      const { data: proj } = await supabase
+        .from('projects')
+        .select('*, companies(name, primary_colour, logo_url)')
+        .eq('id', projectId)
+        .single()
+      if (proj) setProject(proj)
+
+      // Check for existing operative session
+      const session = getSession('operative_session')
+      if (session) {
+        try {
+          const data = JSON.parse(session)
+          await loadOperativeAndAttendance(data.id, projectId)
+        } catch { /* invalid session */ }
+      }
+
       setLoading(false)
     }
 
-    fetchData()
+    init()
   }, [projectId])
 
-  // Try to capture GPS on mount (non-blocking)
+  // Capture GPS
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setGeoPosition({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          })
-        },
-        () => {
-          // Permission denied or error — leave null
-        }
+        (pos) => setGeoPosition({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        () => {}
       )
     }
   }, [])
 
-  // Auto-dismiss success screen after 4 seconds
+  // Auto-dismiss success
   useEffect(() => {
     if (!success) return
-    const timer = setTimeout(() => {
-      setSuccess(null)
-      setSelectedOperative(null)
-      setSearchQuery('')
-    }, 4000)
+    const timer = setTimeout(() => setSuccess(null), 4000)
     return () => clearTimeout(timer)
   }, [success])
 
-  // Compute who is currently on site
-  const currentlyOnSite = (() => {
-    const statusMap = {}
-    // attendance is sorted desc by recorded_at, so the first record per operative is the latest
-    for (const record of attendance) {
-      if (!statusMap[record.operative_id]) {
-        statusMap[record.operative_id] = record
-      }
-    }
-    return Object.values(statusMap).filter((r) => r.type === 'sign_in')
-  })()
+  async function loadOperativeAndAttendance(operativeId, projId) {
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
 
-  // Filter operatives by search query
-  const filteredOperatives = operatives.filter((op) =>
-    op.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+    const [opRes, attRes] = await Promise.all([
+      supabase.from('operatives').select('id, name, role, photo_url, company_id').eq('id', operativeId).single(),
+      supabase.from('site_attendance').select('*').eq('project_id', projId)
+        .eq('operative_id', operativeId)
+        .gte('recorded_at', todayStart.toISOString())
+        .order('recorded_at', { ascending: false }),
+    ])
+
+    if (opRes.data) setOperative(opRes.data)
+    if (attRes.data) setAttendance(attRes.data)
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault()
+    if (!email.trim() || !password.trim()) { setAuthError('Enter your email and password'); return }
+    setAuthLoading(true)
+    setAuthError('')
+
+    try {
+      // Try Supabase Auth
+      const { data: authData } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password: password.trim(),
+      })
+
+      let op = null
+      if (authData?.user) {
+        const { data: ops } = await supabase.from('operatives')
+          .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
+          .ilike('email', email.trim().toLowerCase())
+        if (ops?.length) op = ops[0]
+      }
+
+      // Fallback: email + DOB for legacy operatives
+      if (!op) {
+        const { data: ops } = await supabase.from('operatives')
+          .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
+          .ilike('email', email.trim().toLowerCase())
+        if (ops?.length && ops[0].date_of_birth === password.trim()) op = ops[0]
+      }
+
+      if (!op) { setAuthError('Invalid email or password'); setAuthLoading(false); return }
+
+      // Store session
+      setSession('operative_session', JSON.stringify({
+        id: op.id, name: op.name, email: op.email, role: op.role,
+        photo_url: op.photo_url,
+        projects: (op.operative_projects || []).map(r => ({ id: r.project_id, name: r.projects?.name })),
+        company_id: op.company_id,
+        company_name: op.companies?.name, company_logo: op.companies?.logo_url,
+        primary_colour: op.companies?.primary_colour || '#1B6FC8',
+      }))
+
+      await loadOperativeAndAttendance(op.id, projectId)
+      setAuthLoading(false)
+    } catch {
+      setAuthError('Something went wrong. Please try again.')
+      setAuthLoading(false)
+    }
+  }
+
+  const formatTime = (dateStr) => new Date(dateStr).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 
   const getInitials = (name) => {
     if (!name) return '?'
     const parts = name.trim().split(/\s+/)
-    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-    return parts[0][0].toUpperCase()
-  }
-
-  const formatTime = (dateStr) => {
-    const d = new Date(dateStr)
-    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+    return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : parts[0][0].toUpperCase()
   }
 
   function checkTimingFlag(type, now) {
     const startTime = project?.start_time || '07:30'
     const endTime = project?.end_time || '17:00'
-    const grace = 10 // minutes
-
+    const grace = 10
     const nowMins = now.getHours() * 60 + now.getMinutes()
     const [sh, sm] = startTime.split(':').map(Number)
     const [eh, em] = endTime.split(':').map(Number)
     const startMins = sh * 60 + sm
     const endMins = eh * 60 + em
-
     if (type === 'sign_in') {
       if (nowMins > startMins + grace) return 'late'
       if (nowMins < startMins - grace) return 'early'
@@ -133,53 +163,44 @@ export default function SiteSignIn() {
   }
 
   const handleRecord = async (type) => {
-    if (!selectedOperative || recording) return
+    if (!operative || recording) return
     setRecording(true)
-
     const now = new Date()
     const flag = checkTimingFlag(type, now)
 
     const record = {
       company_id: project?.company_id || project?.companies?.id || null,
       project_id: projectId,
-      operative_id: selectedOperative.id,
-      operative_name: selectedOperative.name,
+      operative_id: operative.id,
+      operative_name: operative.name,
       type,
       method: 'qr',
       ip_address: null,
       recorded_at: now.toISOString(),
       notes: flag ? `${flag.charAt(0).toUpperCase() + flag.slice(1)} — ${type === 'sign_in' ? 'arrived' : 'left'} at ${formatTime(now)}` : null,
     }
-
-    if (geoPosition) {
-      record.latitude = geoPosition.latitude
-      record.longitude = geoPosition.longitude
-    }
+    if (geoPosition) { record.latitude = geoPosition.latitude; record.longitude = geoPosition.longitude }
 
     const { error } = await supabase.from('site_attendance').insert(record)
-
     if (!error) {
       setAttendance((prev) => [{ ...record, id: crypto.randomUUID() }, ...prev])
-      setSuccess({
-        type,
-        name: selectedOperative.name,
-        time: formatTime(now),
-        flag,
-      })
+      setSuccess({ type, name: operative.name, time: formatTime(now), flag })
     }
-
     setRecording(false)
   }
 
-  // --- Loading state ---
+  // Derive on-site status for this operative
+  const isOnSite = attendance.length > 0 && attendance[0].type === 'sign_in'
+  const lastRecord = attendance[0] || null
+
+  const primaryColour = project?.companies?.primary_colour || '#1A2744'
+
+  // --- Loading ---
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: 40, height: 40, border: '3px solid #e2e8f0', borderTopColor: '#1A2744',
-            borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px',
-          }} />
+          <div style={{ width: 40, height: 40, border: '3px solid #e2e8f0', borderTopColor: '#1A2744', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
           <p style={{ color: '#64748b', fontSize: 14 }}>Loading site...</p>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
@@ -201,7 +222,6 @@ export default function SiteSignIn() {
   }
 
   const companyName = project.companies?.name || ''
-  const primaryColour = project.companies?.primary_colour || '#1A2744'
 
   // --- Success screen ---
   if (success) {
@@ -214,15 +234,8 @@ export default function SiteSignIn() {
         alignItems: 'center', justifyContent: 'center', background: bgColor, padding: 32,
       }}>
         <style>{`
-          @keyframes scaleIn {
-            0% { transform: scale(0); opacity: 0; }
-            60% { transform: scale(1.2); }
-            100% { transform: scale(1); opacity: 1; }
-          }
-          @keyframes fadeInUp {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-          }
+          @keyframes scaleIn { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.2); } 100% { transform: scale(1); opacity: 1; } }
+          @keyframes fadeInUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         `}</style>
         <div style={{ animation: 'scaleIn 0.5s ease-out forwards' }}>
           <CheckCircle2 size={96} color="#fff" strokeWidth={1.5} />
@@ -247,15 +260,14 @@ export default function SiteSignIn() {
           }}>
             <p style={{ color: '#fff', fontSize: 14, margin: 0, fontWeight: 600 }}>
               {success.flag === 'late' && `⚠ Late arrival — start time is ${project?.start_time || '07:30'}`}
-              {success.flag === 'early' && (isSignIn ? `Early arrival` : `⚠ Early departure — end time is ${project?.end_time || '17:00'}`)}
+              {success.flag === 'early' && (isSignIn ? 'Early arrival' : `⚠ Early departure — end time is ${project?.end_time || '17:00'}`)}
               {success.flag === 'overtime' && `Overtime — end time is ${project?.end_time || '17:00'}`}
             </p>
           </div>
         )}
         {geoPosition && (
           <div style={{ animation: 'fadeInUp 0.5s ease-out 0.5s forwards', opacity: 0, marginTop: 16, display: 'flex', alignItems: 'center', gap: 4, color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
-            <MapPin size={14} />
-            Location recorded
+            <MapPin size={14} /> Location recorded
           </div>
         )}
         {isSignIn && (
@@ -269,239 +281,166 @@ export default function SiteSignIn() {
     )
   }
 
-  // --- Selected operative screen ---
-  if (selectedOperative) {
+  // --- Authenticated: show sign in/out for this operative ---
+  if (operative) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8f9fa' }}>
-        {/* Header */}
         <div style={{ background: '#1A2744', padding: '16px 20px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button
-              onClick={() => setSelectedOperative(null)}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer', padding: 4,
-                display: 'flex', alignItems: 'center', color: '#fff',
-              }}
-            >
-              <ArrowLeft size={24} />
-            </button>
-            <div>
+            {project.companies?.logo_url ? (
+              <img src={project.companies.logo_url} alt="" style={{ height: 24, opacity: 0.8 }} />
+            ) : (
               <div style={{ color: '#fff', fontSize: 18, fontWeight: 300, letterSpacing: 1 }}>
                 CORE<span style={{ fontWeight: 700 }}>SITE</span>
               </div>
+            )}
+            <div style={{ flex: 1 }}>
+              <p style={{ color: '#fff', fontSize: 14, fontWeight: 600, margin: 0 }}>{project.name}</p>
+              {companyName && <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, margin: 0 }}>{companyName}</p>}
             </div>
           </div>
         </div>
 
-        {/* Operative card */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 20px 20px' }}>
-          {/* Avatar */}
-          {selectedOperative.photo_url ? (
-            <img
-              src={selectedOperative.photo_url}
-              alt={selectedOperative.name}
-              style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', marginBottom: 16, border: '3px solid #e2e8f0' }}
-            />
+          {operative.photo_url ? (
+            <img src={operative.photo_url} alt={operative.name}
+              style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', marginBottom: 16, border: '3px solid #e2e8f0' }} />
           ) : (
             <div style={{
               width: 100, height: 100, borderRadius: '50%', background: primaryColour,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: '#fff', fontSize: 36, fontWeight: 700, marginBottom: 16,
             }}>
-              {getInitials(selectedOperative.name)}
+              {getInitials(operative.name)}
             </div>
           )}
 
-          <h2 style={{ margin: '0 0 4px', fontSize: 24, color: '#1e293b', fontWeight: 700 }}>
-            {selectedOperative.name}
-          </h2>
-          {selectedOperative.role && (
-            <p style={{ margin: '0 0 32px', color: '#64748b', fontSize: 15 }}>
-              {selectedOperative.role}
-            </p>
-          )}
+          <h2 style={{ margin: '0 0 4px', fontSize: 24, color: '#1e293b', fontWeight: 700 }}>{operative.name}</h2>
+          {operative.role && <p style={{ margin: '0 0 32px', color: '#64748b', fontSize: 15 }}>{operative.role}</p>}
+          {!operative.role && <div style={{ height: 32 }} />}
 
-          {/* Show status and the ONLY valid action */}
-          {(() => {
-            const isOnSite = currentlyOnSite.some(r => r.operative_id === selectedOperative.id)
-            const lastRecord = attendance.find(r => r.operative_id === selectedOperative.id)
-            const signInTime = isOnSite && lastRecord ? formatTime(lastRecord.recorded_at) : null
-
-            if (isOnSite) {
-              return (
-                <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#2EA043', boxShadow: '0 0 0 3px rgba(46,160,67,0.2)' }} />
-                    <span style={{ fontSize: 15, color: '#166534', fontWeight: 600 }}>On site since {signInTime}</span>
-                  </div>
-                  <button
-                    onClick={() => handleRecord('sign_out')}
-                    disabled={recording}
-                    style={{
-                      width: '100%', minHeight: 56, padding: '16px 24px',
-                      background: '#DA3633', color: '#fff', border: 'none', borderRadius: 12,
-                      fontSize: 18, fontWeight: 700, cursor: recording ? 'wait' : 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                      opacity: recording ? 0.7 : 1, boxShadow: '0 2px 8px rgba(218,54,51,0.3)',
-                    }}
-                  >
-                    <LogOut size={22} />
-                    SIGN OUT
-                  </button>
+          <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {isOnSite ? (
+              <>
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#2EA043', boxShadow: '0 0 0 3px rgba(46,160,67,0.2)' }} />
+                  <span style={{ fontSize: 15, color: '#166534', fontWeight: 600 }}>On site since {formatTime(lastRecord.recorded_at)}</span>
                 </div>
-              )
-            }
-
-            return (
-              <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <button onClick={() => handleRecord('sign_out')} disabled={recording}
+                  style={{
+                    width: '100%', minHeight: 56, padding: '16px 24px',
+                    background: '#DA3633', color: '#fff', border: 'none', borderRadius: 12,
+                    fontSize: 18, fontWeight: 700, cursor: recording ? 'wait' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                    opacity: recording ? 0.7 : 1, boxShadow: '0 2px 8px rgba(218,54,51,0.3)',
+                  }}>
+                  <LogOut size={22} /> SIGN OUT
+                </button>
+              </>
+            ) : (
+              <>
                 {lastRecord?.type === 'sign_out' && (
                   <div style={{ background: '#f5f5f5', border: '1px solid #e2e8f0', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#94a3b8' }} />
                     <span style={{ fontSize: 14, color: '#64748b', fontWeight: 500 }}>Last signed out at {formatTime(lastRecord.recorded_at)}</span>
                   </div>
                 )}
-                <button
-                  onClick={() => handleRecord('sign_in')}
-                  disabled={recording}
+                <button onClick={() => handleRecord('sign_in')} disabled={recording}
                   style={{
                     width: '100%', minHeight: 56, padding: '16px 24px',
                     background: '#2EA043', color: '#fff', border: 'none', borderRadius: 12,
                     fontSize: 18, fontWeight: 700, cursor: recording ? 'wait' : 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                     opacity: recording ? 0.7 : 1, boxShadow: '0 2px 8px rgba(46,160,67,0.3)',
-                  }}
-                >
-                  <LogIn size={22} />
-                  SIGN IN
+                  }}>
+                  <LogIn size={22} /> SIGN IN
                 </button>
-              </div>
-            )
-          })()}
+              </>
+            )}
+          </div>
+
+          {/* Not you? */}
+          <button onClick={() => { setOperative(null); setAttendance([]) }}
+            style={{ marginTop: 24, background: 'none', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
+            Not {operative.name.split(' ')[0]}? Sign in as someone else
+          </button>
         </div>
       </div>
     )
   }
 
-  // --- Main search screen ---
+  // --- Login screen ---
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8f9fa' }}>
-      {/* Header */}
-      <div style={{ background: '#1A2744', padding: '20px 20px 16px', flexShrink: 0 }}>
-        <div style={{ color: '#fff', fontSize: 20, fontWeight: 300, letterSpacing: 1, marginBottom: 8 }}>
-          CORE<span style={{ fontWeight: 700 }}>SITE</span>
-        </div>
-        <h1 style={{ color: '#fff', fontSize: 18, fontWeight: 600, margin: '0 0 2px' }}>
-          {project.name}
-        </h1>
-        {companyName && (
-          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, margin: 0 }}>
-            {companyName}
-          </p>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#1A2744' }}>
+      <div style={{ padding: '20px 20px 12px', flexShrink: 0 }}>
+        {project.companies?.logo_url ? (
+          <img src={project.companies.logo_url} alt="" style={{ height: 28, opacity: 0.7 }} />
+        ) : (
+          <div style={{ color: '#fff', fontSize: 20, fontWeight: 300, letterSpacing: 1 }}>
+            CORE<span style={{ fontWeight: 700 }}>SITE</span>
+          </div>
         )}
+        <h1 style={{ color: '#fff', fontSize: 18, fontWeight: 600, margin: '12px 0 2px' }}>{project.name}</h1>
+        {companyName && <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, margin: 0 }}>{companyName}</p>}
       </div>
 
-      {/* Body */}
-      <div style={{ flex: 1, padding: '20px 16px' }}>
-        {/* Search input */}
-        <div style={{ position: 'relative', marginBottom: 20 }}>
-          <Search
-            size={20}
-            color="#94a3b8"
-            style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
-          />
-          <input
-            type="text"
-            placeholder="Search your name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            autoComplete="off"
-            style={{
-              width: '100%', padding: '14px 14px 14px 44px', fontSize: 16,
-              border: '1px solid #e2e8f0', borderRadius: 12, background: '#fff',
-              outline: 'none', boxSizing: 'border-box', color: '#1e293b',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-            }}
-            onFocus={(e) => { e.target.style.borderColor = primaryColour }}
-            onBlur={(e) => { e.target.style.borderColor = '#e2e8f0' }}
-          />
-        </div>
-
-        {/* Prompt — no list of names visible */}
-        {!searchQuery && (
-          <div style={{
-            background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
-            padding: '24px 20px', textAlign: 'center', marginBottom: 20,
-          }}>
-            <Users size={28} color={primaryColour} style={{ marginBottom: 8 }} />
-            <p style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', margin: '0 0 4px' }}>
-              Find your name to sign in or out
-            </p>
-            <p style={{ fontSize: 13, color: '#94a3b8', margin: 0 }}>
-              Type your name in the search box above
-            </p>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px 40px' }}>
+        <div style={{ width: '100%', maxWidth: 380 }}>
+          <div style={{ width: 56, height: 56, background: 'rgba(255,255,255,0.1)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <HardHat size={28} color="rgba(255,255,255,0.7)" />
           </div>
-        )}
+          <h2 style={{ color: '#fff', fontSize: 20, fontWeight: 700, textAlign: 'center', margin: '0 0 4px' }}>Site Sign-In</h2>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, textAlign: 'center', margin: '0 0 24px' }}>
+            Log in with your worker account to sign in or out
+          </p>
 
-        {/* Search results — only shown when searching */}
-        {searchQuery.length > 0 && (
-          <div style={{ marginBottom: 20 }}>
-            <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 8px', fontWeight: 500 }}>
-              {filteredOperatives.length} result{filteredOperatives.length !== 1 ? 's' : ''}
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {filteredOperatives.map((op) => {
-                const isOnSite = currentlyOnSite.some(r => r.operative_id === op.id)
-                return (
-                  <button
-                    key={op.id}
-                    onClick={() => {
-                      setSelectedOperative(op)
-                      setSearchQuery('')
-                    }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-                      background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10,
-                      cursor: 'pointer', width: '100%', textAlign: 'left',
-                      transition: 'background 0.15s',
-                    }}
-                    onTouchStart={(e) => { e.currentTarget.style.background = '#f1f5f9' }}
-                    onTouchEnd={(e) => { e.currentTarget.style.background = '#fff' }}
-                  >
-                    {op.photo_url ? (
-                      <img
-                        src={op.photo_url}
-                        alt={op.name}
-                        style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-                      />
-                    ) : (
-                      <div style={{
-                        width: 44, height: 44, borderRadius: '50%', background: primaryColour,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff', fontSize: 16, fontWeight: 700, flexShrink: 0,
-                      }}>
-                        {getInitials(op.name)}
-                      </div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: '#1e293b' }}>{op.name}</div>
-                      {op.role && (
-                        <div style={{ fontSize: 13, color: '#64748b', marginTop: 1 }}>{op.role}</div>
-                      )}
-                    </div>
-                    {isOnSite && (
-                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#2EA043', flexShrink: 0 }} title="On site" />
-                    )}
-                  </button>
-                )
-              })}
-              {filteredOperatives.length === 0 && (
-                <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14, padding: 20 }}>
-                  No workers found matching "{searchQuery}"
-                </p>
-              )}
+          <form onSubmit={handleLogin}>
+            <div style={{ marginBottom: 12, position: 'relative' }}>
+              <Mail size={16} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+              <input
+                type="email" value={email} onChange={e => { setEmail(e.target.value); setAuthError('') }}
+                placeholder="Email address" autoComplete="email"
+                style={{
+                  width: '100%', padding: '14px 14px 14px 42px', fontSize: 15,
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 12, color: '#fff', outline: 'none', boxSizing: 'border-box',
+                }}
+              />
             </div>
-          </div>
-        )}
+            <div style={{ marginBottom: 16, position: 'relative' }}>
+              <Lock size={16} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+              <input
+                type={showPassword ? 'text' : 'password'} value={password}
+                onChange={e => { setPassword(e.target.value); setAuthError('') }}
+                placeholder="Password" autoComplete="current-password"
+                style={{
+                  width: '100%', padding: '14px 44px 14px 42px', fontSize: 15,
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 12, color: '#fff', outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+              <button type="button" onClick={() => setShowPassword(!showPassword)}
+                style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                {showPassword ? <EyeOff size={16} color="rgba(255,255,255,0.3)" /> : <Eye size={16} color="rgba(255,255,255,0.3)" />}
+              </button>
+            </div>
+
+            {authError && <p style={{ color: '#f87171', fontSize: 13, textAlign: 'center', margin: '0 0 12px' }}>{authError}</p>}
+
+            <button type="submit" disabled={authLoading}
+              style={{
+                width: '100%', padding: '14px 24px', fontSize: 16, fontWeight: 700,
+                background: primaryColour, color: '#fff', border: 'none', borderRadius: 12,
+                cursor: authLoading ? 'wait' : 'pointer', opacity: authLoading ? 0.7 : 1,
+              }}>
+              {authLoading ? 'Signing in...' : 'Sign In to Site'}
+            </button>
+          </form>
+
+          <p style={{ textAlign: 'center', marginTop: 32, fontSize: 11, color: 'rgba(255,255,255,0.15)' }}>
+            Powered by CoreSite
+          </p>
+        </div>
       </div>
     </div>
   )
