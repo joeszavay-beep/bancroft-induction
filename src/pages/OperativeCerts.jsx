@@ -367,7 +367,7 @@ export default function OperativeCerts() {
 
       {/* Upload/Edit Modal */}
       {editCert && (
-        <Modal onClose={() => setEditCert(null)}>
+        <Modal open onClose={() => setEditCert(null)}>
           <div className="space-y-4">
             <div>
               <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>{editCert.name}</h2>
