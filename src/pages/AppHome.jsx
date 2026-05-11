@@ -39,7 +39,7 @@ export default function AppHome() {
         : supabase.from('operatives').select('id, cscs_expiry, ipaf_expiry, pasma_expiry, sssts_expiry, first_aid_expiry').eq('company_id', cid),
       (() => { let q = supabase.from('snags').select('id, status, due_date, created_at, updated_at, project_id').eq('company_id', cid); if (projectId) q = q.eq('project_id', projectId); return q })(),
       supabase.from('signatures').select('id').eq('company_id', cid),
-      (() => { let q = supabase.from('site_attendance').select('id, type, operative_id').eq('company_id', cid).gte('recorded_at', todayStart.toISOString()); if (projectId) q = q.eq('project_id', projectId); return q })(),
+      (() => { let q = supabase.from('site_attendance').select('id, type, operative_id, operative_name').eq('company_id', cid).gte('recorded_at', todayStart.toISOString()); if (projectId) q = q.eq('project_id', projectId); return q })(),
       (() => { let q = supabase.from('site_diary').select('id, date').eq('company_id', cid).order('date', { ascending: false }).limit(1); if (projectId) q = q.eq('project_id', projectId); return q })(),
       (() => { let q = supabase.from('inspections').select('id, status').eq('company_id', cid); if (projectId) q = q.eq('project_id', projectId); return q })(),
       supabase.from('chat_messages').select('id').eq('company_id', cid).eq('read_by_manager', false).eq('sender_type', 'operative'),
@@ -61,7 +61,12 @@ export default function AppHome() {
     const att = attendance.data || []
     const signInIds = new Set(att.filter(a => a.type === 'sign_in').map(a => a.operative_id))
     const signOutIds = new Set(att.filter(a => a.type === 'sign_out').map(a => a.operative_id))
-    const onSite = [...signInIds].filter(id => !signOutIds.has(id)).length
+    const onSiteIds = [...signInIds].filter(id => !signOutIds.has(id))
+    const onSite = onSiteIds.length
+    // Build name list from attendance records (operative_name is stored with each record)
+    const nameMap = {}
+    att.forEach(a => { if (a.operative_name) nameMap[a.operative_id] = a.operative_name })
+    const onSiteNames = onSiteIds.map(id => nameMap[id]).filter(Boolean).sort()
 
     const insp = inspections.data || []
     const diaryToday = diary.data?.[0]?.date === today.toISOString().split('T')[0]
@@ -70,6 +75,7 @@ export default function AppHome() {
       projects: projects.data?.length || 0,
       workers: ops.length,
       onSite: Math.max(0, onSite),
+      onSiteNames,
       signIns: att.filter(a => a.type === 'sign_in').length,
       openSnags: open.length,
       overdue: overdue.length,
@@ -149,13 +155,22 @@ export default function AppHome() {
             <button onClick={() => navigate('/app/attendance')} className="text-[10px] font-medium" style={{ color: 'var(--primary-color)' }}>View attendance →</button>
           </div>
           <div className="p-5 grid grid-cols-3 gap-4">
-            <button onClick={() => navigate('/app/attendance')} className="text-center hover:opacity-70 transition-opacity">
-              <div className="w-12 h-12 rounded-full bg-[#2EA043]/10 flex items-center justify-center mx-auto mb-2">
-                <Users size={20} className="text-[#2EA043]" />
-              </div>
-              <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.onSite}</p>
-              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>On site now</p>
-            </button>
+            <div className="text-center">
+              <button onClick={() => navigate('/app/attendance')} className="hover:opacity-70 transition-opacity">
+                <div className="w-12 h-12 rounded-full bg-[#2EA043]/10 flex items-center justify-center mx-auto mb-2">
+                  <Users size={20} className="text-[#2EA043]" />
+                </div>
+                <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.onSite}</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>On site now</p>
+              </button>
+              {s.onSiteNames?.length > 0 && (
+                <div className="mt-2 text-left">
+                  {s.onSiteNames.map(name => (
+                    <p key={name} className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{name}</p>
+                  ))}
+                </div>
+              )}
+            </div>
             <button onClick={() => navigate('/app/attendance')} className="text-center hover:opacity-70 transition-opacity">
               <div className="w-12 h-12 rounded-full bg-[#1B6FC8]/10 flex items-center justify-center mx-auto mb-2">
                 <LogIn size={20} className="text-[#1B6FC8]" />

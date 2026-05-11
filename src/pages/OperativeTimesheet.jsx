@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
 import WorkerSidebarLayout from '../components/WorkerSidebarLayout'
-import { ChevronLeft, ChevronRight, Clock, CalendarDays, QrCode } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, CalendarDays, QrCode, AlertCircle } from 'lucide-react'
 
 function getWeekDates(offset = 0) {
   const now = new Date()
@@ -251,12 +251,18 @@ export default function OperativeTimesheet() {
           </div>
         )}
 
-        {/* Read-only notice */}
+        {/* Read-only notice + report discrepancy */}
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-2.5">
           <Clock size={16} className="text-blue-500 shrink-0 mt-0.5" />
-          <div>
+          <div className="flex-1">
             <p className="text-xs font-semibold text-blue-800">Read-only timesheet</p>
-            <p className="text-[11px] text-blue-600 mt-0.5">Your timesheet is managed by your subcontractor. Contact your supervisor if you notice any discrepancies.</p>
+            <p className="text-[11px] text-blue-600 mt-0.5">Your timesheet is managed by your subcontractor.</p>
+            <button
+              onClick={() => navigate('/worker/chat', { state: { prefill: `Hi, I'd like to query my timesheet for the week ${weekStart} — ${weekEnd}. ` } })}
+              className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors"
+            >
+              <AlertCircle size={13} /> Report a discrepancy
+            </button>
           </div>
         </div>
       </div>

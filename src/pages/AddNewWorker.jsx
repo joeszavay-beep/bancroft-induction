@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { authFetch } from '../lib/authFetch'
 import { useCompany } from '../lib/CompanyContext'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
-import { UserPlus, Upload } from 'lucide-react'
+import { UserPlus, Upload, RotateCcw, X } from 'lucide-react'
+import useFormAutoSave from '../hooks/useFormAutoSave'
 import AddressLookup from '../components/AddressLookup'
 import DateOfBirthPicker from '../components/DateOfBirthPicker'
 import { getSession } from '../lib/storage'
@@ -31,6 +32,7 @@ export default function AddNewWorker() {
   const [postcode, setPostcode] = useState('')
   const [mobile, setMobile] = useState('')
   const [email, setEmail] = useState('')
+  const [emailDuplicate, setEmailDuplicate] = useState(null) // existing operative name if duplicate
   const [employmentType, setEmploymentType] = useState('')
 
   // Certifications
@@ -50,6 +52,31 @@ export default function AddNewWorker() {
   // Site
   const [projectId, setProjectId] = useState('')
   const [projects, setProjects] = useState([])
+
+  // Auto-save form data
+  const formData = useMemo(() => ({
+    firstName, lastName, role, trade, dob, niNumber, postcode, mobile, email,
+    employmentType, cscsNumber, cscsExpiry, cscsType, ipafExpiry, pasmaExpiry,
+    ssstsExpiry, firstAidExpiry, nokName, nokRelation, nokPhone, projectId,
+  }), [firstName, lastName, role, trade, dob, niNumber, postcode, mobile, email,
+    employmentType, cscsNumber, cscsExpiry, cscsType, ipafExpiry, pasmaExpiry,
+    ssstsExpiry, firstAidExpiry, nokName, nokRelation, nokPhone, projectId])
+
+  const restoreData = useCallback((d) => {
+    if (d.firstName) setFirstName(d.firstName); if (d.lastName) setLastName(d.lastName)
+    if (d.role) setRole(d.role); if (d.trade) setTrade(d.trade)
+    if (d.dob) setDob(d.dob); if (d.niNumber) setNiNumber(d.niNumber)
+    if (d.postcode) setPostcode(d.postcode); if (d.mobile) setMobile(d.mobile)
+    if (d.email) setEmail(d.email); if (d.employmentType) setEmploymentType(d.employmentType)
+    if (d.cscsNumber) setCscsNumber(d.cscsNumber); if (d.cscsExpiry) setCscsExpiry(d.cscsExpiry)
+    if (d.cscsType) setCscsType(d.cscsType); if (d.ipafExpiry) setIpafExpiry(d.ipafExpiry)
+    if (d.pasmaExpiry) setPasmaExpiry(d.pasmaExpiry); if (d.ssstsExpiry) setSsstsExpiry(d.ssstsExpiry)
+    if (d.firstAidExpiry) setFirstAidExpiry(d.firstAidExpiry)
+    if (d.nokName) setNokName(d.nokName); if (d.nokRelation) setNokRelation(d.nokRelation)
+    if (d.nokPhone) setNokPhone(d.nokPhone); if (d.projectId) setProjectId(d.projectId)
+  }, [])
+
+  const { hasRecovery, acceptRecovery, dismissRecovery, clearSaved } = useFormAutoSave('add_worker', formData, restoreData)
 
   useEffect(() => {
     if (!cid) return
@@ -145,11 +172,13 @@ export default function AddNewWorker() {
         console.error('Invite error:', err)
         toast.error('Worker saved but invitation failed')
       }
+      clearSaved()
       setSaving(false)
       navigate('/app/workers')
       return
     }
 
+    clearSaved()
     setSaving(false)
     toast.success('Worker saved')
     navigate('/app/workers')
@@ -160,6 +189,15 @@ export default function AddNewWorker() {
 
   return (
     <div>
+      {hasRecovery && (
+        <div className="mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+          <RotateCcw size={16} className="text-amber-600 shrink-0" />
+          <p className="text-xs text-amber-800 flex-1 font-medium">You have unsaved data from a previous session.</p>
+          <button onClick={acceptRecovery} className="text-xs font-semibold text-amber-700 bg-amber-100 hover:bg-amber-200 px-3 py-1 rounded-md transition-colors">Restore</button>
+          <button onClick={dismissRecovery} className="text-amber-400 hover:text-amber-600"><X size={16} /></button>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 rounded-lg bg-[#2EA043]/10 flex items-center justify-center">
           <UserPlus size={20} className="text-[#2EA043]" />
@@ -231,7 +269,17 @@ export default function AddNewWorker() {
                   </div>
                   <div>
                     <label className={labelCls}>Email Address</label>
-                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} className={inputCls} />
+                    <input type="email" value={email} onChange={e => { setEmail(e.target.value); setEmailDuplicate(null) }}
+                      onBlur={async () => {
+                        if (!email.trim()) return
+                        const { data } = await supabase.from('operatives').select('name').ilike('email', email.trim().toLowerCase()).limit(1)
+                        if (data?.length) setEmailDuplicate(data[0].name)
+                        else setEmailDuplicate(null)
+                      }}
+                      className={inputCls} />
+                    {emailDuplicate && (
+                      <p className="text-xs text-amber-600 mt-1 font-medium">A worker named "{emailDuplicate}" already exists with this email</p>
+                    )}
                   </div>
                 </div>
                 <div>

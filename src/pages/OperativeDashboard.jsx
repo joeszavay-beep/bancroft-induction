@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, Routes, Route } from 'react-router-dom'
+import { useNavigate, useLocation, Routes, Route } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import WorkerSidebarLayout from '../components/WorkerSidebarLayout'
@@ -35,9 +35,10 @@ export default function OperativeDashboard() {
   const [weekEntries, setWeekEntries] = useState([])
   const [operative, setOperative] = useState(null)
 
-  // Chat
+  // Chat — pre-fill from navigation state (e.g. timesheet discrepancy)
+  const location = useLocation()
   const [chatMessages, setChatMessages] = useState([])
-  const [chatMsg, setChatMsg] = useState('')
+  const [chatMsg, setChatMsg] = useState(location.state?.prefill || '')
   const [chatSending, setChatSending] = useState(false)
   const [, setUnreadChat] = useState(0)
   const [managers, setManagers] = useState([])
