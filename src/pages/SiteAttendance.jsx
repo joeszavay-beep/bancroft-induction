@@ -86,8 +86,26 @@ export default function SiteAttendance() {
         .gte('recorded_at', todayStart)
         .order('recorded_at', { ascending: false }),
     ])
+
+    // Also load cross-company operatives linked to our projects
+    const projectIds = (p.data || []).map(pr => pr.id)
+    let allOps = [...(o.data || [])]
+    if (projectIds.length > 0) {
+      const { data: linked } = await supabase
+        .from('operative_projects')
+        .select('operatives(id, name, role, photo_url)')
+        .in('project_id', projectIds)
+      const existingIds = new Set(allOps.map(op => op.id))
+      for (const row of (linked || [])) {
+        if (row.operatives && !existingIds.has(row.operatives.id)) {
+          allOps.push(row.operatives)
+          existingIds.add(row.operatives.id)
+        }
+      }
+    }
+
     setProjects(p.data || [])
-    setOperatives(o.data || [])
+    setOperatives(allOps)
     setTodayRecords(a.data || [])
     setLoading(false)
   }
@@ -145,6 +163,7 @@ export default function SiteAttendance() {
 
     return Object.entries(byOp).map(([opId, recs]) => {
       const op = operatives.find(o => o.id === opId)
+      const fallbackName = recs[0]?.operative_name
       // Sort ascending for pairing
       const sorted = [...recs].sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at))
       const days = new Set(sorted.map(r => new Date(r.recorded_at).toDateString()))
@@ -171,7 +190,7 @@ export default function SiteAttendance() {
 
       return {
         id: opId,
-        name: op?.name || 'Unknown',
+        name: op?.name || fallbackName || 'Unknown',
         daysAttended: days.size,
         totalHours,
         avgHours,
@@ -253,7 +272,7 @@ export default function SiteAttendance() {
       return [
         formatDate(r.recorded_at),
         formatTime(r.recorded_at),
-        op?.name || r.operative_id,
+        op?.name || r.operative_name || r.operative_id,
         proj?.name || r.project_id || '',
         r.type === 'sign_in' ? 'IN' : 'OUT',
         r.duration ? formatDuration(r.duration) : '',
@@ -291,8 +310,8 @@ export default function SiteAttendance() {
     }))
   }
 
-  function getOpName(id) {
-    return operatives.find(o => o.id === id)?.name || 'Unknown'
+  function getOpName(id, fallback) {
+    return operatives.find(o => o.id === id)?.name || fallback || 'Unknown'
   }
 
   function getProjectName(id) {
@@ -466,12 +485,12 @@ export default function SiteAttendance() {
                 ) : (
                   <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm"
                     style={{ backgroundColor: 'var(--primary-color)' }}>
-                    {(r.operative?.name || '?').slice(0, 2).toUpperCase()}
+                    {(r.operative?.name || r.operative_name || '?').slice(0, 2).toUpperCase()}
                   </div>
                 )}
                 <div>
                   <p className="text-sm font-medium truncate max-w-[120px]" style={{ color: 'var(--text-primary)' }}>
-                    {r.operative?.name || 'Unknown'}
+                    {r.operative?.name || r.operative_name || 'Unknown'}
                   </p>
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     {r.operative?.role || ''}
@@ -522,7 +541,7 @@ export default function SiteAttendance() {
                       </div>
                     </td>
                     <td className="py-2.5 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>
-                      {getOpName(r.operative_id)}
+                      {getOpName(r.operative_id, r.operative_name)}
                     </td>
                     <td className="py-2.5 px-3">
                       <div className="flex items-center gap-1.5">
@@ -628,7 +647,7 @@ export default function SiteAttendance() {
                       <tr key={r.id} className="border-b last:border-0" style={{ borderColor: 'var(--border-color)' }}>
                         <td className="py-2 px-3" style={{ color: 'var(--text-primary)' }}>{formatDate(r.recorded_at)}</td>
                         <td className="py-2 px-3" style={{ color: 'var(--text-primary)' }}>{formatTime(r.recorded_at)}</td>
-                        <td className="py-2 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>{getOpName(r.operative_id)}</td>
+                        <td className="py-2 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>{getOpName(r.operative_id, r.operative_name)}</td>
                         <td className="py-2 px-3 hidden sm:table-cell" style={{ color: 'var(--text-muted)' }}>{getProjectName(r.project_id)}</td>
                         <td className="py-2 px-3">
                           {r.type === 'sign_in' ? (
@@ -857,12 +876,12 @@ export default function SiteAttendance() {
                     ) : (
                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-xs"
                         style={{ backgroundColor: 'var(--primary-color)' }}>
-                        {(r.operative?.name || '?').slice(0, 2).toUpperCase()}
+                        {(r.operative?.name || r.operative_name || '?').slice(0, 2).toUpperCase()}
                       </div>
                     )}
                     <div className="text-left">
                       <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                        {r.operative?.name || 'Unknown'}
+                        {r.operative?.name || r.operative_name || 'Unknown'}
                       </p>
                       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                         {r.operative?.role || ''} — signed in {formatTime(r.recorded_at)}

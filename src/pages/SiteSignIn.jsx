@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { LogIn, LogOut, MapPin, Clock, CheckCircle2, Shield, Mail, Lock, Eye, EyeOff, HardHat } from 'lucide-react'
-import { getSession, setSession } from '../lib/storage'
+import { LogIn, LogOut, MapPin, Clock, CheckCircle2, Shield, Mail, Lock, Eye, EyeOff, HardHat, Check } from 'lucide-react'
+import { getSession, setSession, removeSession } from '../lib/storage'
 
 export default function SiteSignIn() {
   const { projectId } = useParams()
@@ -21,6 +21,7 @@ export default function SiteSignIn() {
   const [showPassword, setShowPassword] = useState(false)
   const [authError, setAuthError] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
 
   // Load project + check existing session
   useEffect(() => {
@@ -101,6 +102,9 @@ export default function SiteSignIn() {
         password: password.trim(),
       })
 
+      // Restore anon mode so subsequent queries work with anon RLS policies
+      if (authData?.user) await supabase.auth.signOut()
+
       let op = null
       if (authData?.user) {
         const { data: ops } = await supabase.from('operatives')
@@ -119,7 +123,13 @@ export default function SiteSignIn() {
 
       if (!op) { setAuthError('Invalid email or password'); setAuthLoading(false); return }
 
-      // Store session
+      // Auto-link operative to this project if not already assigned
+      await supabase.from('operative_projects').upsert(
+        { operative_id: op.id, project_id: projectId },
+        { onConflict: 'operative_id,project_id' }
+      )
+
+      // Store session (persistent when "Remember Me" is checked)
       setSession('operative_session', JSON.stringify({
         id: op.id, name: op.name, email: op.email, role: op.role,
         photo_url: op.photo_url,
@@ -127,7 +137,7 @@ export default function SiteSignIn() {
         company_id: op.company_id,
         company_name: op.companies?.name, company_logo: op.companies?.logo_url,
         primary_colour: op.companies?.primary_colour || '#1B6FC8',
-      }))
+      }), rememberMe)
 
       await loadOperativeAndAttendance(op.id, projectId)
       setAuthLoading(false)
@@ -168,6 +178,24 @@ export default function SiteSignIn() {
   const handleRecord = async (type) => {
     if (!operative || recording) return
     setRecording(true)
+
+    // Re-check latest attendance from DB to prevent duplicate sign-in/out
+    const checkStart = new Date()
+    checkStart.setHours(0, 0, 0, 0)
+    const { data: latest } = await supabase.from('site_attendance')
+      .select('type')
+      .eq('project_id', projectId)
+      .eq('operative_id', operative.id)
+      .gte('recorded_at', checkStart.toISOString())
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+    if (latest?.length && latest[0].type === type) {
+      // Already in this state — refresh UI to show correct button
+      await loadOperativeAndAttendance(operative.id, projectId)
+      setRecording(false)
+      return
+    }
+
     const now = new Date()
     const flag = checkTimingFlag(type, now)
 
@@ -363,7 +391,7 @@ export default function SiteSignIn() {
           </div>
 
           {/* Not you? */}
-          <button onClick={() => { setOperative(null); setAttendance([]) }}
+          <button onClick={() => { removeSession('operative_session'); setOperative(null); setAttendance([]) }}
             style={{ marginTop: 24, background: 'none', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
             Not {operative.name.split(' ')[0]}? Sign in as someone else
           </button>
@@ -426,6 +454,22 @@ export default function SiteSignIn() {
                 style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                 {showPassword ? <EyeOff size={16} color="rgba(255,255,255,0.3)" /> : <Eye size={16} color="rgba(255,255,255,0.3)" />}
               </button>
+            </div>
+
+            <div
+              onClick={() => setRememberMe(!rememberMe)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, cursor: 'pointer', userSelect: 'none' }}
+            >
+              <div style={{
+                width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                border: rememberMe ? 'none' : '1.5px solid rgba(255,255,255,0.2)',
+                background: rememberMe ? primaryColour : 'rgba(255,255,255,0.05)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.15s ease',
+              }}>
+                {rememberMe && <Check size={14} color="#fff" strokeWidth={3} />}
+              </div>
+              <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Remember me on this device</span>
             </div>
 
             {authError && <p style={{ color: '#f87171', fontSize: 13, textAlign: 'center', margin: '0 0 12px' }}>{authError}</p>}
