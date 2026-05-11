@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
+import { useProject } from '../lib/ProjectContext'
 import { formatMoney, parseMoney, JOB_STATUSES, TRAFFIC_LIGHT_COLORS } from '../lib/subcontractor'
 import toast from 'react-hot-toast'
 import {
@@ -14,6 +15,7 @@ const STATUS_MAP = Object.fromEntries(JOB_STATUSES.map(s => [s.value, s]))
 export default function SubcontractorJobs() {
   const navigate = useNavigate()
   const { user } = useCompany()
+  const { projectId } = useProject()
   const cid = user?.company_id
 
   const [jobs, setJobs] = useState([])
@@ -111,7 +113,7 @@ export default function SubcontractorJobs() {
 
   // Filtered and sorted
   const displayJobs = useMemo(() => {
-    let filtered = jobs
+    let filtered = projectId ? jobs.filter(j => j.project_id === projectId) : jobs
     if (statusFilter) filtered = filtered.filter(j => j.status === statusFilter)
     if (searchTerm) {
       const q = searchTerm.toLowerCase()

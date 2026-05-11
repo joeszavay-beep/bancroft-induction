@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
+import { useProject } from '../lib/ProjectContext'
 import {
   formatMoney, calculateProjections, calculateBurnRate,
   TRAFFIC_LIGHT_COLORS,
@@ -16,6 +17,7 @@ import {
 export default function SubcontractorDashboard() {
   const navigate = useNavigate()
   const { user } = useCompany()
+  const { projectId } = useProject()
   const cid = user?.company_id
 
   const [jobs, setJobs] = useState([])
@@ -50,11 +52,15 @@ export default function SubcontractorDashboard() {
 
   useEffect(() => { if (cid) loadData() }, [cid]) // eslint-disable-line react-hooks/set-state-in-effect
 
-  // Filter by selected job
+  // Filter by project context then by selected job
+  const projectJobs = useMemo(() => {
+    return projectId ? jobs.filter(j => j.project_id === projectId) : jobs
+  }, [jobs, projectId])
+
   const filteredJobs = useMemo(() => {
-    if (selectedJobId === 'all') return jobs.filter(j => j.status === 'active')
-    return jobs.filter(j => j.id === selectedJobId)
-  }, [jobs, selectedJobId])
+    if (selectedJobId === 'all') return projectJobs.filter(j => j.status === 'active')
+    return projectJobs.filter(j => j.id === selectedJobId)
+  }, [projectJobs, selectedJobId])
 
   const filteredEntries = useMemo(() => {
     if (selectedJobId === 'all') return timesheetEntries

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
+import { useProject } from '../lib/ProjectContext'
 import { getSession } from '../lib/storage'
 import { formatMoney } from '../lib/subcontractor'
 import { FileText, CheckCircle2, Clock, PoundSterling, MessageSquare, ExternalLink, Paperclip, Filter, Send } from 'lucide-react'
@@ -18,6 +19,7 @@ const FILTER_OPTIONS = ['all', 'submitted', 'approved', 'changes_requested', 'pa
 
 export default function WorkerInvoiceReview() {
   const { company } = useCompany()
+  const { projectId } = useProject()
   const cid = company?.id
   const managerData = JSON.parse(getSession('manager_data') || '{}')
   const managerName = managerData.name || 'Manager'
@@ -37,7 +39,7 @@ export default function WorkerInvoiceReview() {
     setLoading(true)
     const { data, error } = await supabase
       .from('operative_invoices')
-      .select('*, operatives(id, name, photo_url)')
+      .select('*, operatives(id, name, photo_url), subcontractor_jobs(project_id)')
       .eq('company_id', cid)
       .order('created_at', { ascending: false })
 
@@ -135,9 +137,13 @@ export default function WorkerInvoiceReview() {
     setActionLoading(null)
   }
 
+  const projectInvoices = projectId
+    ? invoices.filter(inv => inv.subcontractor_jobs?.project_id === projectId)
+    : invoices
+
   const filtered = filter === 'all'
-    ? invoices
-    : invoices.filter(inv => inv.status === filter)
+    ? projectInvoices
+    : projectInvoices.filter(inv => inv.status === filter)
 
   const counts = {
     all: invoices.length,
