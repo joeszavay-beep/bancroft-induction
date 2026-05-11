@@ -5,8 +5,9 @@ import { parseProgrammePDF } from '../lib/programmeParser'
 import toast from 'react-hot-toast'
 import {
   Upload, Download, Calendar, ChevronRight, Check, AlertTriangle,
-  Clock, BarChart3, CalendarRange, Loader2, Activity
+  Clock, BarChart3, CalendarRange, Loader2, Activity, FolderOpen
 } from 'lucide-react'
+import { useProject } from '../lib/ProjectContext'
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -79,33 +80,17 @@ const STATUS_COLORS = {
 
 export default function MasterProgramme() {
   const managerData = JSON.parse(getSession('manager_data') || '{}')
+  const { projectId } = useProject()
 
-  const [projects, setProjects] = useState([])
-  const [selectedProject, setSelectedProject] = useState('')
   const [, setProgramme] = useState(null)
   const [activities, setActivities] = useState([])
   const [linkedMap, setLinkedMap] = useState({}) // master_activity_id -> auto progress
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [editValue, setEditValue] = useState('')
   const editRef = useRef(null)
   const tableBodyRef = useRef(null)
-
-  // ── Load projects ─────────────────────────────────────────────────────────
-
-  async function loadProjects() {
-    try {
-      let query = supabase.from('projects').select('id, name').order('name')
-      if (managerData.company_id) query = query.eq('company_id', managerData.company_id)
-      const { data } = await query
-      setProjects(data || [])
-      if (data?.length > 0) setSelectedProject(data[0].id)
-    } catch (err) {
-      console.error('loadProjects error:', err)
-    }
-    setLoading(false)
-  }
 
   // ── Load programme & activities ───────────────────────────────────────────
 
@@ -116,7 +101,7 @@ export default function MasterProgramme() {
       const { data: prog } = await supabase
         .from('master_programme')
         .select('*')
-        .eq('project_id', selectedProject)
+        .eq('project_id', projectId)
         .order('imported_at', { ascending: false })
         .limit(1)
         .maybeSingle()
@@ -173,14 +158,13 @@ export default function MasterProgramme() {
     setLinkedMap(map)
   }
 
-  useEffect(() => { loadProjects() }, [])
-  useEffect(() => { if (selectedProject) loadProgramme() }, [selectedProject])
+  useEffect(() => { if (projectId) loadProgramme() }, [projectId])
 
   // ── Import PDF ────────────────────────────────────────────────────────────
 
   async function handleImportPDF(e) {
     const file = e.target.files?.[0]
-    if (!file || !selectedProject) return
+    if (!file || !projectId) return
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       toast.error('Please upload a PDF file')
       return
@@ -204,7 +188,7 @@ export default function MasterProgramme() {
 
       // 2. Upload PDF to storage
       const uuid = crypto.randomUUID()
-      const filePath = `programme/${selectedProject}/${uuid}.pdf`
+      const filePath = `programme/${projectId}/${uuid}.pdf`
       const { error: upErr } = await supabase.storage
         .from('documents')
         .upload(filePath, file, { contentType: 'application/pdf' })
@@ -214,7 +198,7 @@ export default function MasterProgramme() {
       // 3. Create master_programme record
       const { data: prog, error: progErr } = await supabase.from('master_programme').insert({
         company_id: managerData.company_id,
-        project_id: selectedProject,
+        project_id: projectId,
         programme_name: file.name.replace(/\.pdf$/i, ''),
         file_url: urlData.publicUrl,
         imported_by: managerData.name || 'Unknown',
@@ -225,7 +209,7 @@ export default function MasterProgramme() {
       const rows = parsed.map(act => ({
         programme_id: prog.id,
         company_id: managerData.company_id,
-        project_id: selectedProject,
+        project_id: projectId,
         line_number: act.line,
         name: act.name,
         section: act.section || null,
@@ -421,6 +405,14 @@ export default function MasterProgramme() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  if (!projectId) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center" style={{ color: 'var(--text-muted)' }}>
+      <FolderOpen size={40} className="mb-3 opacity-40" />
+      <p className="text-sm font-medium">Select a project</p>
+      <p className="text-xs mt-1">Choose a project from the sidebar to view this page</p>
+    </div>
+  )
+
   if (loading && !activities.length) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -438,32 +430,20 @@ export default function MasterProgramme() {
           <p className="text-sm text-slate-500">Gantt chart programme tracker with live progress</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {projects.length > 0 && (
-            <select
-              value={selectedProject}
-              onChange={e => setSelectedProject(e.target.value)}
-              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-blue-400"
-            >
-              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          )}
-
-          {selectedProject && (
-            <label className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-              importing ? 'bg-blue-100 text-blue-600' : 'bg-blue-500 hover:bg-blue-600 text-white'
-            }`}>
-              {importing ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 size={16} className="animate-spin" /> Importing...
-                </span>
-              ) : (
-                <>
-                  <Upload size={16} /> Import Programme PDF
-                </>
-              )}
-              <input type="file" accept=".pdf" onChange={handleImportPDF} disabled={importing} className="hidden" />
-            </label>
-          )}
+          <label className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+            importing ? 'bg-blue-100 text-blue-600' : 'bg-blue-500 hover:bg-blue-600 text-white'
+          }`}>
+            {importing ? (
+              <span className="flex items-center gap-2">
+                <Loader2 size={16} className="animate-spin" /> Importing...
+              </span>
+            ) : (
+              <>
+                <Upload size={16} /> Import Programme PDF
+              </>
+            )}
+            <input type="file" accept=".pdf" onChange={handleImportPDF} disabled={importing} className="hidden" />
+          </label>
 
           {enriched.length > 0 && (
             <button

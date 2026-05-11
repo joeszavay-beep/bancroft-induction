@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
+import { useProject } from '../lib/ProjectContext'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import {
@@ -59,6 +60,7 @@ const WEATHER_OPTIONS = [
 
 export default function DailySiteDiary() {
   const { user } = useCompany()
+  const { projectId: contextProjectId } = useProject()
   const cid = user?.company_id
   const [entries, setEntries] = useState([])
   const [projects, setProjects] = useState([])
@@ -66,10 +68,9 @@ export default function DailySiteDiary() {
   const [showForm, setShowForm] = useState(false)
   const [editingEntry, setEditingEntry] = useState(null)
   const [expandedEntry, setExpandedEntry] = useState(null)
-  const [filterProject, setFilterProject] = useState('all')
 
   // Form state
-  const [projectId, setProjectId] = useState('')
+  const [formProjectId, setFormProjectId] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [weather, setWeather] = useState('sunny')
   const [tempHigh, setTempHigh] = useState('')
@@ -98,7 +99,7 @@ export default function DailySiteDiary() {
     ])
     setEntries(e.data || [])
     setProjects(p.data || [])
-    if (p.data?.length > 0 && !projectId) setProjectId(p.data[0].id)
+    if (p.data?.length > 0 && !formProjectId) setFormProjectId(contextProjectId || p.data[0].id)
     setLoading(false)
   }
 
@@ -106,6 +107,7 @@ export default function DailySiteDiary() {
   useEffect(() => { if (cid) loadData() }, [cid])
 
   function resetForm() {
+    setFormProjectId(contextProjectId || '')
     setDate(new Date().toISOString().split('T')[0])
     setWeather('sunny')
     setTempHigh('')
@@ -124,7 +126,7 @@ export default function DailySiteDiary() {
 
   function openEdit(entry) {
     setEditingEntry(entry)
-    setProjectId(entry.project_id)
+    setFormProjectId(entry.project_id)
     setDate(entry.date)
     setWeather(entry.weather || 'sunny')
     setTempHigh(entry.temp_high?.toString() || '')
@@ -143,12 +145,12 @@ export default function DailySiteDiary() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!projectId) { toast.error('Select a project'); return }
+    if (!formProjectId) { toast.error('Select a project'); return }
     setSaving(true)
 
     const record = {
       company_id: cid,
-      project_id: projectId,
+      project_id: formProjectId,
       date,
       weather,
       temp_high: tempHigh ? parseInt(tempHigh) : null,
@@ -239,7 +241,7 @@ export default function DailySiteDiary() {
   }
 
   const projectMap = Object.fromEntries(projects.map(p => [p.id, p.name]))
-  const filtered = filterProject === 'all' ? entries : entries.filter(e => e.project_id === filterProject)
+  const filtered = !contextProjectId ? entries : entries.filter(e => e.project_id === contextProjectId)
 
   // Group by date
   const grouped = {}
@@ -268,15 +270,6 @@ export default function DailySiteDiary() {
           <Plus size={16} /> New Entry
         </button>
       </div>
-
-      {/* Project filter */}
-      {projects.length > 1 && (
-        <select value={filterProject} onChange={e => setFilterProject(e.target.value)}
-          className={`${inputCls} max-w-xs`} style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}>
-          <option value="all">All Projects</option>
-          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-      )}
 
       {/* Entries */}
       {filtered.length === 0 ? (
@@ -380,7 +373,7 @@ export default function DailySiteDiary() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Project *</label>
-                  <select value={projectId} onChange={e => setProjectId(e.target.value)} className={inputCls} required>
+                  <select value={formProjectId} onChange={e => setFormProjectId(e.target.value)} className={inputCls} required>
                     <option value="">Select...</option>
                     {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>

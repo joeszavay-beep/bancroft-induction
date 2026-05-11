@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
 import { TRADES, URGENCY_LABELS, formatDate } from '../lib/marketplace'
 import toast from 'react-hot-toast'
-import { PlusCircle, Briefcase, Loader2, Inbox } from 'lucide-react'
+import { PlusCircle, Briefcase, Loader2, Inbox, FolderOpen } from 'lucide-react'
+import { useProject } from '../lib/ProjectContext'
 
 const REQUEST_STATUS = {
   open:             { label: 'Open',             bg: 'bg-blue-100',  text: 'text-blue-700' },
@@ -16,24 +17,10 @@ const REQUEST_STATUS = {
 export default function LabourRequests() {
   const navigate = useNavigate()
   const managerData = JSON.parse(getSession('manager_data') || '{}')
+  const { projectId } = useProject()
 
-  const [projects, setProjects] = useState([])
-  const [selectedProject, setSelectedProject] = useState('')
   const [requests, setRequests] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  async function loadProjects() {
-    try {
-      let query = supabase.from('projects').select('id, name').order('name')
-      if (managerData.company_id) query = query.eq('company_id', managerData.company_id)
-      const { data } = await query
-      setProjects(data || [])
-      if (data?.length > 0) setSelectedProject(data[0].id)
-    } catch (err) {
-      console.error('loadProjects error:', err)
-    }
-    setLoading(false)
-  }
+  const [loading, setLoading] = useState(false)
 
   async function loadRequests() {
     setLoading(true)
@@ -41,7 +28,7 @@ export default function LabourRequests() {
       const { data, error } = await supabase
         .from('labour_requests')
         .select('*')
-        .eq('project_id', selectedProject)
+        .eq('project_id', projectId)
         .order('created_at', { ascending: false })
       if (error) throw error
 
@@ -87,8 +74,15 @@ export default function LabourRequests() {
     setLoading(false)
   }
 
-  useEffect(() => { loadProjects() }, [])
-  useEffect(() => { if (selectedProject) loadRequests() }, [selectedProject])
+  useEffect(() => { if (projectId) loadRequests() }, [projectId])
+
+  if (!projectId) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center" style={{ color: 'var(--text-muted)' }}>
+      <FolderOpen size={40} className="mb-3 opacity-40" />
+      <p className="text-sm font-medium">Select a project</p>
+      <p className="text-xs mt-1">Choose a project from the sidebar to view this page</p>
+    </div>
+  )
 
   if (loading && !requests.length) {
     return (
@@ -106,22 +100,10 @@ export default function LabourRequests() {
         <p className="text-sm text-slate-500">Manage your labour requests and view agency proposals</p>
       </div>
 
-      {/* Project selector + New Request */}
+      {/* New Request button */}
       <div className="flex items-center gap-3 flex-wrap">
-        {projects.length > 0 ? (
-          <select
-            value={selectedProject}
-            onChange={e => setSelectedProject(e.target.value)}
-            className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-blue-400"
-          >
-            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        ) : (
-          <p className="text-sm text-slate-400">No projects found</p>
-        )}
-
         <button
-          onClick={() => navigate('/app/labour-requests/new', { state: { projectId: selectedProject } })}
+          onClick={() => navigate('/app/labour-requests/new', { state: { projectId } })}
           className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition-colors"
         >
           <PlusCircle size={16} /> New Request

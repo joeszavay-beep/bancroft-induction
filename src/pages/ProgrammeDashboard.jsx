@@ -7,8 +7,9 @@ import toast from 'react-hot-toast'
 import {
   Upload, Download, ChevronDown, ChevronUp, ArrowUpDown, Filter,
   Activity, BarChart3, CheckCircle2, AlertTriangle, Clock, XCircle,
-  Loader2
+  Loader2, FolderOpen
 } from 'lucide-react'
+import { useProject } from '../lib/ProjectContext'
 
 const STATUS_CONFIG = {
   complete:  { label: 'Complete',  bg: 'bg-green-100',  text: 'text-green-700' },
@@ -24,13 +25,12 @@ const STATUS_CONFIG = {
 export default function ProgrammeDashboard() {
   const navigate = useNavigate()
   const managerData = JSON.parse(getSession('manager_data') || '{}')
+  const { projectId } = useProject()
 
-  const [projects, setProjects] = useState([])
-  const [selectedProject, setSelectedProject] = useState('')
   const [activities, setActivities] = useState([])
   const [markupLines, setMarkupLines] = useState([])
   const [snapshots, setSnapshots] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
 
   // Filters
@@ -43,26 +43,13 @@ export default function ProgrammeDashboard() {
   const [sortField, setSortField] = useState('name')
   const [sortDir, setSortDir] = useState('asc')
 
-  async function loadProjects() {
-    try {
-      let query = supabase.from('projects').select('id, name').order('name')
-      if (managerData.company_id) query = query.eq('company_id', managerData.company_id)
-      const { data } = await query
-      setProjects(data || [])
-      if (data?.length > 0) setSelectedProject(data[0].id)
-    } catch (err) {
-      console.error('loadProjects error:', err)
-    }
-    setLoading(false)
-  }
-
   async function loadActivities() {
     setLoading(true)
     try {
       const { data: acts } = await supabase
         .from('programme_activities')
         .select('*')
-        .eq('project_id', selectedProject)
+        .eq('project_id', projectId)
         .order('name')
       setActivities(acts || [])
 
@@ -90,8 +77,7 @@ export default function ProgrammeDashboard() {
     setLoading(false)
   }
 
-  useEffect(() => { loadProjects() }, [])
-  useEffect(() => { if (selectedProject) loadActivities() }, [selectedProject])
+  useEffect(() => { if (projectId) loadActivities() }, [projectId])
 
   // Compute progress for each activity
   const enrichedActivities = useMemo(() => {
@@ -171,7 +157,7 @@ export default function ProgrammeDashboard() {
 
   async function handleUploadDXF(e) {
     const file = e.target.files?.[0]
-    if (!file || !selectedProject) return
+    if (!file || !projectId) return
     if (!file.name.toLowerCase().endsWith('.dxf')) {
       toast.error('Please upload a DXF file')
       return
@@ -183,7 +169,7 @@ export default function ProgrammeDashboard() {
 
     setUploading(true)
     try {
-      const filePath = `programme/${selectedProject}/${crypto.randomUUID()}.dxf`
+      const filePath = `programme/${projectId}/${crypto.randomUUID()}.dxf`
       const { error: upErr } = await supabase.storage
         .from('documents')
         .upload(filePath, file, { contentType: 'application/dxf' })
@@ -193,7 +179,7 @@ export default function ProgrammeDashboard() {
 
       const { data: drawing, error: drawErr } = await supabase.from('design_drawings').insert({
         company_id: managerData.company_id,
-        project_id: selectedProject,
+        project_id: projectId,
         name: file.name.replace(/\.dxf$/i, ''),
         file_url: urlData.publicUrl,
         file_size: file.size,
@@ -225,6 +211,14 @@ export default function ProgrammeDashboard() {
     toast.success('CSV exported')
   }
 
+  if (!projectId) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center" style={{ color: 'var(--text-muted)' }}>
+      <FolderOpen size={40} className="mb-3 opacity-40" />
+      <p className="text-sm font-medium">Select a project</p>
+      <p className="text-xs mt-1">Choose a project from the sidebar to view this page</p>
+    </div>
+  )
+
   if (loading && !activities.length) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -241,46 +235,30 @@ export default function ProgrammeDashboard() {
         <p className="text-sm text-slate-500">Track M&E installation progress against programme baselines</p>
       </div>
 
-      {/* Project selector + actions */}
+      {/* Actions */}
       <div className="flex items-center gap-3 flex-wrap">
-        {projects.length > 0 ? (
-          <select
-            value={selectedProject}
-            onChange={e => setSelectedProject(e.target.value)}
-            className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-blue-400"
+        <label className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+          uploading ? 'bg-blue-100 text-blue-600' : 'bg-blue-500 hover:bg-blue-600 text-white'
+        }`}>
+          {uploading ? (
+            <span className="flex items-center gap-2">
+              <Loader2 size={16} className="animate-spin" /> Uploading...
+            </span>
+          ) : (
+            <>
+              <Upload size={16} /> Upload DXF
+            </>
+          )}
+          <input type="file" accept=".dxf" onChange={handleUploadDXF} disabled={uploading} className="hidden" />
+        </label>
+
+        {enrichedActivities.length > 0 && (
+          <button
+            onClick={handleCSVExport}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-sm font-semibold text-slate-700 transition-colors"
           >
-            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        ) : (
-          <p className="text-sm text-slate-400">No projects found</p>
-        )}
-
-        {selectedProject && (
-          <>
-            <label className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-              uploading ? 'bg-blue-100 text-blue-600' : 'bg-blue-500 hover:bg-blue-600 text-white'
-            }`}>
-              {uploading ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 size={16} className="animate-spin" /> Uploading...
-                </span>
-              ) : (
-                <>
-                  <Upload size={16} /> Upload DXF
-                </>
-              )}
-              <input type="file" accept=".dxf" onChange={handleUploadDXF} disabled={uploading} className="hidden" />
-            </label>
-
-            {enrichedActivities.length > 0 && (
-              <button
-                onClick={handleCSVExport}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-sm font-semibold text-slate-700 transition-colors"
-              >
-                <Download size={16} /> Export CSV
-              </button>
-            )}
-          </>
+            <Download size={16} /> Export CSV
+          </button>
         )}
       </div>
 

@@ -15,6 +15,7 @@ import {
   Briefcase, PlusCircle, CalendarCheck, Building2, Calendar, Star, Link2, PoundSterling, Scissors, Eye
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
+import { useProject } from '../lib/ProjectContext'
 
 const NAV_SECTIONS = [
   {
@@ -128,6 +129,7 @@ export default function SidebarLayout({ children }) {
   const [isAgencyUser, setIsAgencyUser] = useState(false)
 
   const { company, user, logout: ctxLogout } = useCompany()
+  const { projects, selectedProject, setSelectedProject } = useProject()
   const { isDark, toggleTheme } = useTheme()
   const managerData = user || JSON.parse(getSession('manager_data') || '{}')
   const isAdmin = managerData.role === 'admin' || managerData.role === 'super_admin'
@@ -220,6 +222,35 @@ export default function SidebarLayout({ children }) {
           <p className="text-white/40 text-[10px] truncate">{managerData.role || 'Manager'}</p>
         </div>
       </div>
+
+      {/* Project selector */}
+      {projects.length > 0 && (
+        <div className="px-3 py-2.5 border-b border-white/10">
+          <label className="text-[9px] font-semibold uppercase tracking-wider text-white/30 mb-1.5 block">Project</label>
+          <div className="relative">
+            <FolderOpen size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+            <select
+              value={selectedProject?.id || ''}
+              onChange={e => {
+                const proj = projects.find(p => p.id === e.target.value) || null
+                setSelectedProject(proj)
+              }}
+              className="w-full pl-8 pr-7 py-2 rounded-lg text-[12px] font-medium appearance-none cursor-pointer transition-colors focus:outline-none"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                color: selectedProject ? '#fff' : 'rgba(255,255,255,0.5)',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}
+            >
+              <option value="" style={{ background: '#1A2744', color: '#94a3b8' }}>All Projects</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id} style={{ background: '#1A2744', color: '#fff' }}>{p.name}</option>
+              ))}
+            </select>
+            <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+          </div>
+        </div>
+      )}
 
       {/* Nav sections — scrollable independently */}
       <nav className="flex-1 py-2 px-2 space-y-0.5 overflow-y-auto min-h-0">

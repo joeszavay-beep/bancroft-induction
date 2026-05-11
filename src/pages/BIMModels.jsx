@@ -5,18 +5,18 @@ import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 import {
   Box, Upload, Trash2, CheckCircle2, AlertCircle, ChevronDown, ChevronRight,
-  Search, Cuboid
+  Search, Cuboid, FolderOpen
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
+import { useProject } from '../lib/ProjectContext'
 
 export default function BIMModels() {
   const navigate = useNavigate()
   const fileRef = useRef(null)
-  const [projects, setProjects] = useState([])
-  const [selectedProject, setSelectedProject] = useState('')
+  const { projectId } = useProject()
   const [models, setModels] = useState([])
   const [elements, setElements] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [progressLabel, setProgressLabel] = useState('')
@@ -27,23 +27,9 @@ export default function BIMModels() {
 
   const managerData = JSON.parse(getSession('manager_data') || '{}')
 
-  async function loadProjects() {
-    try {
-      let query = supabase.from('projects').select('id, name').order('name')
-      if (managerData.company_id) query = query.eq('company_id', managerData.company_id)
-      const { data, error } = await query
-      if (error) console.error('BIM loadProjects error:', error)
-      setProjects(data || [])
-      if (data?.length > 0) setSelectedProject(data[0].id)
-    } catch (err) {
-      console.error('BIM loadProjects crash:', err)
-    }
-    setLoading(false)
-  }
-
   async function loadModels() {
     try {
-      const { data } = await supabase.from('bim_models').select('*').eq('project_id', selectedProject).order('created_at', { ascending: false })
+      const { data } = await supabase.from('bim_models').select('*').eq('project_id', projectId).order('created_at', { ascending: false })
       setModels(data || [])
 
       if (data?.length) {
@@ -60,12 +46,11 @@ export default function BIMModels() {
     }
   }
 
-  useEffect(() => { loadProjects() }, [])
-  useEffect(() => { if (selectedProject) loadModels() }, [selectedProject])
+  useEffect(() => { if (projectId) loadModels() }, [projectId])
 
   async function handleUpload(e) {
     const file = e.target.files?.[0]
-    if (!file || !selectedProject) return
+    if (!file || !projectId) return
     if (!file.name.toLowerCase().endsWith('.ifc')) {
       toast.error('Please upload an IFC file')
       return
@@ -84,7 +69,7 @@ export default function BIMModels() {
       setProgress(5)
       setProgressLabel('Uploading...')
 
-      const filePath = `bim/${selectedProject}/${crypto.randomUUID()}.ifc`
+      const filePath = `bim/${projectId}/${crypto.randomUUID()}.ifc`
       const { error: upErr } = await supabase.storage.from('documents').upload(filePath, new Blob([buffer]), {
         contentType: 'application/x-step',
       })
@@ -109,7 +94,7 @@ export default function BIMModels() {
 
       const { data: model, error: modelErr } = await supabase.from('bim_models').insert({
         company_id: managerData.company_id,
-        project_id: selectedProject,
+        project_id: projectId,
         name: file.name.replace(/\.ifc$/i, ''),
         file_url: urlData.publicUrl,
         file_size: file.size,
@@ -129,7 +114,7 @@ export default function BIMModels() {
           const batch = parsed.slice(i, i + batchSize).map(el => ({
             model_id: model.id,
             company_id: managerData.company_id,
-            project_id: selectedProject,
+            project_id: projectId,
             ifc_id: el.ifc_id,
             global_id: el.global_id,
             ifc_type: el.ifc_type,
@@ -182,6 +167,14 @@ export default function BIMModels() {
     categoryCounts[el.category] = (categoryCounts[el.category] || 0) + 1
   }
 
+  if (!projectId) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center" style={{ color: 'var(--text-muted)' }}>
+      <FolderOpen size={40} className="mb-3 opacity-40" />
+      <p className="text-sm font-medium">Select a project</p>
+      <p className="text-xs mt-1">Choose a project from the sidebar to view this page</p>
+    </div>
+  )
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -198,18 +191,9 @@ export default function BIMModels() {
         <p className="text-sm text-slate-500">Upload IFC models to overlay MEP elements on your drawings</p>
       </div>
 
-      {/* Project selector + upload */}
+      {/* Upload button */}
       <div className="flex items-center gap-3 flex-wrap">
-        {projects.length > 0 ? (
-          <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)}
-            className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-blue-400">
-            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        ) : (
-          <p className="text-sm text-slate-400">No projects found</p>
-        )}
-
-        {selectedProject && (
+        {projectId && (
           <label className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
             uploading ? 'bg-purple-100 text-purple-600' : 'bg-purple-500 hover:bg-purple-600 text-white'
           }`}>

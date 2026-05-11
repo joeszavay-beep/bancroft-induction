@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
+import { useProject } from '../lib/ProjectContext'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import {
@@ -59,6 +60,7 @@ const DEFAULT_TEMPLATES = [
 
 export default function Inspections() {
   const { user } = useCompany()
+  const { projectId } = useProject()
   const cid = user?.company_id
 
   const [tab, setTab] = useState('inspections')
@@ -571,7 +573,7 @@ export default function Inspections() {
       {tab === 'inspections' && (
         <div className="space-y-3">
           <button
-            onClick={() => setShowInspectionForm(true)}
+            onClick={() => { setShowInspectionForm(true); if (projectId) setSelProjectId(projectId) }}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white"
             style={{ backgroundColor: 'var(--primary-color)' }}
           >
@@ -632,13 +634,13 @@ export default function Inspections() {
           )}
 
           {/* Inspection list */}
-          {inspections.length === 0 && !showInspectionForm && (
+          {(projectId ? inspections.filter(i => i.project_id === projectId) : inspections).length === 0 && !showInspectionForm && (
             <div className="text-center py-12 rounded-xl border" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)' }}>
               <ClipboardList size={32} className="mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No inspections yet. Start one from a template.</p>
             </div>
           )}
-          {inspections.map(insp => (
+          {(projectId ? inspections.filter(i => i.project_id === projectId) : inspections).map(insp => (
             <button
               key={insp.id}
               onClick={() => openInspection(insp)}

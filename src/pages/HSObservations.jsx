@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
+import { useProject } from '../lib/ProjectContext'
 import { getSession } from '../lib/storage'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import {
   Eye, Plus, X, Search, ChevronLeft, ChevronDown, Camera, Trash2,
   CheckCircle, AlertTriangle, Clock, Shield, TrendingUp, XCircle,
-  Edit2, Filter, Calendar, MapPin, User, MessageSquare, Loader2
+  Edit2, Calendar, MapPin, User, MessageSquare, Loader2
 } from 'lucide-react'
 
 // ── Category configuration ──
@@ -77,6 +78,7 @@ function parseJson(r) {
 
 export default function HSObservations() {
   const { user } = useCompany()
+  const { projectId } = useProject()
   const cid = user?.company_id
   const managerData = user || JSON.parse(getSession('manager_data') || '{}')
   const managerName = managerData.name || 'User'
@@ -88,7 +90,6 @@ export default function HSObservations() {
   const [visibleCount, setVisibleCount] = useState(50)
 
   // Filters
-  const [filterProject, setFilterProject] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterPriority, setFilterPriority] = useState('')
@@ -136,7 +137,7 @@ export default function HSObservations() {
 
   // ── Filtering ──
   const filtered = observations.filter(o => {
-    if (filterProject && o.project_id !== filterProject) return false
+    if (projectId && o.project_id !== projectId) return false
     if (filterCategory && o.category !== filterCategory) return false
     if (filterStatus && o.status !== filterStatus) return false
     if (filterPriority && o.priority !== filterPriority) return false
@@ -515,7 +516,7 @@ export default function HSObservations() {
   }
 
   // ── Main list view ──
-  const hasFilters = filterProject || filterCategory || filterStatus || filterPriority || filterDateFrom || filterDateTo || searchText
+  const hasFilters = projectId || filterCategory || filterStatus || filterPriority || filterDateFrom || filterDateTo || searchText
 
   return (
     <div className="space-y-4 max-w-[1400px] mx-auto">
@@ -568,16 +569,7 @@ export default function HSObservations() {
 
       {/* Filter bar */}
       <div className="rounded-xl border p-3 space-y-2" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          <select
-            value={filterProject}
-            onChange={e => setFilterProject(e.target.value)}
-            className="text-sm border rounded-lg px-2.5 py-2 truncate"
-            style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
-          >
-            <option value="">All Projects</option>
-            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
           <select
             value={filterCategory}
             onChange={e => setFilterCategory(e.target.value)}
@@ -635,7 +627,7 @@ export default function HSObservations() {
           </div>
           {hasFilters && (
             <button
-              onClick={() => { setFilterProject(''); setFilterCategory(''); setFilterStatus(''); setFilterPriority(''); setFilterDateFrom(''); setFilterDateTo(''); setSearchText('') }}
+              onClick={() => { setFilterCategory(''); setFilterStatus(''); setFilterPriority(''); setFilterDateFrom(''); setFilterDateTo(''); setSearchText('') }}
               className="text-xs font-medium px-3 py-2 rounded-lg border hover:bg-red-50 text-red-600 transition-colors shrink-0"
               style={{ borderColor: 'var(--border-color)' }}
             >

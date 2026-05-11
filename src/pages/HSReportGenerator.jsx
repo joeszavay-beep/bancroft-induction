@@ -11,8 +11,9 @@ import {
   FileText, Download, Save, Plus, Trash2, ChevronRight, ChevronDown,
   Loader2, Settings, BookOpen, Users, Wrench, ClipboardList, Shield,
   Leaf, HardHat, FileCheck, Calendar, AlertTriangle, Check, X,
-  RefreshCw, Eye
+  RefreshCw, Eye, FolderOpen
 } from 'lucide-react'
+import { useProject } from '../lib/ProjectContext'
 
 // ── Constants ──
 const NAVY = [26, 39, 68]       // #1A2744
@@ -145,10 +146,10 @@ export default function HSReportGenerator() {
   const { user, company } = useCompany()
   const cid = user?.company_id
   const managerData = user || JSON.parse(getSession('manager_data') || '{}')
+  const { projectId } = useProject()
 
   // ── Top-level state ──
   const [projects, setProjects] = useState([])
-  const [selectedProject, setSelectedProject] = useState('')
   const [weekStart, setWeekStart] = useState(() => mondayOfWeek(new Date().toISOString().split('T')[0]))
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart])
   const [loading, setLoading] = useState(true)
@@ -226,10 +227,10 @@ export default function HSReportGenerator() {
 
   // ── Auto-load data when project + week change ──
   const loadReportData = useCallback(async () => {
-    if (!selectedProject || !cid) return
+    if (!projectId || !cid) return
     setDataLoading(true)
 
-    const proj = projects.find(p => p.id === selectedProject)
+    const proj = projects.find(p => p.id === projectId)
     setProjectData(proj)
 
     const ws = new Date(weekStart)
@@ -239,17 +240,17 @@ export default function HSReportGenerator() {
 
     try {
       const [talksRes, opsRes, docsRes, signoffsRes, attendanceRes, diaryRes, inspRes] = await Promise.all([
-        supabase.from('toolbox_talks').select('*, toolbox_signatures(*)').eq('project_id', selectedProject)
+        supabase.from('toolbox_talks').select('*, toolbox_signatures(*)').eq('project_id', projectId)
           .gte('created_at', ws.toISOString()).lte('created_at', we.toISOString()),
-        supabase.from('operative_projects').select('operatives(*)').eq('project_id', selectedProject),
-        supabase.from('document_hub').select('*').eq('company_id', cid).eq('project_id', selectedProject)
+        supabase.from('operative_projects').select('operatives(*)').eq('project_id', projectId),
+        supabase.from('document_hub').select('*').eq('company_id', cid).eq('project_id', projectId)
           .eq('category', 'RAMS'),
         Promise.resolve({ data: [] }), // signoffs loaded separately after docs
-        supabase.from('site_attendance').select('*').eq('company_id', cid).eq('project_id', selectedProject)
+        supabase.from('site_attendance').select('*').eq('company_id', cid).eq('project_id', projectId)
           .gte('recorded_at', ws.toISOString()).lte('recorded_at', we.toISOString()),
-        supabase.from('site_diary').select('*').eq('company_id', cid).eq('project_id', selectedProject)
+        supabase.from('site_diary').select('*').eq('company_id', cid).eq('project_id', projectId)
           .gte('date', weekStart).lte('date', weekEnd),
-        supabase.from('inspections').select('*').eq('company_id', cid).eq('project_id', selectedProject)
+        supabase.from('inspections').select('*').eq('company_id', cid).eq('project_id', projectId)
           .gte('created_at', ws.toISOString()).lte('created_at', we.toISOString()),
       ])
 
@@ -362,15 +363,15 @@ export default function HSReportGenerator() {
     }
 
     setDataLoading(false)
-  }, [selectedProject, weekStart, weekEnd, cid, projects])
+  }, [projectId, weekStart, weekEnd, cid, projects])
 
   useEffect(() => {
-    if (selectedProject && cid) loadReportData()
-  }, [selectedProject, weekStart, cid])
+    if (projectId && cid) loadReportData()
+  }, [projectId, weekStart, cid])
 
   // ── Draft save/load ──
   function saveDraft() {
-    if (!selectedProject || !weekStart) return toast.error('Select a project and week first')
+    if (!projectId || !weekStart) return toast.error('Select a project and week first')
     const draft = {
       reportNumber, issuedBy, role, companyName,
       manualTalks, equipmentRows,
@@ -381,13 +382,13 @@ export default function HSReportGenerator() {
       safeStartCards, ssCompany, ssSupervisor, ssTrade,
       manualTraining,
     }
-    localStorage.setItem(draftKey(selectedProject, weekStart), JSON.stringify(draft))
+    localStorage.setItem(draftKey(projectId, weekStart), JSON.stringify(draft))
     toast.success('Draft saved')
   }
 
   function tryLoadDraft() {
-    if (!selectedProject || !weekStart) return
-    const raw = localStorage.getItem(draftKey(selectedProject, weekStart))
+    if (!projectId || !weekStart) return
+    const raw = localStorage.getItem(draftKey(projectId, weekStart))
     if (!raw) return
     try {
       const d = JSON.parse(raw)
@@ -424,7 +425,7 @@ export default function HSReportGenerator() {
   }
 
   // ── Computed ──
-  const project = projectData || projects.find(p => p.id === selectedProject) || {}
+  const project = projectData || projects.find(p => p.id === projectId) || {}
   const allTalks = [...toolboxTalks, ...manualTalks]
   const allOperatives = operatives
   const supervisors = allOperatives.filter(o =>
@@ -441,7 +442,7 @@ export default function HSReportGenerator() {
 
   // ── PDF Generation ──
   async function generatePDF() {
-    if (!selectedProject) return toast.error('Select a project first')
+    if (!projectId) return toast.error('Select a project first')
     setGenerating(true)
 
     try {
@@ -1126,7 +1127,7 @@ export default function HSReportGenerator() {
 
   // ── Preview PDF (react-pdf/renderer) ──
   async function previewPDF() {
-    if (!selectedProject) return toast.error('Select a project first')
+    if (!projectId) return toast.error('Select a project first')
     setPreviewGenerating(true)
     try {
       const [{ pdf }, { default: HSReportDocument }, { hydrateSignatures }] = await Promise.all([
@@ -1165,7 +1166,7 @@ export default function HSReportGenerator() {
         safeStartCompany: ssCompany || null,
         safeStartSupervisor: ssSupervisor || null,
         safeStartTrade: ssTrade || null,
-        project: projectData || projects.find(p => p.id === selectedProject) || {},
+        project: projectData || projects.find(p => p.id === projectId) || {},
         company,
         weekStart,
         weekEnd,
@@ -1288,6 +1289,15 @@ export default function HSReportGenerator() {
     setPreviewGenerating(false)
   }
 
+  // ── No project selected ──
+  if (!projectId) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center" style={{ color: 'var(--text-muted)' }}>
+      <FolderOpen size={40} className="mb-3 opacity-40" />
+      <p className="text-sm font-medium">Select a project</p>
+      <p className="text-xs mt-1">Choose a project from the sidebar to view this page</p>
+    </div>
+  )
+
   // ── Loading state ──
   if (loading) {
     return (
@@ -1319,15 +1329,8 @@ export default function HSReportGenerator() {
         </div>
       </div>
 
-      {/* Project + Week Selectors */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-        <div>
-          <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Project</label>
-          <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
-            <option value="">Select project...</option>
-            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </div>
+      {/* Week Selectors */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
         <div>
           <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Week Commencing</label>
           <input type="date" value={weekStart} onChange={e => setWeekStart(mondayOfWeek(e.target.value))} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />

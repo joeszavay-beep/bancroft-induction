@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
+import { useProject } from '../lib/ProjectContext'
 import { getSession } from '../lib/storage'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
@@ -132,6 +133,7 @@ function issuedForColor(status) {
 // ── Main Component ──
 export default function DocumentHub() {
   const { user, company } = useCompany()
+  const { projectId } = useProject()
   const cid = user?.company_id
   const managerData = user || JSON.parse(getSession('manager_data') || '{}')
   const managerName = managerData.name || 'User'
@@ -156,7 +158,6 @@ export default function DocumentHub() {
 
   // Filters
   const [filterCategory, setFilterCategory] = useState('')
-  const [filterProject, setFilterProject] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterIssuedFor, setFilterIssuedFor] = useState('')
   const [filterRegister, setFilterRegister] = useState('')
@@ -672,7 +673,7 @@ export default function DocumentHub() {
 
   const filteredDocuments = documents.filter(d => {
     if (filterCategory && d.category !== filterCategory) return false
-    if (filterProject && d.project_id !== filterProject) return false
+    if (projectId && d.project_id !== projectId) return false
     if (filterStatus === 'active' && d.is_archived) return false
     if (filterStatus === 'archived' && !d.is_archived) return false
     if (filterStatus === 'expiring') {

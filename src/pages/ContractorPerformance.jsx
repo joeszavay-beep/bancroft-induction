@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
+import { useProject } from '../lib/ProjectContext'
 import {
   BarChart3,
   TrendingUp,
@@ -17,6 +18,7 @@ function daysBetween(a, b) {
 
 export default function ContractorPerformance() {
   const { user } = useCompany()
+  const { projectId } = useProject()
   const company_id = user?.company_id
   const [snags, setSnags] = useState([])
   const [operatives, setOperatives] = useState([])
@@ -26,8 +28,10 @@ export default function ContractorPerformance() {
     if (!company_id) return
     async function fetchData() {
       setLoading(true)
+      let snagQuery = supabase.from('snags').select('*').eq('company_id', company_id)
+      if (projectId) snagQuery = snagQuery.eq('project_id', projectId)
       const [snagsRes, opsRes] = await Promise.all([
-        supabase.from('snags').select('*').eq('company_id', company_id),
+        snagQuery,
         supabase.from('operatives').select('*').eq('company_id', company_id),
       ])
       setSnags(snagsRes.data || [])
@@ -35,7 +39,7 @@ export default function ContractorPerformance() {
       setLoading(false)
     }
     fetchData()
-  }, [company_id])
+  }, [company_id, projectId])
 
   const today = new Date().toISOString().split('T')[0]
 

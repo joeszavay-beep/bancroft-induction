@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
+import { useProject } from '../lib/ProjectContext'
 import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
 import LoadingButton from '../components/LoadingButton'
@@ -16,6 +17,7 @@ const STATUS_COLORS = { green: '#2EA043', yellow: '#D29922', red: '#DA3633' }
 export default function ProgressDrawingsList() {
   const navigate = useNavigate()
   const { company } = useCompany()
+  const { projectId } = useProject()
   const cid = JSON.parse(getSession('manager_data') || '{}').company_id
   const companyBranding = useMemo(() => buildBranding(company), [company])
   const [drawings, setDrawings] = useState([])
@@ -233,6 +235,7 @@ export default function ProgressDrawingsList() {
 
   const levels = [...new Set(drawings.map(d => d.floor_level).filter(Boolean))]
   let filtered = drawings
+  if (projectId) filtered = filtered.filter(d => d.project_id === projectId)
   if (filterTrade !== 'all') filtered = filtered.filter(d => d.trade === filterTrade)
   if (filterLevel !== 'all') filtered = filtered.filter(d => d.floor_level === filterLevel)
 
@@ -247,7 +250,7 @@ export default function ProgressDrawingsList() {
           </div>
           <h1 className="text-2xl font-bold text-[#1A1A2E]">Progress Drawings</h1>
         </div>
-        <button onClick={() => setShowUpload(true)} className="flex items-center gap-1.5 px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-md transition-colors w-full sm:w-auto justify-center sm:justify-start">
+        <button onClick={() => { setShowUpload(true); if (projectId) setDProject(projectId) }} className="flex items-center gap-1.5 px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-md transition-colors w-full sm:w-auto justify-center sm:justify-start">
           <Upload size={14} /> Upload Drawing
         </button>
       </div>
