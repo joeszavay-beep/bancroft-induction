@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
+import { useProject } from '../lib/ProjectContext'
 import {
   MapPin, FileText, Users, CheckSquare, BookOpen, MessageSquare,
   AlertTriangle, Clock, CheckCircle2, ChevronRight, Shield, Activity,
@@ -13,6 +14,7 @@ import TrialBanner from '../components/TrialBanner'
 export default function AppHome() {
   const navigate = useNavigate()
   const { user } = useCompany()
+  const { projectId, projectName } = useProject()
   const cid = user?.company_id
   const [loading, setLoading] = useState(true)
   const [s, setS] = useState({})
@@ -23,14 +25,23 @@ export default function AppHome() {
     const todayStart = new Date(today); todayStart.setHours(0, 0, 0, 0)
     const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7)
 
+    // Scope queries to selected project when one is chosen
+    const pq = (table) => {
+      let q = supabase.from(table).eq('company_id', cid)
+      if (projectId) q = q.eq('project_id', projectId)
+      return q
+    }
+
     const [projects, operatives, snags, sigs, attendance, diary, inspections, chats] = await Promise.all([
       supabase.from('projects').select('id').eq('company_id', cid),
-      supabase.from('operatives').select('id, cscs_expiry, ipaf_expiry, pasma_expiry, sssts_expiry, first_aid_expiry').eq('company_id', cid),
-      supabase.from('snags').select('id, status, due_date, created_at, updated_at').eq('company_id', cid),
+      projectId
+        ? supabase.from('operative_projects').select('operatives(id, cscs_expiry, ipaf_expiry, pasma_expiry, sssts_expiry, first_aid_expiry)').eq('project_id', projectId)
+        : supabase.from('operatives').select('id, cscs_expiry, ipaf_expiry, pasma_expiry, sssts_expiry, first_aid_expiry').eq('company_id', cid),
+      supabase.from('snags').select('id, status, due_date, created_at, updated_at').eq('company_id', cid).then(r => projectId ? { data: (r.data || []).filter(s => s.project_id === projectId) } : r),
       supabase.from('signatures').select('id').eq('company_id', cid),
-      supabase.from('site_attendance').select('id, type, operative_id').eq('company_id', cid).gte('recorded_at', todayStart.toISOString()),
-      supabase.from('site_diary').select('id, date').eq('company_id', cid).order('date', { ascending: false }).limit(1),
-      supabase.from('inspections').select('id, status').eq('company_id', cid),
+      (() => { let q = supabase.from('site_attendance').select('id, type, operative_id').eq('company_id', cid).gte('recorded_at', todayStart.toISOString()); if (projectId) q = q.eq('project_id', projectId); return q })(),
+      (() => { let q = supabase.from('site_diary').select('id, date').eq('company_id', cid).order('date', { ascending: false }).limit(1); if (projectId) q = q.eq('project_id', projectId); return q })(),
+      (() => { let q = supabase.from('inspections').select('id, status').eq('company_id', cid); if (projectId) q = q.eq('project_id', projectId); return q })(),
       supabase.from('chat_messages').select('id').eq('company_id', cid).eq('read_by_manager', false).eq('sender_type', 'operative'),
     ])
 
@@ -40,7 +51,9 @@ export default function AppHome() {
     const closedWeek = allSnags.filter(s => s.status === 'completed' && new Date(s.updated_at || s.created_at) >= weekAgo)
     const raisedWeek = allSnags.filter(s => new Date(s.created_at) >= weekAgo)
 
-    const ops = operatives.data || []
+    const ops = projectId
+      ? (operatives.data || []).map(r => r.operatives).filter(Boolean)
+      : (operatives.data || [])
     const thirtyDays = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
     const expiredCerts = ops.filter(op => [op.cscs_expiry, op.ipaf_expiry, op.pasma_expiry, op.sssts_expiry, op.first_aid_expiry].filter(Boolean).some(d => new Date(d) < today)).length
     const expiringCerts = ops.filter(op => [op.cscs_expiry, op.ipaf_expiry, op.pasma_expiry, op.sssts_expiry, op.first_aid_expiry].filter(Boolean).some(d => { const dt = new Date(d); return dt >= today && dt <= thirtyDays })).length
@@ -75,7 +88,7 @@ export default function AppHome() {
   }
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { if (cid) loadDashboard() }, [cid])
+  useEffect(() => { if (cid) loadDashboard() }, [cid, projectId])
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -103,7 +116,7 @@ export default function AppHome() {
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{greeting}, {user?.name?.split(' ')[0]}</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {projectName ? projectName + ' — ' : ''}{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
         </div>
         {!s.diaryToday && (

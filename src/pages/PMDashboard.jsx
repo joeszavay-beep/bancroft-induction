@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
+import { useProject } from '../lib/ProjectContext'
 import { authFetch } from '../lib/authFetch'
 import { fetchAndCache } from '../hooks/useOfflineData'
 import toast from 'react-hot-toast'
@@ -1206,6 +1207,7 @@ function SettingsTab() {
 /* ==================== SNAGS TAB ==================== */
 function SnagsTab({ projects, navigate }) {
   const cid = JSON.parse(getSession('manager_data') || '{}').company_id
+  const { projectId } = useProject()
   const [drawings, setDrawings] = useState([])
   const [allSnags, setAllSnags] = useState([])
   const [allOperatives, setAllOperatives] = useState([])
@@ -1513,14 +1515,17 @@ function SnagsTab({ projects, navigate }) {
   ]
 
   // Top 5 drawings by open snags
-  const drawingOpenCounts = drawings.map(d => ({
+  const drawingOpenCounts = visibleDrawings.map(d => ({
     name: d.name,
     count: allSnags.filter(s => s.drawing_id === d.id && s.status === 'open').length,
   })).filter(d => d.count > 0).sort((a, b) => b.count - a.count).slice(0, 5)
   const maxOpen = Math.max(...drawingOpenCounts.map(d => d.count), 1)
 
+  // Filter drawings and snags by selected project
+  const visibleDrawings = projectId ? drawings.filter(d => d.project_id === projectId) : drawings
+
   // Filtered snags
-  let filtered = allSnags
+  let filtered = projectId ? allSnags.filter(s => visibleDrawings.some(d => d.id === s.drawing_id)) : allSnags
   if (filterStatus !== 'all') filtered = filtered.filter(s => s.status === filterStatus)
   if (filterDrawing !== 'all') filtered = filtered.filter(s => s.drawing_id === filterDrawing)
   if (filterSnagNo) filtered = filtered.filter(s => String(s.snag_number).includes(filterSnagNo))
@@ -1631,7 +1636,7 @@ function SnagsTab({ projects, navigate }) {
           <select value={filterDrawing} onChange={e => setFilterDrawing(e.target.value)}
             className="flex-1 sm:flex-none px-2 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-400 sm:max-w-[160px]">
             <option value="all">All Drawings</option>
-            {drawings.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            {visibleDrawings.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </div>
         <div className="flex items-center gap-1">
@@ -1651,7 +1656,7 @@ function SnagsTab({ projects, navigate }) {
         </div>
       ) : (
         <div className="space-y-3">
-          {drawings.map(d => {
+          {visibleDrawings.map(d => {
             const dSnags = snagsByDrawing[d.id] || []
             const dAllSnags = allSnags.filter(s => s.drawing_id === d.id)
             const expanded = expandedDrawing === d.id
