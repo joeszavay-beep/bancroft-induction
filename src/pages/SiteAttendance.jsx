@@ -67,6 +67,12 @@ export default function SiteAttendance() {
   const [manualTime, setManualTime] = useState('')
   const [manualSaving, setManualSaving] = useState(false)
 
+  // Weekly register
+  const [registerOpen, setRegisterOpen] = useState(false)
+  const [registerOffset, setRegisterOffset] = useState(0)
+  const [registerRecords, setRegisterRecords] = useState([])
+  const [loadingRegister, setLoadingRegister] = useState(false)
+
   // QR
   const [qrProject, setQrProject] = useState(null)
   const qrRef = useRef(null)
@@ -141,6 +147,65 @@ export default function SiteAttendance() {
       loadData()
     }
   }
+
+  function getRegisterWeekDates(offset = 0) {
+    const now = new Date()
+    const day = now.getDay()
+    const mondayOff = day === 0 ? -6 : 1 - day
+    const monday = new Date(now)
+    monday.setDate(now.getDate() + mondayOff + offset * 7)
+    monday.setHours(0, 0, 0, 0)
+    const days = []
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday)
+      d.setDate(monday.getDate() + i)
+      days.push(d)
+    }
+    return days
+  }
+
+  async function loadRegister() {
+    setLoadingRegister(true)
+    const days = getRegisterWeekDates(registerOffset)
+    const from = days[0].toISOString()
+    const to = new Date(days[6].getTime() + 86400000 - 1).toISOString()
+    let q = supabase.from('site_attendance').select('*').eq('company_id', cid)
+      .gte('recorded_at', from).lte('recorded_at', to).order('recorded_at')
+    if (projectId) q = q.eq('project_id', projectId)
+    const { data } = await q
+    setRegisterRecords(data || [])
+    setLoadingRegister(false)
+  }
+
+  useEffect(() => {
+    if (registerOpen && cid) loadRegister()
+  }, [registerOpen, registerOffset, projectId])
+
+  const registerWeek = useMemo(() => {
+    const days = getRegisterWeekDates(registerOffset)
+    // Group records by operative
+    const byOp = {}
+    for (const rec of registerRecords) {
+      if (!byOp[rec.operative_id]) byOp[rec.operative_id] = { name: rec.operative_name || 'Unknown', records: [] }
+      byOp[rec.operative_id].records.push(rec)
+    }
+    // Build grid rows
+    return Object.entries(byOp).map(([opId, { name, records }]) => {
+      const dayCells = days.map(day => {
+        const dayStr = day.toISOString().split('T')[0]
+        const dayRecs = records.filter(r => r.recorded_at?.startsWith(dayStr)).sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at))
+        const firstIn = dayRecs.find(r => r.type === 'sign_in')
+        const lastOut = [...dayRecs].reverse().find(r => r.type === 'sign_out')
+        let hours = null
+        if (firstIn && lastOut) {
+          hours = Math.round((new Date(lastOut.recorded_at) - new Date(firstIn.recorded_at)) / 3600000 * 100) / 100
+        }
+        return { dayStr, firstIn: firstIn?.recorded_at, lastOut: lastOut?.recorded_at, hours }
+      })
+      const totalHours = dayCells.reduce((sum, c) => sum + (c.hours || 0), 0)
+      return { opId, name, dayCells, totalHours }
+    }).sort((a, b) => a.name.localeCompare(b.name))
+  }, [registerRecords, registerOffset])
 
   useEffect(() => {
     if (cid) { loadData(); loadHistoryAuto() } // eslint-disable-line react-hooks/set-state-in-effect
@@ -598,6 +663,130 @@ export default function SiteAttendance() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </div>
+
+      {/* Weekly Register */}
+      <div className="rounded-xl border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <button
+          onClick={() => setRegisterOpen(!registerOpen)}
+          className="flex items-center justify-between w-full p-5 text-left"
+        >
+          <h2 className="text-lg font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <Calendar size={18} />
+            Weekly Register
+          </h2>
+          {registerOpen ? <ChevronDown size={20} style={{ color: 'var(--text-muted)' }} /> : <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />}
+        </button>
+
+        {registerOpen && (
+          <div className="px-5 pb-5 space-y-4">
+            {/* Week nav */}
+            <div className="flex items-center justify-between">
+              <button onClick={() => setRegisterOffset(o => o - 1)} className="px-3 py-1.5 rounded-lg border text-sm" style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+                ← Prev
+              </button>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {getRegisterWeekDates(registerOffset)[0].toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} — {getRegisterWeekDates(registerOffset)[6].toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                {registerOffset === 0 && <span className="text-xs font-medium ml-2" style={{ color: 'var(--primary-color)' }}>This Week</span>}
+              </p>
+              <button onClick={() => setRegisterOffset(o => Math.min(o + 1, 0))} disabled={registerOffset >= 0}
+                className="px-3 py-1.5 rounded-lg border text-sm disabled:opacity-30" style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+                Next →
+              </button>
+            </div>
+
+            {!projectId && (
+              <p className="text-xs text-center py-2" style={{ color: 'var(--text-muted)' }}>Select a project from the sidebar for the most accurate view</p>
+            )}
+
+            {loadingRegister ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin w-6 h-6 border-2 border-t-transparent rounded-full" style={{ borderColor: 'var(--primary-color)' }} />
+              </div>
+            ) : registerWeek.length === 0 ? (
+              <p className="text-sm text-center py-4" style={{ color: 'var(--text-muted)' }}>No attendance records for this week.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b" style={{ borderColor: 'var(--border-color)' }}>
+                      <th className="text-left py-2 px-2 font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>Operative</th>
+                      {getRegisterWeekDates(registerOffset).map((d, i) => (
+                        <th key={i} className="text-center py-2 px-1 font-medium" style={{ color: 'var(--text-muted)', minWidth: 80 }}>
+                          <div className="text-[10px]">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]}</div>
+                          <div className="text-[10px]">{d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
+                        </th>
+                      ))}
+                      <th className="text-center py-2 px-2 font-semibold" style={{ color: 'var(--text-primary)' }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {registerWeek.map(row => (
+                      <tr key={row.opId} className="border-b last:border-0" style={{ borderColor: 'var(--border-color)' }}>
+                        <td className="py-2.5 px-2 font-medium whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{row.name}</td>
+                        {row.dayCells.map((cell, i) => (
+                          <td key={i} className="py-2.5 px-1 text-center">
+                            {cell.hours !== null ? (
+                              <div>
+                                <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                                  {formatTime(cell.firstIn)}–{formatTime(cell.lastOut)}
+                                </div>
+                                <div className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{cell.hours.toFixed(1)}h</div>
+                              </div>
+                            ) : cell.firstIn ? (
+                              <div>
+                                <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{formatTime(cell.firstIn)}–?</div>
+                                <div className="text-[10px] font-medium text-amber-500">No sign-out</div>
+                              </div>
+                            ) : (
+                              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
+                            )}
+                          </td>
+                        ))}
+                        <td className="py-2.5 px-2 text-center font-bold" style={{ color: 'var(--text-primary)' }}>{row.totalHours.toFixed(1)}h</td>
+                      </tr>
+                    ))}
+                    {/* Totals row */}
+                    <tr style={{ borderTop: '2px solid var(--border-color)' }}>
+                      <td className="py-2.5 px-2 font-bold text-xs uppercase" style={{ color: 'var(--text-muted)' }}>Daily Total</td>
+                      {getRegisterWeekDates(registerOffset).map((_, i) => {
+                        const dayTotal = registerWeek.reduce((sum, row) => sum + (row.dayCells[i]?.hours || 0), 0)
+                        return <td key={i} className="py-2.5 px-1 text-center text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>{dayTotal > 0 ? `${dayTotal.toFixed(1)}h` : '—'}</td>
+                      })}
+                      <td className="py-2.5 px-2 text-center font-bold" style={{ color: 'var(--primary-color)' }}>
+                        {registerWeek.reduce((sum, row) => sum + row.totalHours, 0).toFixed(1)}h
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {registerWeek.length > 0 && (
+              <button onClick={() => {
+                const days = getRegisterWeekDates(registerOffset)
+                const headers = ['Operative', ...days.map((d, i) => `${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]} ${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`), 'Total Hours']
+                const rows = registerWeek.map(row => [
+                  row.name,
+                  ...row.dayCells.map(c => c.hours !== null ? c.hours.toFixed(1) : c.firstIn ? 'No sign-out' : ''),
+                  row.totalHours.toFixed(1),
+                ])
+                const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n')
+                const blob = new Blob([csv], { type: 'text/csv' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `weekly-register-${days[0].toISOString().split('T')[0]}.csv`
+                a.click()
+                URL.revokeObjectURL(url)
+                toast.success('CSV exported')
+              }} className="flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors hover:opacity-80"
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+                <Download size={15} /> Export Weekly Register
+              </button>
+            )}
           </div>
         )}
       </div>
