@@ -8,7 +8,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import {
   Users, Clock, LogIn, LogOut, Search, Download, Printer, Shield,
   MapPin, Calendar, AlertTriangle, QrCode, ChevronDown,
-  ChevronRight, X, Check
+  ChevronRight, X, Check, UserX
 } from 'lucide-react'
 
 function formatTime(dateStr) {
@@ -62,6 +62,11 @@ export default function SiteAttendance() {
   const [historyRecords, setHistoryRecords] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
 
+  // Manual sign-out
+  const [manualSignOut, setManualSignOut] = useState(null) // { operative_id, operative_name, project_id, sign_in_time }
+  const [manualTime, setManualTime] = useState('')
+  const [manualSaving, setManualSaving] = useState(false)
+
   // QR
   const [qrProject, setQrProject] = useState(null)
   const qrRef = useRef(null)
@@ -109,6 +114,32 @@ export default function SiteAttendance() {
     setOperatives(allOps)
     setTodayRecords(a.data || [])
     setLoading(false)
+  }
+
+  async function handleManualSignOut() {
+    if (!manualSignOut || !manualTime) return
+    setManualSaving(true)
+    const today = new Date().toISOString().split('T')[0]
+    const recorded_at = new Date(`${today}T${manualTime}:00`).toISOString()
+    const { error } = await supabase.from('site_attendance').insert({
+      company_id: cid,
+      project_id: manualSignOut.project_id,
+      operative_id: manualSignOut.operative_id,
+      operative_name: manualSignOut.operative_name,
+      type: 'sign_out',
+      method: 'manual',
+      recorded_at,
+      notes: `Manual sign-out by manager — ${manualTime}`,
+    })
+    setManualSaving(false)
+    if (error) {
+      toast.error('Failed to record sign-out')
+    } else {
+      toast.success(`${manualSignOut.operative_name} signed out at ${manualTime}`)
+      setManualSignOut(null)
+      setManualTime('')
+      loadData()
+    }
   }
 
   useEffect(() => {
@@ -479,6 +510,22 @@ export default function SiteAttendance() {
                     <Clock size={10} /> {formatTime(r.recorded_at)}
                   </p>
                 </div>
+                <button
+                  onClick={() => {
+                    setManualSignOut({
+                      operative_id: r.operative_id,
+                      operative_name: r.operative?.name || r.operative_name || 'Unknown',
+                      project_id: r.project_id,
+                      sign_in_time: r.recorded_at,
+                    })
+                    // Default to current time
+                    const now = new Date()
+                    setManualTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
+                  }}
+                  className="mt-1 flex items-center justify-center gap-1 w-full text-[10px] font-semibold px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors border border-red-200"
+                >
+                  <LogOut size={10} /> Sign Out
+                </button>
               </div>
             ))}
           </div>
@@ -886,6 +933,54 @@ export default function SiteAttendance() {
                 >
                   <Printer size={15} />
                   Print Roll Call
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Sign-Out Modal */}
+      {manualSignOut && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-xl shadow-2xl" style={{ backgroundColor: 'var(--bg-card)' }}>
+            <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--border-color)' }}>
+              <div className="flex items-center gap-2">
+                <UserX size={18} style={{ color: 'var(--primary-color)' }} />
+                <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Manual Sign-Out</h2>
+              </div>
+              <button onClick={() => { setManualSignOut(null); setManualTime('') }} style={{ color: 'var(--text-muted)' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{manualSignOut.operative_name}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  Signed in at {formatTime(manualSignOut.sign_in_time)}
+                </p>
+              </div>
+              <div>
+                <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--text-muted)' }}>Sign-out time</label>
+                <input
+                  type="time"
+                  value={manualTime}
+                  onChange={e => setManualTime(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border text-sm"
+                  style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => { setManualSignOut(null); setManualTime('') }}
+                  className="flex-1 py-2.5 text-sm font-medium rounded-lg border transition-colors"
+                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+                  Cancel
+                </button>
+                <button onClick={handleManualSignOut} disabled={!manualTime || manualSaving}
+                  className="flex-1 py-2.5 text-sm font-semibold rounded-lg text-white transition-colors flex items-center justify-center gap-2"
+                  style={{ backgroundColor: '#DA3633', opacity: (!manualTime || manualSaving) ? 0.5 : 1 }}>
+                  {manualSaving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <LogOut size={14} />}
+                  Sign Out
                 </button>
               </div>
             </div>
