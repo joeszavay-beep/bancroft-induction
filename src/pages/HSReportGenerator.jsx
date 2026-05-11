@@ -241,8 +241,7 @@ export default function HSReportGenerator() {
       const [talksRes, opsRes, docsRes, signoffsRes, attendanceRes, diaryRes, inspRes] = await Promise.all([
         supabase.from('toolbox_talks').select('*, toolbox_signatures(*)').eq('project_id', selectedProject)
           .gte('created_at', ws.toISOString()).lte('created_at', we.toISOString()),
-        supabase.from('operatives').select('*').eq('company_id', cid)
-          .or(`project_id.eq.${selectedProject},project_id.is.null`).order('name'),
+        supabase.from('operative_projects').select('operatives(*)').eq('project_id', selectedProject),
         supabase.from('document_hub').select('*').eq('company_id', cid).eq('project_id', selectedProject)
           .eq('category', 'RAMS'),
         Promise.resolve({ data: [] }), // signoffs loaded separately after docs
@@ -267,8 +266,9 @@ export default function HSReportGenerator() {
       // Store raw talks with nested signatures for PDF generation
       rawTalksRef.current = rawTalks
 
-      // Operatives
-      setOperatives(opsRes.data || [])
+      // Operatives — unwrap from operative_projects junction
+      const ops = (opsRes.data || []).map(r => r.operatives).filter(Boolean)
+      setOperatives(ops)
 
       // RAMS — load signoffs scoped to these documents
       const docs = docsRes.data || []
@@ -296,7 +296,7 @@ export default function HSReportGenerator() {
       rawAttendanceRef.current = attendance
       const labourMap = {}
       attendance.forEach(rec => {
-        const op = (opsRes.data || []).find(o => o.id === rec.operative_id)
+        const op = ops.find(o => o.id === rec.operative_id)
         const trade = op?.role || rec.trade || 'General'
         const companyKey = op?.employer || trade
         const key = `${companyKey}__${trade}`
