@@ -276,6 +276,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
   const [geofenceEnabled, setGeofenceEnabled] = useState(false)
   const [siteCoords, setSiteCoords] = useState(null) // { latitude, longitude }
   const [capturingGPS, setCapturingGPS] = useState(false)
+  const [geofenceToggles, setGeofenceToggles] = useState({}) // local overrides keyed by project id
   const [uploadFile, setUploadFile] = useState(null)
   const [docTitle, setDocTitle] = useState('')
   const [expandedProject, setExpandedProject] = useState(null)
@@ -644,16 +645,28 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                     </div>
 
                     {/* Geofence */}
+                    {(() => {
+                      const gfEnabled = p.id in geofenceToggles ? geofenceToggles[p.id] : !!p.geofence_enabled
+                      return (
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Geofence</h4>
+                        <h4 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                          Geofence
+                          <span className="text-[10px] font-semibold normal-case tracking-normal" style={{ color: gfEnabled ? '#2EA043' : 'var(--text-muted)' }}>{gfEnabled ? 'On' : 'Off'}</span>
+                        </h4>
                         <button onClick={async () => {
-                          const next = !p.geofence_enabled
-                          await supabase.from('projects').update({ geofence_enabled: next }).eq('id', p.id)
+                          const next = !gfEnabled
+                          setGeofenceToggles(prev => ({ ...prev, [p.id]: next }))
+                          const { error } = await supabase.from('projects').update({ geofence_enabled: next }).eq('id', p.id)
+                          if (error) {
+                            setGeofenceToggles(prev => ({ ...prev, [p.id]: !next }))
+                            toast.error('Failed to update — run the geofence migration in Supabase')
+                            return
+                          }
                           toast.success(next ? 'Geofence enabled' : 'Geofence disabled')
                           onRefresh()
-                        }} className="relative w-10 h-[22px] rounded-full transition-colors" style={{ backgroundColor: p.geofence_enabled ? '#2EA043' : 'var(--border-color)' }}>
-                          <div className="absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-all" style={{ left: p.geofence_enabled ? 20 : 2 }} />
+                        }} className="relative w-10 h-[22px] rounded-full transition-colors" style={{ backgroundColor: gfEnabled ? '#2EA043' : 'var(--border-color)' }}>
+                          <div className="absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-all" style={{ left: gfEnabled ? 20 : 2 }} />
                         </button>
                       </div>
                       <div className="rounded-lg p-3 space-y-3" style={{ backgroundColor: 'var(--bg-main)' }}>
@@ -689,16 +702,19 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                           {p.site_latitude && (
                             <button onClick={async () => {
                               await supabase.from('projects').update({ site_latitude: null, site_longitude: null, geofence_enabled: false }).eq('id', p.id)
+                              setGeofenceToggles(prev => ({ ...prev, [p.id]: false }))
                               toast.success('Location cleared')
                               onRefresh()
                             }} className="text-[10px] ml-auto hover:opacity-70" style={{ color: 'var(--text-muted)' }}>Clear pin</button>
                           )}
                         </div>
-                        {!p.geofence_enabled && p.site_latitude && (
+                        {!gfEnabled && p.site_latitude && (
                           <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Geofence is off — location is saved but not enforced. Toggle on above to activate.</p>
                         )}
                       </div>
                     </div>
+                      )
+                    })()}
 
                     {/* Actions */}
                     <div className="grid grid-cols-2 gap-2">
