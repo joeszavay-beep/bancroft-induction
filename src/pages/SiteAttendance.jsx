@@ -554,9 +554,10 @@ export default function SiteAttendance() {
                             <LogOut size={11} /> OUT
                           </span>
                         )}
-                        {r.notes?.startsWith('Late') && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600">LATE</span>}
-                        {r.notes?.startsWith('Early') && r.type === 'sign_out' && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600">EARLY</span>}
-                        {r.notes?.startsWith('Overtime') && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600">OT</span>}
+                        {r.notes?.includes('Late') && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600">LATE</span>}
+                        {r.notes?.includes('Early') && r.type === 'sign_out' && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600">EARLY</span>}
+                        {r.notes?.includes('Overtime') && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600">OT</span>}
+                        {r.notes?.includes('Off-site') && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-50 text-orange-600">OFF-SITE</span>}
                         {r.method === 'auto' && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500">AUTO</span>}
                       </div>
                     </td>

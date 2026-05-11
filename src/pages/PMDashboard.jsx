@@ -11,7 +11,7 @@ import {
   Home, FolderOpen, Users, Globe, LogOut, Plus, Trash2, Upload,
   FileText, UserPlus, ChevronRight, CheckCircle2, Clock, AlertCircle, Download,
   RefreshCw, Mail, Settings, Bell, ShieldCheck, FileWarning, ClipboardList, ArrowLeft,
-  MessageSquare, MapPin
+  MessageSquare, MapPin, Navigation, X as XIcon
 } from 'lucide-react'
 import { generateSignOffSheet } from '../lib/generateSignOffSheet'
 import { generateAuditReport } from '../lib/generateAuditReport'
@@ -270,6 +270,9 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
   const [musterPoint, setMusterPoint] = useState('')
   const [startTime, setStartTime] = useState('07:30')
   const [endTime, setEndTime] = useState('17:00')
+  const [geofenceRadius, setGeofenceRadius] = useState(200)
+  const [siteCoords, setSiteCoords] = useState(null) // { latitude, longitude }
+  const [capturingGPS, setCapturingGPS] = useState(false)
   const [uploadFile, setUploadFile] = useState(null)
   const [docTitle, setDocTitle] = useState('')
   const [expandedProject, setExpandedProject] = useState(null)
@@ -278,7 +281,9 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
     e.preventDefault()
     if (!name.trim()) return
     setSaving(true)
-    const { error } = await supabase.from('projects').insert({ name: name.trim(), location: location.trim(), muster_point: musterPoint.trim() || null, start_time: startTime || '07:30', end_time: endTime || '17:00', company_id: cid })
+    const row = { name: name.trim(), location: location.trim(), muster_point: musterPoint.trim() || null, start_time: startTime || '07:30', end_time: endTime || '17:00', company_id: cid }
+    if (siteCoords) { row.site_latitude = siteCoords.latitude; row.site_longitude = siteCoords.longitude; row.geofence_radius = geofenceRadius }
+    const { error } = await supabase.from('projects').insert(row)
     setSaving(false)
     if (error) {
       console.error('Add project error:', error)
@@ -292,6 +297,8 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
     setMusterPoint('')
     setStartTime('07:30')
     setEndTime('17:00')
+    setSiteCoords(null)
+    setGeofenceRadius(200)
     onRefresh()
   }
 
@@ -632,6 +639,72 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                       )}
                     </div>
 
+                    {/* Geofence */}
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Geofence</h4>
+                      {p.site_latitude ? (
+                        <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--bg-main)' }}>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-medium flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                              <MapPin size={12} style={{ color: 'var(--primary-color)' }} />
+                              {p.site_latitude.toFixed(5)}, {p.site_longitude.toFixed(5)} — {p.geofence_radius || 200}m radius
+                            </p>
+                            <button onClick={async () => {
+                              if (!confirm('Remove geofence? Operatives will be able to sign in from anywhere.')) return
+                              await supabase.from('projects').update({ site_latitude: null, site_longitude: null, geofence_radius: null }).eq('id', p.id)
+                              toast.success('Geofence removed')
+                              onRefresh()
+                            }} className="text-[10px] hover:opacity-70" style={{ color: 'var(--text-muted)' }}>Remove</button>
+                          </div>
+                          <div className="flex items-center gap-2 mt-2">
+                            <button onClick={() => {
+                              if (!navigator.geolocation) { toast.error('GPS not available'); return }
+                              setCapturingGPS(true)
+                              navigator.geolocation.getCurrentPosition(
+                                async (pos) => {
+                                  await supabase.from('projects').update({ site_latitude: pos.coords.latitude, site_longitude: pos.coords.longitude }).eq('id', p.id)
+                                  setCapturingGPS(false); toast.success('Location updated'); onRefresh()
+                                },
+                                () => { setCapturingGPS(false); toast.error('Could not get location') },
+                                { enableHighAccuracy: true, timeout: 10000 }
+                              )
+                            }} className="text-[10px] font-medium flex items-center gap-1 px-2 py-1 rounded" style={{ color: 'var(--primary-color)', backgroundColor: 'var(--bg-card)' }}>
+                              {capturingGPS ? <div className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--primary-color)' }} /> : <Navigation size={10} />}
+                              Update Location
+                            </button>
+                            <select defaultValue={p.geofence_radius || 200} onChange={async (e) => {
+                              await supabase.from('projects').update({ geofence_radius: Number(e.target.value) }).eq('id', p.id)
+                              toast.success('Radius updated'); onRefresh()
+                            }} className="text-[10px] px-1.5 py-1 rounded border" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}>
+                              <option value={100}>100m</option>
+                              <option value={200}>200m</option>
+                              <option value={300}>300m</option>
+                              <option value={500}>500m</option>
+                            </select>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--bg-main)' }}>
+                          <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>No geofence set — operatives can sign in from anywhere.</p>
+                          <button onClick={() => {
+                            if (!navigator.geolocation) { toast.error('GPS not available'); return }
+                            setCapturingGPS(true)
+                            navigator.geolocation.getCurrentPosition(
+                              async (pos) => {
+                                await supabase.from('projects').update({ site_latitude: pos.coords.latitude, site_longitude: pos.coords.longitude, geofence_radius: 200 }).eq('id', p.id)
+                                setCapturingGPS(false); toast.success('Geofence set — 200m radius'); onRefresh()
+                              },
+                              () => { setCapturingGPS(false); toast.error('Could not get location — check GPS permissions') },
+                              { enableHighAccuracy: true, timeout: 10000 }
+                            )
+                          }} className="text-xs font-medium flex items-center gap-1.5 px-3 py-2 rounded-lg transition-colors" style={{ color: 'var(--primary-color)', backgroundColor: 'var(--bg-card)' }}>
+                            {capturingGPS ? <div className="w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--primary-color)' }} /> : <Navigation size={13} />}
+                            Set Site Location
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Actions */}
                     <div className="grid grid-cols-2 gap-2">
                       <button disabled={exportingAudit === p.id} onClick={() => handleAuditExport(p)}
@@ -693,6 +766,39 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
               </div>
             </div>
             <p className="text-[10px] text-slate-400 mt-1">10 min grace period either side. Late arrivals / early departures will be flagged.</p>
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block font-medium">Geofence (optional)</label>
+            <p className="text-[10px] text-slate-400 mb-2">Set a site boundary — sign-ins from outside the radius will be flagged as off-site.</p>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => {
+                if (!navigator.geolocation) { toast.error('GPS not available on this device'); return }
+                setCapturingGPS(true)
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => { setSiteCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }); setCapturingGPS(false); toast.success('Location captured') },
+                  () => { setCapturingGPS(false); toast.error('Could not get location — check GPS permissions') },
+                  { enableHighAccuracy: true, timeout: 10000 }
+                )
+              }} className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-medium text-slate-700 transition-colors">
+                {capturingGPS ? <div className="w-3.5 h-3.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" /> : <Navigation size={13} />}
+                {siteCoords ? 'Update Location' : 'Use My Current Location'}
+              </button>
+              <select value={geofenceRadius} onChange={e => setGeofenceRadius(Number(e.target.value))}
+                className="px-2 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-700">
+                <option value={100}>100m</option>
+                <option value={200}>200m</option>
+                <option value={300}>300m</option>
+                <option value={500}>500m</option>
+              </select>
+            </div>
+            {siteCoords && (
+              <div className="flex items-center gap-2 mt-2">
+                <p className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
+                  <MapPin size={10} /> {siteCoords.latitude.toFixed(5)}, {siteCoords.longitude.toFixed(5)} — {geofenceRadius}m radius
+                </p>
+                <button type="button" onClick={() => setSiteCoords(null)} className="text-[10px] text-slate-400 hover:text-red-500">clear</button>
+              </div>
+            )}
           </div>
           <LoadingButton loading={saving} type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white">
             Add Project

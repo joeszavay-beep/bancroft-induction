@@ -155,6 +155,15 @@ export default function SiteSignIn() {
     return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : parts[0][0].toUpperCase()
   }
 
+  function haversineDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371e3 // Earth radius in metres
+    const toRad = (deg) => deg * Math.PI / 180
+    const dLat = toRad(lat2 - lat1)
+    const dLon = toRad(lon2 - lon1)
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  }
+
   function checkTimingFlag(type, now) {
     const startTime = project?.start_time || '07:30'
     const endTime = project?.end_time || '17:00'
@@ -199,6 +208,21 @@ export default function SiteSignIn() {
     const now = new Date()
     const flag = checkTimingFlag(type, now)
 
+    // Geofence check
+    let offSiteDistance = null
+    if (project?.site_latitude && geoPosition) {
+      const dist = haversineDistance(project.site_latitude, project.site_longitude, geoPosition.latitude, geoPosition.longitude)
+      const radius = project.geofence_radius || 200
+      if (dist > radius) offSiteDistance = Math.round(dist)
+    }
+
+    // Build notes: timing flag + off-site flag
+    const parts = []
+    if (flag) parts.push(flag.charAt(0).toUpperCase() + flag.slice(1))
+    if (offSiteDistance) parts.push(`Off-site (${offSiteDistance}m)`)
+    const action = type === 'sign_in' ? 'arrived' : 'left'
+    const notes = parts.length ? `${parts.join(' · ')} — ${action} at ${formatTime(now)}` : null
+
     const record = {
       company_id: project?.company_id || project?.companies?.id || null,
       project_id: projectId,
@@ -208,14 +232,14 @@ export default function SiteSignIn() {
       method: 'qr',
       ip_address: null,
       recorded_at: now.toISOString(),
-      notes: flag ? `${flag.charAt(0).toUpperCase() + flag.slice(1)} — ${type === 'sign_in' ? 'arrived' : 'left'} at ${formatTime(now)}` : null,
+      notes,
     }
     if (geoPosition) { record.latitude = geoPosition.latitude; record.longitude = geoPosition.longitude }
 
     const { error } = await supabase.from('site_attendance').insert(record)
     if (!error) {
       setAttendance((prev) => [{ ...record, id: crypto.randomUUID() }, ...prev])
-      setSuccess({ type, name: operative.name, time: formatTime(now), flag })
+      setSuccess({ type, name: operative.name, time: formatTime(now), flag, offSiteDistance })
     }
     setRecording(false)
   }
@@ -296,7 +320,17 @@ export default function SiteSignIn() {
             </p>
           </div>
         )}
-        {geoPosition && (
+        {success.offSiteDistance && (
+          <div style={{
+            animation: 'fadeInUp 0.5s ease-out 0.5s forwards', opacity: 0, marginTop: 16,
+            background: 'rgba(234,88,12,0.3)', borderRadius: 10, padding: '10px 18px', textAlign: 'center',
+          }}>
+            <p style={{ color: '#fff', fontSize: 14, margin: 0, fontWeight: 600 }}>
+              Off-site — you are {success.offSiteDistance}m from the project location
+            </p>
+          </div>
+        )}
+        {geoPosition && !success.offSiteDistance && (
           <div style={{ animation: 'fadeInUp 0.5s ease-out 0.5s forwards', opacity: 0, marginTop: 16, display: 'flex', alignItems: 'center', gap: 4, color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
             <MapPin size={14} /> Location recorded
           </div>
