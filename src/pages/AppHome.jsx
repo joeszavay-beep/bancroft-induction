@@ -37,7 +37,7 @@ export default function AppHome() {
       projectId
         ? supabase.from('operative_projects').select('operatives(id, cscs_expiry, ipaf_expiry, pasma_expiry, sssts_expiry, first_aid_expiry)').eq('project_id', projectId)
         : supabase.from('operatives').select('id, cscs_expiry, ipaf_expiry, pasma_expiry, sssts_expiry, first_aid_expiry').eq('company_id', cid),
-      supabase.from('snags').select('id, status, due_date, created_at, updated_at').eq('company_id', cid).then(r => projectId ? { data: (r.data || []).filter(s => s.project_id === projectId) } : r),
+      (() => { let q = supabase.from('snags').select('id, status, due_date, created_at, updated_at, project_id').eq('company_id', cid); if (projectId) q = q.eq('project_id', projectId); return q })(),
       supabase.from('signatures').select('id').eq('company_id', cid),
       (() => { let q = supabase.from('site_attendance').select('id, type, operative_id').eq('company_id', cid).gte('recorded_at', todayStart.toISOString()); if (projectId) q = q.eq('project_id', projectId); return q })(),
       (() => { let q = supabase.from('site_diary').select('id, date').eq('company_id', cid).order('date', { ascending: false }).limit(1); if (projectId) q = q.eq('project_id', projectId); return q })(),

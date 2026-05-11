@@ -1497,13 +1497,17 @@ function SnagsTab({ projects, navigate }) {
     )
   }
 
-  // Stats
-  const openCount = allSnags.filter(s => s.status === 'open').length
-  const completedCount = allSnags.filter(s => s.status === 'completed').length
-  const closedCount = allSnags.filter(s => s.status === 'closed').length
-  const reassignedCount = allSnags.filter(s => s.status === 'reassigned').length
-  const pendingReviewCount = allSnags.filter(s => s.status === 'pending_review').length
-  const totalCount = allSnags.length
+  // Filter drawings and snags by selected project
+  const visibleDrawings = projectId ? drawings.filter(d => d.project_id === projectId) : drawings
+  const scopedSnags = projectId ? allSnags.filter(s => visibleDrawings.some(d => d.id === s.drawing_id)) : allSnags
+
+  // Stats (scoped to project)
+  const openCount = scopedSnags.filter(s => s.status === 'open').length
+  const completedCount = scopedSnags.filter(s => s.status === 'completed').length
+  const closedCount = scopedSnags.filter(s => s.status === 'closed').length
+  const reassignedCount = scopedSnags.filter(s => s.status === 'reassigned').length
+  const pendingReviewCount = scopedSnags.filter(s => s.status === 'pending_review').length
+  const totalCount = scopedSnags.length
 
   // Donut chart data
   const donutData = [
@@ -1517,15 +1521,12 @@ function SnagsTab({ projects, navigate }) {
   // Top 5 drawings by open snags
   const drawingOpenCounts = visibleDrawings.map(d => ({
     name: d.name,
-    count: allSnags.filter(s => s.drawing_id === d.id && s.status === 'open').length,
+    count: scopedSnags.filter(s => s.drawing_id === d.id && s.status === 'open').length,
   })).filter(d => d.count > 0).sort((a, b) => b.count - a.count).slice(0, 5)
   const maxOpen = Math.max(...drawingOpenCounts.map(d => d.count), 1)
 
-  // Filter drawings and snags by selected project
-  const visibleDrawings = projectId ? drawings.filter(d => d.project_id === projectId) : drawings
-
-  // Filtered snags
-  let filtered = projectId ? allSnags.filter(s => visibleDrawings.some(d => d.id === s.drawing_id)) : allSnags
+  // Filtered snags (further filtered by user's status/drawing/number filters)
+  let filtered = scopedSnags
   if (filterStatus !== 'all') filtered = filtered.filter(s => s.status === filterStatus)
   if (filterDrawing !== 'all') filtered = filtered.filter(s => s.drawing_id === filterDrawing)
   if (filterSnagNo) filtered = filtered.filter(s => String(s.snag_number).includes(filterSnagNo))

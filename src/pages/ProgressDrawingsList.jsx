@@ -76,7 +76,7 @@ export default function ProgressDrawingsList() {
     setLoading(false)
   }
 
-  useEffect(() => { loadAll() }, [])
+  useEffect(() => { if (cid) loadAll() }, [cid])
 
   async function uploadDrawing(e) {
     e.preventDefault()
