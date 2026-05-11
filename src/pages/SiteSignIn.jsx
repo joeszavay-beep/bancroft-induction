@@ -210,7 +210,7 @@ export default function SiteSignIn() {
 
     // Geofence check
     let offSiteDistance = null
-    if (project?.site_latitude && geoPosition) {
+    if (project?.geofence_enabled && project?.site_latitude && geoPosition) {
       const dist = haversineDistance(project.site_latitude, project.site_longitude, geoPosition.latitude, geoPosition.longitude)
       const radius = project.geofence_radius || 200
       if (dist > radius) offSiteDistance = Math.round(dist)
