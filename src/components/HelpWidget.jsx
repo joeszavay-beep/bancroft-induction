@@ -5,17 +5,26 @@ import { X, Send, Loader2, HelpCircle, ArrowRight, ChevronDown, GripVertical } f
 const SUGGESTIONS_MAP = {
   '/app/programme': ['How do I upload a DXF?', "What's a baseline length?", 'How do I link a layer?', 'How is progress calculated?'],
   '/app/snags': ['How do I raise a snag?', 'How do I assign a snag?', 'What happens when overdue?', 'How do I close a snag?'],
-  '/app/workers': ['How do I add a worker?', 'How does CSCS verification work?', 'When do cert alerts fire?', 'How do workers sign documents?'],
+  '/app/workers': ['How do I add a worker?', 'How do I edit a worker profile?', 'How does CSCS verification work?', 'How do workers sign documents?'],
   '/app/diary': ['How does weather auto-fill?', 'Can I edit past entries?', 'How do I export the diary?', 'What should I include?'],
   '/app/inspections': ['How do I create a checklist?', 'Can I reuse templates?', 'How do I attach photos?', 'How do I export?'],
-  '/app/attendance': ['How do I print the QR poster?', 'How does fire muster work?', 'When does auto sign-out happen?', "Who's on site now?"],
+  '/app/attendance': ['How do I print the QR poster?', 'How does fire muster work?', 'How do I sign out a worker who forgot?', 'Where is the weekly register?'],
+  '/app/holiday-approvals': ['How do I approve a holiday?', 'Can I reject with a reason?', 'How does allowance work?', 'What if I need to reassign?'],
   '/app/bim': ['How do I upload an IFC?', 'What is X-ray mode?', 'How do I measure in 3D?', 'How do I update element status?'],
   '/app/master-programme': ['How do I import from Asta?', 'How do I update progress?', 'What do the bar colours mean?', 'How do I export to CSV?'],
   '/app/labour': ['How do I post a labour request?', 'How does matching work?', 'What are preferred agencies?', 'How does auto-onboarding work?'],
   '/app/agency': ['How do I add operatives?', 'How do I respond to requests?', 'How does matching work?', 'How does auto-onboarding work?'],
+  '/app/document-hub': ['How do I upload a document?', 'How do version controls work?', 'How do I set an expiry?', 'How do I filter by project?'],
+  '/app/hs-reports': ['How do I generate a report?', 'What is the training matrix?', 'How do I pick a week?', 'Can I export to PDF?'],
+  '/app/observations': ['How do I log an observation?', 'How do I filter by project?', 'What types can I log?'],
+  '/app/permits': ['How do I create a permit?', 'How do I filter permits?', 'What types are available?'],
+  '/worker/holidays': ['How do I request a holiday?', 'Who approves my holiday?', 'How many days do I have left?', 'Can I cancel a request?'],
+  '/worker/timesheet': ['How do I read my timesheet?', 'What does "Auto" mean?', 'How do I report a discrepancy?', 'What are the QR raw scans?'],
+  '/worker/certs': ['How do I upload a cert?', 'Can I upload a PDF?', 'What file types are accepted?', 'When does my card expire?'],
+  '/worker/earnings': ['How is CIS calculated?', 'Where are my invoices?', 'How do I download a CIS statement?'],
 }
 
-const DEFAULT_SUGGESTIONS = ['How do I upload a drawing?', 'How does QR sign-in work?', 'How do I raise a snag?', "What's the programme tracker?"]
+const DEFAULT_SUGGESTIONS = ['How do I upload a drawing?', 'How does QR sign-in work?', 'How do I request a holiday?', 'How do I select a project?']
 
 function getSuggestions() {
   try {
