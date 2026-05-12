@@ -86,26 +86,39 @@ export default function SignDocument() {
 
   async function sendCompletionNotification() {
     try {
-      // Get the company's notification email (company-scoped, not global settings)
+      // In-app notification to all managers/admins in this company
+      const { data: managers } = await supabase.from('profiles').select('id')
+        .eq('company_id', operative.company_id)
+        .in('role', ['manager', 'admin', 'super_admin'])
+      for (const mgr of (managers || [])) {
+        await supabase.from('notifications').insert({
+          company_id: operative.company_id,
+          user_id: mgr.id,
+          type: 'success',
+          title: 'Documents Complete',
+          body: `${operative.name} has signed all required documents`,
+          link: `/app/workers/${operativeId}`,
+        })
+      }
+
+      // Also send email to company notification email
       const { data: company } = await supabase
         .from('companies')
         .select('notification_email')
         .eq('id', operative.company_id)
         .single()
-
       const notifyEmail = company?.notification_email
-      if (!notifyEmail) return
-
-      // Send email via Vercel API route (to this company's manager only)
-      await fetch('/api/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: notifyEmail,
-          operativeName: operative.name,
-          projectName: document.projects?.name,
-        }),
-      }).catch(() => {})
+      if (notifyEmail) {
+        await fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: notifyEmail,
+            operativeName: operative.name,
+            projectName: document.projects?.name,
+          }),
+        }).catch(() => {})
+      }
     } catch {
       // Non-critical, don't block the flow
     }
@@ -169,6 +182,23 @@ export default function SignDocument() {
       toast.error(`Something went wrong: ${err.message}`)
       return
     }
+
+    // Notify managers that a document was signed
+    try {
+      const { data: mgrs } = await supabase.from('profiles').select('id')
+        .eq('company_id', operative.company_id)
+        .in('role', ['manager', 'admin', 'super_admin'])
+      for (const m of (mgrs || [])) {
+        await supabase.from('notifications').insert({
+          company_id: operative.company_id,
+          user_id: m.id,
+          type: 'info',
+          title: 'Document Signed',
+          body: `${operative.name} signed "${document.title}"`,
+          link: `/app/workers/${operativeId}`,
+        })
+      }
+    } catch { /* non-critical */ }
 
     // Check if all documents are now complete
     const complete = await checkAllComplete()

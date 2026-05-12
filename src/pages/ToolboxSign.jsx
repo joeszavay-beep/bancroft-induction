@@ -102,6 +102,26 @@ export default function ToolboxSign() {
       toast.error('Failed to submit signature')
       return
     }
+
+    // Notify managers that toolbox talk was signed
+    if (talk?.company_id) {
+      try {
+        const { data: mgrs } = await supabase.from('profiles').select('id')
+          .eq('company_id', talk.company_id)
+          .in('role', ['manager', 'admin', 'super_admin'])
+        for (const m of (mgrs || [])) {
+          await supabase.from('notifications').insert({
+            company_id: talk.company_id,
+            user_id: m.id,
+            type: 'info',
+            title: 'Toolbox Talk Signed',
+            body: `${op?.name || 'An operative'} signed "${talk.title}"`,
+            link: `/app/toolbox-live/${talkId}`,
+          })
+        }
+      } catch { /* non-critical */ }
+    }
+
     setShowSuccess(true)
   }
 

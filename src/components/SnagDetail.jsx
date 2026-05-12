@@ -141,6 +141,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
 
   async function handleSave() {
     setSaving(true)
+    const newAssignee = status === 'reassigned' && reassignTo ? reassignTo : (assignedTo || null)
     const updates = {
       trade: trade || null,
       type: type || null,
@@ -148,7 +149,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
       priority,
       due_date: dueDate || null,
       status,
-      assigned_to: status === 'reassigned' && reassignTo ? reassignTo : (assignedTo || null),
+      assigned_to: newAssignee,
     }
     const { data, offline } = await offlineUpdate('snags', snag.id, updates)
     setSaving(false)
@@ -156,6 +157,20 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
       toast.error('Failed to save changes')
       return
     }
+
+    // Notify assigned operative if assignment changed
+    if (newAssignee && newAssignee !== snag.assigned_to && !offline) {
+      const mgr = JSON.parse(getSession('manager_data') || '{}')
+      supabase.from('notifications').insert({
+        company_id: mgr.company_id,
+        user_id: newAssignee,
+        type: 'info',
+        title: 'Snag Assigned',
+        body: `Snag #${snag.snag_number} has been assigned to you`,
+        link: '/worker/snags',
+      }).then(() => {})
+    }
+
     toastSmart('Snag updated', 'Changes saved offline', offline)
     onUpdated()
   }
@@ -174,6 +189,26 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
     const { data, offline } = await offlineUpdate('snags', snag.id, { status: 'completed' })
     setSaving(false)
     if (!data) { toast.error('Failed to update'); return }
+
+    // Notify all managers in this company
+    if (!offline) {
+      const mgr = JSON.parse(getSession('manager_data') || '{}')
+      if (mgr.company_id) {
+        const { data: managers } = await supabase.from('profiles').select('id').eq('company_id', mgr.company_id).in('role', ['manager', 'admin', 'super_admin'])
+        for (const m of (managers || [])) {
+          if (m.id === mgr.id) continue // don't notify yourself
+          await supabase.from('notifications').insert({
+            company_id: mgr.company_id,
+            user_id: m.id,
+            type: 'success',
+            title: 'Snag Completed',
+            body: `Snag #${snag.snag_number} has been marked complete`,
+            link: '/app/snags',
+          })
+        }
+      }
+    }
+
     toastSmart(`Snag #${snag.snag_number} marked complete`, `Snag #${snag.snag_number} marked complete (offline)`, offline)
     onUpdated()
   }
@@ -233,6 +268,20 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
     setSaving(false)
     if (!data) { toast.error('Failed to update'); return }
     const label = newStatus === 'completed' ? 'approved' : newStatus === 'open' ? 'rejected — reopened' : newStatus
+
+    // Notify the assigned operative of status change
+    if (!offline && snag.assigned_to) {
+      const mgr = JSON.parse(getSession('manager_data') || '{}')
+      supabase.from('notifications').insert({
+        company_id: mgr.company_id,
+        user_id: snag.assigned_to,
+        type: newStatus === 'completed' || newStatus === 'closed' ? 'success' : 'warning',
+        title: `Snag #${snag.snag_number} ${label}`,
+        body: `Your snag has been ${label} by ${mgr.name || 'the manager'}`,
+        link: '/worker/snags',
+      }).then(() => {})
+    }
+
     toastSmart(`Snag #${snag.snag_number} ${label}`, `Snag #${snag.snag_number} ${label} (offline)`, offline)
     onUpdated()
   }
