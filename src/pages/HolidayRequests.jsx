@@ -447,7 +447,7 @@ export default function HolidayRequests() {
                     </div>
 
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      Sent to: <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{req.managers?.name || '—'}</span>
+                      Sent to: <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{req.approver_name || '—'}</span>
                     </p>
 
                     {req.status === 'rejected' && req.rejection_reason && (

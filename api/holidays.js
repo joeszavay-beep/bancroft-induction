@@ -144,10 +144,21 @@ export default async function handler(req, res) {
 
     // Operative fetching their own
     if (operativeId && operativeSessionId === operativeId) {
-      let q = supabase.from('holiday_requests').select('*, managers:approver_id(name)').eq('operative_id', operativeId).order('created_at', { ascending: false })
+      let q = supabase.from('holiday_requests').select('*').eq('operative_id', operativeId).order('created_at', { ascending: false })
       if (status) q = q.eq('status', status)
-      const { data } = await q
-      return res.json({ requests: data || [] })
+      const { data, error } = await q
+      if (error) return res.status(500).json({ error: error.message })
+
+      // Resolve approver names (could be in managers or profiles table)
+      const requests = data || []
+      for (const r of requests) {
+        const { data: mgrRows } = await supabase.from('managers').select('name').eq('id', r.approver_id)
+        if (mgrRows?.length > 0) { r.approver_name = mgrRows[0].name; continue }
+        const { data: profRows } = await supabase.from('profiles').select('name').eq('id', r.approver_id)
+        if (profRows?.length > 0) r.approver_name = profRows[0].name
+      }
+
+      return res.json({ requests })
     }
 
     // Manager/Admin fetching inbox
