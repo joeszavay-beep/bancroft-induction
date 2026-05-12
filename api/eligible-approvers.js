@@ -23,7 +23,18 @@ export default async function handler(req, res) {
   const projectIds = (opProjects || []).map(r => r.project_id)
 
   if (projectIds.length === 0) {
-    return res.json({ approvers: [], message: 'Operative not assigned to any projects' })
+    // No projects, but still offer admins as fallback
+    const { data: allManagers } = await supabase.from('managers').select('id, name, email').eq('company_id', op.company_id).eq('is_active', true)
+    const opEmail = (op.email || '').toLowerCase()
+    const adminApprovers = []
+    for (const mgr of (allManagers || [])) {
+      if (mgr.email?.toLowerCase() === opEmail) continue
+      const { data: prof } = await supabase.from('profiles').select('role').eq('email', mgr.email).limit(1)
+      if (prof?.[0]?.role === 'admin' || prof?.[0]?.role === 'super_admin') {
+        adminApprovers.push({ id: mgr.id, name: mgr.name, email: mgr.email, shared_projects: [{ id: null, name: 'Admin' }] })
+      }
+    }
+    return res.json({ approvers: adminApprovers })
   }
 
   // Get all active managers for the same company
@@ -62,6 +73,25 @@ export default async function handler(req, res) {
       email: mgr.email,
       shared_projects: shared.map(pid => ({ id: pid, name: projectMap[pid] || 'Unknown' })),
     })
+  }
+
+  // If no project-based approvers found, fall back to admins
+  if (approvers.length === 0) {
+    for (const mgr of managers) {
+      if (mgr.email?.toLowerCase() === opEmail) continue
+      if (seen.has(mgr.id)) continue
+      // Check if this manager is an admin via profiles table
+      const { data: prof } = await supabase.from('profiles').select('role').eq('email', mgr.email).limit(1)
+      if (prof?.[0]?.role === 'admin' || prof?.[0]?.role === 'super_admin') {
+        seen.add(mgr.id)
+        approvers.push({
+          id: mgr.id,
+          name: mgr.name,
+          email: mgr.email,
+          shared_projects: [{ id: null, name: 'Admin' }],
+        })
+      }
+    }
   }
 
   return res.json({ approvers })

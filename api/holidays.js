@@ -57,7 +57,12 @@ export default async function handler(req, res) {
 
     const mgrProjects = mgr.project_ids || []
     const hasOverlap = mgrProjects.some(pid => projectIds.includes(pid))
-    if (!hasOverlap) return res.status(400).json({ error: 'Selected approver is not assigned to any of your projects' })
+    // Allow admins even without project overlap
+    if (!hasOverlap) {
+      const { data: prof } = await supabase.from('profiles').select('role').eq('email', mgr.email).limit(1)
+      const isAdmin = prof?.[0]?.role === 'admin' || prof?.[0]?.role === 'super_admin'
+      if (!isAdmin) return res.status(400).json({ error: 'Selected approver is not assigned to any of your projects' })
+    }
 
     // Check for overlapping requests
     const { data: existing } = await supabase.from('holiday_requests')
