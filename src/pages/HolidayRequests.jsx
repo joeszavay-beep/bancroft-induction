@@ -90,7 +90,7 @@ export default function HolidayRequests() {
     setApproversLoading(true)
     fetch(`/api/eligible-approvers?operativeId=${op.id}`)
       .then(r => r.json())
-      .then(data => setApprovers(data || []))
+      .then(data => setApprovers(data.approvers || []))
       .catch(() => toast.error('Failed to load approvers'))
       .finally(() => setApproversLoading(false))
   }, [op])
@@ -99,9 +99,9 @@ export default function HolidayRequests() {
   function loadRequests() {
     if (!op) return
     setRequestsLoading(true)
-    fetch(`/api/holidays?operativeId=${op.id}&operativeSessionId=${op.sessionId}`)
+    fetch(`/api/holidays?operativeId=${op.id}&operativeSessionId=${op.id}`)
       .then(r => r.json())
-      .then(data => setRequests(data || []))
+      .then(data => setRequests(data.requests || []))
       .catch(() => toast.error('Failed to load requests'))
       .finally(() => setRequestsLoading(false))
   }
@@ -447,7 +447,7 @@ export default function HolidayRequests() {
                     </div>
 
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      Sent to: <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{req.approver_name || '—'}</span>
+                      Sent to: <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{req.managers?.name || '—'}</span>
                     </p>
 
                     {req.status === 'rejected' && req.rejection_reason && (
