@@ -60,7 +60,17 @@ export default async function handler(req, res) {
     .eq('is_active', true)
 
   if (!managers?.length) {
-    return res.json({ approvers: [], message: 'No active managers found' })
+    // No managers table rows — fall back to profiles admins
+    const { data: adminProfiles } = await supabase
+      .from('profiles')
+      .select('id, name, email, role')
+      .eq('company_id', op.company_id)
+      .in('role', ['admin', 'super_admin'])
+    const opEmail = (op.email || '').toLowerCase()
+    const fallbackApprovers = (adminProfiles || [])
+      .filter(p => p.email?.toLowerCase() !== opEmail)
+      .map(p => ({ id: p.id, name: p.name, email: p.email, shared_projects: [{ id: null, name: 'Admin' }], is_profile: true }))
+    return res.json({ approvers: fallbackApprovers })
   }
 
   // Filter to managers whose project_ids overlap with operative's projects
