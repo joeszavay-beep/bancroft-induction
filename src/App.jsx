@@ -20,6 +20,7 @@ import ToolboxSign from './pages/ToolboxSign'
 import Policies from './pages/Policies'
 import SnagReply from './pages/SnagReply'
 import ResetPassword from './pages/ResetPassword'
+import VerifyEmailChange from './pages/VerifyEmailChange'
 import WhyCoreSite from './pages/WhyCoreSite'
 import Signup from './pages/Signup'
 import Onboarding from './pages/Onboarding'
@@ -188,6 +189,7 @@ export default function App() {
       <Route path="/portal/:projectId" element={<Portal />} />
       <Route path="/policies/:policyId" element={<Policies />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/verify-email" element={<VerifyEmailChange />} />
       <Route path="/snag-reply/:token" element={<SnagReply />} />
       <Route path="/aftercare/:projectId" element={<AftercarePage />} />
       <Route path="/site/:projectId" element={<SiteSignIn />} />

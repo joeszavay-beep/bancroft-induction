@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 import { getSession, removeSession, getOperativeSession } from '../lib/storage'
 import { formatMoney } from '../lib/subcontractor'
+import InlineEditField from '../components/InlineEditField'
+import { validateDOB, validateNI, validateEmail, validateUKMobile, validateUKPhone, validateCardExpiry } from '../lib/validators'
 
 const QUICK_MESSAGES = [
   { icon: 'Package', label: 'Material Request', text: 'Material needed: ' },
@@ -283,7 +285,7 @@ export default function OperativeDashboard() {
         <Route path="/snags" element={<SnagsTab snags={snags} overdueSnags={overdueSnags} navigate={navigate} primaryColor={primaryColor} openSnag={openSnag} />} />
         <Route path="/toolbox" element={<ToolboxTab talks={talks} signedTalkIds={signedTalkIds} unsignedTalks={unsignedTalks} navigate={navigate} />} />
         <Route path="/chat" element={<OperativeChatTab op={op} messages={chatMessages} chatMsg={chatMsg} setChatMsg={setChatMsg} sendChat={sendChat} chatSending={chatSending} chatEndRef={chatEndRef} markChatRead={markChatRead} primaryColor={primaryColor} managers={managers} selectedManager={selectedManager} setSelectedManager={setSelectedManager} />} />
-        <Route path="/profile" element={<ProfileTab op={op} handleLogout={handleLogout} navigate={navigate} primaryColor={primaryColor} />} />
+        <Route path="/profile" element={<ProfileTab op={op} operative={operative} handleLogout={handleLogout} navigate={navigate} primaryColor={primaryColor} setOperative={setOperative} />} />
       </Routes>
 
       {/* Snag detail modal */}
@@ -842,7 +844,55 @@ function ToolboxTab({ talks, signedTalkIds, unsignedTalks, navigate }) {
 }
 
 /* ========== PROFILE TAB ========== */
-function ProfileTab({ op, handleLogout, navigate, primaryColor }) {
+function ProfileTab({ op, operative, handleLogout, navigate, primaryColor, setOperative }) {
+  async function handleFieldSave(fieldKey, newValue) {
+    try {
+      const res = await fetch('/api/update-operative', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operativeId: op.id, operativeSessionId: op.id, fields: { [fieldKey]: newValue } }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        if (setOperative) setOperative(prev => prev ? { ...prev, [fieldKey]: newValue } : prev)
+        return { success: true }
+      }
+      return { success: false, error: data.details?.[fieldKey] || data.error || 'Failed to save' }
+    } catch {
+      return { success: false, error: 'Couldn\'t save, try again' }
+    }
+  }
+
+  async function handleEmailChange(newEmail) {
+    try {
+      const res = await fetch('/api/request-email-change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operativeId: op.id, operativeSessionId: op.id, newEmail }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        if (setOperative) setOperative(prev => prev ? { ...prev, pending_email: newEmail } : prev)
+        toast.success('Verification email sent')
+        return { success: true }
+      }
+      return { success: false, error: data.error }
+    } catch {
+      return { success: false, error: 'Couldn\'t send verification email' }
+    }
+  }
+
+  async function handleCancelPending() {
+    await supabase.from('operatives').update({ pending_email: null }).eq('id', op.id)
+    await supabase.from('pending_email_changes')
+      .update({ cancelled_at: new Date().toISOString() })
+      .eq('operative_id', op.id).is('verified_at', null).is('cancelled_at', null)
+    if (setOperative) setOperative(prev => prev ? { ...prev, pending_email: null } : prev)
+    toast.success('Email change cancelled')
+  }
+
+  const o = operative || {}
+
   return (
     <div className="p-4 space-y-4">
       {/* Profile card — dark header */}
@@ -861,17 +911,41 @@ function ProfileTab({ op, handleLogout, navigate, primaryColor }) {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <button onClick={() => navigate(`/operative/${op.id}/profile`)}
-          className="w-full bg-white border border-[#E2E6EA] rounded-xl p-4 flex items-center gap-3 text-left hover:border-[#1B6FC8]/30 transition-colors">
-          <User size={20} className="text-[#6B7A99]" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-[#1A1A2E]">Edit Profile</p>
-            <p className="text-xs text-[#6B7A99]">Update your personal details & card</p>
-          </div>
-          <ChevronRight size={16} className="text-[#B0B8C9]" />
-        </button>
+      {/* Personal Details */}
+      <div className="bg-white border border-[#E2E6EA] rounded-xl p-4">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B7A99] mb-1">Personal Details</p>
+        <InlineEditField label="Date of Birth" value={o.date_of_birth} fieldKey="date_of_birth" type="date" editable onSave={handleFieldSave} validate={validateDOB} />
+        <InlineEditField label="NI Number" value={o.ni_number} fieldKey="ni_number" type="ni_number" editable onSave={handleFieldSave} validate={validateNI} />
+        <InlineEditField label="Address" value={o.address} fieldKey="address" type="address" editable onSave={handleFieldSave} />
+      </div>
 
+      {/* Contact */}
+      <div className="bg-white border border-[#E2E6EA] rounded-xl p-4">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B7A99] mb-1">Contact</p>
+        <InlineEditField label="Email" value={o.email} fieldKey="email" type="email" editable
+          onSave={(_, v) => handleEmailChange(v)} validate={validateEmail}
+          pendingEmail={o.pending_email} onCancelPending={handleCancelPending}
+          onResendVerification={() => o.pending_email && handleEmailChange(o.pending_email)} />
+        <InlineEditField label="Mobile" value={o.mobile} fieldKey="mobile" type="phone" editable onSave={handleFieldSave} validate={validateUKMobile} />
+      </div>
+
+      {/* Emergency Contact */}
+      <div className="bg-white border border-[#E2E6EA] rounded-xl p-4">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B7A99] mb-1">Emergency Contact</p>
+        <InlineEditField label="Next of Kin" value={o.next_of_kin} fieldKey="next_of_kin" type="text" editable onSave={handleFieldSave} />
+        <InlineEditField label="Phone" value={o.next_of_kin_phone} fieldKey="next_of_kin_phone" type="phone" editable onSave={handleFieldSave} validate={validateUKPhone} />
+      </div>
+
+      {/* CSCS Card */}
+      <div className="bg-white border border-[#E2E6EA] rounded-xl p-4">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B7A99] mb-1">CSCS / ECS Card</p>
+        <InlineEditField label="Card Number" value={o.card_number || o.cscs_number} fieldKey="card_number" type="text" editable onSave={handleFieldSave} />
+        <InlineEditField label="Card Type" value={o.card_type || o.cscs_type} fieldKey="card_type" type="dropdown" editable onSave={handleFieldSave} />
+        <InlineEditField label="Expiry" value={o.card_expiry || o.cscs_expiry} fieldKey="card_expiry" type="date" editable onSave={handleFieldSave} validate={validateCardExpiry} />
+      </div>
+
+      {/* Actions */}
+      <div className="space-y-2">
         <button onClick={() => navigate(`/operative/${op.id}/documents`)}
           className="w-full bg-white border border-[#E2E6EA] rounded-xl p-4 flex items-center gap-3 text-left hover:border-[#1B6FC8]/30 transition-colors">
           <FileText size={20} className="text-[#6B7A99]" />
