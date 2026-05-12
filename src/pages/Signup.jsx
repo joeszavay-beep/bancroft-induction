@@ -98,6 +98,16 @@ export default function Signup() {
       })
       if (profError) throw profError
 
+      // 3b. Also create in managers table (needed for holiday approvals etc.)
+      await supabase.from('managers').insert({
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        role: 'admin',
+        company_id: company.id,
+        is_active: true,
+        project_ids: [],
+      })
+
       // 4. Session is already active from the sign-in above
       toast.success('Account created!')
       navigate('/onboarding')

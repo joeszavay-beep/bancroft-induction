@@ -24,16 +24,31 @@ export default async function handler(req, res) {
 
   if (projectIds.length === 0) {
     // No projects, but still offer admins as fallback
-    const { data: allManagers } = await supabase.from('managers').select('id, name, email').eq('company_id', op.company_id).eq('is_active', true)
     const opEmail = (op.email || '').toLowerCase()
     const adminApprovers = []
+    const seenEmails = new Set()
+
+    // Check managers table first
+    const { data: allManagers } = await supabase.from('managers').select('id, name, email').eq('company_id', op.company_id).eq('is_active', true)
     for (const mgr of (allManagers || [])) {
       if (mgr.email?.toLowerCase() === opEmail) continue
       const { data: prof } = await supabase.from('profiles').select('role').eq('email', mgr.email).limit(1)
       if (prof?.[0]?.role === 'admin' || prof?.[0]?.role === 'super_admin') {
         adminApprovers.push({ id: mgr.id, name: mgr.name, email: mgr.email, shared_projects: [{ id: null, name: 'Admin' }] })
+        seenEmails.add(mgr.email.toLowerCase())
       }
     }
+
+    // Also check profiles table for admins not in managers
+    if (adminApprovers.length === 0) {
+      const { data: adminProfiles } = await supabase.from('profiles').select('id, name, email, role').eq('company_id', op.company_id).in('role', ['admin', 'super_admin'])
+      for (const prof of (adminProfiles || [])) {
+        if (prof.email?.toLowerCase() === opEmail) continue
+        if (seenEmails.has(prof.email?.toLowerCase())) continue
+        adminApprovers.push({ id: prof.id, name: prof.name, email: prof.email, shared_projects: [{ id: null, name: 'Admin' }], is_profile: true })
+      }
+    }
+
     return res.json({ approvers: adminApprovers })
   }
 
@@ -75,12 +90,11 @@ export default async function handler(req, res) {
     })
   }
 
-  // If no project-based approvers found, fall back to admins
+  // If no project-based approvers found, fall back to admins from managers table
   if (approvers.length === 0) {
     for (const mgr of managers) {
       if (mgr.email?.toLowerCase() === opEmail) continue
       if (seen.has(mgr.id)) continue
-      // Check if this manager is an admin via profiles table
       const { data: prof } = await supabase.from('profiles').select('role').eq('email', mgr.email).limit(1)
       if (prof?.[0]?.role === 'admin' || prof?.[0]?.role === 'super_admin') {
         seen.add(mgr.id)
@@ -91,6 +105,28 @@ export default async function handler(req, res) {
           shared_projects: [{ id: null, name: 'Admin' }],
         })
       }
+    }
+  }
+
+  // Final fallback: check profiles table for admins not in managers table
+  // (company owners created during signup may only exist in profiles)
+  if (approvers.length === 0) {
+    const { data: adminProfiles } = await supabase
+      .from('profiles')
+      .select('id, name, email, role')
+      .eq('company_id', op.company_id)
+      .in('role', ['admin', 'super_admin'])
+    for (const prof of (adminProfiles || [])) {
+      if (prof.email?.toLowerCase() === opEmail) continue
+      const seenEmail = [...approvers].some(a => a.email?.toLowerCase() === prof.email?.toLowerCase())
+      if (seenEmail) continue
+      approvers.push({
+        id: prof.id,
+        name: prof.name,
+        email: prof.email,
+        shared_projects: [{ id: null, name: 'Admin' }],
+        is_profile: true,
+      })
     }
   }
 
