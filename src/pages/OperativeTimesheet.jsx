@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
 import WorkerSidebarLayout from '../components/WorkerSidebarLayout'
-import { ChevronLeft, ChevronRight, Clock, CalendarDays, QrCode, AlertCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, CalendarDays, QrCode, AlertCircle, Palmtree } from 'lucide-react'
 
 function getWeekDates(offset = 0) {
   const now = new Date()
@@ -46,6 +46,7 @@ export default function OperativeTimesheet() {
   const [weekOffset, setWeekOffset] = useState(0)
   const [entries, setEntries] = useState([])
   const [attendance, setAttendance] = useState([])
+  const [holidays, setHolidays] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAttendance, setShowAttendance] = useState(false)
 
@@ -61,7 +62,7 @@ export default function OperativeTimesheet() {
     const from = formatDate(days[0])
     const to = formatDate(days[6])
 
-    const [tsRes, attRes] = await Promise.all([
+    const [tsRes, attRes, holRes] = await Promise.all([
       supabase.from('timesheet_entries')
         .select('*')
         .eq('operative_id', op.id)
@@ -74,10 +75,17 @@ export default function OperativeTimesheet() {
         .gte('recorded_at', `${from}T00:00:00`)
         .lte('recorded_at', `${to}T23:59:59`)
         .order('recorded_at'),
+      supabase.from('holiday_requests')
+        .select('*')
+        .eq('operative_id', op.id)
+        .eq('status', 'approved')
+        .lte('start_date', to)
+        .gte('end_date', from),
     ])
 
     setEntries(tsRes.data || [])
     setAttendance(attRes.data || [])
+    setHolidays(holRes.data || [])
     setLoading(false)
   }
 
@@ -97,6 +105,11 @@ export default function OperativeTimesheet() {
   // Map entries by date
   const entryByDate = {}
   entries.forEach(e => { entryByDate[e.date] = e })
+
+  // Check if a date is covered by an approved holiday
+  function getHolidayForDate(dateStr) {
+    return holidays.find(h => dateStr >= h.start_date && dateStr <= h.end_date)
+  }
 
   // Map attendance by date
   const attendanceByDate = {}
@@ -167,6 +180,7 @@ export default function OperativeTimesheet() {
               const dateStr = formatDate(day)
               const entry = entryByDate[dateStr]
               const dayAttendance = attendanceByDate[dateStr] || []
+              const holiday = getHolidayForDate(dateStr)
               const hours = entry ? (entry.hours_adjusted ?? entry.hours_calculated ?? 0) : 0
               const status = entry?.status || null
               const style = status ? (STATUS_STYLES[status] || STATUS_STYLES.auto) : null
@@ -188,8 +202,27 @@ export default function OperativeTimesheet() {
                       </p>
                     </div>
 
-                    {/* Times */}
-                    {entry ? (
+                    {/* Holiday indicator */}
+                    {holiday && !entry ? (
+                      <div className="flex-1 flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          <Palmtree size={12} />
+                          {holiday.start_half_day && dateStr === holiday.start_date ? 'PM Holiday' :
+                           holiday.end_half_day && dateStr === holiday.end_date ? 'AM Holiday' : 'On Holiday'}
+                        </span>
+                      </div>
+                    ) : holiday && entry ? (
+                      <div className="flex-1 flex items-center gap-3 text-xs">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          <Palmtree size={10} />
+                          {holiday.start_half_day && dateStr === holiday.start_date ? 'PM' : 'AM'} Holiday
+                        </span>
+                        <div>
+                          <p className="text-[10px] uppercase font-semibold" style={{ color: 'var(--text-muted)' }}>Hours</p>
+                          <p className="font-bold" style={{ color: 'var(--text-primary)' }}>{hours.toFixed(1)}</p>
+                        </div>
+                      </div>
+                    ) : entry ? (
                       <div className="flex-1 flex items-center gap-4 text-xs">
                         <div>
                           <p className="text-[10px] uppercase font-semibold" style={{ color: 'var(--text-muted)' }}>In</p>

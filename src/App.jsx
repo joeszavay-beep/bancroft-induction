@@ -59,6 +59,8 @@ import LabourRequestDetail from './pages/LabourRequestDetail'
 import Bookings from './pages/Bookings'
 import ProgrammeSetup from './pages/ProgrammeSetup'
 import DXFViewer from './pages/DXFViewer'
+import HolidayRequests from './pages/HolidayRequests'
+import HolidayApprovals from './pages/HolidayApprovals'
 import OperativeLogin from './pages/OperativeLogin'
 import OperativeTimesheet from './pages/OperativeTimesheet'
 import OperativeEarnings from './pages/OperativeEarnings'
@@ -124,6 +126,7 @@ function AppLayout() {
         <Route path="/pipeline" element={<InvitationsPipeline />} />
         <Route path="/diary" element={<DailySiteDiary />} />
         <Route path="/attendance" element={<SiteAttendance />} />
+        <Route path="/holiday-approvals" element={<HolidayApprovals />} />
         <Route path="/messages" element={<Chat />} />
         <Route path="/performance" element={<ContractorPerformance />} />
         <Route path="/inspections" element={<Inspections />} />
@@ -195,6 +198,7 @@ export default function App() {
       <Route path="/site/:projectId" element={<SiteSignIn />} />
       <Route path="/worker-login" element={<OperativeLogin />} />
       <Route path="/try" element={<SandboxEntry />} />
+      <Route path="/worker/holidays" element={<HolidayRequests />} />
       <Route path="/worker/timesheet" element={<OperativeTimesheet />} />
       <Route path="/worker/earnings" element={<OperativeEarnings />} />
       <Route path="/worker/invoices" element={<OperativeInvoices />} />

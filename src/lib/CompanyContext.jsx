@@ -91,7 +91,7 @@ export function CompanyProvider({ children }) {
 
     // Store in sessionStorage for backward compatibility
     setSession('pm_auth', 'true')
-    setSession('manager_data', JSON.stringify({ ...userData, project_ids: [] }))
+    setSession('manager_data', JSON.stringify({ ...userData, project_ids: [], manager_id: null }))
   }
 
   function applyBranding(companyData) {
@@ -113,6 +113,18 @@ export function CompanyProvider({ children }) {
       const prof = profiles?.[0]
       if (prof) {
         setProfile(prof)
+        // Load project_ids and manager_id from managers table
+        let projectIds = []
+        let managerId = null
+        if (prof.company_id && prof.email) {
+          const { data: mgrRows } = await supabase
+            .from('managers')
+            .select('id, project_ids')
+            .eq('company_id', prof.company_id)
+            .eq('email', prof.email)
+            .limit(1)
+          if (mgrRows?.[0]) { projectIds = mgrRows[0].project_ids || []; managerId = mgrRows[0].id }
+        }
         const userData = {
           id: prof.id,
           name: prof.name,
@@ -121,7 +133,7 @@ export function CompanyProvider({ children }) {
           company_id: prof.company_id,
         }
         setUser(userData)
-        setSession('manager_data', JSON.stringify({ ...userData, project_ids: [] }))
+        setSession('manager_data', JSON.stringify({ ...userData, project_ids: projectIds, manager_id: managerId }))
         // Cache for offline
         cacheAuth('user', userData).catch(() => {})
         cacheAuth('profile', prof).catch(() => {})

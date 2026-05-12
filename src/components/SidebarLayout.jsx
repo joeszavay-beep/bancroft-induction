@@ -25,6 +25,7 @@ const NAV_SECTIONS = [
       { label: 'Invite Workers', path: '/app/invite-workers', icon: Mail },
       { label: 'Pipeline', path: '/app/pipeline', icon: BarChart3 },
       { label: 'Site Attendance', path: '/app/attendance', icon: Activity },
+      { label: 'Holiday Approvals', path: '/app/holiday-approvals', icon: CalendarCheck },
     ],
   },
   {

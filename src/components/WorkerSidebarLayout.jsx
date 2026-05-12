@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
-  Menu, LogOut, Home, FileText,
+  Menu, LogOut, Home, FileText, Calendar,
   MapPin, MessageSquare, User, Sun, Moon, Clock, PoundSterling, Shield, Receipt
 } from 'lucide-react'
 import { useTheme } from '../lib/ThemeContext'
@@ -27,6 +27,7 @@ export default function WorkerSidebarLayout({ children, op }) {
   const navItems = [
     { label: 'Home', path: '/worker', icon: Home },
     { label: 'My Timesheet', path: '/worker/timesheet', icon: Clock },
+    { label: 'Holidays', path: '/worker/holidays', icon: Calendar },
     { label: 'My Earnings', path: '/worker/earnings', icon: PoundSterling },
     { label: 'My Invoices', path: '/worker/invoices', icon: Receipt },
     { label: 'Documents', path: '/worker/documents', icon: FileText },
