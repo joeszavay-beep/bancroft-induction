@@ -88,6 +88,12 @@ const features = [
   { icon: Activity, title: 'Aftercare Portal', desc: 'Public defect reporting for clients during the 12-month liability period. Track alongside your snags.', color: '#F97316' },
   { icon: WifiOff, title: 'Works Offline', desc: 'Create snags, take photos, place pins with no signal. Everything syncs automatically when back online.', color: '#8B5CF6' },
   { icon: FileCheck, title: 'H&S Archive & Reports', desc: 'One-click PDF export: signatures, toolbox talks, snags, inspections, diary entries, permits. Full project pack for handover.', color: '#1B2A3D' },
+  // New features
+  { icon: CalendarRange, title: 'Holiday Requests', desc: 'Operatives request time off, choose which PM to send it to. Half-day options, allowance tracking, auto-calculated working days. PMs approve or reject with one click.', color: '#0891B2' },
+  { icon: MapPin, title: 'Geofencing', desc: 'Drop a pin on a map, set a radius. Sign-ins from outside the boundary are flagged as off-site. Searchable address lookup. Toggle on/off per project.', color: '#DC2626' },
+  { icon: Activity, title: 'Weekly Attendance Register', desc: 'Auto-generated grid of every operative × every day. Sign-in/out times, calculated hours, daily totals. Flags missing sign-outs. CSV export.', color: '#7C3AED' },
+  { icon: Pencil, title: 'Editable Worker Profiles', desc: 'Click any field to edit inline. Validated NI numbers, UK mobiles, address lookup. Email changes require verification. Full audit trail of every edit.', color: '#2563EB' },
+  { icon: Clock, title: 'Manual Sign-Out', desc: 'Manager can sign out workers who forgot to scan out. Enter the actual departure time. Records show as "manual" in the activity log.', color: '#EA580C' },
 ]
 
 const steps = [
@@ -149,7 +155,7 @@ export default function WhyCoreSite() {
             <div className="max-w-4xl mx-auto text-center">
               <FadeIn>
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 backdrop-blur-sm text-white/80 text-xs font-medium rounded-full mb-8 border border-white/10">
-                  <Zap size={12} className="text-[#3B7DD8]" /> 33 features. One platform. Zero paper.
+                  <Zap size={12} className="text-[#3B7DD8]" /> 38 features. One platform. Zero paper.
                 </div>
               </FadeIn>
               <FadeIn delay={100}>
@@ -185,7 +191,7 @@ export default function WhyCoreSite() {
       <section className="bg-[#1A2744] py-14 px-6 -mt-1">
         <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-8">
           {[
-            { value: 33, suffix: '', label: 'Features built in' },
+            { value: 38, suffix: '', label: 'Features built in' },
             { value: 50, suffix: '%', label: 'Less admin time' },
             { value: 100, suffix: '%', label: 'Digital audit trail' },
             { value: 0, suffix: '', label: 'Paper forms', display: 'Zero' },
