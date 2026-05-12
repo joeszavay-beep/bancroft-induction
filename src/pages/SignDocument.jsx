@@ -86,36 +86,26 @@ export default function SignDocument() {
 
   async function sendCompletionNotification() {
     try {
-      const { data: setting } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'pm_email')
+      // Get the company's notification email (company-scoped, not global settings)
+      const { data: company } = await supabase
+        .from('companies')
+        .select('notification_email')
+        .eq('id', operative.company_id)
         .single()
 
-      if (!setting?.value) return
+      const notifyEmail = company?.notification_email
+      if (!notifyEmail) return
 
-      // Store notification in settings for PM to see
-      await supabase.from('settings').upsert({
-        key: `notification_${operativeId}_${crypto.randomUUID()}`,
-        value: JSON.stringify({
-          type: 'completion',
-          operative_name: operative.name,
-          project_id: operative.operative_projects?.[0]?.project_id || null,
-          timestamp: new Date().toISOString(),
-          read: false,
-        }),
-      })
-
-      // Send email via Vercel API route
+      // Send email via Vercel API route (to this company's manager only)
       await fetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: setting.value,
+          to: notifyEmail,
           operativeName: operative.name,
           projectName: document.projects?.name,
         }),
-      }).catch(() => {}) // Silent fail if email endpoint not configured
+      }).catch(() => {})
     } catch {
       // Non-critical, don't block the flow
     }
