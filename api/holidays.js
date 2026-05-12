@@ -53,13 +53,13 @@ export default async function handler(req, res) {
 
     // Check managers table first, then profiles (company owner may only be in profiles)
     let mgr = null
-    const { data: mgrRow } = await supabase.from('managers').select('id, project_ids, name, email').eq('id', approverId).eq('is_active', true).single()
-    if (mgrRow) {
-      mgr = mgrRow
+    const { data: mgrRows } = await supabase.from('managers').select('id, project_ids, name, email').eq('id', approverId).eq('is_active', true)
+    if (mgrRows?.length > 0) {
+      mgr = mgrRows[0]
     } else {
       // Approver might be from profiles table (company owner)
-      const { data: profRow } = await supabase.from('profiles').select('id, name, email, role').eq('id', approverId).in('role', ['admin', 'super_admin']).single()
-      if (profRow) mgr = { id: profRow.id, name: profRow.name, email: profRow.email, project_ids: [] }
+      const { data: profRows } = await supabase.from('profiles').select('id, name, email, role').eq('id', approverId).in('role', ['admin', 'super_admin'])
+      if (profRows?.length > 0) mgr = { id: profRows[0].id, name: profRows[0].name, email: profRows[0].email, project_ids: [] }
     }
     if (!mgr) return res.status(400).json({ error: 'Selected approver not found or inactive' })
     if (mgr.email?.toLowerCase() === op.email?.toLowerCase()) return res.status(400).json({ error: 'Cannot assign yourself as approver' })
@@ -111,7 +111,7 @@ export default async function handler(req, res) {
       status: 'pending',
     }).select().single()
 
-    if (insertErr) return res.status(500).json({ error: 'Failed to create request' })
+    if (insertErr) return res.status(500).json({ error: 'Failed to create request: ' + insertErr.message })
 
     // Audit
     await supabase.from('holiday_audit_log').insert({

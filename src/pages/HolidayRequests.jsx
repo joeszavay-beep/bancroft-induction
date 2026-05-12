@@ -130,7 +130,7 @@ export default function HolidayRequests() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           operativeId: op.id,
-          operativeSessionId: op.sessionId,
+          operativeSessionId: op.id,
           approverId,
           startDate,
           endDate,
@@ -141,7 +141,7 @@ export default function HolidayRequests() {
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.message || 'Failed to submit request')
+        throw new Error(err.error || 'Failed to submit request')
       }
       toast.success('Holiday request submitted')
       setStartDate('')
@@ -171,7 +171,7 @@ export default function HolidayRequests() {
         body: JSON.stringify({
           requestId,
           action: 'cancel',
-          operativeSessionId: op.sessionId,
+          operativeSessionId: op.id,
         }),
       })
       if (!res.ok) throw new Error('Failed to cancel')
@@ -197,7 +197,7 @@ export default function HolidayRequests() {
           requestId,
           action: 'reassign',
           approverId: reassignApprover,
-          operativeSessionId: op.sessionId,
+          operativeSessionId: op.id,
         }),
       })
       if (!res.ok) throw new Error('Failed to reassign')
