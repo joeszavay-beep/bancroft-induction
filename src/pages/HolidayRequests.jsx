@@ -343,9 +343,9 @@ export default function HolidayRequests() {
                 {approversLoading ? (
                   <div className="animate-pulse h-10 bg-slate-100 rounded-lg" />
                 ) : approvers.length === 0 ? (
-                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
-                    <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-700">No managers available to approve. Contact admin to set up your project.</p>
+                  <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+                    <AlertCircle size={14} className="text-red-500 shrink-0 mt-0.5" />
+                    <p className="text-xs text-red-700">No manager accounts found. Please contact your company administrator.</p>
                   </div>
                 ) : (
                   <select
