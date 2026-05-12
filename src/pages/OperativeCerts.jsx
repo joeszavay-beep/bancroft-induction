@@ -411,8 +411,8 @@ export default function OperativeCerts() {
                 <CardUploadSlot label="Back of Card" preview={certBackPreview} file={certBackFile}
                   onPick={() => fileBackRef.current?.click()}
                   onClear={() => { setCertBackFile(null); setCertBackPreview(operative?.card_back_url || null) }} />
-                <input ref={fileRef} type="file" accept="image/*,.pdf" capture="environment" onChange={e => handleFileChange(e, 'front')} className="hidden" />
-                <input ref={fileBackRef} type="file" accept="image/*,.pdf" capture="environment" onChange={e => handleFileChange(e, 'back')} className="hidden" />
+                <input ref={fileRef} type="file" accept="image/*,.pdf"  onChange={e => handleFileChange(e, 'front')} className="hidden" />
+                <input ref={fileBackRef} type="file" accept="image/*,.pdf"  onChange={e => handleFileChange(e, 'back')} className="hidden" />
               </div>
             ) : (
               <div>
@@ -440,13 +440,13 @@ export default function OperativeCerts() {
                     className="w-full border-2 border-dashed border-[#E2E6EA] rounded-lg p-6 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors"
                   >
                     <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
-                      <Camera size={20} className="text-blue-500" />
+                      <Upload size={20} className="text-blue-500" />
                     </div>
-                    <p className="text-sm font-medium text-slate-600">Take a photo or choose file</p>
-                    <p className="text-[11px] text-slate-400">JPG, PNG or PDF up to 10MB</p>
+                    <p className="text-sm font-medium text-slate-600">Upload photo or file</p>
+                    <p className="text-[11px] text-slate-400">JPG, PNG, PDF or screenshot — up to 10MB</p>
                   </button>
                 )}
-                <input ref={fileRef} type="file" accept="image/*,.pdf" capture="environment" onChange={e => handleFileChange(e, 'front')} className="hidden" />
+                <input ref={fileRef} type="file" accept="image/*,.pdf"  onChange={e => handleFileChange(e, 'front')} className="hidden" />
               </div>
             )}
 
@@ -528,8 +528,8 @@ function CardUploadSlot({ label, preview, file, onPick, onClear }) {
           onClick={onPick}
           className="w-full border-2 border-dashed border-[#E2E6EA] rounded-lg h-28 flex flex-col items-center justify-center gap-1.5 hover:border-blue-300 transition-colors"
         >
-          <Camera size={18} className="text-[#B0B8C9]" />
-          <span className="text-[10px] text-[#B0B8C9]">Take photo</span>
+          <Upload size={18} className="text-[#B0B8C9]" />
+          <span className="text-[10px] text-[#B0B8C9]">Upload</span>
         </button>
       )}
     </div>
