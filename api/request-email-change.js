@@ -4,7 +4,7 @@ import { verifyAuth } from './_auth.js'
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const { operativeId, newEmail, operativeSessionId } = req.body
+  const { operativeId, newEmail, operativeSessionId, managerCompanyId, managerName: reqManagerName } = req.body
   if (!operativeId || !newEmail) return res.status(400).json({ error: 'Missing operativeId or newEmail' })
 
   const email = newEmail.trim().toLowerCase()
@@ -28,6 +28,10 @@ export default async function handler(req, res) {
       const { data: op } = await supabase.from('operatives').select('company_id').eq('id', operativeId).single()
       if (!op || op.company_id !== meta.company_id) return res.status(403).json({ error: 'Not authorised' })
     }
+  } else if (managerCompanyId) {
+    const { data: op } = await supabase.from('operatives').select('company_id').eq('id', operativeId).single()
+    if (!op || op.company_id !== managerCompanyId) return res.status(403).json({ error: 'Not authorised' })
+    requestedBy = null
   } else if (operativeSessionId) {
     if (operativeSessionId !== operativeId) return res.status(403).json({ error: 'Not authorised' })
     requestedBy = operativeId

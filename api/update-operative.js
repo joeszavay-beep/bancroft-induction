@@ -51,7 +51,7 @@ const VALIDATORS = {
 export default async function handler(req, res) {
   if (req.method !== 'PATCH') return res.status(405).json({ error: 'Method not allowed' })
 
-  const { operativeId, fields, operativeSessionId } = req.body
+  const { operativeId, fields } = req.body
   if (!operativeId || !fields || typeof fields !== 'object') {
     return res.status(400).json({ error: 'Missing operativeId or fields' })
   }
@@ -69,6 +69,8 @@ export default async function handler(req, res) {
   let editorId = null
   let editorRole = null
 
+  const { operativeSessionId, managerCompanyId, managerName: reqManagerName } = req.body
+
   const { user } = await verifyAuth(req)
   if (user) {
     const meta = user.user_metadata || {}
@@ -82,6 +84,15 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Not authorised to edit this operative' })
       }
     }
+  } else if (managerCompanyId) {
+    // Fallback for managers when Supabase Auth session token isn't available
+    const { data: op } = await supabase.from('operatives').select('company_id').eq('id', operativeId).single()
+    if (!op || op.company_id !== managerCompanyId) {
+      return res.status(403).json({ error: 'Not authorised to edit this operative' })
+    }
+    editorName = reqManagerName || 'Manager'
+    editorId = null
+    editorRole = 'manager'
   } else if (operativeSessionId) {
     // Operative self-edit: session ID must match operative ID
     if (operativeSessionId !== operativeId) {

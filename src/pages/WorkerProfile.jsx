@@ -33,7 +33,7 @@ export default function WorkerProfile() {
       const res = await authFetch('/api/update-operative', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operativeId: id, fields: { [fieldKey]: newValue } }),
+        body: JSON.stringify({ operativeId: id, fields: { [fieldKey]: newValue }, managerCompanyId: cid, managerName: user?.name }),
       })
       const data = await res.json()
       if (data.success) {
@@ -51,7 +51,7 @@ export default function WorkerProfile() {
       const res = await authFetch('/api/request-email-change', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operativeId: id, newEmail }),
+        body: JSON.stringify({ operativeId: id, newEmail, managerCompanyId: cid, managerName: user?.name }),
       })
       const data = await res.json()
       if (data.success) {
