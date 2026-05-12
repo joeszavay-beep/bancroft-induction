@@ -367,9 +367,6 @@ export default function WhyCoreSite() {
               <button onClick={() => setShowDemo(true)} className="w-full sm:w-auto px-8 py-4 bg-[#3B7DD8] hover:bg-[#2D6BC4] text-white font-semibold rounded-xl transition-all text-base flex items-center justify-center gap-2 shadow-lg shadow-[#3B7DD8]/20">
                 Book a Free Demo <ArrowRight size={16} />
               </button>
-              <a href="mailto:joe@coresite.io" className="w-full sm:w-auto px-8 py-4 bg-white hover:bg-[#F5F6F8] text-[#1A1A2E] font-medium rounded-xl border border-[#E2E6EA] transition-all text-base">
-                Email joe@coresite.io
-              </a>
             </div>
           </FadeIn>
         </div>
@@ -383,7 +380,6 @@ export default function WhyCoreSite() {
             <div className="flex items-center gap-5 text-sm">
               <Link to="/" className="text-white/40 hover:text-white transition-colors">Home</Link>
               <Link to="/login" className="text-white/40 hover:text-white transition-colors">Sign In</Link>
-              <a href="mailto:joe@coresite.io" className="text-white/40 hover:text-white transition-colors">Contact</a>
             </div>
           </div>
           <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
