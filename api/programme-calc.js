@@ -106,12 +106,26 @@ export default async function handler(req, res) {
   // ── POST: create task, duplicate, add non-working period, recalculate ──
   if (req.method === 'POST') {
     if (action === 'task') {
-      const { projectId, name, description, startDate, duration, calendarMode, trade, notes } = req.body
-      if (!projectId || !name || !startDate || !duration) return res.status(400).json({ error: 'Missing required fields' })
+      const b = req.body
+      const projectId = b.projectId
+      const name = b.name
+      const description = b.description
+      const startDate = b.startDate || b.start_date
+      const duration = Number(b.duration)
+      const calendarMode = b.calendarMode || b.calendar_mode || b.mode || 'monday_start_working_days'
+      const trade = b.trade
+      const notes = b.notes
+
+      const missing = []
+      if (!projectId) missing.push('projectId')
+      if (!name) missing.push('name')
+      if (!startDate) missing.push('start_date')
+      if (!duration) missing.push('duration')
+      if (missing.length > 0) return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` })
       if (duration < 1) return res.status(400).json({ error: 'Duration must be at least 1' })
 
       const settings = await loadSettings(projectId)
-      const { endDate } = calculateEndDate(startDate, duration, calendarMode || 'monday_start_working_days', settings)
+      const { endDate } = calculateEndDate(startDate, duration, calendarMode, settings)
 
       // Get next sort_order
       const { data: lastTask } = await supabase.from('programme_tasks').select('sort_order').eq('project_id', projectId).order('sort_order', { ascending: false }).limit(1)
@@ -186,7 +200,15 @@ export default async function handler(req, res) {
   // ── PATCH: update task, settings, reorder ──
   if (req.method === 'PATCH') {
     if (action === 'task') {
-      const { id, name, description, startDate, duration, calendarMode, trade, notes } = req.body
+      const bp = req.body
+      const id = bp.id
+      const name = bp.name
+      const description = bp.description
+      const startDate = bp.startDate || bp.start_date
+      const duration = bp.duration ? Number(bp.duration) : null
+      const calendarMode = bp.calendarMode || bp.calendar_mode || bp.mode
+      const trade = bp.trade
+      const notes = bp.notes
       if (!id) return res.status(400).json({ error: 'Missing task id' })
 
       const { data: existing } = await supabase.from('programme_tasks').select('*').eq('id', id).single()
@@ -214,7 +236,7 @@ export default async function handler(req, res) {
     }
 
     if (action === 'settings') {
-      const { projectId, workingDays, useUkBankHolidays } = req.body
+      const { projectId, workingDays, useUkBankHolidays, nonWorkingPeriods } = req.body
       if (!projectId) return res.status(400).json({ error: 'Missing projectId' })
       if (workingDays && workingDays.length === 0) return res.status(400).json({ error: 'At least one working day required' })
 
@@ -225,6 +247,17 @@ export default async function handler(req, res) {
       await supabase.from('project_calendar_settings').upsert({
         project_id: projectId, ...updates,
       }, { onConflict: 'project_id' })
+
+      // Sync non-working periods: delete all existing for this project, re-insert
+      if (nonWorkingPeriods !== undefined) {
+        await supabase.from('project_non_working_periods').delete().eq('project_id', projectId)
+        const rows = (nonWorkingPeriods || []).filter(p => p.name && p.start_date && p.end_date).map(p => ({
+          project_id: projectId, name: p.name, start_date: p.start_date, end_date: p.end_date,
+        }))
+        if (rows.length > 0) {
+          await supabase.from('project_non_working_periods').insert(rows)
+        }
+      }
 
       return res.json({ success: true })
     }
