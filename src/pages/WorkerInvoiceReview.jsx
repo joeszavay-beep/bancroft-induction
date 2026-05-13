@@ -24,6 +24,10 @@ export default function WorkerInvoiceReview() {
   const managerData = JSON.parse(getSession('manager_data') || '{}')
   const managerName = managerData.name || 'Manager'
 
+  if (managerData.visible_sections?.length > 0 && !managerData.visible_sections.includes('Commercial')) {
+    return null
+  }
+
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')

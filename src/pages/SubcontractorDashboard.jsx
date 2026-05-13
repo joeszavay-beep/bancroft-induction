@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
 import { useProject } from '../lib/ProjectContext'
+import { getSession } from '../lib/storage'
 import {
   formatMoney, calculateProjections, calculateBurnRate,
   TRAFFIC_LIGHT_COLORS,
@@ -19,6 +20,12 @@ export default function SubcontractorDashboard() {
   const { user } = useCompany()
   const { projectId } = useProject()
   const cid = user?.company_id
+
+  // Section visibility guard
+  const mgd = JSON.parse(getSession('manager_data') || '{}')
+  if (mgd.visible_sections?.length > 0 && !mgd.visible_sections.includes('Commercial')) {
+    navigate('/app'); return null
+  }
 
   const [jobs, setJobs] = useState([])
   const [timesheetEntries, setTimesheetEntries] = useState([])

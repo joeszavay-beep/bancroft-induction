@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
+import { getSession } from '../lib/storage'
 import {
   formatMoney, parseMoney, calculateHoursWorked, calculateCost,
   calculateProjections, checkCompliance, calculateInvoiceTotals,
@@ -58,6 +59,11 @@ export default function SubcontractorJobDetail() {
   const navigate = useNavigate()
   const { user } = useCompany()
   const cid = user?.company_id
+
+  const mgd = JSON.parse(getSession('manager_data') || '{}')
+  if (mgd.visible_sections?.length > 0 && !mgd.visible_sections.includes('Commercial')) {
+    navigate('/app'); return null
+  }
 
   const [job, setJob] = useState(null)
   const [loading, setLoading] = useState(true)

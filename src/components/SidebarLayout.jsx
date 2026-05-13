@@ -178,10 +178,15 @@ export default function SidebarLayout({ children }) {
 
   const companyFeatures = company?.features || {}
   const isDemo = typeof window !== 'undefined' && sessionStorage.getItem('sandbox_mode') === 'true'
-  // Filter sections by enabled features and user role (agency vs subcontractor)
+  const managerSections = managerData.visible_sections || null
+  // Filter sections by enabled features, user role, and section visibility
   const filteredSections = (isAdmin ? [...NAV_SECTIONS, ADMIN_SECTION] : NAV_SECTIONS)
     .filter(section => !section.feature || companyFeatures[section.feature] !== false)
     .filter(section => {
+      // Role-based section visibility (admins always see everything)
+      if (!isAdmin && managerSections?.length > 0 && section.title !== 'Admin') {
+        if (!managerSections.includes(section.title)) return false
+      }
       if (!section.role) return true // no role restriction
       if (isDemo) return true // demo users see everything
       if (section.role === 'agency') return isAgencyUser

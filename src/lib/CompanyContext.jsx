@@ -119,7 +119,7 @@ export function CompanyProvider({ children }) {
         if (prof.company_id && prof.email) {
           const { data: mgrRows } = await supabase
             .from('managers')
-            .select('id, project_ids')
+            .select('id, project_ids, visible_sections')
             .eq('company_id', prof.company_id)
             .eq('email', prof.email)
             .limit(1)
@@ -133,7 +133,7 @@ export function CompanyProvider({ children }) {
           company_id: prof.company_id,
         }
         setUser(userData)
-        setSession('manager_data', JSON.stringify({ ...userData, project_ids: projectIds, manager_id: managerId }))
+        setSession('manager_data', JSON.stringify({ ...userData, project_ids: projectIds, manager_id: managerId, visible_sections: mgrRows?.[0]?.visible_sections || null }))
         // Cache for offline
         cacheAuth('user', userData).catch(() => {})
         cacheAuth('profile', prof).catch(() => {})

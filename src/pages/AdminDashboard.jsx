@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 import { getSession, removeSession } from '../lib/storage'
 
+const SECTION_TITLES = ['People', 'Projects', 'Documents', 'Drawings & Snags', 'Programme', 'Commercial', 'Labour', 'H&S']
+
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const [managers, setManagers] = useState([])
@@ -25,12 +27,14 @@ export default function AdminDashboard() {
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [selectedProjects, setSelectedProjects] = useState([])
+  const [selectedSections, setSelectedSections] = useState([])
 
   // Edit form
   const [editName, setEditName] = useState('')
   const [editEmail, setEditEmail] = useState('')
   const [editPassword, setEditPassword] = useState('')
   const [editProjects, setEditProjects] = useState([])
+  const [editSections, setEditSections] = useState([])
   const [editActive, setEditActive] = useState(true)
 
   const cid = JSON.parse(getSession('manager_data') || '{}').company_id
@@ -66,6 +70,7 @@ export default function AdminDashboard() {
       password: password.trim(),
       role: 'manager',
       project_ids: selectedProjects,
+      visible_sections: selectedSections.length > 0 ? selectedSections : null,
       company_id: cid,
       is_active: true,
     })
@@ -77,7 +82,7 @@ export default function AdminDashboard() {
     }
     toast.success('Manager account created')
     setShowAdd(false)
-    setName(''); setEmail(''); setPassword(''); setSelectedProjects([])
+    setName(''); setEmail(''); setPassword(''); setSelectedProjects([]); setSelectedSections([])
     loadData()
   }
 
@@ -89,6 +94,7 @@ export default function AdminDashboard() {
       name: editName.trim(),
       email: editEmail.trim().toLowerCase(),
       project_ids: editProjects,
+      visible_sections: editSections.length > 0 ? editSections : null,
       is_active: editActive,
     }
     if (editPassword.trim()) updates.password = editPassword.trim()
@@ -119,6 +125,7 @@ export default function AdminDashboard() {
     setEditEmail(mgr.email)
     setEditPassword('')
     setEditProjects(mgr.project_ids || [])
+    setEditSections(mgr.visible_sections || [])
     setEditActive(mgr.is_active !== false)
     setShowEdit(mgr)
   }
@@ -187,7 +194,7 @@ export default function AdminDashboard() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-slate-900">Manager Accounts</h2>
-            <button onClick={() => { setShowAdd(true); setName(''); setEmail(''); setPassword(''); setSelectedProjects([]) }} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors">
+            <button onClick={() => { setShowAdd(true); setName(''); setEmail(''); setPassword(''); setSelectedProjects([]); setSelectedSections([]) }} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors">
               <Plus size={16} /> Add Manager
             </button>
           </div>
@@ -218,6 +225,12 @@ export default function AdminDashboard() {
                       )}
                       {!isAdmin && assignedProjects.length === 0 && (
                         <p className="text-[11px] text-amber-500 mt-1">All projects (no restriction)</p>
+                      )}
+                      {!isAdmin && mgr.visible_sections?.length > 0 && (
+                        <p className="text-[10px] text-slate-400 mt-1">Sections: {mgr.visible_sections.join(' · ')}</p>
+                      )}
+                      {!isAdmin && !mgr.visible_sections?.length && (
+                        <p className="text-[10px] text-slate-400 mt-1">All sections visible</p>
                       )}
                     </div>
                     {!isAdmin && (
@@ -287,6 +300,23 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          <div>
+            <label className="text-xs text-gray-400 mb-2 block">Section Visibility (leave empty for all sections)</label>
+            <div className="space-y-1.5 max-h-40 overflow-y-auto">
+              {SECTION_TITLES.map(s => (
+                <label key={s} className="flex items-center gap-2 p-2 bg-navy-700 rounded-lg cursor-pointer hover:bg-navy-600 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={selectedSections.includes(s)}
+                    onChange={() => toggleProject(selectedSections, setSelectedSections, s)}
+                    className="w-4 h-4 rounded accent-blue-500"
+                  />
+                  <span className="text-sm text-white">{s}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
           <LoadingButton loading={saving} type="submit" className="w-full bg-accent hover:bg-accent-dark text-white">
             Create Account
           </LoadingButton>
@@ -350,6 +380,23 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+
+          <div>
+            <label className="text-xs text-gray-400 mb-2 block">Section Visibility (empty = all sections)</label>
+            <div className="space-y-1.5 max-h-40 overflow-y-auto">
+              {SECTION_TITLES.map(s => (
+                <label key={s} className="flex items-center gap-2 p-2 bg-navy-700 rounded-lg cursor-pointer hover:bg-navy-600 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={editSections.includes(s)}
+                    onChange={() => toggleProject(editSections, setEditSections, s)}
+                    className="w-4 h-4 rounded accent-blue-500"
+                  />
+                  <span className="text-sm text-white">{s}</span>
+                </label>
+              ))}
+            </div>
+          </div>
 
           <LoadingButton loading={saving} type="submit" className="w-full bg-accent hover:bg-accent-dark text-white">
             Save Changes

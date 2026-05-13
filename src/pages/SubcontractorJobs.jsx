@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
 import { useProject } from '../lib/ProjectContext'
+import { getSession } from '../lib/storage'
 import { formatMoney, parseMoney, JOB_STATUSES, TRAFFIC_LIGHT_COLORS } from '../lib/subcontractor'
 import toast from 'react-hot-toast'
 import {
@@ -17,6 +18,11 @@ export default function SubcontractorJobs() {
   const { user } = useCompany()
   const { projectId } = useProject()
   const cid = user?.company_id
+
+  const mgd = JSON.parse(getSession('manager_data') || '{}')
+  if (mgd.visible_sections?.length > 0 && !mgd.visible_sections.includes('Commercial')) {
+    navigate('/app'); return null
+  }
 
   const [jobs, setJobs] = useState([])
   const [projects, setProjects] = useState([])
