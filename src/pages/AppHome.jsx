@@ -16,6 +16,8 @@ export default function AppHome() {
   const { user } = useCompany()
   const { projectId, projectName } = useProject()
   const cid = user?.company_id
+  const vs = user?.visible_sections || null
+  const canSee = (section) => !vs || vs.length === 0 || vs.includes(section)
   const [loading, setLoading] = useState(true)
   const [s, setS] = useState({})
 
@@ -105,10 +107,10 @@ export default function AppHome() {
 
   // Collect alerts
   const alerts = []
-  if (s.overdue > 0) alerts.push({ msg: `${s.overdue} overdue snag${s.overdue !== 1 ? 's' : ''}`, icon: AlertTriangle, color: '#DA3633', bg: '#FEF2F2', border: '#FECACA', path: '/app/snags' })
-  if (s.expiredCerts > 0) alerts.push({ msg: `${s.expiredCerts} expired certification${s.expiredCerts !== 1 ? 's' : ''}`, icon: Shield, color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', path: '/app/workers' })
-  if (s.failedInsp > 0) alerts.push({ msg: `${s.failedInsp} failed inspection${s.failedInsp !== 1 ? 's' : ''}`, icon: CheckSquare, color: '#DA3633', bg: '#FEF2F2', border: '#FECACA', path: '/app/inspections' })
-  if (s.unreadChats > 0) alerts.push({ msg: `${s.unreadChats} unread message${s.unreadChats !== 1 ? 's' : ''}`, icon: MessageSquare, color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', path: '/app/messages' })
+  if (s.overdue > 0 && canSee('Drawings & Snags')) alerts.push({ msg: `${s.overdue} overdue snag${s.overdue !== 1 ? 's' : ''}`, icon: AlertTriangle, color: '#DA3633', bg: '#FEF2F2', border: '#FECACA', path: '/app/snags' })
+  if (s.expiredCerts > 0 && canSee('People')) alerts.push({ msg: `${s.expiredCerts} expired certification${s.expiredCerts !== 1 ? 's' : ''}`, icon: Shield, color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', path: '/app/workers' })
+  if (s.failedInsp > 0 && canSee('Projects')) alerts.push({ msg: `${s.failedInsp} failed inspection${s.failedInsp !== 1 ? 's' : ''}`, icon: CheckSquare, color: '#DA3633', bg: '#FEF2F2', border: '#FECACA', path: '/app/inspections' })
+  if (s.unreadChats > 0 && canSee('People')) alerts.push({ msg: `${s.unreadChats} unread message${s.unreadChats !== 1 ? 's' : ''}`, icon: MessageSquare, color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', path: '/app/messages' })
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -149,7 +151,7 @@ export default function AppHome() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* Site today */}
-        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        {canSee('People') && <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-color)' }}>
             <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Site Today</p>
             <button onClick={() => navigate('/app/attendance')} className="text-[10px] font-medium" style={{ color: 'var(--primary-color)' }}>View attendance →</button>
@@ -186,10 +188,10 @@ export default function AppHome() {
               <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Total workers</p>
             </button>
           </div>
-        </div>
+        </div>}
 
         {/* Snags */}
-        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        {canSee('Drawings & Snags') && <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-color)' }}>
             <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Snags</p>
             <button onClick={() => navigate('/app/snags')} className="text-[10px] font-medium" style={{ color: 'var(--primary-color)' }}>View all →</button>
@@ -218,19 +220,19 @@ export default function AppHome() {
               </p>
             </button>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* ── Navigation grid ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         {[
-          { label: 'Projects', icon: FolderOpen, value: s.projects, path: '/app/projects', color: '#1B6FC8' },
-          { label: 'Snag Drawings', icon: MapPin, path: '/app/drawings', color: '#DA3633' },
-          { label: 'Progress', icon: Layers, path: '/app/progress', color: '#2EA043' },
-          { label: 'Site Diary', icon: BookOpen, path: '/app/diary', color: '#0891B2', dot: !s.diaryToday },
-          { label: 'Inspections', icon: CheckSquare, value: s.totalInsp, path: '/app/inspections', color: '#059669' },
-          { label: 'Performance', icon: Activity, path: '/app/performance', color: '#4F46E5' },
-        ].map(item => (
+          { label: 'Projects', icon: FolderOpen, value: s.projects, path: '/app/projects', color: '#1B6FC8', section: 'Projects' },
+          { label: 'Snag Drawings', icon: MapPin, path: '/app/drawings', color: '#DA3633', section: 'Drawings & Snags' },
+          { label: 'Progress', icon: Layers, path: '/app/progress', color: '#2EA043', section: 'Drawings & Snags' },
+          { label: 'Site Diary', icon: BookOpen, path: '/app/diary', color: '#0891B2', dot: !s.diaryToday, section: 'Projects' },
+          { label: 'Inspections', icon: CheckSquare, value: s.totalInsp, path: '/app/inspections', color: '#059669', section: 'Projects' },
+          { label: 'Performance', icon: Activity, path: '/app/performance', color: '#4F46E5', section: 'Drawings & Snags' },
+        ].filter(item => canSee(item.section)).map(item => (
           <button key={item.path} onClick={() => navigate(item.path)}
             className="relative flex flex-col items-center gap-1.5 p-3.5 rounded-xl border transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
             style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
@@ -248,7 +250,7 @@ export default function AppHome() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* Certifications */}
-        <button onClick={() => navigate('/app/workers')} className="rounded-xl border p-5 text-left transition-all hover:shadow-md"
+        {canSee('People') && <button onClick={() => navigate('/app/workers')} className="rounded-xl border p-5 text-left transition-all hover:shadow-md"
           style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Certifications</p>
@@ -268,10 +270,10 @@ export default function AppHome() {
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Total workers</p>
             </div>
           </div>
-        </button>
+        </button>}
 
         {/* Signatures */}
-        <button onClick={() => navigate('/app/portal')} className="rounded-xl border p-5 text-left transition-all hover:shadow-md"
+        {canSee('Documents') && <button onClick={() => navigate('/app/portal')} className="rounded-xl border p-5 text-left transition-all hover:shadow-md"
           style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Document Sign-Off</p>
@@ -287,7 +289,7 @@ export default function AppHome() {
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Projects</p>
             </div>
           </div>
-        </button>
+        </button>}
       </div>
     </div>
   )
