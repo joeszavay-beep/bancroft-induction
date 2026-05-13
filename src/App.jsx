@@ -53,6 +53,7 @@ import BIMModels from './pages/BIMModels'
 import BIMViewer3D from './pages/BIMViewer3D'
 import ProgrammeDashboard from './pages/ProgrammeDashboard'
 import MasterProgramme from './pages/MasterProgramme'
+import ProgrammeCalculator from './pages/ProgrammeCalculator'
 import LabourRequests from './pages/LabourRequests'
 import LabourRequestForm from './pages/LabourRequestForm'
 import LabourRequestDetail from './pages/LabourRequestDetail'
@@ -136,6 +137,7 @@ function AppLayout() {
         <Route path="/bim" element={<BIMModels />} />
         <Route path="/programme" element={<ProgrammeDashboard />} />
         <Route path="/master-programme" element={<MasterProgramme />} />
+        <Route path="/programme-calculator" element={<ProgrammeCalculator />} />
         <Route path="/snags" element={<PMDashboard key="snags" initialTab="snags" />} />
         <Route path="/drawings" element={<PMDashboard key="drawings" initialTab="snags" />} />
         <Route path="/toolbox" element={<PMDashboard key="toolbox" initialTab="toolbox" />} />

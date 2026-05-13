@@ -12,7 +12,7 @@ import {
   Menu, ChevronDown, ChevronRight, LogOut, Home, UserPlus, Mail, Users,
   BarChart3, FolderOpen, MapPin, MessageSquare, FileText, ClipboardList, Sun, Moon,
   Globe, Settings, User, Shield, Layers, BookOpen, CheckSquare, Activity, Box, CalendarRange,
-  Briefcase, PlusCircle, CalendarCheck, Building2, Calendar, Star, Link2, PoundSterling, Scissors, Eye
+  Briefcase, PlusCircle, CalendarCheck, Building2, Calendar, Star, Link2, PoundSterling, Scissors, Eye, Calculator
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
 import { useProject } from '../lib/ProjectContext'
@@ -59,6 +59,7 @@ const NAV_SECTIONS = [
     items: [
       { label: 'Dashboard', path: '/app/programme', icon: CalendarRange },
       { label: 'Master Programme', path: '/app/master-programme', icon: CalendarRange },
+      { label: 'Programme Calculator', path: '/app/programme-calculator', icon: Calculator },
     ],
   },
   {
