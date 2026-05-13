@@ -113,9 +113,10 @@ export function CompanyProvider({ children }) {
       const prof = profiles?.[0]
       if (prof) {
         setProfile(prof)
-        // Load project_ids and manager_id from managers table
+        // Load project_ids, manager_id, and visible_sections from managers table
         let projectIds = []
         let managerId = null
+        let visibleSections = null
         if (prof.company_id && prof.email) {
           const { data: mgrRows } = await supabase
             .from('managers')
@@ -123,7 +124,11 @@ export function CompanyProvider({ children }) {
             .eq('company_id', prof.company_id)
             .eq('email', prof.email)
             .limit(1)
-          if (mgrRows?.[0]) { projectIds = mgrRows[0].project_ids || []; managerId = mgrRows[0].id }
+          if (mgrRows?.[0]) {
+            projectIds = mgrRows[0].project_ids || []
+            managerId = mgrRows[0].id
+            visibleSections = mgrRows[0].visible_sections || null
+          }
         }
         const userData = {
           id: prof.id,
@@ -133,7 +138,7 @@ export function CompanyProvider({ children }) {
           company_id: prof.company_id,
         }
         setUser(userData)
-        setSession('manager_data', JSON.stringify({ ...userData, project_ids: projectIds, manager_id: managerId, visible_sections: mgrRows?.[0]?.visible_sections || null }))
+        setSession('manager_data', JSON.stringify({ ...userData, project_ids: projectIds, manager_id: managerId, visible_sections: visibleSections }))
         // Cache for offline
         cacheAuth('user', userData).catch(() => {})
         cacheAuth('profile', prof).catch(() => {})
