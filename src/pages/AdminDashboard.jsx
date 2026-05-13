@@ -49,7 +49,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const mgr = getSession('manager_data')
-    if (!mgr || JSON.parse(mgr).role !== 'admin') {
+    if (!mgr || !['admin', 'super_admin'].includes(JSON.parse(mgr).role)) {
       navigate('/login')
       return
     }
