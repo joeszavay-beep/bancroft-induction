@@ -136,9 +136,12 @@ export function CompanyProvider({ children }) {
           email: prof.email,
           role: prof.role,
           company_id: prof.company_id,
+          visible_sections: visibleSections,
+          project_ids: projectIds,
+          manager_id: managerId,
         }
         setUser(userData)
-        setSession('manager_data', JSON.stringify({ ...userData, project_ids: projectIds, manager_id: managerId, visible_sections: visibleSections }))
+        setSession('manager_data', JSON.stringify(userData))
         // Cache for offline
         cacheAuth('user', userData).catch(() => {})
         cacheAuth('profile', prof).catch(() => {})
