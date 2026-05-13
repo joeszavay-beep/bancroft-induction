@@ -4,8 +4,14 @@ import { verifyAuth } from './_auth.js'
 // Duplicate the calculation logic server-side (same as src/lib/programmeCalc.js)
 const DAY_NAMES = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 
-function toISO(d) { return d.toISOString().split('T')[0] }
+function toISO(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r }
+function parseDate(s) { return new Date(s + 'T12:00:00') }
 
 function isWorkingDay(date, settings) {
   const { workingDays = ['mon','tue','wed','thu','fri'], bankHolidays = [], nonWorkingPeriods = [] } = settings
@@ -19,7 +25,7 @@ function isWorkingDay(date, settings) {
 
 function calculateEndDate(startDate, duration, mode, settings = {}) {
   if (!startDate || !duration || duration < 1) return { endDate: startDate || '' }
-  const start = new Date(startDate + 'T00:00:00')
+  const start = parseDate(startDate)
 
   if (mode === 'calendar_days') return { endDate: toISO(addDays(start, duration - 1)) }
 
@@ -29,9 +35,13 @@ function calculateEndDate(startDate, duration, mode, settings = {}) {
     const targetDayIdx = DAY_NAMES.indexOf(workingDays[0] || 'mon')
     const currentDayIdx = effectiveStart.getDay()
     if (currentDayIdx !== targetDayIdx) {
-      let daysToAdd = (targetDayIdx - currentDayIdx + 7) % 7
-      if (daysToAdd === 0) daysToAdd = 7
-      effectiveStart = addDays(effectiveStart, daysToAdd)
+      const daysBack = (currentDayIdx - targetDayIdx + 7) % 7
+      const daysForward = (targetDayIdx - currentDayIdx + 7) % 7
+      if (daysBack <= 2) {
+        effectiveStart = addDays(effectiveStart, -daysBack)
+      } else {
+        effectiveStart = addDays(effectiveStart, daysForward)
+      }
     }
   }
 
@@ -39,7 +49,8 @@ function calculateEndDate(startDate, duration, mode, settings = {}) {
   while (!isWorkingDay(cursor, settings)) cursor = addDays(cursor, 1)
 
   let counted = 0
-  while (counted < duration) {
+  let max = duration * 5 + 365
+  while (max-- > 0) {
     if (isWorkingDay(cursor, settings)) {
       counted++
       if (counted === duration) break
@@ -50,7 +61,7 @@ function calculateEndDate(startDate, duration, mode, settings = {}) {
 }
 
 function nextWorkingDay(dateStr, settings) {
-  let cursor = addDays(new Date(dateStr + 'T00:00:00'), 1)
+  let cursor = addDays(parseDate(dateStr), 1)
   let i = 0
   while (!isWorkingDay(cursor, settings) && i < 365) { cursor = addDays(cursor, 1); i++ }
   return toISO(cursor)

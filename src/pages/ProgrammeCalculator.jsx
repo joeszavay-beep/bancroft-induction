@@ -786,8 +786,8 @@ export default function ProgrammeCalculator() {
                 {formatDateWithDay(livePreview.endDate)}
               </p>
               {livePreview.snappedStart && (
-                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                  Start snapped to {formatDateWithDay(livePreview.snappedStart)}
+                <p className="text-xs mt-1 font-medium" style={{ color: 'var(--text-muted)' }}>
+                  Effective start: {formatDateWithDay(livePreview.snappedStart)}
                 </p>
               )}
               {livePreview.warnings?.length > 0 && (
