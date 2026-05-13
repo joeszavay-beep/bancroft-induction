@@ -243,6 +243,16 @@ export default async function handler(req, res) {
 
       const { error } = await supabase.from('programme_tasks').update(updates).eq('id', id)
       if (error) return res.status(500).json({ error: error.message })
+
+      // Recompute linked procurement items if start_date changed
+      if (startDate && startDate !== existing.start_date) {
+        const { data: linked } = await supabase.from('procurement_items').select('id, lead_time_weeks').eq('linked_programme_task_id', id)
+        for (const pi of (linked || [])) {
+          const obd = (() => { const d = new Date(startDate + 'T12:00:00'); d.setDate(d.getDate() - Math.round((pi.lead_time_weeks || 0) * 7)); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })()
+          await supabase.from('procurement_items').update({ required_by_date: startDate, order_by_date: obd, updated_at: new Date().toISOString() }).eq('id', pi.id)
+        }
+      }
+
       return res.json({ success: true, endDate })
     }
 

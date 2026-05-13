@@ -37,6 +37,13 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    title: 'Templates',
+    items: [
+      { label: 'Templates Hub', path: '/app/templates', icon: ClipboardList },
+      { label: 'Procurement', path: '/app/procurement', icon: Globe },
+    ],
+  },
+  {
     title: 'Documents',
     items: [
       { label: 'Document Hub', path: '/app/document-hub', icon: FolderOpen },
