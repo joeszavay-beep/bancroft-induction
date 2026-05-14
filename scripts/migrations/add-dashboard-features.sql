@@ -31,14 +31,23 @@ CREATE TABLE IF NOT EXISTS incidents (
 
 ALTER TABLE incidents ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "incidents_company_access" ON incidents
-  FOR ALL USING (
-    company_id IN (
-      SELECT company_id FROM manager_profiles WHERE id = auth.uid()
-      UNION
-      SELECT company_id FROM operatives WHERE id = auth.uid()
-    )
+CREATE POLICY "incidents_select" ON incidents
+  FOR SELECT USING (
+    company_id = get_my_company_id()
+    OR auth.role() = 'anon'
   );
+CREATE POLICY "incidents_insert" ON incidents
+  FOR INSERT WITH CHECK (
+    company_id = get_my_company_id()
+    OR auth.role() = 'anon'
+  );
+CREATE POLICY "incidents_update" ON incidents
+  FOR UPDATE USING (
+    company_id = get_my_company_id()
+    OR auth.role() = 'anon'
+  );
+CREATE POLICY "incidents_delete" ON incidents
+  FOR DELETE USING (company_id = get_my_company_id());
 
 CREATE INDEX IF NOT EXISTS idx_incidents_project_date
   ON incidents (project_id, incident_date DESC);
@@ -66,22 +75,26 @@ CREATE TABLE IF NOT EXISTS activity_feed (
 
 ALTER TABLE activity_feed ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "activity_feed_company_access" ON activity_feed
-  FOR ALL USING (
-    company_id IN (
-      SELECT company_id FROM manager_profiles WHERE id = auth.uid()
-      UNION
-      SELECT company_id FROM operatives WHERE id = auth.uid()
-    )
+CREATE POLICY "activity_feed_select" ON activity_feed
+  FOR SELECT USING (
+    company_id = get_my_company_id()
+    OR auth.role() = 'anon'
   );
+CREATE POLICY "activity_feed_insert" ON activity_feed
+  FOR INSERT WITH CHECK (
+    company_id = get_my_company_id()
+    OR auth.role() = 'anon'
+  );
+CREATE POLICY "activity_feed_update" ON activity_feed
+  FOR UPDATE USING (
+    company_id = get_my_company_id()
+    OR auth.role() = 'anon'
+  );
+CREATE POLICY "activity_feed_delete" ON activity_feed
+  FOR DELETE USING (company_id = get_my_company_id());
 
 CREATE INDEX IF NOT EXISTS idx_activity_feed_company_created
   ON activity_feed (company_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_activity_feed_project_created
   ON activity_feed (project_id, created_at DESC);
-
--- Prevent future incident dates
-ALTER TABLE incidents
-  ADD CONSTRAINT incidents_date_not_future
-  CHECK (incident_date <= CURRENT_DATE);
