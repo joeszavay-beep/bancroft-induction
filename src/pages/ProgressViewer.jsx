@@ -54,6 +54,16 @@ export default function ProgressViewer() {
   const [isLive, setIsLive] = useState(false)
   const [fitScale, setFitScale] = useState(0.1)
 
+  // Track locally deleted IDs in sessionStorage so they survive navigation
+  const deletedKey = `deleted_progress_${drawingId}`
+  function getDeletedIds() {
+    try { return new Set(JSON.parse(sessionStorage.getItem(deletedKey) || '[]')) } catch { return new Set() }
+  }
+  function trackDeletedId(id) {
+    const s = getDeletedIds(); s.add(id)
+    sessionStorage.setItem(deletedKey, JSON.stringify([...s]))
+  }
+
   async function loadData() {
     setLoading(true)
 
@@ -77,7 +87,17 @@ export default function ProgressViewer() {
     const itemsData = await fetchAndCache('progress_items', (sb) =>
       sb.from('progress_items').select('*').eq('drawing_id', drawingId).order('item_number')
     )
-    const filtered = Array.isArray(itemsData) ? itemsData.filter(i => i.drawing_id === drawingId) : (itemsData || [])
+    const allItems = Array.isArray(itemsData) ? itemsData.filter(i => i.drawing_id === drawingId) : (itemsData || [])
+    // Filter out locally deleted items that Supabase hasn't processed yet
+    const deleted = getDeletedIds()
+    const filtered = deleted.size > 0 ? allItems.filter(i => !deleted.has(i.id)) : allItems
+    // Clean up: remove IDs that Supabase has already deleted
+    if (deleted.size > 0) {
+      const returnedIds = new Set(allItems.map(i => i.id))
+      const stillPending = [...deleted].filter(id => returnedIds.has(id))
+      if (stillPending.length === 0) sessionStorage.removeItem(deletedKey)
+      else if (stillPending.length < deleted.size) sessionStorage.setItem(deletedKey, JSON.stringify(stillPending))
+    }
     setItems(filtered.sort((a, b) => (a.item_number || 0) - (b.item_number || 0)))
   }
 
@@ -415,6 +435,7 @@ export default function ProgressViewer() {
     setItems(prev => prev.filter(i => i.id !== item.id))
     setSelectedItem(null)
     skipNextReload.current = true
+    trackDeletedId(item.id)
     toast.success('Item deleted')
     // Delete from DB in background
     if (navigator.onLine) {
@@ -434,6 +455,7 @@ export default function ProgressViewer() {
     setUndoStack(prev => prev.slice(0, -1))
     setItems(prev => prev.filter(i => i.id !== lastId))
     skipNextReload.current = true
+    trackDeletedId(lastId)
 
     // Delete from DB in background
     if (navigator.onLine) {
