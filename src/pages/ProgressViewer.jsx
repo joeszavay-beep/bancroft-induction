@@ -210,6 +210,9 @@ export default function ProgressViewer() {
   async function pasteItem(x, y) {
     if (!clipboard) return
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
+    skipNextReload.current = true
+
+    let newItem = null
 
     if (clipboard.label === 'line' && clipboard.notes) {
       // For lines, shift the line so its midpoint is at the tap position, keep original width
@@ -225,7 +228,7 @@ export default function ProgressViewer() {
           label: 'line', notes: newNotes,
           created_by: mgr.name, updated_by: mgr.name,
         }).select().single()
-        if (!error) { setUndoStack(prev => [...prev, data.id]); setRedoStack([]) }
+        if (!error && data) { newItem = data; setUndoStack(prev => [...prev, data.id]); setRedoStack([]) }
       } catch { /* ignore */ }
     } else if (clipboard.label === 'polyline' && clipboard.notes) {
       // For polylines, shift all points so centroid is at tap position, keep original width
@@ -242,7 +245,7 @@ export default function ProgressViewer() {
           label: 'polyline', notes: JSON.stringify({ points: newPoints, width: parsed.width || 4 }),
           created_by: mgr.name, updated_by: mgr.name,
         }).select().single()
-        if (!error) { setUndoStack(prev => [...prev, data.id]); setRedoStack([]) }
+        if (!error && data) { newItem = data; setUndoStack(prev => [...prev, data.id]); setRedoStack([]) }
       } catch { /* ignore */ }
     } else {
       // Dot — just place at tap position, keep original size
@@ -254,17 +257,17 @@ export default function ProgressViewer() {
         label: clipboard.label || 'dot', notes: JSON.stringify({ size: pasteSize }),
         created_by: mgr.name, updated_by: mgr.name,
       }).select().single()
-      if (!error) { setUndoStack(prev => [...prev, data.id]); setRedoStack([]) }
+      if (!error && data) { newItem = data; setUndoStack(prev => [...prev, data.id]); setRedoStack([]) }
     }
 
-    await supabase.from('progress_item_history').insert({
-      item_id: (await supabase.from('progress_items').select('id').eq('drawing_id', drawingId).order('created_at', { ascending: false }).limit(1).single()).data?.id,
-      company_id: cid, drawing_id: drawingId,
-      previous_status: null, new_status: clipboard.status,
-      changed_by: mgr.id, changed_by_name: mgr.name, notes: 'Pasted copy',
-    }).catch(() => {})
-
-    loadItems()
+    if (newItem) {
+      setItems(prev => [...prev, newItem])
+      await supabase.from('progress_item_history').insert({
+        item_id: newItem.id, company_id: cid, drawing_id: drawingId,
+        previous_status: null, new_status: clipboard.status,
+        changed_by: mgr.id, changed_by_name: mgr.name, notes: 'Pasted copy',
+      }).catch(() => {})
+    }
   }
 
   async function placeDotItem(x, y) {
