@@ -275,6 +275,8 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
   const [endTime, setEndTime] = useState('17:00')
   const [projectStartDate, setProjectStartDate] = useState('')
   const [pcDate, setPcDate] = useState('')
+  const [editingDates, setEditingDates] = useState({}) // { [projectId]: { sd, pc } }
+  const [savingDates, setSavingDates] = useState(null)
   const [geofenceRadius, setGeofenceRadius] = useState(200)
   const [geofenceEnabled, setGeofenceEnabled] = useState(false)
   const [siteCoords, setSiteCoords] = useState(null) // { latitude, longitude }
@@ -722,60 +724,57 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                     })()}
 
                     {/* Key Dates */}
-                    {(() => {
-                      const KeyDates = () => {
-                        const [sd, setSd] = useState(p.start_date || '')
-                        const [pc, setPc] = useState(p.practical_completion_date || '')
-                        const [saving, setSaving] = useState(false)
-                        const dirty = sd !== (p.start_date || '') || pc !== (p.practical_completion_date || '')
-                        const handleSave = async () => {
-                          setSaving(true)
-                          const { error } = await supabase.from('projects').update({
-                            start_date: sd || null,
-                            practical_completion_date: pc || null,
-                          }).eq('id', p.id)
-                          setSaving(false)
-                          if (error) { toast.error('Failed to save dates'); return }
-                          toast.success('Dates saved')
-                          onRefresh()
-                        }
-                        return (
-                          <div>
-                            <h4 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Key Dates</h4>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className="text-[10px] font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Start Date</label>
-                                <input type="date" value={sd} onChange={e => setSd(e.target.value)}
-                                  className="w-full px-2 py-1.5 text-xs rounded border"
-                                  style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[10px] font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Practical Completion</label>
-                                <input type="date" value={pc} onChange={e => setPc(e.target.value)}
-                                  className="w-full px-2 py-1.5 text-xs rounded border"
-                                  style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
-                                />
-                                {p.practical_completion_completed_at && (
-                                  <p className="text-[10px] mt-1 text-[#2EA043]">
-                                    Completed {new Date(p.practical_completion_completed_at).toLocaleDateString('en-GB')}
-                                    {p.practical_completion_completed_by && ` by ${p.practical_completion_completed_by}`}
-                                  </p>
-                                )}
-                              </div>
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Key Dates</h4>
+                      {(() => {
+                        const ed = editingDates[p.id] || { sd: p.start_date || '', pc: p.practical_completion_date || '' }
+                        const dirty = ed.sd !== (p.start_date || '') || ed.pc !== (p.practical_completion_date || '')
+                        const updateField = (field, val) => setEditingDates(prev => ({ ...prev, [p.id]: { ...ed, [field]: val } }))
+                        return (<>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[10px] font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Start Date</label>
+                              <input type="date" value={ed.sd} onChange={e => updateField('sd', e.target.value)}
+                                className="w-full px-2 py-1.5 text-xs rounded border"
+                                style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                              />
                             </div>
-                            {dirty && (
-                              <button onClick={handleSave} disabled={saving}
-                                className="mt-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors text-white"
-                                style={{ backgroundColor: 'var(--primary-color)' }}>
-                                {saving ? 'Saving...' : 'Save Dates'}
-                              </button>
-                            )}
+                            <div>
+                              <label className="text-[10px] font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Practical Completion</label>
+                              <input type="date" value={ed.pc} onChange={e => updateField('pc', e.target.value)}
+                                className="w-full px-2 py-1.5 text-xs rounded border"
+                                style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                              />
+                              {p.practical_completion_completed_at && (
+                                <p className="text-[10px] mt-1 text-[#2EA043]">
+                                  Completed {new Date(p.practical_completion_completed_at).toLocaleDateString('en-GB')}
+                                  {p.practical_completion_completed_by && ` by ${p.practical_completion_completed_by}`}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        )
-                      }
-                      return <KeyDates />
-                    })()}
+                          {dirty && (
+                            <button disabled={savingDates === p.id} onClick={async () => {
+                              setSavingDates(p.id)
+                              const { error, count } = await supabase.from('projects').update({
+                                start_date: ed.sd || null,
+                                practical_completion_date: ed.pc || null,
+                              }, { count: 'exact' }).eq('id', p.id)
+                              setSavingDates(null)
+                              if (error) { toast.error(`Failed: ${error.message}`); return }
+                              if (count === 0) { toast.error('Update blocked — check permissions'); return }
+                              toast.success('Dates saved')
+                              setEditingDates(prev => { const n = { ...prev }; delete n[p.id]; return n })
+                              onRefresh()
+                            }}
+                              className="mt-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors text-white"
+                              style={{ backgroundColor: 'var(--primary-color)' }}>
+                              {savingDates === p.id ? 'Saving...' : 'Save Dates'}
+                            </button>
+                          )}
+                        </>)
+                      })()}
+                    </div>
 
                     {/* Actions */}
                     <div className="grid grid-cols-2 gap-2">
