@@ -205,15 +205,19 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
     const pxToMm = imgW / (imgData.naturalWidth || imgData.width)
     console.log('[PDF Export] Image natural:', imgData.naturalWidth, 'x', imgData.naturalHeight, '| canvas:', imgData.width, 'x', imgData.height, '| PDF:', imgW.toFixed(1), 'x', imgH.toFixed(1), 'mm | pxToMm:', pxToMm.toFixed(4))
 
-    // Match SVG rendering: round line caps, proportional opacity
-    doc.setLineCap(1) // 1 = round cap (matches SVG strokeLinecap="round")
-    // PDF renderers show GState opacity more solidly than SVG strokeOpacity —
-    // lowered to match the visual appearance in the live view
-    const lineGState = doc.GState({ opacity: 0.35 })
-    const dotGState = doc.GState({ opacity: 0.30 })
+    // Match SVG rendering: round line caps, semi-transparent overlay
+    doc.setLineCap(1) // round cap (matches SVG strokeLinecap="round")
+
+    // jsPDF GState({ opacity }) only writes /ca (stroke) — missing /CA (fill).
+    // Blend markup colours with white to simulate transparency reliably.
+    const ALPHA = 0.4 // target opacity matching live view strokeOpacity ~0.6 over JPEG bg
+    function blendColor(rgb) {
+      return rgb.map(c => Math.round(c * ALPHA + 255 * (1 - ALPHA)))
+    }
 
     for (const item of items) {
-      const color = STATUS_COLORS_RGB[item.status] || [176, 184, 201]
+      const rawColor = STATUS_COLORS_RGB[item.status] || [176, 184, 201]
+      const color = blendColor(rawColor)
 
       // Parse stored size/width from notes (matches live view parsing)
       let storedWidth = 4
@@ -235,21 +239,16 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
       if (item.label === 'line' && item.notes) {
         try {
           const { x1, y1, x2, y2 } = JSON.parse(item.notes)
-          doc.saveGraphicsState()
-          doc.setGState(lineGState)
           doc.setDrawColor(...color)
           doc.setLineWidth(lineW)
           doc.line(
             imgX + (x1 / 100) * imgW, imgY + (y1 / 100) * imgH,
             imgX + (x2 / 100) * imgW, imgY + (y2 / 100) * imgH
           )
-          doc.restoreGraphicsState()
         } catch { /* ignore */ }
       } else if (item.label === 'polyline' && item.notes) {
         try {
           const { points } = JSON.parse(item.notes)
-          doc.saveGraphicsState()
-          doc.setGState(lineGState)
           doc.setDrawColor(...color)
           doc.setLineWidth(lineW)
           for (let i = 1; i < points.length; i++) {
@@ -259,7 +258,6 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
               imgX + (p2.x / 100) * imgW, imgY + (p2.y / 100) * imgH
             )
           }
-          doc.restoreGraphicsState()
         } catch { /* ignore */ }
       } else if (item.label === 'circle' && item.notes) {
         try {
@@ -267,12 +265,9 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
           const px = imgX + (item.pin_x / 100) * imgW
           const py = imgY + (item.pin_y / 100) * imgH
           const r = Math.max(0.5, (radius || 16) * pxToMm)
-          doc.saveGraphicsState()
-          doc.setGState(lineGState)
           doc.setDrawColor(...color)
           doc.setLineWidth(Math.max(0.1, lineW * 0.5))
           doc.circle(px, py, r, 'D')
-          doc.restoreGraphicsState()
         } catch { /* ignore */ }
       } else if ((item.label === 'text' || item.label === 'comment') && item.notes) {
         try {
@@ -288,15 +283,12 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
           }
         } catch { /* ignore */ }
       } else {
-        // Dot or photo — storedSize is diameter in px, convert to radius in mm
+        // Dot or photo
         const px = imgX + (item.pin_x / 100) * imgW
         const py = imgY + (item.pin_y / 100) * imgH
         const dotR = Math.max(0.2, (storedSize * pxToMm) / 2)
-        doc.saveGraphicsState()
-        doc.setGState(dotGState)
         doc.setFillColor(...color)
         doc.circle(px, py, dotR, 'F')
-        doc.restoreGraphicsState()
       }
     }
   } else {
