@@ -396,11 +396,16 @@ export default function ProgressViewer() {
 
   async function deleteItem(item) {
     if (!confirm(`Delete item #${item.item_number}?`)) return
-    await supabase.from('progress_item_history').delete().eq('item_id', item.id)
-    await supabase.from('progress_items').delete().eq('id', item.id)
+    // Remove from UI immediately (optimistic)
+    setItems(prev => prev.filter(i => i.id !== item.id))
     setSelectedItem(null)
+    skipNextReload.current = true
     toast.success('Item deleted')
-    loadItems()
+    // Delete from DB in background
+    if (navigator.onLine) {
+      await supabase.from('progress_item_history').delete().eq('item_id', item.id).catch(() => {})
+    }
+    await offlineDelete('progress_items', item.id)
   }
 
   async function handleUndo() {
@@ -726,70 +731,6 @@ export default function ProgressViewer() {
             </div>
           ) : null
         )}
-        {/* Paste preview cursor — shows ghost of copied shape */}
-        {clipboard && cursorPos && (() => {
-          const color = STATUS_COLORS[clipboard.status] || '#B0B8C9'
-          if (clipboard.label === 'line' && clipboard.notes) {
-            try {
-              const { x1, y1, x2, y2, width = 4 } = JSON.parse(clipboard.notes)
-              const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2
-              const s = 2
-              const rx1 = (x1 - cx) * s, ry1 = (y1 - cy) * s
-              const rx2 = (x2 - cx) * s, ry2 = (y2 - cy) * s
-              const pad = 6
-              const svgW = Math.abs(rx2 - rx1) + pad * 2, svgH = Math.abs(ry2 - ry1) + pad * 2
-              return (
-                <svg className="fixed pointer-events-none z-50"
-                  style={{ left: cursorPos.x - svgW / 2, top: cursorPos.y - svgH / 2 }}
-                  width={svgW} height={svgH}>
-                  <line x1={rx1 + svgW / 2} y1={ry1 + svgH / 2} x2={rx2 + svgW / 2} y2={ry2 + svgH / 2}
-                    stroke={color} strokeWidth={Math.max(2, width * 0.5)} strokeLinecap="round" strokeOpacity="0.7" />
-                </svg>
-              )
-            } catch { /* fall through */ }
-          }
-          if (clipboard.label === 'polyline' && clipboard.notes) {
-            try {
-              const { points, width = 4 } = JSON.parse(clipboard.notes)
-              if (points && points.length >= 2) {
-                const cx = points.reduce((a, p) => a + p.x, 0) / points.length
-                const cy = points.reduce((a, p) => a + p.y, 0) / points.length
-                const s = 2
-                const rel = points.map(p => ({ x: (p.x - cx) * s, y: (p.y - cy) * s }))
-                const minX = Math.min(...rel.map(p => p.x)), maxX = Math.max(...rel.map(p => p.x))
-                const minY = Math.min(...rel.map(p => p.y)), maxY = Math.max(...rel.map(p => p.y))
-                const pad = 6
-                const svgW = maxX - minX + pad * 2, svgH = maxY - minY + pad * 2
-                const offX = -minX + pad, offY = -minY + pad
-                return (
-                  <svg className="fixed pointer-events-none z-50"
-                    style={{ left: cursorPos.x - svgW / 2, top: cursorPos.y - svgH / 2 }}
-                    width={svgW} height={svgH}>
-                    {rel.map((p, i) => {
-                      if (i === 0) return null
-                      const prev = rel[i - 1]
-                      return <line key={i} x1={prev.x + offX} y1={prev.y + offY} x2={p.x + offX} y2={p.y + offY}
-                        stroke={color} strokeWidth={Math.max(2, width * 0.5)} strokeLinecap="round" strokeOpacity="0.7" />
-                    })}
-                  </svg>
-                )
-              }
-            } catch { /* fall through */ }
-          }
-          let size = 16
-          try { const p = JSON.parse(clipboard.notes || '{}'); if (p.size) size = p.size } catch { /* ignore */ }
-          return (
-            <div className="fixed pointer-events-none z-50" style={{
-              left: cursorPos.x, top: cursorPos.y,
-              width: Math.max(6, size), height: Math.max(6, size),
-              backgroundColor: color + '70', borderRadius: '50%',
-              transform: 'translate(-50%, -50%)',
-              border: '1px solid rgba(255,255,255,0.5)',
-              boxShadow: '0 0 4px rgba(0,0,0,0.3)',
-            }} />
-          )
-        })()}
-
         <TransformWrapper
           ref={transformRef}
           initialScale={1}
@@ -989,6 +930,65 @@ export default function ProgressViewer() {
                       <div className="w-8 h-8 rounded-full bg-[#1B6FC8] border-2 border-white shadow-lg flex items-center justify-center text-white text-xs">📷</div>
                     </div>
                   )}
+
+                  {/* Paste preview — full-size ghost at cursor position on drawing */}
+                  {clipboard && cursorPos && imageRef.current && (() => {
+                    const rect = imageRef.current.getBoundingClientRect()
+                    const cx = ((cursorPos.x - rect.left) / rect.width) * 100
+                    const cy = ((cursorPos.y - rect.top) / rect.height) * 100
+                    const color = STATUS_COLORS[clipboard.status] || '#B0B8C9'
+                    const rScale = imageRef.current.clientWidth / (imageRef.current.naturalWidth || 1200)
+
+                    if (clipboard.label === 'line' && clipboard.notes) {
+                      try {
+                        const { x1, y1, x2, y2, width = 4 } = JSON.parse(clipboard.notes)
+                        const dx = cx - (x1 + x2) / 2, dy = cy - (y1 + y2) / 2
+                        const lw = Math.max(1, width * rScale)
+                        return (
+                          <svg className="absolute top-0 left-0 w-full h-full z-20 pointer-events-none">
+                            <line x1={`${x1 + dx}%`} y1={`${y1 + dy}%`} x2={`${x2 + dx}%`} y2={`${y2 + dy}%`}
+                              stroke={color} strokeWidth={lw} strokeLinecap="round" strokeOpacity="0.5" strokeDasharray="4 2" />
+                          </svg>
+                        )
+                      } catch { /* ignore */ }
+                    }
+
+                    if (clipboard.label === 'polyline' && clipboard.notes) {
+                      try {
+                        const { points, width = 4 } = JSON.parse(clipboard.notes)
+                        if (points && points.length >= 2) {
+                          const origCx = points.reduce((s, p) => s + p.x, 0) / points.length
+                          const origCy = points.reduce((s, p) => s + p.y, 0) / points.length
+                          const dx = cx - origCx, dy = cy - origCy
+                          const lw = Math.max(1, width * rScale)
+                          return (
+                            <svg className="absolute top-0 left-0 w-full h-full z-20 pointer-events-none">
+                              {points.map((p, i) => {
+                                if (i === 0) return null
+                                const prev = points[i - 1]
+                                return <line key={i} x1={`${prev.x + dx}%`} y1={`${prev.y + dy}%`} x2={`${p.x + dx}%`} y2={`${p.y + dy}%`}
+                                  stroke={color} strokeWidth={lw} strokeLinecap="round" strokeOpacity="0.5" strokeDasharray="4 2" />
+                              })}
+                            </svg>
+                          )
+                        }
+                      } catch { /* ignore */ }
+                    }
+
+                    let size = 16
+                    try { const p = JSON.parse(clipboard.notes || '{}'); if (p.size) size = p.size } catch { /* ignore */ }
+                    const dotPx = Math.max(4, size * rScale)
+                    return (
+                      <div className="absolute -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none"
+                        style={{ left: `${cx}%`, top: `${cy}%` }}>
+                        <div className="rounded-full" style={{
+                          width: `${dotPx}px`, height: `${dotPx}px`,
+                          backgroundColor: `${color}50`,
+                          border: `2px dashed ${color}`,
+                        }} />
+                      </div>
+                    )
+                  })()}
                 </div>
               </TransformComponent>
             </>
