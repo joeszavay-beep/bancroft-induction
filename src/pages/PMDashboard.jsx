@@ -722,45 +722,60 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                     })()}
 
                     {/* Key Dates */}
-                    <div>
-                      <h4 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Key Dates</h4>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-[10px] font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Start Date</label>
-                          <input type="date" defaultValue={p.start_date || ''}
-                            onBlur={async (e) => {
-                              const val = e.target.value || null
-                              if (val === (p.start_date || null)) return
-                              await supabase.from('projects').update({ start_date: val }).eq('id', p.id)
-                              toast.success('Start date updated')
-                              onRefresh()
-                            }}
-                            className="w-full px-2 py-1.5 text-xs rounded border"
-                            style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Practical Completion</label>
-                          <input type="date" defaultValue={p.practical_completion_date || ''}
-                            onBlur={async (e) => {
-                              const val = e.target.value || null
-                              if (val === (p.practical_completion_date || null)) return
-                              await supabase.from('projects').update({ practical_completion_date: val }).eq('id', p.id)
-                              toast.success('PC date updated')
-                              onRefresh()
-                            }}
-                            className="w-full px-2 py-1.5 text-xs rounded border"
-                            style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
-                          />
-                          {p.practical_completion_completed_at && (
-                            <p className="text-[10px] mt-1 text-[#2EA043]">
-                              Completed {new Date(p.practical_completion_completed_at).toLocaleDateString('en-GB')}
-                              {p.practical_completion_completed_by && ` by ${p.practical_completion_completed_by}`}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                    {(() => {
+                      const KeyDates = () => {
+                        const [sd, setSd] = useState(p.start_date || '')
+                        const [pc, setPc] = useState(p.practical_completion_date || '')
+                        const [saving, setSaving] = useState(false)
+                        const dirty = sd !== (p.start_date || '') || pc !== (p.practical_completion_date || '')
+                        const handleSave = async () => {
+                          setSaving(true)
+                          const { error } = await supabase.from('projects').update({
+                            start_date: sd || null,
+                            practical_completion_date: pc || null,
+                          }).eq('id', p.id)
+                          setSaving(false)
+                          if (error) { toast.error('Failed to save dates'); return }
+                          toast.success('Dates saved')
+                          onRefresh()
+                        }
+                        return (
+                          <div>
+                            <h4 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Key Dates</h4>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-[10px] font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Start Date</label>
+                                <input type="date" value={sd} onChange={e => setSd(e.target.value)}
+                                  className="w-full px-2 py-1.5 text-xs rounded border"
+                                  style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Practical Completion</label>
+                                <input type="date" value={pc} onChange={e => setPc(e.target.value)}
+                                  className="w-full px-2 py-1.5 text-xs rounded border"
+                                  style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                                />
+                                {p.practical_completion_completed_at && (
+                                  <p className="text-[10px] mt-1 text-[#2EA043]">
+                                    Completed {new Date(p.practical_completion_completed_at).toLocaleDateString('en-GB')}
+                                    {p.practical_completion_completed_by && ` by ${p.practical_completion_completed_by}`}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {dirty && (
+                              <button onClick={handleSave} disabled={saving}
+                                className="mt-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors text-white"
+                                style={{ backgroundColor: 'var(--primary-color)' }}>
+                                {saving ? 'Saving...' : 'Save Dates'}
+                              </button>
+                            )}
+                          </div>
+                        )
+                      }
+                      return <KeyDates />
+                    })()}
 
                     {/* Actions */}
                     <div className="grid grid-cols-2 gap-2">
