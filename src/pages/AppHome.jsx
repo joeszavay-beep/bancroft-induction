@@ -10,16 +10,24 @@ import {
 } from 'lucide-react'
 import OnboardingChecklist from '../components/OnboardingChecklist'
 import TrialBanner from '../components/TrialBanner'
+import PCCountdown from '../components/PCCountdown'
+import WeatherWidget from '../components/WeatherWidget'
+import TodayOnSite from '../components/TodayOnSite'
+import ActivityFeed from '../components/ActivityFeed'
+import DaysWithoutIncident from '../components/DaysWithoutIncident'
+import IncidentForm from '../components/IncidentForm'
 
 export default function AppHome() {
   const navigate = useNavigate()
   const { user } = useCompany()
-  const { projectId, projectName } = useProject()
+  const { projectId, projectName, projects: ctxProjects } = useProject()
   const cid = user?.company_id
   const vs = user?.visible_sections || null
   const canSee = (section) => !vs || vs.length === 0 || vs.includes(section)
   const [loading, setLoading] = useState(true)
   const [s, setS] = useState({})
+  const [fullProjects, setFullProjects] = useState([])
+  const [showIncidentForm, setShowIncidentForm] = useState(false)
 
   async function loadDashboard() {
     setLoading(true)
@@ -27,15 +35,8 @@ export default function AppHome() {
     const todayStart = new Date(today); todayStart.setHours(0, 0, 0, 0)
     const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7)
 
-    // Scope queries to selected project when one is chosen
-    const pq = (table) => {
-      let q = supabase.from(table).eq('company_id', cid)
-      if (projectId) q = q.eq('project_id', projectId)
-      return q
-    }
-
-    const [projects, operatives, snags, sigs, attendance, diary, inspections, chats] = await Promise.all([
-      supabase.from('projects').select('id').eq('company_id', cid),
+    const [projectsFull, operatives, snags, sigs, attendance, diary, inspections, chats] = await Promise.all([
+      supabase.from('projects').select('*').eq('company_id', cid),
       projectId
         ? supabase.from('operative_projects').select('operatives(id, cscs_expiry, ipaf_expiry, pasma_expiry, sssts_expiry, first_aid_expiry)').eq('project_id', projectId)
         : supabase.from('operatives').select('id, cscs_expiry, ipaf_expiry, pasma_expiry, sssts_expiry, first_aid_expiry').eq('company_id', cid),
@@ -46,6 +47,8 @@ export default function AppHome() {
       (() => { let q = supabase.from('inspections').select('id, status').eq('company_id', cid); if (projectId) q = q.eq('project_id', projectId); return q })(),
       supabase.from('chat_messages').select('id').eq('company_id', cid).eq('read_by_manager', false).eq('sender_type', 'operative'),
     ])
+
+    setFullProjects(projectsFull.data || [])
 
     const allSnags = snags.data || []
     const open = allSnags.filter(s => s.status === 'open')
@@ -63,21 +66,15 @@ export default function AppHome() {
     const att = attendance.data || []
     const signInIds = new Set(att.filter(a => a.type === 'sign_in').map(a => a.operative_id))
     const signOutIds = new Set(att.filter(a => a.type === 'sign_out').map(a => a.operative_id))
-    const onSiteIds = [...signInIds].filter(id => !signOutIds.has(id))
-    const onSite = onSiteIds.length
-    // Build name list from attendance records (operative_name is stored with each record)
-    const nameMap = {}
-    att.forEach(a => { if (a.operative_name) nameMap[a.operative_id] = a.operative_name })
-    const onSiteNames = onSiteIds.map(id => nameMap[id]).filter(Boolean).sort()
+    const onSite = [...signInIds].filter(id => !signOutIds.has(id)).length
 
     const insp = inspections.data || []
     const diaryToday = diary.data?.[0]?.date === today.toISOString().split('T')[0]
 
     setS({
-      projects: projects.data?.length || 0,
+      projects: (projectsFull.data || []).length,
       workers: ops.length,
       onSite: Math.max(0, onSite),
-      onSiteNames,
       signIns: att.filter(a => a.type === 'sign_in').length,
       openSnags: open.length,
       overdue: overdue.length,
@@ -101,21 +98,44 @@ export default function AppHome() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
-  if (loading) {
-    return <div className="flex justify-center py-20"><div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full" style={{ borderColor: 'var(--primary-color)' }} /></div>
+  // Skeleton loader
+  function Skeleton({ className = '' }) {
+    return <div className={`animate-pulse rounded-lg ${className}`} style={{ backgroundColor: 'var(--border-color)' }} />
   }
 
-  // Collect alerts
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-5 p-1">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-5 w-48" />
+        <div className="flex gap-3 overflow-hidden">
+          {[1,2,3].map(i => <Skeleton key={i} className="h-24 min-w-[200px] flex-1" />)}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Skeleton className="h-72 lg:col-span-2" />
+          <Skeleton className="h-72" />
+        </div>
+      </div>
+    )
+  }
+
+  // Alerts
   const alerts = []
   if (s.overdue > 0 && canSee('Drawings & Snags')) alerts.push({ msg: `${s.overdue} overdue snag${s.overdue !== 1 ? 's' : ''}`, icon: AlertTriangle, color: '#DA3633', bg: '#FEF2F2', border: '#FECACA', path: '/app/snags' })
   if (s.expiredCerts > 0 && canSee('People')) alerts.push({ msg: `${s.expiredCerts} expired certification${s.expiredCerts !== 1 ? 's' : ''}`, icon: Shield, color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', path: '/app/workers' })
   if (s.failedInsp > 0 && canSee('Projects')) alerts.push({ msg: `${s.failedInsp} failed inspection${s.failedInsp !== 1 ? 's' : ''}`, icon: CheckSquare, color: '#DA3633', bg: '#FEF2F2', border: '#FECACA', path: '/app/inspections' })
   if (s.unreadChats > 0 && canSee('People')) alerts.push({ msg: `${s.unreadChats} unread message${s.unreadChats !== 1 ? 's' : ''}`, icon: MessageSquare, color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', path: '/app/messages' })
 
-  return (
-    <div className="max-w-5xl mx-auto space-y-6">
+  const visibleProjects = projectId ? fullProjects.filter(p => p.id === projectId) : fullProjects
 
-      {/* ── Trial Banner + Onboarding Checklist ── */}
+  return (
+    <div className="max-w-6xl mx-auto space-y-5">
+
       <TrialBanner />
       <OnboardingChecklist />
 
@@ -147,80 +167,101 @@ export default function AppHome() {
         </div>
       )}
 
-      {/* ── Top row: Site + Snags ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* ── PC Countdown ── */}
+      <PCCountdown projects={visibleProjects} />
 
-        {/* Site today */}
-        {canSee('People') && <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-color)' }}>
-            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Site Today</p>
-            <button onClick={() => navigate('/app/attendance')} className="text-[10px] font-medium" style={{ color: 'var(--primary-color)' }}>View attendance →</button>
-          </div>
-          <div className="p-5 grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <button onClick={() => navigate('/app/attendance')} className="hover:opacity-70 transition-opacity">
-                <div className="w-12 h-12 rounded-full bg-[#2EA043]/10 flex items-center justify-center mx-auto mb-2">
-                  <Users size={20} className="text-[#2EA043]" />
-                </div>
-                <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.onSite}</p>
-                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>On site now</p>
-              </button>
-              {s.onSiteNames?.length > 0 && (
-                <div className="mt-2 text-left">
-                  {s.onSiteNames.map(name => (
-                    <p key={name} className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{name}</p>
-                  ))}
-                </div>
-              )}
+      {/* ── Live widgets row: Weather | Today on Site | Days Without Incident ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <WeatherWidget projects={visibleProjects} projectId={projectId} />
+        {canSee('People') && <TodayOnSite projects={visibleProjects} projectId={projectId} />}
+        <DaysWithoutIncident projects={visibleProjects} projectId={projectId} onLogIncident={() => setShowIncidentForm(true)} />
+      </div>
+
+      {/* ── Activity feed + stat cards ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* Activity feed — 2/3 */}
+        <div className="lg:col-span-2">
+          <ActivityFeed projects={visibleProjects} projectId={projectId} />
+        </div>
+
+        {/* Stat cards — 1/3 stacked */}
+        <div className="space-y-4">
+
+          {/* Snags */}
+          {canSee('Drawings & Snags') && <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-color)' }}>
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Snags</p>
+              <button onClick={() => navigate('/app/snags')} className="text-[10px] font-medium" style={{ color: 'var(--primary-color)' }}>View all →</button>
             </div>
-            <button onClick={() => navigate('/app/attendance')} className="text-center hover:opacity-70 transition-opacity">
-              <div className="w-12 h-12 rounded-full bg-[#1B6FC8]/10 flex items-center justify-center mx-auto mb-2">
-                <LogIn size={20} className="text-[#1B6FC8]" />
+            <div className="p-4 grid grid-cols-3 gap-3">
+              <button onClick={() => navigate('/app/snags')} className="text-center hover:opacity-70 transition-opacity">
+                <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.openSnags}</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Open</p>
+              </button>
+              <button onClick={() => navigate('/app/snags')} className="text-center hover:opacity-70 transition-opacity">
+                <p className={`text-xl font-bold ${s.overdue > 0 ? 'text-[#DA3633]' : ''}`} style={s.overdue === 0 ? { color: 'var(--text-primary)' } : {}}>{s.overdue}</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Overdue</p>
+              </button>
+              <button onClick={() => navigate('/app/performance')} className="text-center hover:opacity-70 transition-opacity">
+                <p className="text-xl font-bold text-[#2EA043]">{s.closedWeek}</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Closed this week</p>
+              </button>
+            </div>
+            {s.raisedWeek > 0 && (
+              <div className="px-4 pb-3">
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-main)' }}>
+                  <div className="h-full bg-[#2EA043] rounded-full transition-all" style={{ width: `${Math.min(100, s.raisedWeek > 0 ? (s.closedWeek / s.raisedWeek) * 100 : 0)}%` }} />
+                </div>
+                <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                  {s.closedWeek}/{s.raisedWeek} raised this week resolved
+                </p>
               </div>
-              <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.signIns}</p>
-              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Sign-ins today</p>
-            </button>
-            <button onClick={() => navigate('/app/workers')} className="text-center hover:opacity-70 transition-opacity">
-              <div className="w-12 h-12 rounded-full bg-[#7C3AED]/10 flex items-center justify-center mx-auto mb-2">
-                <Users size={20} className="text-[#7C3AED]" />
-              </div>
-              <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.workers}</p>
-              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Total workers</p>
-            </button>
-          </div>
-        </div>}
+            )}
+          </div>}
 
-        {/* Snags */}
-        {canSee('Drawings & Snags') && <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-color)' }}>
-            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Snags</p>
-            <button onClick={() => navigate('/app/snags')} className="text-[10px] font-medium" style={{ color: 'var(--primary-color)' }}>View all →</button>
-          </div>
-          <div className="p-5 grid grid-cols-3 gap-4">
-            <button onClick={() => navigate('/app/snags')} className="text-center hover:opacity-70 transition-opacity">
-              <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.openSnags}</p>
-              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Open</p>
-            </button>
-            <button onClick={() => navigate('/app/snags')} className="text-center hover:opacity-70 transition-opacity">
-              <p className={`text-2xl font-bold ${s.overdue > 0 ? 'text-[#DA3633]' : ''}`} style={s.overdue === 0 ? { color: 'var(--text-primary)' } : {}}>{s.overdue}</p>
-              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Overdue</p>
-            </button>
-            <button onClick={() => navigate('/app/performance')} className="text-center hover:opacity-70 transition-opacity">
-              <p className="text-2xl font-bold text-[#2EA043]">{s.closedWeek}</p>
-              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Closed this week</p>
-            </button>
-          </div>
-          {s.raisedWeek > 0 && (
-            <button onClick={() => navigate('/app/performance')} className="px-5 pb-4 w-full text-left hover:opacity-70 transition-opacity">
-              <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-main)' }}>
-                <div className="h-full bg-[#2EA043] rounded-full transition-all" style={{ width: `${Math.min(100, s.raisedWeek > 0 ? (s.closedWeek / s.raisedWeek) * 100 : 0)}%` }} />
+          {/* Certifications */}
+          {canSee('People') && <button onClick={() => navigate('/app/workers')} className="w-full rounded-xl border p-4 text-left transition-all hover:shadow-md"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Certifications</p>
+              <Shield size={14} style={{ color: 'var(--text-muted)' }} />
+            </div>
+            <div className="flex items-end gap-4">
+              <div>
+                <p className={`text-xl font-bold ${s.expiredCerts > 0 ? 'text-[#DA3633]' : 'text-[#2EA043]'}`}>{s.expiredCerts}</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Expired</p>
               </div>
-              <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
-                {s.closedWeek} of {s.raisedWeek} raised this week resolved ({s.raisedWeek > 0 ? Math.round((s.closedWeek / s.raisedWeek) * 100) : 0}%)
-              </p>
-            </button>
-          )}
-        </div>}
+              <div>
+                <p className={`text-xl font-bold ${s.expiringCerts > 0 ? 'text-[#D97706]' : ''}`} style={s.expiringCerts === 0 ? { color: 'var(--text-primary)' } : {}}>{s.expiringCerts}</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Expiring 30d</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.workers}</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Workers</p>
+              </div>
+            </div>
+          </button>}
+
+          {/* Document Sign-Off */}
+          {canSee('Documents') && <button onClick={() => navigate('/app/portal')} className="w-full rounded-xl border p-4 text-left transition-all hover:shadow-md"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Document Sign-Off</p>
+              <FileText size={14} style={{ color: 'var(--text-muted)' }} />
+            </div>
+            <div className="flex items-end gap-4">
+              <div>
+                <p className="text-xl font-bold text-[#2EA043]">{s.sigs}</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Signatures</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.projects}</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Projects</p>
+              </div>
+            </div>
+          </button>}
+        </div>
       </div>
 
       {/* ── Navigation grid ── */}
@@ -246,51 +287,15 @@ export default function AppHome() {
         ))}
       </div>
 
-      {/* ── Bottom row: Certs + Diary ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-        {/* Certifications */}
-        {canSee('People') && <button onClick={() => navigate('/app/workers')} className="rounded-xl border p-5 text-left transition-all hover:shadow-md"
-          style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Certifications</p>
-            <Shield size={16} style={{ color: 'var(--text-muted)' }} />
-          </div>
-          <div className="flex items-end gap-6">
-            <div>
-              <p className={`text-3xl font-bold ${s.expiredCerts > 0 ? 'text-[#DA3633]' : 'text-[#2EA043]'}`}>{s.expiredCerts}</p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Expired</p>
-            </div>
-            <div>
-              <p className={`text-3xl font-bold ${s.expiringCerts > 0 ? 'text-[#D97706]' : ''}`} style={s.expiringCerts === 0 ? { color: 'var(--text-primary)' } : {}}>{s.expiringCerts}</p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Expiring in 30 days</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.workers}</p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Total workers</p>
-            </div>
-          </div>
-        </button>}
-
-        {/* Signatures */}
-        {canSee('Documents') && <button onClick={() => navigate('/app/portal')} className="rounded-xl border p-5 text-left transition-all hover:shadow-md"
-          style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Document Sign-Off</p>
-            <FileText size={16} style={{ color: 'var(--text-muted)' }} />
-          </div>
-          <div className="flex items-end gap-6">
-            <div>
-              <p className="text-3xl font-bold text-[#2EA043]">{s.sigs}</p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Signatures</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.projects}</p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Projects</p>
-            </div>
-          </div>
-        </button>}
-      </div>
+      {/* ── Incident form modal ── */}
+      {showIncidentForm && (
+        <IncidentForm
+          projects={fullProjects}
+          projectId={projectId}
+          onClose={() => setShowIncidentForm(false)}
+          onSaved={() => { /* DaysWithoutIncident will refresh via its own interval */ }}
+        />
+      )}
     </div>
   )
 }
