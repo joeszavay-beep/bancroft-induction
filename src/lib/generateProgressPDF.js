@@ -31,7 +31,8 @@ async function fetchHighResImage(url, maxDim = 5000) {
       img.onerror = () => reject(new Error('Image load failed'))
       img.src = rawUrl
     })
-    let w = img.width, h = img.height
+    const naturalW = img.width, naturalH = img.height
+    let w = naturalW, h = naturalH
     if (w > maxDim || h > maxDim) {
       const ratio = Math.min(maxDim / w, maxDim / h)
       w = Math.round(w * ratio)
@@ -41,7 +42,7 @@ async function fetchHighResImage(url, maxDim = 5000) {
     c.width = w
     c.height = h
     c.getContext('2d').drawImage(img, 0, 0, w, h)
-    return { dataUrl: c.toDataURL('image/jpeg', 0.92), width: w, height: h }
+    return { dataUrl: c.toDataURL('image/jpeg', 0.92), width: w, height: h, naturalWidth: naturalW, naturalHeight: naturalH }
   } catch (err) {
     console.error('fetchHighResImage failed:', err, 'URL:', url)
     try {
@@ -52,7 +53,8 @@ async function fetchHighResImage(url, maxDim = 5000) {
         img.onerror = reject
         img.src = url
       })
-      let w = img.width, h = img.height
+      const naturalW = img.width, naturalH = img.height
+      let w = naturalW, h = naturalH
       const fallbackMax = Math.max(3000, maxDim - 1500)
       if (w > fallbackMax || h > fallbackMax) {
         const ratio = Math.min(fallbackMax / w, fallbackMax / h)
@@ -63,7 +65,7 @@ async function fetchHighResImage(url, maxDim = 5000) {
       c.width = w
       c.height = h
       c.getContext('2d').drawImage(img, 0, 0, w, h)
-      return { dataUrl: c.toDataURL('image/jpeg', 0.92), width: w, height: h }
+      return { dataUrl: c.toDataURL('image/jpeg', 0.92), width: w, height: h, naturalWidth: naturalW, naturalHeight: naturalH }
     } catch (err2) {
       console.error('fetchHighResImage fallback also failed:', err2)
       return null
@@ -196,10 +198,11 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
 
     doc.addImage(imgData.dataUrl, 'JPEG', imgX, imgY, imgW, imgH)
 
-    // Convert stored pixel values to mm using the image's natural dimensions
-    // Live view: renderScale = clientWidth / naturalWidth, then width * renderScale = px on screen
-    // PDF equivalent: stored_value * (imgW_mm / naturalWidth_px) = mm in the PDF
-    const pxToMm = imgW / imgData.width
+    // Convert stored pixel values to mm using the image's NATURAL dimensions
+    // Live view: renderScale = clientWidth / naturalWidth, strokeWidth = stored * renderScale
+    // As fraction of image width: stored / naturalWidth
+    // PDF equivalent: stored * (imgW_mm / naturalWidth_px) = mm in the PDF
+    const pxToMm = imgW / (imgData.naturalWidth || imgData.width)
 
     // Opacity matching the live view: lines/polylines = 0.6, dots = 0.44 (hex 70 = 112/255)
     const lineGState = doc.GState({ opacity: 0.6 })
