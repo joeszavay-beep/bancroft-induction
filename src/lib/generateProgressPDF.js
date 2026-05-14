@@ -203,8 +203,10 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
     // As fraction of image width: stored / naturalWidth
     // PDF equivalent: stored * (imgW_mm / naturalWidth_px) = mm in the PDF
     const pxToMm = imgW / (imgData.naturalWidth || imgData.width)
+    console.log('[PDF Export] Image natural:', imgData.naturalWidth, 'x', imgData.naturalHeight, '| canvas:', imgData.width, 'x', imgData.height, '| PDF:', imgW.toFixed(1), 'x', imgH.toFixed(1), 'mm | pxToMm:', pxToMm.toFixed(4))
 
-    // Opacity matching the live view: lines/polylines = 0.6, dots = 0.44 (hex 70 = 112/255)
+    // Match SVG rendering: round line caps, proportional opacity
+    doc.setLineCap(1) // 1 = round cap (matches SVG strokeLinecap="round")
     const lineGState = doc.GState({ opacity: 0.6 })
     const dotGState = doc.GState({ opacity: 0.44 })
 
@@ -222,13 +224,19 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
         }
       } catch { /* ignore */ }
 
+      // Line width in mm — match the live view's rendering:
+      // Live: strokeWidth = storedWidth * (clientWidth / naturalWidth) CSS pixels
+      // That's storedWidth / naturalWidth fraction of the image width
+      // PDF: same fraction * imgW = storedWidth * pxToMm mm
+      const lineW = Math.max(0.15, storedWidth * pxToMm)
+
       if (item.label === 'line' && item.notes) {
         try {
           const { x1, y1, x2, y2 } = JSON.parse(item.notes)
           doc.saveGraphicsState()
           doc.setGState(lineGState)
           doc.setDrawColor(...color)
-          doc.setLineWidth(Math.max(0.2, storedWidth * pxToMm))
+          doc.setLineWidth(lineW)
           doc.line(
             imgX + (x1 / 100) * imgW, imgY + (y1 / 100) * imgH,
             imgX + (x2 / 100) * imgW, imgY + (y2 / 100) * imgH
@@ -241,7 +249,7 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
           doc.saveGraphicsState()
           doc.setGState(lineGState)
           doc.setDrawColor(...color)
-          doc.setLineWidth(Math.max(0.2, storedWidth * pxToMm))
+          doc.setLineWidth(lineW)
           for (let i = 1; i < points.length; i++) {
             const p1 = points[i - 1], p2 = points[i]
             doc.line(
@@ -260,7 +268,7 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
           doc.saveGraphicsState()
           doc.setGState(lineGState)
           doc.setDrawColor(...color)
-          doc.setLineWidth(Math.max(0.15, storedWidth * pxToMm * 0.5))
+          doc.setLineWidth(Math.max(0.1, lineW * 0.5))
           doc.circle(px, py, r, 'D')
           doc.restoreGraphicsState()
         } catch { /* ignore */ }
@@ -270,7 +278,7 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
           if (text) {
             const px = imgX + (item.pin_x / 100) * imgW
             const py = imgY + (item.pin_y / 100) * imgH
-            const fsPt = Math.max(3, (fontSize || 12) * pxToMm * 2.83) // px to pt via mm (1pt = 0.353mm)
+            const fsPt = Math.max(3, (fontSize || 12) * pxToMm * 2.83)
             doc.setTextColor(...color)
             doc.setFontSize(Math.min(fsPt, 14))
             doc.setFont('helvetica', 'bold')
@@ -281,7 +289,7 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
         // Dot or photo — storedSize is diameter in px, convert to radius in mm
         const px = imgX + (item.pin_x / 100) * imgW
         const py = imgY + (item.pin_y / 100) * imgH
-        const dotR = Math.max(0.3, (storedSize * pxToMm) / 2)
+        const dotR = Math.max(0.2, (storedSize * pxToMm) / 2)
         doc.saveGraphicsState()
         doc.setGState(dotGState)
         doc.setFillColor(...color)
