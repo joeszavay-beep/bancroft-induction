@@ -196,22 +196,36 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
 
     doc.addImage(imgData.dataUrl, 'JPEG', imgX, imgY, imgW, imgH)
 
-    // Scale markup sizes relative to drawing width (reference: A4 landscape ~280mm drawing width)
-    const markupScale = imgW / 280
+    // Convert stored pixel values to mm using the image's natural dimensions
+    // Live view: renderScale = clientWidth / naturalWidth, then width * renderScale = px on screen
+    // PDF equivalent: stored_value * (imgW_mm / naturalWidth_px) = mm in the PDF
+    const pxToMm = imgW / imgData.width
 
-    // Overlay items with transparency via GState
-    const gState = doc.GState({ opacity: 0.55 })
+    // Opacity matching the live view: lines/polylines = 0.6, dots = 0.44 (hex 70 = 112/255)
+    const lineGState = doc.GState({ opacity: 0.6 })
+    const dotGState = doc.GState({ opacity: 0.44 })
 
     for (const item of items) {
       const color = STATUS_COLORS_RGB[item.status] || [176, 184, 201]
 
+      // Parse stored size/width from notes (matches live view parsing)
+      let storedWidth = 4
+      let storedSize = 16
+      try {
+        if (item.notes) {
+          const parsed = JSON.parse(item.notes)
+          if (parsed.width) storedWidth = parsed.width
+          if (parsed.size) storedSize = parsed.size
+        }
+      } catch { /* ignore */ }
+
       if (item.label === 'line' && item.notes) {
         try {
-          const { x1, y1, x2, y2, width = 4 } = JSON.parse(item.notes)
+          const { x1, y1, x2, y2 } = JSON.parse(item.notes)
           doc.saveGraphicsState()
-          doc.setGState(gState)
+          doc.setGState(lineGState)
           doc.setDrawColor(...color)
-          doc.setLineWidth(Math.max(0.3, 0.6 * markupScale))
+          doc.setLineWidth(Math.max(0.2, storedWidth * pxToMm))
           doc.line(
             imgX + (x1 / 100) * imgW, imgY + (y1 / 100) * imgH,
             imgX + (x2 / 100) * imgW, imgY + (y2 / 100) * imgH
@@ -220,11 +234,11 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
         } catch { /* ignore */ }
       } else if (item.label === 'polyline' && item.notes) {
         try {
-          const { points, width = 4 } = JSON.parse(item.notes)
+          const { points } = JSON.parse(item.notes)
           doc.saveGraphicsState()
-          doc.setGState(gState)
+          doc.setGState(lineGState)
           doc.setDrawColor(...color)
-          doc.setLineWidth(Math.max(0.3, 0.6 * markupScale))
+          doc.setLineWidth(Math.max(0.2, storedWidth * pxToMm))
           for (let i = 1; i < points.length; i++) {
             const p1 = points[i - 1], p2 = points[i]
             doc.line(
@@ -239,12 +253,12 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
           const { radius } = JSON.parse(item.notes)
           const px = imgX + (item.pin_x / 100) * imgW
           const py = imgY + (item.pin_y / 100) * imgH
-          const r = Math.max(1, (radius || 16) / 100 * imgW * 0.5)
+          const r = Math.max(0.5, (radius || 16) * pxToMm)
           doc.saveGraphicsState()
-          doc.setGState(gState)
+          doc.setGState(lineGState)
           doc.setDrawColor(...color)
-          doc.setLineWidth(Math.max(0.2, 0.4 * markupScale))
-          doc.circle(px, py, Math.min(r, 15 * markupScale), 'D')
+          doc.setLineWidth(Math.max(0.15, storedWidth * pxToMm * 0.5))
+          doc.circle(px, py, r, 'D')
           doc.restoreGraphicsState()
         } catch { /* ignore */ }
       } else if ((item.label === 'text' || item.label === 'comment') && item.notes) {
@@ -253,20 +267,20 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
           if (text) {
             const px = imgX + (item.pin_x / 100) * imgW
             const py = imgY + (item.pin_y / 100) * imgH
+            const fsPt = Math.max(3, (fontSize || 12) * pxToMm * 2.83) // px to pt via mm (1pt = 0.353mm)
             doc.setTextColor(...color)
-            doc.setFontSize(Math.max(4, Math.min((fontSize || 12) * 0.4 * markupScale, 10 * markupScale)))
+            doc.setFontSize(Math.min(fsPt, 14))
             doc.setFont('helvetica', 'bold')
             doc.text(text, px, py)
           }
         } catch { /* ignore */ }
       } else {
-        // Dot or photo
+        // Dot or photo — storedSize is diameter in px, convert to radius in mm
         const px = imgX + (item.pin_x / 100) * imgW
         const py = imgY + (item.pin_y / 100) * imgH
-        let dotR = 1 * markupScale
-        try { const p = JSON.parse(item.notes || '{}'); if (p.size) dotR = Math.max(0.5, p.size * 0.08 * markupScale) } catch { /* ignore */ }
+        const dotR = Math.max(0.3, (storedSize * pxToMm) / 2)
         doc.saveGraphicsState()
-        doc.setGState(gState)
+        doc.setGState(dotGState)
         doc.setFillColor(...color)
         doc.circle(px, py, dotR, 'F')
         doc.restoreGraphicsState()
