@@ -273,6 +273,8 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
   const [musterPoint, setMusterPoint] = useState('')
   const [startTime, setStartTime] = useState('07:30')
   const [endTime, setEndTime] = useState('17:00')
+  const [projectStartDate, setProjectStartDate] = useState('')
+  const [pcDate, setPcDate] = useState('')
   const [geofenceRadius, setGeofenceRadius] = useState(200)
   const [geofenceEnabled, setGeofenceEnabled] = useState(false)
   const [siteCoords, setSiteCoords] = useState(null) // { latitude, longitude }
@@ -286,7 +288,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
     e.preventDefault()
     if (!name.trim()) return
     setSaving(true)
-    const row = { name: name.trim(), location: location.trim(), muster_point: musterPoint.trim() || null, start_time: startTime || '07:30', end_time: endTime || '17:00', company_id: cid }
+    const row = { name: name.trim(), location: location.trim(), muster_point: musterPoint.trim() || null, start_time: startTime || '07:30', end_time: endTime || '17:00', company_id: cid, start_date: projectStartDate || null, practical_completion_date: pcDate || null }
     if (siteCoords) { row.site_latitude = siteCoords.latitude; row.site_longitude = siteCoords.longitude; row.geofence_radius = geofenceRadius; row.geofence_enabled = geofenceEnabled }
     const { error } = await supabase.from('projects').insert(row)
     setSaving(false)
@@ -300,6 +302,8 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
     setName('')
     setLocation('')
     setMusterPoint('')
+    setProjectStartDate('')
+    setPcDate('')
     setStartTime('07:30')
     setEndTime('17:00')
     setSiteCoords(null)
@@ -717,6 +721,47 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                       )
                     })()}
 
+                    {/* Key Dates */}
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Key Dates</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Start Date</label>
+                          <input type="date" defaultValue={p.start_date || ''}
+                            onBlur={async (e) => {
+                              const val = e.target.value || null
+                              if (val === (p.start_date || null)) return
+                              await supabase.from('projects').update({ start_date: val }).eq('id', p.id)
+                              toast.success('Start date updated')
+                              onRefresh()
+                            }}
+                            className="w-full px-2 py-1.5 text-xs rounded border"
+                            style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>Practical Completion</label>
+                          <input type="date" defaultValue={p.practical_completion_date || ''}
+                            onBlur={async (e) => {
+                              const val = e.target.value || null
+                              if (val === (p.practical_completion_date || null)) return
+                              await supabase.from('projects').update({ practical_completion_date: val }).eq('id', p.id)
+                              toast.success('PC date updated')
+                              onRefresh()
+                            }}
+                            className="w-full px-2 py-1.5 text-xs rounded border"
+                            style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                          />
+                          {p.practical_completion_completed_at && (
+                            <p className="text-[10px] mt-1 text-[#2EA043]">
+                              Completed {new Date(p.practical_completion_completed_at).toLocaleDateString('en-GB')}
+                              {p.practical_completion_completed_by && ` by ${p.practical_completion_completed_by}`}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Actions */}
                     <div className="grid grid-cols-2 gap-2">
                       <button disabled={exportingAudit === p.id} onClick={() => handleAuditExport(p)}
@@ -778,6 +823,21 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
               </div>
             </div>
             <p className="text-[10px] text-slate-400 mt-1">10 min grace period either side. Late arrivals / early departures will be flagged.</p>
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block font-medium">Key Dates</label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-slate-400 mb-0.5 block">Start Date</label>
+                <input type="date" value={projectStartDate} onChange={e => setProjectStartDate(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-blue-400" />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-400 mb-0.5 block">Practical Completion</label>
+                <input type="date" value={pcDate} onChange={e => setPcDate(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-blue-400" />
+              </div>
+            </div>
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
