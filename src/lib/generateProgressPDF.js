@@ -207,8 +207,10 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
 
     // Match SVG rendering: round line caps, proportional opacity
     doc.setLineCap(1) // 1 = round cap (matches SVG strokeLinecap="round")
-    const lineGState = doc.GState({ opacity: 0.6 })
-    const dotGState = doc.GState({ opacity: 0.44 })
+    // PDF renderers show GState opacity more solidly than SVG strokeOpacity —
+    // lowered to match the visual appearance in the live view
+    const lineGState = doc.GState({ opacity: 0.35 })
+    const dotGState = doc.GState({ opacity: 0.30 })
 
     for (const item of items) {
       const color = STATUS_COLORS_RGB[item.status] || [176, 184, 201]
