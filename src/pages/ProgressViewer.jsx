@@ -135,13 +135,25 @@ export default function ProgressViewer() {
         setLineStart({ x, y })
         return
       }
-      await placeLineItem(lineStart.x, lineStart.y, x, y)
+      let endX = x, endY = y
+      if (e.shiftKey) {
+        // Snap to horizontal or vertical
+        if (Math.abs(x - lineStart.x) >= Math.abs(y - lineStart.y)) endY = lineStart.y
+        else endX = lineStart.x
+      }
+      await placeLineItem(lineStart.x, lineStart.y, endX, endY)
       setLineStart(null)
       return
     }
 
     if (drawMode === 'polyline') {
-      setPolyPoints(prev => [...prev, { x, y }])
+      let px = x, py = y
+      if (e.shiftKey && polyPoints.length > 0) {
+        const last = polyPoints[polyPoints.length - 1]
+        if (Math.abs(x - last.x) >= Math.abs(y - last.y)) py = last.y
+        else px = last.x
+      }
+      setPolyPoints(prev => [...prev, { x: px, y: py }])
       return
     }
 
