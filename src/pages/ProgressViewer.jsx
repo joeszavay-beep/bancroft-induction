@@ -726,6 +726,69 @@ export default function ProgressViewer() {
             </div>
           ) : null
         )}
+        {/* Paste preview cursor — shows ghost of copied shape */}
+        {clipboard && cursorPos && (() => {
+          const color = STATUS_COLORS[clipboard.status] || '#B0B8C9'
+          if (clipboard.label === 'line' && clipboard.notes) {
+            try {
+              const { x1, y1, x2, y2, width = 4 } = JSON.parse(clipboard.notes)
+              const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2
+              const s = 2
+              const rx1 = (x1 - cx) * s, ry1 = (y1 - cy) * s
+              const rx2 = (x2 - cx) * s, ry2 = (y2 - cy) * s
+              const pad = 6
+              const svgW = Math.abs(rx2 - rx1) + pad * 2, svgH = Math.abs(ry2 - ry1) + pad * 2
+              return (
+                <svg className="fixed pointer-events-none z-50"
+                  style={{ left: cursorPos.x - svgW / 2, top: cursorPos.y - svgH / 2 }}
+                  width={svgW} height={svgH}>
+                  <line x1={rx1 + svgW / 2} y1={ry1 + svgH / 2} x2={rx2 + svgW / 2} y2={ry2 + svgH / 2}
+                    stroke={color} strokeWidth={Math.max(2, width * 0.5)} strokeLinecap="round" strokeOpacity="0.7" />
+                </svg>
+              )
+            } catch { /* fall through */ }
+          }
+          if (clipboard.label === 'polyline' && clipboard.notes) {
+            try {
+              const { points, width = 4 } = JSON.parse(clipboard.notes)
+              if (points && points.length >= 2) {
+                const cx = points.reduce((a, p) => a + p.x, 0) / points.length
+                const cy = points.reduce((a, p) => a + p.y, 0) / points.length
+                const s = 2
+                const rel = points.map(p => ({ x: (p.x - cx) * s, y: (p.y - cy) * s }))
+                const minX = Math.min(...rel.map(p => p.x)), maxX = Math.max(...rel.map(p => p.x))
+                const minY = Math.min(...rel.map(p => p.y)), maxY = Math.max(...rel.map(p => p.y))
+                const pad = 6
+                const svgW = maxX - minX + pad * 2, svgH = maxY - minY + pad * 2
+                const offX = -minX + pad, offY = -minY + pad
+                return (
+                  <svg className="fixed pointer-events-none z-50"
+                    style={{ left: cursorPos.x - svgW / 2, top: cursorPos.y - svgH / 2 }}
+                    width={svgW} height={svgH}>
+                    {rel.map((p, i) => {
+                      if (i === 0) return null
+                      const prev = rel[i - 1]
+                      return <line key={i} x1={prev.x + offX} y1={prev.y + offY} x2={p.x + offX} y2={p.y + offY}
+                        stroke={color} strokeWidth={Math.max(2, width * 0.5)} strokeLinecap="round" strokeOpacity="0.7" />
+                    })}
+                  </svg>
+                )
+              }
+            } catch { /* fall through */ }
+          }
+          let size = 16
+          try { const p = JSON.parse(clipboard.notes || '{}'); if (p.size) size = p.size } catch { /* ignore */ }
+          return (
+            <div className="fixed pointer-events-none z-50" style={{
+              left: cursorPos.x, top: cursorPos.y,
+              width: Math.max(6, size), height: Math.max(6, size),
+              backgroundColor: color + '70', borderRadius: '50%',
+              transform: 'translate(-50%, -50%)',
+              border: '1px solid rgba(255,255,255,0.5)',
+              boxShadow: '0 0 4px rgba(0,0,0,0.3)',
+            }} />
+          )
+        })()}
 
         <TransformWrapper
           ref={transformRef}
