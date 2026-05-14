@@ -12,10 +12,8 @@ const STATUS_LABELS = {
   red: 'Not Available',
 }
 
-async function fetchHighResImage(url) {
+async function fetchHighResImage(url, maxDim = 5000) {
   try {
-    // Method 1: Fetch as blob and convert
-    // Bypass service worker cache by adding cache-bust param
     const bustUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now()
     const res = await fetch(bustUrl)
     if (!res.ok) throw new Error(`Fetch failed: ${res.status}`)
@@ -34,8 +32,6 @@ async function fetchHighResImage(url) {
       img.src = rawUrl
     })
     let w = img.width, h = img.height
-    // Limit to 3000px to avoid canvas memory issues
-    const maxDim = 3000
     if (w > maxDim || h > maxDim) {
       const ratio = Math.min(maxDim / w, maxDim / h)
       w = Math.round(w * ratio)
@@ -45,10 +41,9 @@ async function fetchHighResImage(url) {
     c.width = w
     c.height = h
     c.getContext('2d').drawImage(img, 0, 0, w, h)
-    return { dataUrl: c.toDataURL('image/jpeg', 0.85), width: w, height: h }
+    return { dataUrl: c.toDataURL('image/jpeg', 0.92), width: w, height: h }
   } catch (err) {
     console.error('fetchHighResImage failed:', err, 'URL:', url)
-    // Method 2: Try using the image element directly with the URL
     try {
       const img = new Image()
       img.crossOrigin = 'anonymous'
@@ -58,9 +53,9 @@ async function fetchHighResImage(url) {
         img.src = url
       })
       let w = img.width, h = img.height
-      const maxDim = 2000
-      if (w > maxDim || h > maxDim) {
-        const ratio = Math.min(maxDim / w, maxDim / h)
+      const fallbackMax = Math.max(3000, maxDim - 1500)
+      if (w > fallbackMax || h > fallbackMax) {
+        const ratio = Math.min(fallbackMax / w, fallbackMax / h)
         w = Math.round(w * ratio)
         h = Math.round(h * ratio)
       }
@@ -68,7 +63,7 @@ async function fetchHighResImage(url) {
       c.width = w
       c.height = h
       c.getContext('2d').drawImage(img, 0, 0, w, h)
-      return { dataUrl: c.toDataURL('image/jpeg', 0.85), width: w, height: h }
+      return { dataUrl: c.toDataURL('image/jpeg', 0.92), width: w, height: h }
     } catch (err2) {
       console.error('fetchHighResImage fallback also failed:', err2)
       return null
@@ -76,11 +71,14 @@ async function fetchHighResImage(url) {
   }
 }
 
-export async function generateProgressPDF({ drawing, items, companyName, branding }) {
-  const doc = new jsPDF('l', 'mm', 'a4') // landscape
-  const pageW = 297
-  const pageH = 210
+export async function generateProgressPDF({ drawing, items, companyName, branding, pageSize = 'a1' }) {
+  const doc = new jsPDF('l', 'mm', pageSize)
+  const pageW = doc.internal.pageSize.getWidth()
+  const pageH = doc.internal.pageSize.getHeight()
   const margin = 8
+
+  // Calculate image resolution target: ~250 DPI, capped at 6000px for browser memory
+  const targetMaxDim = Math.max(3000, Math.min(Math.round(pageW / 25.4 * 250), 6000))
 
   // Pre-load logo if branding is provided
   if (branding?.logoUrl && !branding.logoDataUrl) {
@@ -97,33 +95,46 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
   const pctYellow = total > 0 ? Math.round((yellowCount / total) * 100) : 0
   const pctRed = total > 0 ? Math.round((redCount / total) * 100) : 0
 
+  // Scale header/footer proportionally to page size (reference: A4 landscape 297mm)
+  const uiScale = pageW / 297
+
   // Header bar
+  const headerH = 14 * uiScale
   doc.setFillColor(...accent)
-  doc.rect(0, 0, pageW, 14, 'F')
+  doc.rect(0, 0, pageW, headerH, 'F')
+
+  const logoSize = 12 * uiScale
+  const logoX = 4 * uiScale
+  const logoY = 1 * uiScale
+  const textStartX = logoX + logoSize + 2 * uiScale
 
   if (branding?.logoDataUrl) {
-    try { doc.addImage(branding.logoDataUrl, 'PNG', 4, 1, 12, 12) } catch { /* ignore */ }
+    try { doc.addImage(branding.logoDataUrl, 'PNG', logoX, logoY, logoSize, logoSize) } catch { /* ignore */ }
   } else {
     // Logo crosshair
+    const cx = logoX + logoSize / 2, cy = logoY + logoSize / 2
+    const r = logoSize / 3
     doc.setDrawColor(255, 255, 255)
-    doc.setLineWidth(0.3)
-    doc.circle(12, 7, 4, 'D')
+    doc.setLineWidth(0.3 * uiScale)
+    doc.circle(cx, cy, r, 'D')
     doc.setFillColor(255, 255, 255)
-    doc.circle(12, 7, 1, 'F')
-    doc.line(12, 2.5, 12, 4.5); doc.line(12, 9.5, 12, 11.5)
-    doc.line(7.5, 7, 9.5, 7); doc.line(14.5, 7, 16.5, 7)
+    doc.circle(cx, cy, r * 0.25, 'F')
+    doc.line(cx, cy - r * 1.12, cx, cy - r * 0.62)
+    doc.line(cx, cy + r * 0.62, cx, cy + r * 1.12)
+    doc.line(cx - r * 1.12, cy, cx - r * 0.62, cy)
+    doc.line(cx + r * 0.62, cy, cx + r * 1.12, cy)
   }
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(9)
+  doc.setFontSize(9 * uiScale)
   doc.setFont('helvetica', 'bold')
-  doc.text(`${companyName || 'Company'} \u2014 ${drawing.name}`, margin, 9)
-  doc.setFontSize(7)
+  doc.text(`${companyName || 'Company'} \u2014 ${drawing.name}`, textStartX, headerH * 0.64)
+  doc.setFontSize(7 * uiScale)
   doc.setFont('helvetica', 'normal')
-  doc.text(`${drawing.drawing_number || ''} ${drawing.revision ? 'Rev ' + drawing.revision : ''} | ${drawing.trade || ''} | ${drawing.floor_level || ''} | ${new Date().toLocaleDateString('en-GB')}`, pageW - margin, 9, { align: 'right' })
+  doc.text(`${drawing.drawing_number || ''} ${drawing.revision ? 'Rev ' + drawing.revision : ''} | ${drawing.trade || ''} | ${drawing.floor_level || ''} | ${new Date().toLocaleDateString('en-GB')}`, pageW - margin, headerH * 0.64, { align: 'right' })
 
   // Progress bar below header
-  const barY = 16
-  const barH = 5
+  const barY = headerH + 2 * uiScale
+  const barH = 5 * uiScale
   const barW = pageW - margin * 2
   doc.setFillColor(240, 240, 242)
   doc.rect(margin, barY, barW, barH, 'F')
@@ -137,31 +148,26 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
   }
 
   // Stats text positioned under each bar segment
-  const statsY = barY + barH + 3
-  doc.setFontSize(5.5)
+  const statsY = barY + barH + 3 * uiScale
+  doc.setFontSize(5.5 * uiScale)
   doc.setFont('helvetica', 'normal')
   if (total > 0) {
     const gW = (greenCount / total) * barW
     const yW = (yellowCount / total) * barW
     const rW = (redCount / total) * barW
 
-    // Green label — centred under green segment
     if (greenCount > 0) {
       const gMid = margin + gW / 2
       doc.setTextColor(...STATUS_COLORS_RGB.green)
       doc.setFont('helvetica', 'bold')
       doc.text(`${STATUS_LABELS.green}: ${greenCount} (${pctGreen}%)`, gMid, statsY, { align: 'center' })
     }
-
-    // Yellow label — centred under yellow segment
     if (yellowCount > 0) {
       const yMid = margin + gW + yW / 2
       doc.setTextColor(...STATUS_COLORS_RGB.yellow)
       doc.setFont('helvetica', 'bold')
       doc.text(`${STATUS_LABELS.yellow}: ${yellowCount} (${pctYellow}%)`, yMid, statsY, { align: 'center' })
     }
-
-    // Red label — centred under red segment
     if (redCount > 0) {
       const rMid = margin + gW + yW + rW / 2
       doc.setTextColor(...STATUS_COLORS_RGB.red)
@@ -169,16 +175,16 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
       doc.text(`${STATUS_LABELS.red}: ${redCount} (${pctRed}%)`, rMid, statsY, { align: 'center' })
     }
   }
-  // Total on far right
   doc.setTextColor(26, 26, 46)
-  doc.setFontSize(6)
+  doc.setFontSize(6 * uiScale)
   doc.setFont('helvetica', 'bold')
   doc.text(`Total: ${total} items | ${pctGreen}% Complete`, pageW - margin, statsY, { align: 'right' })
 
   // Drawing image — high res
-  const drawingStartY = statsY + 4
-  const drawingAvailH = pageH - drawingStartY - 12
-  const imgData = drawing.image_url ? await fetchHighResImage(drawing.image_url) : null
+  const drawingStartY = statsY + 4 * uiScale
+  const legendH = 11 * uiScale
+  const drawingAvailH = pageH - drawingStartY - legendH
+  const imgData = drawing.image_url ? await fetchHighResImage(drawing.image_url, targetMaxDim) : null
 
   if (imgData) {
     const ratio = imgData.width / imgData.height
@@ -190,6 +196,9 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
 
     doc.addImage(imgData.dataUrl, 'JPEG', imgX, imgY, imgW, imgH)
 
+    // Scale markup sizes relative to drawing width (reference: A4 landscape ~280mm drawing width)
+    const markupScale = imgW / 280
+
     // Overlay items with transparency via GState
     const gState = doc.GState({ opacity: 0.55 })
 
@@ -198,11 +207,11 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
 
       if (item.label === 'line' && item.notes) {
         try {
-          const { x1, y1, x2, y2 } = JSON.parse(item.notes)
+          const { x1, y1, x2, y2, width = 4 } = JSON.parse(item.notes)
           doc.saveGraphicsState()
           doc.setGState(gState)
           doc.setDrawColor(...color)
-          doc.setLineWidth(0.6)
+          doc.setLineWidth(Math.max(0.3, 0.6 * markupScale))
           doc.line(
             imgX + (x1 / 100) * imgW, imgY + (y1 / 100) * imgH,
             imgX + (x2 / 100) * imgW, imgY + (y2 / 100) * imgH
@@ -211,11 +220,11 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
         } catch { /* ignore */ }
       } else if (item.label === 'polyline' && item.notes) {
         try {
-          const { points } = JSON.parse(item.notes)
+          const { points, width = 4 } = JSON.parse(item.notes)
           doc.saveGraphicsState()
           doc.setGState(gState)
           doc.setDrawColor(...color)
-          doc.setLineWidth(0.6)
+          doc.setLineWidth(Math.max(0.3, 0.6 * markupScale))
           for (let i = 1; i < points.length; i++) {
             const p1 = points[i - 1], p2 = points[i]
             doc.line(
@@ -234,8 +243,8 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
           doc.saveGraphicsState()
           doc.setGState(gState)
           doc.setDrawColor(...color)
-          doc.setLineWidth(0.4)
-          doc.circle(px, py, Math.min(r, 15), 'D')
+          doc.setLineWidth(Math.max(0.2, 0.4 * markupScale))
+          doc.circle(px, py, Math.min(r, 15 * markupScale), 'D')
           doc.restoreGraphicsState()
         } catch { /* ignore */ }
       } else if ((item.label === 'text' || item.label === 'comment') && item.notes) {
@@ -245,7 +254,7 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
             const px = imgX + (item.pin_x / 100) * imgW
             const py = imgY + (item.pin_y / 100) * imgH
             doc.setTextColor(...color)
-            doc.setFontSize(Math.max(4, Math.min((fontSize || 12) * 0.4, 10)))
+            doc.setFontSize(Math.max(4, Math.min((fontSize || 12) * 0.4 * markupScale, 10 * markupScale)))
             doc.setFont('helvetica', 'bold')
             doc.text(text, px, py)
           }
@@ -254,8 +263,8 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
         // Dot or photo
         const px = imgX + (item.pin_x / 100) * imgW
         const py = imgY + (item.pin_y / 100) * imgH
-        let dotR = 1
-        try { const p = JSON.parse(item.notes || '{}'); if (p.size) dotR = Math.max(0.5, p.size * 0.08) } catch { /* ignore */ }
+        let dotR = 1 * markupScale
+        try { const p = JSON.parse(item.notes || '{}'); if (p.size) dotR = Math.max(0.5, p.size * 0.08 * markupScale) } catch { /* ignore */ }
         doc.saveGraphicsState()
         doc.setGState(gState)
         doc.setFillColor(...color)
@@ -265,40 +274,40 @@ export async function generateProgressPDF({ drawing, items, companyName, brandin
     }
   } else {
     doc.setTextColor(150, 150, 150)
-    doc.setFontSize(12)
+    doc.setFontSize(12 * uiScale)
     doc.text('[Drawing image could not be loaded]', pageW / 2, pageH / 2, { align: 'center' })
   }
 
   // Legend at bottom
-  const legendY = pageH - 8
+  const legendY = pageH - 8 * uiScale
   doc.setFillColor(250, 250, 252)
-  doc.rect(0, legendY - 3, pageW, 11, 'F')
+  doc.rect(0, legendY - 3 * uiScale, pageW, legendH, 'F')
   doc.setDrawColor(226, 230, 234)
-  doc.line(0, legendY - 3, pageW, legendY - 3)
+  doc.line(0, legendY - 3 * uiScale, pageW, legendY - 3 * uiScale)
 
   doc.setTextColor(26, 26, 46)
-  doc.setFontSize(6)
+  doc.setFontSize(6 * uiScale)
   doc.setFont('helvetica', 'bold')
-  doc.text('LEGEND:', margin, legendY + 1)
+  doc.text('LEGEND:', margin, legendY + 1 * uiScale)
 
-  let lx = margin + 16
+  let lx = margin + 16 * uiScale
   Object.entries(STATUS_COLORS_RGB).forEach(([status, rgb]) => {
     doc.setFillColor(...rgb)
-    doc.circle(lx, legendY, 2, 'F')
+    doc.circle(lx, legendY, 2 * uiScale, 'F')
     doc.setTextColor(26, 26, 46)
-    doc.setFontSize(6)
+    doc.setFontSize(6 * uiScale)
     doc.setFont('helvetica', 'normal')
-    doc.text(`= ${STATUS_LABELS[status]}`, lx + 4, legendY + 1)
-    lx += 50
+    doc.text(`= ${STATUS_LABELS[status]}`, lx + 4 * uiScale, legendY + 1 * uiScale)
+    lx += 50 * uiScale
   })
 
   // Footer
   doc.setTextColor(180, 180, 180)
-  doc.setFontSize(5)
+  doc.setFontSize(5 * uiScale)
   const progressFooter = branding?.footerText
     ? branding.footerText + (branding.showCoreSiteBranding && branding.companyName ? ' \u00B7 Powered by CoreSite' : '')
     : 'CoreSite \u2014 Site Compliance Platform'
-  doc.text(progressFooter, pageW - margin, legendY + 1, { align: 'right' })
+  doc.text(progressFooter, pageW - margin, legendY + 1 * uiScale, { align: 'right' })
 
   const fileName = `Progress - ${drawing.name} - ${new Date().toISOString().slice(0, 10)}.pdf`.replace(/[^a-zA-Z0-9 \-_.]/g, '')
   doc.save(fileName)

@@ -50,6 +50,8 @@ export default function ProgressViewer() {
   const transformRef = useRef(null)
   const [photoLightbox, setPhotoLightbox] = useState(null) // url for enlarged photo
   const [exporting, setExporting] = useState(false)
+  const [showExportDialog, setShowExportDialog] = useState(false)
+  const [exportPageSize, setExportPageSize] = useState('a1')
   const [project, setProject] = useState(null)
   const [isLive, setIsLive] = useState(false)
   const [fitScale, setFitScale] = useState(0.1)
@@ -493,13 +495,15 @@ export default function ProgressViewer() {
     }
   }
 
-  async function handleExport() {
+  async function handleExport(pageSize = 'a1') {
+    setShowExportDialog(false)
     setExporting(true)
     try {
       await generateProgressPDF({
         drawing, project, items,
         companyName: company?.name || 'Company',
         branding: companyBranding,
+        pageSize,
       })
       toast.success('PDF exported')
     } catch (err) {
@@ -551,6 +555,40 @@ export default function ProgressViewer() {
       </div>
     )}
 
+    {/* Export dialog */}
+    {showExportDialog && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowExportDialog(false)}>
+        <div className="bg-white rounded-2xl shadow-2xl p-5 w-72" onClick={e => e.stopPropagation()}>
+          <h3 className="text-sm font-bold text-[#1A1A2E] mb-3">Export PDF</h3>
+          <p className="text-[10px] text-[#6B7A99] uppercase font-semibold mb-1.5">Page Size</p>
+          <div className="grid grid-cols-5 gap-1 mb-3">
+            {['a4', 'a3', 'a2', 'a1', 'a0'].map(s => {
+              const rec = items.length > 200 ? 'a1' : items.length > 50 ? 'a2' : 'a3'
+              return (
+                <button key={s} onClick={() => setExportPageSize(s)}
+                  className={`py-1.5 text-xs font-semibold rounded-md transition-colors ${exportPageSize === s ? 'bg-[#1B6FC8] text-white' : 'bg-[#F5F6F8] text-[#6B7A99] hover:bg-[#E2E6EA]'}`}>
+                  {s.toUpperCase()}
+                  {s === rec && <span className="block text-[7px] font-normal opacity-70">Rec</span>}
+                </button>
+              )
+            })}
+          </div>
+          {items.length > 100 && (exportPageSize === 'a4' || exportPageSize === 'a3') && (
+            <p className="text-[10px] text-[#DA3633] mb-2">{items.length} markup points — {exportPageSize.toUpperCase()} may be too small to read. Try A1 or A0.</p>
+          )}
+          <div className="flex gap-2">
+            <button onClick={() => handleExport(exportPageSize)} disabled={exporting}
+              className="flex-1 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-40">
+              {exporting ? 'Exporting...' : 'Export PDF'}
+            </button>
+            <button onClick={() => setShowExportDialog(false)} className="px-3 py-2 text-sm text-[#6B7A99] hover:bg-[#F5F6F8] rounded-lg border border-[#E2E6EA]">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     <div className="h-dvh bg-slate-100 flex flex-col overflow-hidden">
       {/* Header */}
       <header className="bg-[#1A2744] text-white px-3 py-2 flex items-center justify-between shrink-0 sticky top-0 z-20">
@@ -572,7 +610,7 @@ export default function ProgressViewer() {
             <Redo2 size={16} />
           </button>
           <PrefetchButton drawingId={drawingId} projectId={drawing?.project_id} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors" />
-          <button onClick={handleExport} disabled={exporting} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors" title="Export PDF">
+          <button onClick={() => setShowExportDialog(true)} disabled={exporting} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors" title="Export PDF">
             {exporting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download size={16} />}
           </button>
           {isMarking && <>
