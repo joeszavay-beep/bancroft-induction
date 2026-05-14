@@ -5,20 +5,24 @@ import toast from 'react-hot-toast'
 import { AlertTriangle, X, Upload, Loader2 } from 'lucide-react'
 
 const INCIDENT_TYPES = [
-  'Near Miss',
-  'First Aid',
-  'Reportable (RIDDOR)',
-  'Dangerous Occurrence',
-  'Environmental',
-  'Other',
+  { value: 'near_miss', label: 'Near Miss' },
+  { value: 'first_aid', label: 'First Aid' },
+  { value: 'reportable', label: 'Reportable (RIDDOR)' },
+  { value: 'dangerous_occurrence', label: 'Dangerous Occurrence' },
+  { value: 'environmental', label: 'Environmental' },
+  { value: 'other', label: 'Other' },
 ]
 
-const SEVERITIES = ['Low', 'Medium', 'High']
+const SEVERITIES = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+]
 
 const SEVERITY_COLOURS = {
-  Low: '#2EA043',
-  Medium: '#D29922',
-  High: '#DC2626',
+  low: '#2EA043',
+  medium: '#D29922',
+  high: '#DC2626',
 }
 
 function todayISO() {
@@ -32,7 +36,7 @@ export default function IncidentForm({ projects, projectId, onClose, onSaved }) 
   const [selectedProject, setSelectedProject] = useState(projectId || '')
   const [incidentDate, setIncidentDate] = useState(todayISO())
   const [incidentType, setIncidentType] = useState('')
-  const [severity, setSeverity] = useState('Medium')
+  const [severity, setSeverity] = useState('medium')
   const [description, setDescription] = useState('')
   const [photo, setPhoto] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
@@ -131,7 +135,7 @@ export default function IncidentForm({ projects, projectId, onClose, onSaved }) 
         project_id: selectedProject,
         event_type: 'incident',
         title: 'Incident reported',
-        description: `${incidentType} - ${severity} severity`,
+        description: `${INCIDENT_TYPES.find(t => t.value === incidentType)?.label || incidentType} - ${severity} severity`,
         actor_name: managerData.name || 'Unknown',
         link: '/app/observations',
         created_at: new Date().toISOString(),
@@ -229,7 +233,7 @@ export default function IncidentForm({ projects, projectId, onClose, onSaved }) 
               >
                 <option value="">Select type</option>
                 {INCIDENT_TYPES.map(t => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
               </select>
               {errors.type && <p className="text-[11px] text-red-500 mt-1">{errors.type}</p>}
@@ -244,19 +248,19 @@ export default function IncidentForm({ projects, projectId, onClose, onSaved }) 
             <div className="flex gap-2">
               {SEVERITIES.map(s => (
                 <button
-                  key={s}
+                  key={s.value}
                   type="button"
-                  onClick={() => setSeverity(s)}
+                  onClick={() => setSeverity(s.value)}
                   className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-colors border ${
-                    severity === s ? 'text-white' : ''
+                    severity === s.value ? 'text-white' : ''
                   }`}
                   style={{
-                    backgroundColor: severity === s ? SEVERITY_COLOURS[s] : 'transparent',
-                    borderColor: severity === s ? SEVERITY_COLOURS[s] : 'var(--border-color)',
-                    color: severity === s ? '#FFFFFF' : 'var(--text-primary)',
+                    backgroundColor: severity === s.value ? SEVERITY_COLOURS[s.value] : 'transparent',
+                    borderColor: severity === s.value ? SEVERITY_COLOURS[s.value] : 'var(--border-color)',
+                    color: severity === s.value ? '#FFFFFF' : 'var(--text-primary)',
                   }}
                 >
-                  {s}
+                  {s.label}
                 </button>
               ))}
             </div>
