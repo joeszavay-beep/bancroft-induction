@@ -7,7 +7,7 @@ import { offlineInsert, offlineDelete } from '../lib/syncQueue'
 import { toastOffline } from '../lib/offlineToast'
 import toast from 'react-hot-toast'
 import PrefetchButton from '../components/PrefetchButton'
-import { ArrowLeft, ZoomIn, ZoomOut, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check, Circle, Type, MessageSquareText } from 'lucide-react'
+import { ArrowLeft, ZoomIn, ZoomOut, Maximize2, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check, Circle, Type, MessageSquareText } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
 import { buildBranding } from '../lib/reportTemplate'
 import { useCompany } from '../lib/CompanyContext'
@@ -46,10 +46,13 @@ export default function ProgressViewer() {
   const [cursorPos, setCursorPos] = useState(null) // { x, y } for custom dot cursor
   const mouseDownPos = useRef(null) // track click vs drag
   const skipNextReload = useRef(false) // skip realtime reload after own insert
+  const containerRef = useRef(null)
+  const transformRef = useRef(null)
   const [photoLightbox, setPhotoLightbox] = useState(null) // url for enlarged photo
   const [exporting, setExporting] = useState(false)
   const [project, setProject] = useState(null)
   const [isLive, setIsLive] = useState(false)
+  const [fitScale, setFitScale] = useState(0.1)
 
   async function loadData() {
     setLoading(true)
@@ -469,6 +472,20 @@ export default function ProgressViewer() {
     setHistory(data || [])
   }
 
+  function handleFitToScreen() {
+    const img = imageRef.current
+    const container = containerRef.current
+    const transform = transformRef.current
+    if (!img || !container || !transform || !img.naturalWidth || !img.naturalHeight) return
+    if (!container.clientWidth || !container.clientHeight) return
+    const scaleX = container.clientWidth / img.naturalWidth
+    const scaleY = container.clientHeight / img.naturalHeight
+    const rawFit = Math.min(scaleX, scaleY)
+    const scale = rawFit >= 1 ? 1 : rawFit * 0.95
+    setFitScale(scale)
+    transform.centerView(scale, 0)
+  }
+
   const ANNOTATION_LABELS = ['circle', 'text', 'comment']
   const isAnnotationMode = drawMode === 'circle' || drawMode === 'text' || drawMode === 'comment'
   const progressItems = items.filter(i => !ANNOTATION_LABELS.includes(i.label))
@@ -659,7 +676,7 @@ export default function ProgressViewer() {
       </div>
 
       {/* Drawing viewer — takes all remaining space */}
-      <div className="flex-1 min-h-0 bg-slate-200 relative"
+      <div ref={containerRef} className="flex-1 min-h-0 bg-slate-200 relative"
         onMouseMove={(isMarking || isAnnotationMode) ? (e) => setCursorPos({ x: e.clientX, y: e.clientY }) : undefined}
         onMouseLeave={() => setCursorPos(null)}>
 
@@ -711,10 +728,12 @@ export default function ProgressViewer() {
         )}
 
         <TransformWrapper
+          ref={transformRef}
           initialScale={1}
-          minScale={0.3}
+          minScale={Math.max(fitScale * 0.8, 0.01)}
           maxScale={10}
           centerOnInit
+          limitToBounds={false}
           panning={{ velocityDisabled: false }}
           wheel={{ step: 0.08, smoothStep: 0.004 }}
           doubleClick={{ disabled: true }}
@@ -726,12 +745,12 @@ export default function ProgressViewer() {
                 <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-1">
                   <button onClick={() => zoomIn()} className="w-9 h-9 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 active:bg-slate-100"><ZoomIn size={16} /></button>
                   <button onClick={() => zoomOut()} className="w-9 h-9 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 active:bg-slate-100"><ZoomOut size={16} /></button>
+                  <button onClick={handleFitToScreen} className="w-9 h-9 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 active:bg-slate-100" title="Fit to screen"><Maximize2 size={16} /></button>
                 </div>
               )}
 
               <TransformComponent
                 wrapperStyle={{ width: '100%', height: '100%' }}
-                contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 <div className="relative inline-block" style={{ cursor: isMarking || isAnnotationMode ? 'none' : 'grab' }}
                   onPointerDown={(e) => { mouseDownPos.current = { x: e.clientX, y: e.clientY, time: Date.now() } }}
@@ -748,8 +767,9 @@ export default function ProgressViewer() {
                     }
                   }}>
                   <img ref={imageRef} src={drawing?.image_url} alt={drawing?.name}
-                    className="max-w-none select-none" style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-                    onLoad={() => setImageLoaded(true)} draggable={false} />
+                    className="max-w-none select-none" style={{ display: 'block' }}
+                    onLoad={() => { setImageLoaded(true); requestAnimationFrame(() => handleFitToScreen()) }}
+                    draggable={false} />
 
                   {/* Items: dots, lines, polylines, photos */}
                   {imageLoaded && items.map(item => {
