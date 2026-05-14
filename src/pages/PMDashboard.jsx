@@ -756,6 +756,8 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                           {dirty && (
                             <button disabled={savingDates === p.id} onClick={async () => {
                               setSavingDates(p.id)
+                              // Ensure auth session is fresh — stale sessions cause silent RLS blocks
+                              await supabase.auth.refreshSession()
                               const { error, count } = await supabase.from('projects').update({
                                 start_date: ed.sd || null,
                                 practical_completion_date: ed.pc || null,
