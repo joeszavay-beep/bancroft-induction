@@ -247,7 +247,7 @@ function CompactProjectRow({ project }) {
 
       {/* Warnings */}
       {hasWarnings && (
-        <div className="flex gap-1 ml-auto flex-wrap justify-end">
+        <div className="flex gap-1 ml-auto">
           {today.warnings.map((w, i) => (
             <WarningPill key={i} warning={w} />
           ))}
