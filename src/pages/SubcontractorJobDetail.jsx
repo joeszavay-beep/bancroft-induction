@@ -48,11 +48,6 @@ function getWeekDates(weekStart) {
   })
 }
 
-// eslint-disable-next-line no-unused-vars
-function formatDateShort(dateStr) {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
 
 export default function SubcontractorJobDetail() {
   const { id: jobId } = useParams()

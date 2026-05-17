@@ -58,7 +58,7 @@ function intl(date, opts) {
  */
 export function formatDate(isoOrDate) {
   const d = toDate(isoOrDate)
-  if (!d || isNaN(d)) return '--'
+  if (!d || isNaN(d)) return '\u2014'
   return intl(d, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
@@ -69,7 +69,7 @@ export function formatDate(isoOrDate) {
  */
 export function formatDateWithDay(isoOrDate) {
   const d = toDate(isoOrDate)
-  if (!d || isNaN(d)) return '--'
+  if (!d || isNaN(d)) return '\u2014'
   return intl(d, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 }
 
@@ -80,7 +80,7 @@ export function formatDateWithDay(isoOrDate) {
  */
 export function formatDateShort(isoOrDate) {
   const d = toDate(isoOrDate)
-  if (!d || isNaN(d)) return '--'
+  if (!d || isNaN(d)) return '\u2014'
   return intl(d, { day: 'numeric', month: 'short' })
 }
 
@@ -91,7 +91,7 @@ export function formatDateShort(isoOrDate) {
  */
 export function formatTime(isoOrDate) {
   const d = toDate(isoOrDate)
-  if (!d || isNaN(d)) return '--'
+  if (!d || isNaN(d)) return '\u2014'
   return intl(d, { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
@@ -102,7 +102,7 @@ export function formatTime(isoOrDate) {
  */
 export function formatDateTime(isoOrDate) {
   const d = toDate(isoOrDate)
-  if (!d || isNaN(d)) return '--'
+  if (!d || isNaN(d)) return '\u2014'
   return intl(d, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
@@ -114,10 +114,10 @@ export function formatDateTime(isoOrDate) {
  * @returns {string}
  */
 export function formatDateRange(startISO, endISO) {
-  if (!startISO || !endISO) return '--'
+  if (!startISO || !endISO) return '\u2014'
   const s = isCalendarDate(startISO) ? parseCalendarDate(startISO) : toDate(startISO)
   const e = isCalendarDate(endISO) ? parseCalendarDate(endISO) : toDate(endISO)
-  if (!s || !e || isNaN(s) || isNaN(e)) return '--'
+  if (!s || !e || isNaN(s) || isNaN(e)) return '\u2014'
 
   const sMonth = intl(s, { month: 'short' })
   const eMonth = intl(e, { month: 'short' })
@@ -141,7 +141,7 @@ export function formatDateRange(startISO, endISO) {
  * @returns {string}
  */
 export function formatDuration(minutes) {
-  if (!minutes || minutes < 0) return '--'
+  if (!minutes || minutes < 0) return '\u2014'
   const h = Math.floor(minutes / 60)
   const m = Math.round(minutes % 60)
   if (h === 0) return `${m}m`
@@ -156,7 +156,7 @@ export function formatDuration(minutes) {
  */
 export function formatRelative(isoOrDate) {
   const d = toDate(isoOrDate)
-  if (!d || isNaN(d)) return '--'
+  if (!d || isNaN(d)) return '\u2014'
   const now = Date.now()
   const diff = now - d.getTime()
   const absDiff = Math.abs(diff)
@@ -193,9 +193,9 @@ function isCalendarDate(str) {
  * @returns {string}
  */
 export function formatCalendarDate(dateStr) {
-  if (!dateStr) return '--'
+  if (!dateStr) return '\u2014'
   const d = parseCalendarDate(dateStr)
-  if (!d || isNaN(d)) return '--'
+  if (!d || isNaN(d)) return '\u2014'
   return intl(d, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
@@ -205,9 +205,9 @@ export function formatCalendarDate(dateStr) {
  * @returns {string}
  */
 export function formatCalendarDateWithDay(dateStr) {
-  if (!dateStr) return '--'
+  if (!dateStr) return '\u2014'
   const d = parseCalendarDate(dateStr)
-  if (!d || isNaN(d)) return '--'
+  if (!d || isNaN(d)) return '\u2014'
   return intl(d, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 }
 

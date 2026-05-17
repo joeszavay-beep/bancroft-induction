@@ -5,12 +5,7 @@ import WorkerSidebarLayout from '../components/WorkerSidebarLayout'
 import LoadingButton from '../components/LoadingButton'
 import toast from 'react-hot-toast'
 import { Calendar, Send, X, RefreshCw, AlertCircle } from 'lucide-react'
-
-function formatDateDisplay(dateStr) {
-  if (!dateStr) return ''
-  const d = new Date(dateStr + 'T00:00:00')
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
+import { formatCalendarDate } from '../lib/dates'
 
 function countWorkingDays(start, end, startHalf, endHalf) {
   if (!start || !end) return 0
@@ -433,7 +428,7 @@ export default function HolidayRequests() {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                          {formatDateDisplay(req.start_date)} — {formatDateDisplay(req.end_date)}
+                          {formatCalendarDate(req.start_date)} — {formatCalendarDate(req.end_date)}
                         </p>
                         <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                           {req.working_days} working day{req.working_days !== 1 ? 's' : ''}

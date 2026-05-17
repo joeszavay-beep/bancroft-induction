@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { daysBetween as daysBetweenDates, todayDateStr } from '../lib/dates'
+import { daysBetween as daysBetweenDates, todayDateStr, formatDate } from '../lib/dates'
 import { useCompany } from '../lib/CompanyContext'
 import { useProject } from '../lib/ProjectContext'
 import { getSession } from '../lib/storage'
@@ -31,10 +31,6 @@ const CATEGORIES = {
 const CATEGORY_LIST = Object.keys(CATEGORIES)
 
 // ── Helpers ──
-function formatDate(d) {
-  if (!d) return '\u2014'
-  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
 
 function daysUntil(d) {
   if (!d) return null

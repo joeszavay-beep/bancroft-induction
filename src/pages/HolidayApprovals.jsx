@@ -6,11 +6,6 @@ import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
 import { Calendar, Check, X, Clock, Users, ChevronDown, Filter } from 'lucide-react'
 
-function formatDate(dateStr) {
-  if (!dateStr) return '--'
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-}
 
 function formatDateRange(start, end) {
   const s = new Date(start)

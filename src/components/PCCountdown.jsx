@@ -1,17 +1,11 @@
 import { useMemo } from 'react'
 import { CalendarDays } from 'lucide-react'
-import { daysBetween as daysBetweenDates, todayDateStr } from '../lib/dates'
+import { daysBetween as daysBetweenDates, todayDateStr, formatCalendarDate } from '../lib/dates'
 
 function getDaysUntil(dateStr) {
   if (!dateStr) return 0
   const dateOnly = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr
   return daysBetweenDates(todayDateStr(), dateOnly)
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return ''
-  const d = new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00'))
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function getUrgencyStyle(days) {
@@ -35,7 +29,7 @@ function buildProjectData(project) {
       name,
       status: 'complete',
       label: 'Practically complete',
-      sublabel: formatDate(practical_completion_completed_at),
+      sublabel: formatCalendarDate(practical_completion_completed_at),
       style: { color: '#16A34A', bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.2)' },
     }
   }
@@ -60,7 +54,7 @@ function buildProjectData(project) {
     status: days === 0 ? 'today' : days < 0 ? 'overdue' : 'upcoming',
     days,
     label: getDayLabel(days),
-    sublabel: `PC ${formatDate(practical_completion_date)}`,
+    sublabel: `PC ${formatCalendarDate(practical_completion_date)}`,
     style: urgency,
   }
 }

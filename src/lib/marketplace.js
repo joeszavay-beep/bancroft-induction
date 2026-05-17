@@ -381,7 +381,5 @@ export function formatDayRate(pence) {
   return `£${(pence / 100).toFixed(2)}`
 }
 
-export function formatDate(dateStr) {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
+// formatDate removed — import from '../lib/dates' instead
+export { formatDate } from './dates'

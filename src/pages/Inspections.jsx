@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { formatDate } from '../lib/dates'
 import { useCompany } from '../lib/CompanyContext'
 import { useProject } from '../lib/ProjectContext'
 import toast from 'react-hot-toast'
@@ -302,10 +303,6 @@ export default function Inspections() {
     )
   }
 
-  function formatDate(d) {
-    if (!d) return '—'
-    return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-  }
 
   // ---------- Active inspection view ----------
 

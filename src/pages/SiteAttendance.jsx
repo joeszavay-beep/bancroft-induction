@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
-import { startOfDayUK, todayDateStr } from '../lib/dates'
+import { startOfDayUK, todayDateStr, formatDate } from '../lib/dates'
 import { useCompany } from '../lib/CompanyContext'
 import { useProject } from '../lib/ProjectContext'
 import toast from 'react-hot-toast'
@@ -18,11 +18,6 @@ function formatTime(dateStr) {
   return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 }
 
-function formatDate(dateStr) {
-  if (!dateStr) return '--'
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-}
 
 function formatDuration(minutes) {
   if (!minutes || minutes < 0) return '--'

@@ -18,10 +18,10 @@ describe('formatDate', () => {
     expect(formatDate('2026-05-17T14:30:00Z')).toBe('17 May 2026')
   })
   it('returns -- for null', () => {
-    expect(formatDate(null)).toBe('--')
+    expect(formatDate(null)).toBe('\u2014')
   })
   it('returns -- for invalid date', () => {
-    expect(formatDate('not-a-date')).toBe('--')
+    expect(formatDate('not-a-date')).toBe('\u2014')
   })
 })
 
@@ -79,7 +79,7 @@ describe('formatDuration', () => {
     expect(formatDuration(45)).toBe('45m')
   })
   it('returns -- for zero', () => {
-    expect(formatDuration(0)).toBe('--')
+    expect(formatDuration(0)).toBe('\u2014')
   })
 })
 
@@ -92,7 +92,7 @@ describe('formatCalendarDate', () => {
     expect(formatCalendarDate('2026-05-17')).toBe('17 May 2026')
   })
   it('handles null', () => {
-    expect(formatCalendarDate(null)).toBe('--')
+    expect(formatCalendarDate(null)).toBe('\u2014')
   })
 })
 
