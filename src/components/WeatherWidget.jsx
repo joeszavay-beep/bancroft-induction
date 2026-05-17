@@ -225,8 +225,8 @@ function CompactProjectRow({ project }) {
   const hasWarnings = today.warnings && today.warnings.length > 0
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2">
-      {/* Project name */}
+    <div className="px-4 py-2">
+      <div className="flex items-center gap-3">
       <p className="text-xs font-medium shrink-0 w-28 truncate" style={{ color: 'var(--text-primary)' }}>
         {project.name}
       </p>
@@ -244,10 +244,9 @@ function CompactProjectRow({ project }) {
       <p className="text-[10px] shrink-0" style={{ color: 'var(--text-muted)' }}>
         {today.windMph} mph
       </p>
-
-      {/* Warnings */}
+      </div>
       {hasWarnings && (
-        <div className="flex gap-1 ml-auto">
+        <div className="flex gap-1 flex-wrap mt-1.5">
           {today.warnings.map((w, i) => (
             <WarningPill key={i} warning={w} />
           ))}
