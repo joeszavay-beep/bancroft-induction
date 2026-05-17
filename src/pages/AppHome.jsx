@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { startOfDayUK } from '../lib/dates'
 import { useCompany } from '../lib/CompanyContext'
 import { useProject } from '../lib/ProjectContext'
 import {
@@ -32,7 +33,7 @@ export default function AppHome() {
   async function loadDashboard() {
     setLoading(true)
     const today = new Date()
-    const todayStart = new Date(today); todayStart.setHours(0, 0, 0, 0)
+    const todayStart = startOfDayUK()
     const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7)
 
     const [projectsFull, operatives, snags, sigs, attendance, diary, inspections, chats] = await Promise.all([
@@ -42,7 +43,7 @@ export default function AppHome() {
         : supabase.from('operatives').select('id, cscs_expiry, ipaf_expiry, pasma_expiry, sssts_expiry, first_aid_expiry').eq('company_id', cid),
       (() => { let q = supabase.from('snags').select('id, status, due_date, created_at, updated_at, project_id').eq('company_id', cid); if (projectId) q = q.eq('project_id', projectId); return q })(),
       supabase.from('signatures').select('id').eq('company_id', cid),
-      (() => { let q = supabase.from('site_attendance').select('id, type, operative_id, operative_name').eq('company_id', cid).gte('recorded_at', todayStart.toISOString()); if (projectId) q = q.eq('project_id', projectId); return q })(),
+      (() => { let q = supabase.from('site_attendance').select('id, type, operative_id, operative_name').eq('company_id', cid).gte('recorded_at', todayStart); if (projectId) q = q.eq('project_id', projectId); return q })(),
       (() => { let q = supabase.from('site_diary').select('id, date').eq('company_id', cid).order('date', { ascending: false }).limit(1); if (projectId) q = q.eq('project_id', projectId); return q })(),
       (() => { let q = supabase.from('inspections').select('id, status').eq('company_id', cid); if (projectId) q = q.eq('project_id', projectId); return q })(),
       supabase.from('chat_messages').select('id').eq('company_id', cid).eq('read_by_manager', false).eq('sender_type', 'operative'),

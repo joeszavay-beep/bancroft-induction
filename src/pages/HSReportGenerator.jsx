@@ -233,25 +233,23 @@ export default function HSReportGenerator() {
     const proj = projects.find(p => p.id === projectId)
     setProjectData(proj)
 
-    const ws = new Date(weekStart)
-    ws.setHours(0, 0, 0, 0)
-    const we = new Date(weekEnd)
-    we.setHours(23, 59, 59, 999)
+    const ws = weekStart + 'T00:00:00.000Z'
+    const we = weekEnd + 'T23:59:59.999Z'
 
     try {
       const [talksRes, opsRes, docsRes, signoffsRes, attendanceRes, diaryRes, inspRes] = await Promise.all([
         supabase.from('toolbox_talks').select('*, toolbox_signatures(*)').eq('project_id', projectId)
-          .gte('created_at', ws.toISOString()).lte('created_at', we.toISOString()),
+          .gte('created_at', ws).lte('created_at', we),
         supabase.from('operative_projects').select('operatives(*)').eq('project_id', projectId),
         supabase.from('document_hub').select('*').eq('company_id', cid).eq('project_id', projectId)
           .eq('category', 'RAMS'),
         Promise.resolve({ data: [] }), // signoffs loaded separately after docs
         supabase.from('site_attendance').select('*').eq('company_id', cid).eq('project_id', projectId)
-          .gte('recorded_at', ws.toISOString()).lte('recorded_at', we.toISOString()),
+          .gte('recorded_at', ws).lte('recorded_at', we),
         supabase.from('site_diary').select('*').eq('company_id', cid).eq('project_id', projectId)
           .gte('date', weekStart).lte('date', weekEnd),
         supabase.from('inspections').select('*').eq('company_id', cid).eq('project_id', projectId)
-          .gte('created_at', ws.toISOString()).lte('created_at', we.toISOString()),
+          .gte('created_at', ws).lte('created_at', we),
       ])
 
       // Toolbox Talks — store both flattened (for UI) and raw (for PDF with signatures)

@@ -2,6 +2,7 @@
  * Shared validation functions for operative profile fields.
  * Used by both the frontend InlineEditField and the API endpoint.
  */
+import { todayDateStr, daysBetween as daysBetweenDates } from './dates'
 
 export function validateDOB(value) {
   if (!value) return 'Date of birth is required'
@@ -51,10 +52,10 @@ export function validateCardExpiry(value) {
   if (!value) return null // optional
   const d = new Date(value)
   if (isNaN(d.getTime())) return 'Invalid date'
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  if (d < now) return 'Card has expired'
-  const daysUntil = Math.ceil((d - now) / (24 * 60 * 60 * 1000))
+  const today = todayDateStr()
+  const dateStr = value.split('T')[0] || value
+  if (dateStr < today) return 'Card has expired'
+  const daysUntil = daysBetweenDates(today, dateStr)
   if (daysUntil <= 30) return { warning: `Expires in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}` }
   return null
 }

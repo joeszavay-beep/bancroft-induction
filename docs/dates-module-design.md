@@ -78,7 +78,11 @@ The working-day calculation logic in `programmeCalc.js` is already well-tested a
 
 Bank holidays are fetched from the `uk_bank_holidays` table and cached. The dates module provides working-day arithmetic functions that accept a bank holiday list as a parameter — it doesn't fetch them itself.
 
-### 6. No DB column re-typing needed
+### 6. No `startOfDayUTC` — it's a footgun
+
+`startOfDayUTC` was initially included but removed after we discovered every legitimate call site needed `startOfDayUK` instead. The function produced UTC midnight on the UK calendar date — which is 1 hour *after* UK midnight during BST. This meant TIMESTAMPTZ queries using it as a boundary would miss records in the 00:00–01:00 BST window, reintroducing the exact class of bug the module was built to fix. Keeping it as an exported option invited the same regression. If a future call site genuinely needs UTC midnight on a UK calendar date, implement it locally with explicit reasoning rather than relying on this module.
+
+### 7. No DB column re-typing needed
 
 All date columns are already correctly typed:
 - TIMESTAMPTZ for moments in time
@@ -110,7 +114,6 @@ CALENDAR DATE FUNCTIONS (YYYY-MM-DD strings)
   parseCalendarDate(dateStr)      → Date object at noon UTC (safe from DST)
 
 BOUNDARY FUNCTIONS (the setHours bug fix)
-  startOfDayUTC()                 → "2026-05-17T00:00:00.000Z" (UTC midnight)
   startOfDayUK(date?)             → ISO string for midnight UK time
   todayDateStr()                  → "2026-05-17" (current UK date as YYYY-MM-DD)
   ukDateStr(isoOrDate)            → "2026-05-17" (extract UK calendar date from timestamp)

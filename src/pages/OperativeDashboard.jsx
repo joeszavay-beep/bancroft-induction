@@ -108,7 +108,7 @@ export default function OperativeDashboard() {
     const mondayOffset = day === 0 ? -6 : 1 - day
     const monday = new Date(now)
     monday.setDate(now.getDate() + mondayOffset)
-    monday.setHours(0, 0, 0, 0)
+    monday.setHours(12, 0, 0, 0) // noon to avoid DST edge
     const sunday = new Date(monday)
     sunday.setDate(monday.getDate() + 6)
     const weekFrom = monday.toISOString().split('T')[0]

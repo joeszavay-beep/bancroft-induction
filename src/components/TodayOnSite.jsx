@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
+import { startOfDayUK } from '../lib/dates'
 import { Users, AlertTriangle } from 'lucide-react'
 
 function getInitials(name) {
@@ -43,9 +44,7 @@ export default function TodayOnSite({ projects, projectId }) {
   async function fetchData() {
     if (!cid) { setLoading(false); return }
 
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-    const todayISO = todayStart.toISOString()
+    const todayISO = startOfDayUK()
 
     let attQuery = supabase
       .from('site_attendance')

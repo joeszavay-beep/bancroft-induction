@@ -38,7 +38,7 @@ function startOfWeek(d) {
   const day = r.getDay()
   const diff = day === 0 ? -6 : 1 - day // Monday
   r.setDate(r.getDate() + diff)
-  r.setHours(0, 0, 0, 0)
+  r.setHours(12, 0, 0, 0) // noon to avoid DST edge
   return r
 }
 
@@ -50,7 +50,7 @@ function isoDate(d) {
 
 function computeStatus(activity) {
   const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  today.setHours(12, 0, 0, 0) // noon to match parseDate and avoid DST edge
   const start = parseDate(activity.start_date)
   const finish = parseDate(activity.finish_date)
   const progress = activity.actual_progress || 0
@@ -383,7 +383,7 @@ export default function MasterProgramme() {
 
   // Today line position
   const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  today.setHours(12, 0, 0, 0) // noon to avoid DST edge
   const todayLeft = dateToLeft(isoDate(today))
   const showTodayLine = today >= ganttStart && today <= ganttEnd
 

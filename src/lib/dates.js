@@ -215,21 +215,6 @@ export function formatCalendarDateWithDay(dateStr) {
 // BOUNDARY — Safe "start of day" functions
 // ─────────────────────────────────────────────────
 
-/**
- * Get the start of today in UTC as an ISO string.
- * Use this for DB queries filtering by "today's records" on TIMESTAMPTZ columns.
- *
- * This is the FIX for the setHours(0,0,0,0).toISOString() bug.
- * Instead of converting local midnight to UTC (which shifts the day during BST),
- * we extract the UK calendar date and construct UTC midnight directly.
- *
- * @param {Date} [now] - override for testing
- * @returns {string} e.g. "2026-05-17T00:00:00.000Z"
- */
-export function startOfDayUTC(now) {
-  const dateStr = todayDateStr(now)
-  return dateStr + 'T00:00:00.000Z'
-}
 
 /**
  * Get the start of today in UK time as an ISO string.

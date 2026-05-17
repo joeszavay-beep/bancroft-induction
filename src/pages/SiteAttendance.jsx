@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import { startOfDayUK, todayDateStr } from '../lib/dates'
 import { useCompany } from '../lib/CompanyContext'
 import { useProject } from '../lib/ProjectContext'
 import toast from 'react-hot-toast'
@@ -30,14 +31,8 @@ function formatDuration(minutes) {
   return `${h}h ${m}m`
 }
 
-function todayISO() {
-  return new Date().toISOString().split('T')[0]
-}
-
 function getTodayStart() {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString()
+  return startOfDayUK()
 }
 
 export default function SiteAttendance() {
@@ -82,8 +77,8 @@ export default function SiteAttendance() {
     const toDate = new Date(); toDate.setHours(23, 59, 59)
     const { data } = await supabase.from('site_attendance').select('*')
       .eq('company_id', cid)
-      .gte('recorded_at', fromDate.toISOString())
-      .lte('recorded_at', toDate.toISOString())
+      .gte('recorded_at', fromDate)
+      .lte('recorded_at', toDate)
       .order('recorded_at', { ascending: false })
     setHistoryRecords(data || [])
   }
@@ -154,7 +149,7 @@ export default function SiteAttendance() {
     const mondayOff = day === 0 ? -6 : 1 - day
     const monday = new Date(now)
     monday.setDate(now.getDate() + mondayOff + offset * 7)
-    monday.setHours(0, 0, 0, 0)
+    monday.setHours(12, 0, 0, 0) // noon to avoid DST edge
     const days = []
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday)
@@ -334,17 +329,15 @@ export default function SiteAttendance() {
       return
     }
     setLoadingHistory(true)
-    const fromDate = new Date(historyFrom)
-    fromDate.setHours(0, 0, 0, 0)
-    const toDate = new Date(historyTo)
-    toDate.setHours(23, 59, 59, 999)
+    const fromDate = startOfDayUK(new Date(historyFrom + 'T12:00:00Z'))
+    const toDate = historyTo + 'T23:59:59.999Z'
 
     const { data, error } = await supabase
       .from('site_attendance')
       .select('*')
       .eq('company_id', cid)
-      .gte('recorded_at', fromDate.toISOString())
-      .lte('recorded_at', toDate.toISOString())
+      .gte('recorded_at', fromDate)
+      .lte('recorded_at', toDate)
       .order('recorded_at', { ascending: false })
 
     if (error) {
@@ -383,7 +376,7 @@ export default function SiteAttendance() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `site-attendance-${todayISO()}.csv`
+    a.download = `site-attendance-${todayDateStr()}.csv`
     a.click()
     URL.revokeObjectURL(url)
     toast.success('CSV exported')

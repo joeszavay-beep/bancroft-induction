@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { daysBetween as daysBetweenDates, todayDateStr } from '../lib/dates'
 import { useCompany } from '../lib/CompanyContext'
 import { useProject } from '../lib/ProjectContext'
 import { getSession } from '../lib/storage'
@@ -37,11 +38,8 @@ function formatDate(d) {
 
 function daysUntil(d) {
   if (!d) return null
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  const target = new Date(d)
-  target.setHours(0, 0, 0, 0)
-  return Math.ceil((target - now) / 86400000)
+  const dateOnly = typeof d === 'string' && d.includes('T') ? d.split('T')[0] : d
+  return daysBetweenDates(todayDateStr(), dateOnly)
 }
 
 function expiryColor(days) {

@@ -3,7 +3,7 @@ import {
   formatDate, formatDateWithDay, formatDateShort, formatTime, formatDateTime,
   formatDateRange, formatDuration, formatRelative,
   formatCalendarDate, formatCalendarDateWithDay, parseCalendarDate,
-  startOfDayUTC, todayDateStr, ukDateStr,
+  todayDateStr, ukDateStr, startOfDayUK,
   isToday, isPast, isFuture, daysBetween,
   addCalendarDays, addWorkingDays, isWorkingDay, countWorkingDays,
   weekStart, monthStart,
@@ -188,20 +188,20 @@ describe('DST boundary tests', () => {
   })
 })
 
-describe('startOfDayUTC', () => {
-  it('returns midnight UTC for the UK date', () => {
-    // During BST, if it's 23:30 UTC on Friday (00:30 BST Saturday),
-    // todayDateStr should return Saturday, and startOfDayUTC should return Saturday 00:00 UTC
+describe('startOfDayUK', () => {
+  it('returns UK midnight as UTC ISO during BST', () => {
+    // Friday 23:30 UTC in May (BST) = Saturday 00:30 UK
+    // UK midnight Saturday = Friday 23:00 UTC
     const friday2330utc = new Date('2026-05-15T23:30:00Z')
-    const result = startOfDayUTC(friday2330utc)
-    // At 23:30 UTC in May (BST), UK time is 00:30 Saturday
-    expect(result).toBe('2026-05-16T00:00:00.000Z')
+    const result = startOfDayUK(friday2330utc)
+    expect(result).toBe('2026-05-15T23:00:00.000Z')
   })
 
-  it('returns correct boundary during GMT', () => {
+  it('returns UK midnight as UTC ISO during GMT', () => {
+    // Friday 23:30 UTC in January (GMT) = Friday 23:30 UK
+    // UK midnight Friday = Friday 00:00 UTC
     const jan2330utc = new Date('2026-01-16T23:30:00Z')
-    const result = startOfDayUTC(jan2330utc)
-    // 23:30 UTC in January (GMT), UK time is also 23:30 — still Friday
+    const result = startOfDayUK(jan2330utc)
     expect(result).toBe('2026-01-16T00:00:00.000Z')
   })
 })

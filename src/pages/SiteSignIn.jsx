@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { LogIn, LogOut, MapPin, Clock, CheckCircle2, Shield, Mail, Lock, Eye, EyeOff, HardHat, Check } from 'lucide-react'
 import { getSession, setSession, removeSession } from '../lib/storage'
+import { startOfDayUK } from '../lib/dates'
 
 export default function SiteSignIn() {
   const { projectId } = useParams()
@@ -74,14 +75,11 @@ export default function SiteSignIn() {
   }, [success])
 
   async function loadOperativeAndAttendance(operativeId, projId) {
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-
     const [opRes, attRes] = await Promise.all([
       supabase.from('operatives').select('id, name, role, photo_url, company_id').eq('id', operativeId).single(),
       supabase.from('site_attendance').select('*').eq('project_id', projId)
         .eq('operative_id', operativeId)
-        .gte('recorded_at', todayStart.toISOString())
+        .gte('recorded_at', startOfDayUK())
         .order('recorded_at', { ascending: false }),
     ])
 
@@ -193,13 +191,11 @@ export default function SiteSignIn() {
     setRecording(true)
 
     // Re-check latest attendance from DB to prevent duplicate sign-in/out
-    const checkStart = new Date()
-    checkStart.setHours(0, 0, 0, 0)
     const { data: latest } = await supabase.from('site_attendance')
       .select('type')
       .eq('project_id', projectId)
       .eq('operative_id', operative.id)
-      .gte('recorded_at', checkStart.toISOString())
+      .gte('recorded_at', startOfDayUK())
       .order('recorded_at', { ascending: false })
       .limit(1)
     if (latest?.length && latest[0].type === type) {

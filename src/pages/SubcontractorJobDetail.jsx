@@ -36,7 +36,7 @@ function getWeekStart(date) {
   const day = d.getDay()
   const diff = d.getDate() - day + (day === 0 ? -6 : 1)
   d.setDate(diff)
-  d.setHours(0, 0, 0, 0)
+  d.setHours(12, 0, 0, 0) // noon to avoid DST edge
   return d
 }
 
@@ -588,15 +588,13 @@ export default function SubcontractorJobDetail() {
 
       // Check for discrepancies
       if (job?.project_id) {
-        const dayStart = new Date(startStr)
-        dayStart.setHours(0, 0, 0, 0)
-        const dayEnd = new Date(endStr)
-        dayEnd.setHours(23, 59, 59, 999)
+        const dayStart = startStr + 'T00:00:00.000Z'
+        const dayEnd = endStr + 'T23:59:59.999Z'
         const { data: attendance } = await supabase.from('site_attendance')
           .select('operative_id, operative_name')
           .eq('project_id', job.project_id)
-          .gte('recorded_at', dayStart.toISOString())
-          .lte('recorded_at', dayEnd.toISOString())
+          .gte('recorded_at', dayStart)
+          .lte('recorded_at', dayEnd)
           .eq('type', 'sign_in')
         const scannedIds = [...new Set((attendance || []).map(a => a.operative_id))]
         const assignedIds = new Set(jobOperatives.filter(o => o.status === 'active').map(o => o.operative_id))
@@ -623,16 +621,14 @@ export default function SubcontractorJobDetail() {
     if (!job?.project_id) { toast.error('Job has no project linked'); return }
     setGeneratingQR(true)
     try {
-      const dayStart = new Date(weekDates[0])
-      dayStart.setHours(0, 0, 0, 0)
-      const dayEnd = new Date(weekDates[6])
-      dayEnd.setHours(23, 59, 59, 999)
+      const dayStart = weekDates[0].toISOString().split('T')[0] + 'T00:00:00.000Z'
+      const dayEnd = weekDates[6].toISOString().split('T')[0] + 'T23:59:59.999Z'
 
       const { data: attendance } = await supabase.from('site_attendance')
         .select('*')
         .eq('project_id', job.project_id)
-        .gte('recorded_at', dayStart.toISOString())
-        .lte('recorded_at', dayEnd.toISOString())
+        .gte('recorded_at', dayStart)
+        .lte('recorded_at', dayEnd)
         .order('recorded_at')
 
       if (!attendance?.length) { toast('No QR attendance data for this week'); setGeneratingQR(false); return }

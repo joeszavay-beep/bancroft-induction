@@ -22,14 +22,24 @@ export default async function handler(req, res) {
 
   try {
     const now = new Date()
-    const todayStart = new Date(now)
-    todayStart.setHours(0, 0, 0, 0)
+    // Get today's UK date, then compute UK midnight as a UTC ISO string
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(now)
+    // Determine UK offset (GMT=0, BST=+1) to find UK midnight in UTC
+    const offsetPart = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London',
+      timeZoneName: 'shortOffset',
+    }).formatToParts(now).find(p => p.type === 'timeZoneName')
+    const offsetMatch = offsetPart?.value?.match(/GMT([+-]\d+)?/)
+    const offsetHours = offsetMatch?.[1] ? parseInt(offsetMatch[1]) : 0
+    const ukMidnight = new Date(todayStr + 'T00:00:00Z')
+    ukMidnight.setHours(ukMidnight.getHours() - offsetHours)
+    const todayStart = ukMidnight.toISOString()
 
     // Get all attendance records for today
     const { data: records, error } = await supabase
       .from('site_attendance')
       .select('*')
-      .gte('recorded_at', todayStart.toISOString())
+      .gte('recorded_at', todayStart)
       .order('recorded_at', { ascending: false })
 
     if (error) throw error

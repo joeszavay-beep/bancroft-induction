@@ -252,7 +252,7 @@ export default function AgencyOperativeDetail() {
     const daysUntilMon = dayOfWeek === 0 ? 1 : dayOfWeek === 1 ? 0 : 8 - dayOfWeek
     const nextMon = new Date(now)
     nextMon.setDate(now.getDate() + daysUntilMon)
-    nextMon.setHours(0, 0, 0, 0)
+    nextMon.setHours(12, 0, 0, 0) // noon to avoid DST edge
     for (let w = 0; w < 4; w++) {
       for (let d = 0; d < 5; d++) {
         const date = new Date(nextMon)

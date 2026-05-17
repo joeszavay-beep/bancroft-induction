@@ -26,7 +26,7 @@ function classifyNextDue(dateStr) {
   const d = new Date(dateStr)
   if (isNaN(d.getTime())) return 'none'
   const now = new Date()
-  now.setHours(0, 0, 0, 0)
+  now.setHours(12, 0, 0, 0) // noon to avoid DST edge
   const diffDays = (d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
   if (diffDays < 0) return 'overdue'
   if (diffDays <= 30) return 'soon'

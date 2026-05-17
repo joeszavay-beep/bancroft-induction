@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
+import { startOfDayUK } from '../lib/dates'
 import {
   Activity, UserCheck, UserMinus, AlertTriangle, Eye,
   ChevronDown, Loader2
@@ -91,8 +92,7 @@ export default function ActivityFeed({ projects, projectId }) {
   const fetchFeed = useCallback(async () => {
     if (!cid) return
 
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
+    const todayStart = startOfDayUK()
     const weekAgo = new Date()
     weekAgo.setDate(weekAgo.getDate() - 7)
 
@@ -110,7 +110,7 @@ export default function ActivityFeed({ projects, projectId }) {
       .from('site_attendance')
       .select('id, operative_name, type, project_id, recorded_at')
       .eq('company_id', cid)
-      .gte('recorded_at', todayStart.toISOString())
+      .gte('recorded_at', todayStart)
       .order('recorded_at', { ascending: false })
     if (projectId) attendanceQuery = attendanceQuery.eq('project_id', projectId)
 

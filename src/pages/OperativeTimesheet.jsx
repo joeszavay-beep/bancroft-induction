@@ -11,7 +11,7 @@ function getWeekDates(offset = 0) {
   const mondayOffset = day === 0 ? -6 : 1 - day
   const monday = new Date(now)
   monday.setDate(now.getDate() + mondayOffset + offset * 7)
-  monday.setHours(0, 0, 0, 0)
+  monday.setHours(12, 0, 0, 0) // noon to avoid DST edge
 
   const days = []
   for (let i = 0; i < 7; i++) {

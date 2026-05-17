@@ -1,12 +1,11 @@
 import { useMemo } from 'react'
 import { CalendarDays } from 'lucide-react'
+import { daysBetween as daysBetweenDates, todayDateStr } from '../lib/dates'
 
 function getDaysUntil(dateStr) {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const target = new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00'))
-  target.setHours(0, 0, 0, 0)
-  return Math.ceil((target - today) / (1000 * 60 * 60 * 24))
+  if (!dateStr) return 0
+  const dateOnly = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr
+  return daysBetweenDates(todayDateStr(), dateOnly)
 }
 
 function formatDate(dateStr) {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import { daysBetween as daysBetweenDates, todayDateStr } from '../lib/dates'
 import { getSession } from '../lib/storage'
 import { ShieldCheck, CheckCircle2, ChevronDown, ChevronUp, Plus } from 'lucide-react'
 
@@ -13,13 +14,9 @@ function formatDateShort(dateStr) {
   })
 }
 
-function daysBetween(dateStr) {
+function daysSinceIncident(dateStr) {
   if (!dateStr) return null
-  const incident = new Date(dateStr)
-  incident.setHours(0, 0, 0, 0)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return Math.floor((today - incident) / (1000 * 60 * 60 * 24))
+  return daysBetweenDates(dateStr.split('T')[0], todayDateStr())
 }
 
 const MILESTONES = [30, 90, 180, 365]
@@ -63,7 +60,7 @@ export default function DaysWithoutIncident({ projects, projectId, onLogIncident
   const { days, lastDate, cleanRecord } = useMemo(() => {
     if (!incidents.length) return { days: null, lastDate: null, cleanRecord: true }
     const latest = incidents[0].incident_date
-    return { days: daysBetween(latest), lastDate: latest, cleanRecord: false }
+    return { days: daysSinceIncident(latest), lastDate: latest, cleanRecord: false }
   }, [incidents])
 
   // Per-project breakdown for "All projects" view
@@ -78,7 +75,7 @@ export default function DaysWithoutIncident({ projects, projectId, onLogIncident
       id: p.id,
       name: p.name || p.title || 'Unnamed',
       lastDate: byProject[p.id] || null,
-      days: byProject[p.id] ? daysBetween(byProject[p.id]) : null,
+      days: byProject[p.id] ? daysSinceIncident(byProject[p.id]) : null,
       clean: !byProject[p.id],
     }))
     // Sort: lowest days first, clean records last
