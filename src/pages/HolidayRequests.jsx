@@ -5,7 +5,7 @@ import WorkerSidebarLayout from '../components/WorkerSidebarLayout'
 import LoadingButton from '../components/LoadingButton'
 import toast from 'react-hot-toast'
 import { Calendar, Send, X, RefreshCw, AlertCircle } from 'lucide-react'
-import { formatCalendarDate } from '../lib/dates'
+import { formatCalendarDate, todayDateStr } from '../lib/dates'
 
 function countWorkingDays(start, end, startHalf, endHalf) {
   if (!start || !end) return 0
@@ -27,9 +27,6 @@ function countWorkingDays(start, end, startHalf, endHalf) {
   return Math.max(0, count)
 }
 
-function todayStr() {
-  return new Date().toISOString().split('T')[0]
-}
 
 export default function HolidayRequests() {
   const navigate = useNavigate()
@@ -275,7 +272,7 @@ export default function HolidayRequests() {
                   </label>
                   <input
                     type="date"
-                    min={todayStr()}
+                    min={todayDateStr()}
                     value={startDate}
                     onChange={e => {
                       setStartDate(e.target.value)
@@ -290,7 +287,7 @@ export default function HolidayRequests() {
                   </label>
                   <input
                     type="date"
-                    min={startDate || todayStr()}
+                    min={startDate || todayDateStr()}
                     value={endDate}
                     onChange={e => setEndDate(e.target.value)}
                     className="w-full border border-[#E2E6EA] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"

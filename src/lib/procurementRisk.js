@@ -2,6 +2,7 @@
  * Procurement risk calculation utility.
  * Used by both client (table rendering) and server (notifications).
  */
+import { todayDateStr, addCalendarDays, isPast } from './dates'
 
 const PRE_PO_STATUSES = ['identified', 'specified', 'quoted', 'approved']
 const POST_PO_STATUSES = ['po_raised', 'po_acknowledged', 'in_production', 'delivery_scheduled']
@@ -21,9 +22,9 @@ export function calculateRisk(item) {
     return { level: 'green', label: 'Received', reason: 'Delivered on time' }
   }
 
-  const today = new Date().toISOString().split('T')[0]
-  const in7 = addCalDays(today, 7)
-  const in14 = addCalDays(today, 14)
+  const today = todayDateStr()
+  const in7 = addCalendarDays(today, 7)
+  const in14 = addCalendarDays(today, 14)
 
   // Pre-PO risk: based on order_by_date
   if (PRE_PO_STATUSES.includes(item.status)) {
@@ -37,7 +38,7 @@ export function calculateRisk(item) {
   if (POST_PO_STATUSES.includes(item.status)) {
     if (!item.required_by_date) return { level: 'green', label: 'On track', reason: 'No required-by date' }
     const rbd = item.required_by_date
-    const rbd3 = addCalDays(rbd, -3)
+    const rbd3 = addCalendarDays(rbd, -3)
 
     if (item.delivery_scheduled_date) {
       if (item.delivery_scheduled_date > rbd) return { level: 'red', label: 'Delivery late', reason: `Delivery after required-by` }
@@ -59,17 +60,9 @@ export function calculateRisk(item) {
 export function calculateOrderByDate(requiredByDate, leadTimeWeeks) {
   if (!requiredByDate || !leadTimeWeeks) return requiredByDate || null
   const days = Math.round(leadTimeWeeks * 7)
-  return addCalDays(requiredByDate, -days)
+  return addCalendarDays(requiredByDate, -days)
 }
 
-function addCalDays(dateStr, n) {
-  const d = new Date(dateStr + 'T12:00:00')
-  d.setDate(d.getDate() + n)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
 
 /**
  * Generate the next item number for a project (PT-001, PT-002, ...).

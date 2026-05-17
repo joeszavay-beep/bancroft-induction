@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useCompany } from '../lib/CompanyContext'
 import { useProject } from '../lib/ProjectContext'
 import { authFetch } from '../lib/authFetch'
+import { todayDateStr } from '../lib/dates'
 import { getSession } from '../lib/storage'
 import { calculateRisk, RISK_COLORS, STATUS_LABELS, STATUS_COLORS, calculateOrderByDate } from '../lib/procurementRisk'
 import { formatDateWithDay } from '../lib/programmeCalc'
@@ -12,9 +13,7 @@ import { Package, Plus, Search, Filter, Download, Pencil, Trash2, ChevronDown, F
 
 // ── Helpers ──
 
-function todayISO() {
-  return new Date().toISOString().split('T')[0]
-}
+
 
 function formatMoney(v) {
   if (v == null || v === '') return '--'
@@ -86,11 +85,11 @@ export default function ProcurementTracker() {
   const [savingQuote, setSavingQuote] = useState(false)
 
   // ── Invoice form within detail ──
-  const [invoiceForm, setInvoiceForm] = useState({ invoice_number: '', amount: '', date: todayISO(), notes: '' })
+  const [invoiceForm, setInvoiceForm] = useState({ invoice_number: '', amount: '', date: todayDateStr(), notes: '' })
   const [savingInvoice, setSavingInvoice] = useState(false)
 
   // ── PO form within detail ──
-  const [poForm, setPoForm] = useState({ po_number: '', po_date: todayISO() })
+  const [poForm, setPoForm] = useState({ po_number: '', po_date: todayDateStr() })
   const [savingPO, setSavingPO] = useState(false)
 
   // ── Mark as Received modal within detail ──
@@ -285,8 +284,8 @@ export default function ProcurementTracker() {
     setDetailLoading(true)
     // Reset forms
     setQuoteForm({ supplier_name: '', quoted_price: '', lead_time_weeks: '', notes: '' })
-    setInvoiceForm({ invoice_number: '', amount: '', date: todayISO(), notes: '' })
-    setPoForm({ po_number: item.po_number || '', po_date: item.po_date || todayISO() })
+    setInvoiceForm({ invoice_number: '', amount: '', date: todayDateStr(), notes: '' })
+    setPoForm({ po_number: item.po_number || '', po_date: item.po_date || todayDateStr() })
     setShowReceivedModal(false)
     setReceivedForm({ condition: 'good', delivery_notes: '' })
     try {
@@ -362,7 +361,7 @@ export default function ProcurementTracker() {
         body: JSON.stringify({
           itemId: detailItem.id,
           po_number: poForm.po_number.trim(),
-          po_date: poForm.po_date || todayISO(),
+          po_date: poForm.po_date || todayDateStr(),
         }),
       })
       const data = await res.json()
@@ -416,14 +415,14 @@ export default function ProcurementTracker() {
           itemId: detailItem.id,
           invoice_number: invoiceForm.invoice_number.trim(),
           amount: Number(invoiceForm.amount),
-          date: invoiceForm.date || todayISO(),
+          date: invoiceForm.date || todayDateStr(),
           notes: invoiceForm.notes,
         }),
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       toast.success('Invoice added')
-      setInvoiceForm({ invoice_number: '', amount: '', date: todayISO(), notes: '' })
+      setInvoiceForm({ invoice_number: '', amount: '', date: todayDateStr(), notes: '' })
       await openDetail(detailItem)
     } catch (err) {
       toast.error(err.message || 'Failed to add invoice')
@@ -440,7 +439,7 @@ export default function ProcurementTracker() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `procurement-${projectName || 'export'}-${todayISO()}.csv`
+      a.download = `procurement-${projectName || 'export'}-${todayDateStr()}.csv`
       a.click()
       URL.revokeObjectURL(url)
       toast.success('CSV exported')

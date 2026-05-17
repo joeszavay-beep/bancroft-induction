@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { todayDateStr } from '../lib/dates'
 import { useCompany } from '../lib/CompanyContext'
 import { useProject } from '../lib/ProjectContext'
 import { getSession } from '../lib/storage'
@@ -63,10 +64,6 @@ function formatDate(d) {
   return `${day}-${mon}-${year}`
 }
 
-function todayISO() {
-  const d = new Date()
-  return d.toISOString().split('T')[0]
-}
 
 function parseJson(r) {
   if (!r) return []
@@ -100,7 +97,7 @@ export default function HSObservations() {
   // New observation modal
   const [showNewModal, setShowNewModal] = useState(false)
   const [form, setForm] = useState({
-    project_id: '', category: '', priority: '', observation_date: todayISO(),
+    project_id: '', category: '', priority: '', observation_date: todayDateStr(),
     location: '', comment: '', assigned_to: '', photos: [],
   })
   const [saving, setSaving] = useState(false)
@@ -251,7 +248,7 @@ export default function HSObservations() {
   function resetForm() {
     setShowNewModal(false)
     setForm({
-      project_id: '', category: '', priority: '', observation_date: todayISO(),
+      project_id: '', category: '', priority: '', observation_date: todayDateStr(),
       location: '', comment: '', assigned_to: '', photos: [],
     })
   }

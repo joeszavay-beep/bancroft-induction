@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useCompany } from '../lib/CompanyContext'
 import { useProject } from '../lib/ProjectContext'
 import { authFetch } from '../lib/authFetch'
+import { todayDateStr } from '../lib/dates'
 import { getSession } from '../lib/storage'
 import { calculateEndDate, formatDateWithDay, modeLabel, durationUnit, nextWorkingDay } from '../lib/programmeCalc'
 import toast from 'react-hot-toast'
@@ -46,9 +47,7 @@ function modeBadge(mode) {
   )
 }
 
-function todayISO() {
-  return new Date().toISOString().split('T')[0]
-}
+
 
 // ── Sortable row for dnd-kit ──
 function SortableRow({ task, index, onEdit, onDuplicate, onDelete }) {
@@ -129,7 +128,7 @@ export default function ProgrammeCalculator() {
     description: '',
     trade: '',
     mode: 'working_days',
-    start_date: todayISO(),
+    start_date: todayDateStr(),
     duration: 5,
     notes: '',
   })
@@ -307,7 +306,7 @@ export default function ProgrammeCalculator() {
       description: '',
       trade: '',
       mode: 'working_days',
-      start_date: todayISO(),
+      start_date: todayDateStr(),
       duration: 5,
       notes: '',
     })
@@ -321,7 +320,7 @@ export default function ProgrammeCalculator() {
       description: task.description || '',
       trade: task.trade || '',
       mode: task.mode || 'working_days',
-      start_date: task.start_date || todayISO(),
+      start_date: task.start_date || todayDateStr(),
       duration: task.duration || 5,
       notes: task.notes || '',
     })

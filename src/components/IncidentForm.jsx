@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { todayDateStr, isFuture } from '../lib/dates'
 import { getSession } from '../lib/storage'
 import toast from 'react-hot-toast'
 import { AlertTriangle, X, Upload, Loader2 } from 'lucide-react'
@@ -25,16 +26,13 @@ const SEVERITY_COLOURS = {
   high: '#DC2626',
 }
 
-function todayISO() {
-  return new Date().toISOString().split('T')[0]
-}
 
 export default function IncidentForm({ projects, projectId, onClose, onSaved }) {
   const managerData = JSON.parse(getSession('manager_data') || '{}')
   const cid = managerData.company_id
 
   const [selectedProject, setSelectedProject] = useState(projectId || '')
-  const [incidentDate, setIncidentDate] = useState(todayISO())
+  const [incidentDate, setIncidentDate] = useState(todayDateStr())
   const [incidentType, setIncidentType] = useState('')
   const [severity, setSeverity] = useState('medium')
   const [description, setDescription] = useState('')
@@ -70,7 +68,7 @@ export default function IncidentForm({ projects, projectId, onClose, onSaved }) 
     const errs = {}
     if (!selectedProject) errs.project = 'Please select a project'
     if (!incidentDate) errs.date = 'Date is required'
-    if (incidentDate && incidentDate > todayISO()) errs.date = 'Date cannot be in the future'
+    if (incidentDate && isFuture(incidentDate)) errs.date = 'Date cannot be in the future'
     if (!incidentType) errs.type = 'Please select an incident type'
     if (!description.trim()) errs.description = 'Description is required'
     setErrors(errs)
@@ -214,7 +212,7 @@ export default function IncidentForm({ projects, projectId, onClose, onSaved }) 
                 type="date"
                 value={incidentDate}
                 onChange={e => setIncidentDate(e.target.value)}
-                max={todayISO()}
+                max={todayDateStr()}
                 required
                 className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1B6FC8]/30 focus:border-[#1B6FC8]"
                 style={{ color: 'var(--text-primary)', borderColor: errors.date ? '#DC2626' : 'var(--border-color)', backgroundColor: 'var(--bg-card)' }}
