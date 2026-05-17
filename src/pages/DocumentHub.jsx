@@ -255,7 +255,7 @@ export default function DocumentHub() {
   async function uploadFileToStorage(file, category) {
     const ext = file.name.split('.').pop()
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const path = `hub/${cid}/${category || 'Other'}/${Date.now()}_${safeName}`
+    const path = `hub/${cid}/${category || 'Other'}/${crypto.randomUUID()}_${safeName}`
     const { data, error } = await supabase.storage.from('documents').upload(path, file, { contentType: file.type })
     if (error) throw error
     const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)

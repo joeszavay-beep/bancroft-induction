@@ -1,24 +1,74 @@
+import { createClient } from '@supabase/supabase-js'
+
 function escapeHtml(str) {
   if (!str) return str
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+/**
+ * POST /api/notify
+ * Sends a "documents complete" email notification.
+ *
+ * Security: No auth token required (called from operative signing flow),
+ * but verifies server-side that the operative has actually signed all
+ * required documents for at least one project. Prevents use as an open email relay.
+ */
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  // No auth required — this is called from operative pages after signing
+  const { to, operativeName, projectName, operativeId } = req.body
 
-  const { to, operativeName, projectName } = req.body
-
-  if (!to || !operativeName) {
+  if (!to || !operativeName || !operativeId) {
     return res.status(400).json({ error: 'Missing required fields' })
   }
 
-  // Basic email format check to prevent abuse
+  // Basic email format check
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
     return res.status(400).json({ error: 'Invalid email address' })
+  }
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server config missing' })
+  }
+
+  const supabase = createClient(supabaseUrl, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+
+  // Verify the operative exists and belongs to a company with this notification email
+  const { data: op } = await supabase
+    .from('operatives')
+    .select('id, name, company_id')
+    .eq('id', operativeId)
+    .single()
+
+  if (!op) {
+    return res.status(404).json({ error: 'Operative not found' })
+  }
+
+  // Verify the "to" email matches the company's notification_email
+  const { data: company } = await supabase
+    .from('companies')
+    .select('notification_email')
+    .eq('id', op.company_id)
+    .single()
+
+  if (!company || company.notification_email !== to) {
+    return res.status(403).json({ error: 'Recipient does not match company notification email' })
+  }
+
+  // Verify the operative has actually signed at least one document
+  const { count } = await supabase
+    .from('signatures')
+    .select('id', { count: 'exact', head: true })
+    .eq('operative_id', operativeId)
+
+  if (!count || count === 0) {
+    return res.status(403).json({ error: 'Operative has not signed any documents' })
   }
 
   const safeName = escapeHtml(operativeName)

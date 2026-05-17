@@ -179,7 +179,7 @@ export default function OperativeCerts() {
         for (const [file, side, urlField] of [[certFile, 'front', 'card_front_url'], [certBackFile, 'back', 'card_back_url']]) {
           if (!file) continue
           const ext = file.name.split('.').pop()
-          const path = `cards/${operative.id}/${side}_${Date.now()}.${ext}`
+          const path = `cards/${operative.id}/${side}_${crypto.randomUUID()}.${ext}`
           const { error: upErr } = await supabase.storage.from('documents').upload(path, file, { contentType: file.type })
           if (upErr) { toast.error(`Failed to upload ${side} photo`); setUploading(false); return }
           const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
@@ -195,7 +195,7 @@ export default function OperativeCerts() {
       } else if (certFile) {
         // Other certs: single document upload
         const ext = certFile.name.split('.').pop()
-        const path = `certs/${operative.id}/${editCert.key}/${Date.now()}.${ext}`
+        const path = `certs/${operative.id}/${editCert.key}/${crypto.randomUUID()}.${ext}`
 
         const folder = `certs/${operative.id}/${editCert.key}`
         const { data: oldFiles } = await supabase.storage.from('documents').list(folder)

@@ -277,7 +277,7 @@ export default function CompanySettings() {
       let logoUrl = companyData.logo_url
       if (logoFile) {
         const ext = logoFile.name.split('.').pop()
-        const path = `logos/${cid}/${Date.now()}.${ext}`
+        const path = `logos/${cid}/${crypto.randomUUID()}.${ext}`
         const { error: upErr } = await supabase.storage.from('documents').upload(path, logoFile, { upsert: true })
         if (upErr) throw upErr
         const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)

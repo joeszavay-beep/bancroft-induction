@@ -15,6 +15,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing companyId' })
   }
 
+  // Verify caller belongs to this company
+  const token = req.headers.authorization?.replace('Bearer ', '')
+  const { data: { user } } = await supabase.auth.getUser(token)
+  const callerCompanyId = user?.user_metadata?.company_id
+  if (callerCompanyId && callerCompanyId !== companyId) {
+    return res.status(403).json({ error: 'Not authorised to delete another company' })
+  }
+
   try {
     // Get admin profiles before deleting so we can clean up auth users
     const { data: profiles } = await supabase

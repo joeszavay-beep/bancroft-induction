@@ -77,7 +77,7 @@ export default function HolidayRequests() {
   useEffect(() => {
     if (!op) return
     setAllowanceLoading(true)
-    fetch(`/api/holiday-allowance?operativeId=${op.id}`)
+    fetch(`/api/holiday-allowance?operativeId=${op.id}&operativeSessionId=${op.id}`)
       .then(r => r.json())
       .then(data => setAllowance(data))
       .catch(() => toast.error('Failed to load allowance'))
@@ -88,7 +88,7 @@ export default function HolidayRequests() {
   useEffect(() => {
     if (!op) return
     setApproversLoading(true)
-    fetch(`/api/eligible-approvers?operativeId=${op.id}`)
+    fetch(`/api/eligible-approvers?operativeId=${op.id}&operativeSessionId=${op.id}`)
       .then(r => r.json())
       .then(data => setApprovers(data.approvers || []))
       .catch(() => toast.error('Failed to load approvers'))
@@ -152,7 +152,7 @@ export default function HolidayRequests() {
       setReason('')
       loadRequests()
       // Reload allowance to reflect pending change
-      fetch(`/api/holiday-allowance?operativeId=${op.id}`)
+      fetch(`/api/holiday-allowance?operativeId=${op.id}&operativeSessionId=${op.id}`)
         .then(r => r.json())
         .then(data => setAllowance(data))
     } catch (err) {
@@ -177,7 +177,7 @@ export default function HolidayRequests() {
       if (!res.ok) throw new Error('Failed to cancel')
       toast.success('Request cancelled')
       loadRequests()
-      fetch(`/api/holiday-allowance?operativeId=${op.id}`)
+      fetch(`/api/holiday-allowance?operativeId=${op.id}&operativeSessionId=${op.id}`)
         .then(r => r.json())
         .then(data => setAllowance(data))
     } catch (err) {

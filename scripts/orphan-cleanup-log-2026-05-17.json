@@ -1,0 +1,1221 @@
+{
+  "timestamp": "2026-05-17T11:00:13.655Z",
+  "mode": "live",
+  "deletions": [
+    {
+      "bucket": "documents",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774942022258.pdf",
+      "size": 9641769,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:23.730Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774942172311.pdf",
+      "size": 667477,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:24.195Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774942196663.pdf",
+      "size": 4281260,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:24.381Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774942213125.pdf",
+      "size": 4117740,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:24.605Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774942229880.pdf",
+      "size": 3123826,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:24.818Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774942292784.pdf",
+      "size": 4047303,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:25.021Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774942341511.pdf",
+      "size": 3123826,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:25.295Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774942357561.pdf",
+      "size": 5463147,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:25.653Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774942377353.pdf",
+      "size": 3881713,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:25.880Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774942399209.pdf",
+      "size": 4052172,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:26.078Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774942419105.pdf",
+      "size": 1610838,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:26.356Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774942656947.pdf",
+      "size": 2539318,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:26.570Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774942681210.pdf",
+      "size": 784003,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:26.863Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774942696535.pdf",
+      "size": 685472,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:27.084Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "8fde0d28-4f35-4716-92a5-f9a7a7da2d3f/1774899056447.pdf",
+      "size": 488773,
+      "mimetype": "application/pdf",
+      "age": 48,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:27.345Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "bim/68c8298f-cd1b-4a4d-9739-f7e902200c84/1f0153ff-a7fc-4646-8a65-ffe97e26e8b1.ifc",
+      "size": 39612234,
+      "mimetype": "application/octet-stream",
+      "age": 41,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:27.597Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "bim/68c8298f-cd1b-4a4d-9739-f7e902200c84/326fba52-5959-4672-9b3a-80d482b6abd9.ifc",
+      "size": 39612234,
+      "mimetype": "application/octet-stream",
+      "age": 41,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:27.910Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "bim/68c8298f-cd1b-4a4d-9739-f7e902200c84/4bdd375f-5d88-4a7f-afc1-4a194c8b38bf.ifc",
+      "size": 11067489,
+      "mimetype": "application/octet-stream",
+      "age": 40,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:28.119Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "bim/68c8298f-cd1b-4a4d-9739-f7e902200c84/550db1ab-359f-45ed-908a-152bbfd71d68.ifc",
+      "size": 41894594,
+      "mimetype": "application/octet-stream",
+      "age": 40,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:28.432Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "bim/68c8298f-cd1b-4a4d-9739-f7e902200c84/8255720d-4d31-4cd4-8a5c-4b1433d6dfa4.ifc",
+      "size": 39612234,
+      "mimetype": "application/octet-stream",
+      "age": 41,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:28.796Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "bim/68c8298f-cd1b-4a4d-9739-f7e902200c84/f792cb14-7eef-4546-a3b6-48c10104cba7.ifc",
+      "size": 11067489,
+      "mimetype": "application/octet-stream",
+      "age": 40,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:29.039Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "bim/f63ff789-24aa-457d-8fb4-b84521d580d3/27b261ec-6f00-4d93-afd6-55256b1b0a2e.ifc",
+      "size": 11067489,
+      "mimetype": "application/octet-stream",
+      "age": 40,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:29.322Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "bim/f63ff789-24aa-457d-8fb4-b84521d580d3/63a0a681-2e13-4667-aeae-97b1f16ab276.ifc",
+      "size": 39612234,
+      "mimetype": "application/octet-stream",
+      "age": 41,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:29.616Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "bim/f63ff789-24aa-457d-8fb4-b84521d580d3/67cc2ddb-33d8-4635-9db5-be73a7152f1e.ifc",
+      "size": 4099307,
+      "mimetype": "application/x-step",
+      "age": 40,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:29.848Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "bim/f63ff789-24aa-457d-8fb4-b84521d580d3/7f8a8647-0d39-4c45-b904-8b7adfe61a25.ifc",
+      "size": 4099293,
+      "mimetype": "application/octet-stream",
+      "age": 40,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:30.071Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "bim/f63ff789-24aa-457d-8fb4-b84521d580d3/b7df3a0e-5012-4958-b073-1a5fa74e04e2.ifc",
+      "size": 41894594,
+      "mimetype": "application/octet-stream",
+      "age": 41,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:30.371Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "bim/f63ff789-24aa-457d-8fb4-b84521d580d3/duplex_electrical_1775508136426.ifc",
+      "size": 1602758,
+      "mimetype": "application/x-step",
+      "age": 41,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:30.570Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "bim/f63ff789-24aa-457d-8fb4-b84521d580d3/e7e83fd6-1e00-4867-9bc0-f55b48a009d9.ifc",
+      "size": 220789,
+      "mimetype": "application/octet-stream",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:30.772Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "cards/4d5c6a4f-3e68-4715-bf7b-e3491dd11086/back_ee064b33-551d-4fc1-8161-1ccb20976e52.jpg",
+      "size": 289036,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:31.081Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "cards/4d5c6a4f-3e68-4715-bf7b-e3491dd11086/front_77ef393b-06a3-487c-b745-b6e82c3143cf.jpg",
+      "size": 625142,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:31.297Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "cards/5cde86db-99f0-46ef-a7d8-14dec1d9bd07/back_2f1853f7-f831-4ee1-b23e-effcfe9fda78.jpg",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:31.595Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "cards/5cde86db-99f0-46ef-a7d8-14dec1d9bd07/front_6691e235-7b95-46ea-9477-bc363721149b.jpg",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:31.794Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "cards/a48c02cd-179d-4616-a871-bf65844e7bb8/back_e0d5ae6b-d7f3-4fb7-a11a-ebdf6093e8a1.jpg",
+      "size": 289036,
+      "mimetype": "image/png",
+      "age": 31,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:32.048Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "cards/a48c02cd-179d-4616-a871-bf65844e7bb8/front_0198efdb-3b22-4216-82ce-300d83d473d2.jpg",
+      "size": 625142,
+      "mimetype": "image/png",
+      "age": 31,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:32.268Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "cards/bb723813-ed83-4830-8853-ea12afcc44e3/back_8305655c-78ef-4bb1-9ee6-4f49ead03cb9.jpg",
+      "size": 289036,
+      "mimetype": "image/png",
+      "age": 31,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:32.469Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "cards/bb723813-ed83-4830-8853-ea12afcc44e3/front_c5fbfc4b-8e84-4a15-b7b6-45233b2ef4f0.jpg",
+      "size": 625142,
+      "mimetype": "image/png",
+      "age": 31,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:32.667Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "cards/d85856ee-9312-4503-81aa-7af690dbe869/back_1775409272176.jpg",
+      "size": 2301639,
+      "mimetype": "image/png",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:32.865Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "cards/d85856ee-9312-4503-81aa-7af690dbe869/back_1775409937961.jpg",
+      "size": 2242868,
+      "mimetype": "image/png",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:33.148Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "cards/d85856ee-9312-4503-81aa-7af690dbe869/front_1775409269851.jpg",
+      "size": 2242868,
+      "mimetype": "image/png",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:33.357Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "cards/d85856ee-9312-4503-81aa-7af690dbe869/front_1775409934399.jpg",
+      "size": 2301639,
+      "mimetype": "image/png",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:33.647Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "chat/a3a6b344-8394-4ca6-8f07-3011b4513bbe/1775412519090.jpg",
+      "size": 2242868,
+      "mimetype": "image/png",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:33.855Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "chat/a3a6b344-8394-4ca6-8f07-3011b4513bbe/1775412692906.jpg",
+      "size": 2301639,
+      "mimetype": "image/png",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:34.149Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "chat/a3a6b344-8394-4ca6-8f07-3011b4513bbe/1775412703673.jpg",
+      "size": 2067107,
+      "mimetype": "image/png",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:34.367Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "chat/a3a6b344-8394-4ca6-8f07-3011b4513bbe/1775412755822.jpg",
+      "size": 2242868,
+      "mimetype": "image/png",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:34.572Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "chat/a3a6b344-8394-4ca6-8f07-3011b4513bbe/1775412764505.jpg",
+      "size": 2067107,
+      "mimetype": "image/png",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:34.764Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "logos/coresite-logo.svg",
+      "size": 10052,
+      "mimetype": "image/svg+xml",
+      "age": 34,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:34.982Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/68c8298f-cd1b-4a4d-9739-f7e902200c84/75005655-d520-45d5-9344-ab28a4aa0fb7.dxf",
+      "size": 45625229,
+      "mimetype": "application/octet-stream",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:35.298Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/68c8298f-cd1b-4a4d-9739-f7e902200c84/b3991b94-b590-4150-a55b-0f53c41bea22.pdf",
+      "size": 5425389,
+      "mimetype": "application/pdf",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:35.615Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/f63ff789-24aa-457d-8fb4-b84521d580d3/88daaea8-a9a7-49f9-afd2-30242720e87a.dxf",
+      "size": 45625229,
+      "mimetype": "application/octet-stream",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:35.836Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/f63ff789-24aa-457d-8fb4-b84521d580d3/8de8120e-4edc-4822-9769-9b096c7eb0fe.pdf",
+      "size": 5425389,
+      "mimetype": "application/pdf",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:36.032Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/f63ff789-24aa-457d-8fb4-b84521d580d3/944f9527-27f8-40c9-bd47-c029e9809bea.dxf",
+      "size": 45625229,
+      "mimetype": "application/octet-stream",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:36.347Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/f63ff789-24aa-457d-8fb4-b84521d580d3/a00aca16-a6fa-48da-881a-c3fed5b8f2a9.dxf",
+      "size": 45625229,
+      "mimetype": "application/octet-stream",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:36.663Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/f63ff789-24aa-457d-8fb4-b84521d580d3/a7aed323-601c-489d-b299-9581f8cff183.dxf",
+      "size": 45625229,
+      "mimetype": "application/octet-stream",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:36.915Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/f63ff789-24aa-457d-8fb4-b84521d580d3/b00a7bc7-43d3-4e10-a8af-25d2b2a0d019.pdf",
+      "size": 5425389,
+      "mimetype": "application/pdf",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:37.183Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/f63ff789-24aa-457d-8fb4-b84521d580d3/b1019931-06b2-49cb-a028-415664502d38.pdf",
+      "size": 5425389,
+      "mimetype": "application/pdf",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:37.422Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/f63ff789-24aa-457d-8fb4-b84521d580d3/b916220f-f4ad-4849-8031-8209269e4a3a.dxf",
+      "size": 45625229,
+      "mimetype": "application/octet-stream",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:37.713Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/f63ff789-24aa-457d-8fb4-b84521d580d3/c5c0ec02-a764-436c-b61c-c61b887453ce.dxf",
+      "size": 45625229,
+      "mimetype": "application/octet-stream",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:37.966Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/f63ff789-24aa-457d-8fb4-b84521d580d3/d43e8f87-e475-42fa-8360-acc33c94f2b7.pdf",
+      "size": 5425389,
+      "mimetype": "application/pdf",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:38.237Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/f63ff789-24aa-457d-8fb4-b84521d580d3/dcf19924-1dbd-4fc6-a1d4-5fbfd2ff51f4.dxf",
+      "size": 45625229,
+      "mimetype": "application/octet-stream",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:38.487Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/f63ff789-24aa-457d-8fb4-b84521d580d3/e626f454-34b1-41d6-a446-e0f6036bb0b0.pdf",
+      "size": 5425389,
+      "mimetype": "application/pdf",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:38.762Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "programme/f63ff789-24aa-457d-8fb4-b84521d580d3/ee25dade-403a-4c2e-a1b0-b448bbcef86b.dxf",
+      "size": 45625229,
+      "mimetype": "application/octet-stream",
+      "age": 39,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:39.037Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "signatures/056de4ef-92e9-4384-826c-cd3b907f5f27/4711f7c3-8a1d-498b-8fd5-d8c43e875aa7_1774949410559.png",
+      "size": 53475,
+      "mimetype": "image/png",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:39.284Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "signatures/22e66e5a-d4df-47ff-9726-3cfff385b190/1614ae20-a1cc-4e29-972c-e61fe4b64e1a_1774936290222.png",
+      "size": 44732,
+      "mimetype": "image/png",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:39.486Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "signatures/6ed7f566-8c85-4540-8f9f-e704555d2410/46713373-a837-4ecf-8cc6-d8309fadf6f9_1774944298814.png",
+      "size": 20784,
+      "mimetype": "image/png",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:39.697Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "signatures/6ed7f566-8c85-4540-8f9f-e704555d2410/4711f7c3-8a1d-498b-8fd5-d8c43e875aa7_1774942820757.png",
+      "size": 21262,
+      "mimetype": "image/png",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:39.985Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "signatures/6ed7f566-8c85-4540-8f9f-e704555d2410/892c8b24-f84a-4a93-a1ca-95cbd4d2cf9d_1774942855824.png",
+      "size": 20028,
+      "mimetype": "image/png",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:40.208Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "signatures/7126d86b-0583-4c77-a042-f75b0c845dbe/4711f7c3-8a1d-498b-8fd5-d8c43e875aa7_1774965894399.png",
+      "size": 20852,
+      "mimetype": "image/png",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:40.489Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "signatures/bebefb0b-2c87-42da-af7c-b2a2ad1eb005/1614ae20-a1cc-4e29-972c-e61fe4b64e1a_1774899130260.png",
+      "size": 44761,
+      "mimetype": "image/png",
+      "age": 48,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:40.688Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "signatures/c9449c42-eda0-4364-9c94-f82427107c6f/1614ae20-a1cc-4e29-972c-e61fe4b64e1a_1774899144726.png",
+      "size": 55108,
+      "mimetype": "image/png",
+      "age": 48,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:40.979Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "signatures/d85856ee-9312-4503-81aa-7af690dbe869/19e8ef8d-8b25-4c2e-91f8-0770f0a2cbeb_1775416422830.png",
+      "size": 42536,
+      "mimetype": "image/png",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:41.195Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "signatures/d85856ee-9312-4503-81aa-7af690dbe869/9201f84f-b2c0-47ab-a2b1-eed787d13597_1775430558909.png",
+      "size": 33089,
+      "mimetype": "image/png",
+      "age": 41,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:41.489Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "snag-reports/00000000-0000-0000-0000-000000000001/1775076211632.pdf",
+      "size": 194839,
+      "mimetype": "application/pdf",
+      "age": 46,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:41.715Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "snag-reports/00000000-0000-0000-0000-000000000001/1775076307617.pdf",
+      "size": 193889,
+      "mimetype": "application/pdf",
+      "age": 46,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:41.915Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "snag-reports/00000000-0000-0000-0000-000000000001/1775078043839.pdf",
+      "size": 164626,
+      "mimetype": "application/pdf",
+      "age": 46,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:42.115Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "snag-reports/00000000-0000-0000-0000-000000000001/1775109546556.pdf",
+      "size": 242213,
+      "mimetype": "application/pdf",
+      "age": 45,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:42.324Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "snag-reports/00000000-0000-0000-0000-000000000001/1775132475777.pdf",
+      "size": 176483,
+      "mimetype": "application/pdf",
+      "age": 45,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:42.614Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "snag-reports/00000000-0000-0000-0000-000000000001/1775288883536.pdf",
+      "size": 176426,
+      "mimetype": "application/pdf",
+      "age": 43,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:42.820Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "snag-reports/00000000-0000-0000-0000-000000000001/1775289837784.pdf",
+      "size": 176708,
+      "mimetype": "application/pdf",
+      "age": 43,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:43.268Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "snag-reports/00000000-0000-0000-0000-000000000001/1775290240287.pdf",
+      "size": 187048,
+      "mimetype": "application/pdf",
+      "age": 43,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:43.480Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "snag-reports/00000000-0000-0000-0000-000000000001/1775290790363.pdf",
+      "size": 211206,
+      "mimetype": "application/pdf",
+      "age": 43,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:43.684Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "snag-reports/a3a6b344-8394-4ca6-8f07-3011b4513bbe/1775410032127.pdf",
+      "size": 108758,
+      "mimetype": "application/pdf",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:43.875Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "snag-reports/a3a6b344-8394-4ca6-8f07-3011b4513bbe/1775428724709.pdf",
+      "size": 117383,
+      "mimetype": "application/pdf",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:44.178Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "snag-reports/a3a6b344-8394-4ca6-8f07-3011b4513bbe/1775430712020.pdf",
+      "size": 293068,
+      "mimetype": "application/pdf",
+      "age": 41,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:44.394Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "toolbox/0e107ec4-92b0-47b9-becd-770a4350f3aa/6ed7f566-8c85-4540-8f9f-e704555d2410_1774942879814.png",
+      "size": 20128,
+      "mimetype": "image/png",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:44.654Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "toolbox/5f88c6d1-6e56-4b1e-acd9-c947987685de/6ed7f566-8c85-4540-8f9f-e704555d2410_1774965992986.png",
+      "size": 19562,
+      "mimetype": "image/png",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:44.852Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "toolbox/87f9a829-41d2-4ede-9335-38d5903758c5/f599294a-6282-4d61-8235-d317db6edfd5_1774937163123.png",
+      "size": 18915,
+      "mimetype": "image/png",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:45.054Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "toolbox/d90ff0af-be87-496f-9698-61eed2e79dff/22e66e5a-d4df-47ff-9726-3cfff385b190_1774903752643.png",
+      "size": 36901,
+      "mimetype": "image/png",
+      "age": 48,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:45.274Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "toolbox/e7a56c49-d2d3-4a3b-8847-90bea8c1bada/056de4ef-92e9-4384-826c-cd3b907f5f27_1774949503075.png",
+      "size": 46041,
+      "mimetype": "image/png",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:45.573Z"
+    },
+    {
+      "bucket": "documents",
+      "path": "variations/5b600c83-7b47-4026-b100-67a751dd2e2c/4eb8f4c6-b93e-4625-b366-ae6f63b58b44.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 31,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:45.817Z"
+    },
+    {
+      "bucket": "snag-photos",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/065d5260-952b-4c33-9364-f286927a3407/1774978359449.jpg",
+      "size": 101275,
+      "mimetype": "image/png",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:47.457Z"
+    },
+    {
+      "bucket": "snag-photos",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/065d5260-952b-4c33-9364-f286927a3407/1774978377565.jpg",
+      "size": 96374,
+      "mimetype": "image/png",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:47.675Z"
+    },
+    {
+      "bucket": "snag-photos",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/065d5260-952b-4c33-9364-f286927a3407/1775021814189.jpg",
+      "size": 2013262,
+      "mimetype": "image/jpeg",
+      "age": 46,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:47.881Z"
+    },
+    {
+      "bucket": "snag-photos",
+      "path": "snag-replies/6b71faef-1e21-4a57-b894-5085d0982420/1775290308805.jpg",
+      "size": 828199,
+      "mimetype": "image/jpeg",
+      "age": 43,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:48.077Z"
+    },
+    {
+      "bucket": "snag-photos",
+      "path": "snag-replies/6c84ca73-0c44-41b8-829d-a846b7c0d582/1775288937796.jpg",
+      "size": 2012191,
+      "mimetype": "image/jpeg",
+      "age": 43,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:48.360Z"
+    },
+    {
+      "bucket": "snag-photos",
+      "path": "snag-replies/6c84ca73-0c44-41b8-829d-a846b7c0d582/1775290878422.jpg",
+      "size": 679945,
+      "mimetype": "image/jpeg",
+      "age": 43,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:48.551Z"
+    },
+    {
+      "bucket": "snag-photos",
+      "path": "snag-replies/9543b3ac-b0d3-4e60-8545-38196a226c14/1775289886892.jpg",
+      "size": 1388166,
+      "mimetype": "image/jpeg",
+      "age": 43,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:48.829Z"
+    },
+    {
+      "bucket": "progress-drawings",
+      "path": "00000000-0000-0000-0000-000000000001/1775065670870.png",
+      "size": 6708288,
+      "mimetype": "image/png",
+      "age": 46,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:49.245Z"
+    },
+    {
+      "bucket": "progress-drawings",
+      "path": "00000000-0000-0000-0000-000000000001/1775069548273.png",
+      "size": 6708695,
+      "mimetype": "image/png",
+      "age": 46,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:49.502Z"
+    },
+    {
+      "bucket": "progress-drawings",
+      "path": "00000000-0000-0000-0000-000000000001/1775070206661.png",
+      "size": 6709554,
+      "mimetype": "image/png",
+      "age": 46,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:49.770Z"
+    },
+    {
+      "bucket": "progress-drawings",
+      "path": "00000000-0000-0000-0000-000000000001/1775073739659.png",
+      "size": 6708761,
+      "mimetype": "image/png",
+      "age": 46,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:49.978Z"
+    },
+    {
+      "bucket": "progress-drawings",
+      "path": "00000000-0000-0000-0000-000000000001/1775131933596.png",
+      "size": 6635066,
+      "mimetype": "image/png",
+      "age": 45,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:50.299Z"
+    },
+    {
+      "bucket": "progress-drawings",
+      "path": "a3a6b344-8394-4ca6-8f07-3011b4513bbe/1775333553967.png",
+      "size": 2067107,
+      "mimetype": "image/png",
+      "age": 43,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:50.559Z"
+    },
+    {
+      "bucket": "progress-drawings",
+      "path": "a3a6b344-8394-4ca6-8f07-3011b4513bbe/1775424004202.png",
+      "size": 371380,
+      "mimetype": "image/png",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:51.111Z"
+    },
+    {
+      "bucket": "progress-drawings",
+      "path": "a3a6b344-8394-4ca6-8f07-3011b4513bbe/1775424300119.png",
+      "size": 371429,
+      "mimetype": "image/png",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:51.345Z"
+    },
+    {
+      "bucket": "progress-drawings",
+      "path": "a3a6b344-8394-4ca6-8f07-3011b4513bbe/1775424618491.png",
+      "size": 371372,
+      "mimetype": "image/png",
+      "age": 42,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:51.553Z"
+    },
+    {
+      "bucket": "progress-photos",
+      "path": "00000000-0000-0000-0000-000000000001/33cb9d30-8487-4566-b2f7-705d169dbbc6/1775067026003.jpg",
+      "size": 27387,
+      "mimetype": "image/png",
+      "age": 46,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:52.021Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "joe-site/1775073259760.jpeg",
+      "size": 157742,
+      "mimetype": "image/jpeg",
+      "age": 46,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:52.536Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "thomas-worley-electrical-ltd/1776279654620.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:52.750Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "thomas-worley-electrical-ltd/1776279960421.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:53.034Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "thomas-worley-electrical-ltd/1776282479565.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:53.234Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "thomas-worley-electrical-ltd/1776282580768.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:53.442Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "thomas-worley-electrical-ltd/1776282754872.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:53.651Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "thomas-worley-electrical-ltd/1776283666420.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:53.845Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "thomas-worley-electrical/1776278098940.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:54.127Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "thomas-worley-electrical/1776279060486.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:54.342Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "thomas-worley-electrical/1776279329036.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:54.606Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "thomas-worley-electrical/1776282631519.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:55.061Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "thomas-worley-ltd/1776280216405.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:55.276Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "thomas-worley-ltd/1776280545458.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:55.538Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "thomas-worley-ltd/1776281481846.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:55.736Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "thomas-worley-ltd/1776282159721.png",
+      "size": 10272,
+      "mimetype": "image/png",
+      "age": 32,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:55.931Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "twe/1774992363766.jpg",
+      "size": 464573,
+      "mimetype": "image/jpeg",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:56.212Z"
+    },
+    {
+      "bucket": "company-assets",
+      "path": "twe/1774992516818.jpg",
+      "size": 464573,
+      "mimetype": "image/jpeg",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:56.587Z"
+    },
+    {
+      "bucket": "drawings",
+      "path": "68c8298f-cd1b-4a4d-9739-f7e902200c84/1775327488421.png",
+      "size": 238226,
+      "mimetype": "image/png",
+      "age": 43,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:57.217Z"
+    },
+    {
+      "bucket": "drawings",
+      "path": "68c8298f-cd1b-4a4d-9739-f7e902200c84/1775506935156.png",
+      "size": 122827,
+      "mimetype": "image/png",
+      "age": 41,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:57.434Z"
+    },
+    {
+      "bucket": "drawings",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774977057086.pdf",
+      "size": 4468921,
+      "mimetype": "application/pdf",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:57.657Z"
+    },
+    {
+      "bucket": "drawings",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1774978007116.png",
+      "size": 3146254,
+      "mimetype": "image/png",
+      "age": 47,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:57.866Z"
+    },
+    {
+      "bucket": "drawings",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1775074241027.png",
+      "size": 6709380,
+      "mimetype": "image/png",
+      "age": 46,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:58.158Z"
+    },
+    {
+      "bucket": "drawings",
+      "path": "71c640eb-951e-464c-a106-837f0b4299a0/1775074468184.png",
+      "size": 6708689,
+      "mimetype": "image/png",
+      "age": 46,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:58.387Z"
+    },
+    {
+      "bucket": "drawings",
+      "path": "drawings/f63ff789-24aa-457d-8fb4-b84521d580d3/63fabe31-4d22-418a-9b66-e3df64b07751.png",
+      "size": 218308,
+      "mimetype": "image/png",
+      "age": 40,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:58.682Z"
+    },
+    {
+      "bucket": "drawings",
+      "path": "drawings/f63ff789-24aa-457d-8fb4-b84521d580d3/97450c40-9042-4f77-8ee3-7950b73bb5c8.png",
+      "size": 112366,
+      "mimetype": "image/png",
+      "age": 40,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:58.876Z"
+    },
+    {
+      "bucket": "drawings",
+      "path": "f63ff789-24aa-457d-8fb4-b84521d580d3/bim_demo_floorplan_1775508135465.pdf",
+      "size": 1476858,
+      "mimetype": "application/pdf",
+      "age": 41,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:59.108Z"
+    },
+    {
+      "bucket": "drawings",
+      "path": "f63ff789-24aa-457d-8fb4-b84521d580d3/duplex_arch_floorplan_1775508684553.png",
+      "size": 186693,
+      "mimetype": "image/png",
+      "age": 41,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:59.458Z"
+    },
+    {
+      "bucket": "drawings",
+      "path": "f63ff789-24aa-457d-8fb4-b84521d580d3/duplex_mep_floorplan_1775508342499.png",
+      "size": 190380,
+      "mimetype": "image/png",
+      "age": 41,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:00:59.733Z"
+    },
+    {
+      "bucket": "drawings",
+      "path": "f63ff789-24aa-457d-8fb4-b84521d580d3/level_01_ga_1775509127859.png",
+      "size": 417757,
+      "mimetype": "image/png",
+      "age": 41,
+      "status": "deleted",
+      "timestamp": "2026-05-17T11:01:00.029Z"
+    }
+  ]
+}

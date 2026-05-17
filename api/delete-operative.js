@@ -22,6 +22,18 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing operativeId' })
   }
 
+  // Verify operative belongs to the caller's company
+  const token = req.headers.authorization?.replace('Bearer ', '')
+  const { data: { user } } = await supabase.auth.getUser(token)
+  const callerCompanyId = user?.user_metadata?.company_id
+  if (callerCompanyId) {
+    const { data: op } = await supabase.from('operatives').select('company_id').eq('id', operativeId).single()
+    if (!op) return res.status(404).json({ error: 'Operative not found' })
+    if (op.company_id !== callerCompanyId) {
+      return res.status(403).json({ error: 'Not authorised to delete operatives from another company' })
+    }
+  }
+
   // 1. DB cascade (irreversible step — do first)
   const { data: result, error: rpcErr } = await supabase.rpc('delete_operative_cascade', { op_id: operativeId })
 

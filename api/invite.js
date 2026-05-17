@@ -17,6 +17,20 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields' })
   }
 
+  // Verify the operative belongs to the caller's company
+  const callerCompanyId = user.user_metadata?.company_id
+  if (callerCompanyId) {
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    )
+    const { data: op } = await supabase.from('operatives').select('company_id').eq('id', operativeId).single()
+    if (!op || op.company_id !== callerCompanyId) {
+      return res.status(403).json({ error: 'Not authorised to invite operatives from another company' })
+    }
+  }
+
   const baseUrl = process.env.APP_URL || `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || 'bancroft-induction.vercel.app'}`
 
   const profileLink = `${baseUrl}/operative/${operativeId}/profile`

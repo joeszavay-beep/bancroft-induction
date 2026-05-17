@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { authFetch } from '../lib/authFetch'
 import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
 import LoadingButton from '../components/LoadingButton'
@@ -63,50 +64,80 @@ export default function AdminDashboard() {
   async function addManager(e) {
     e.preventDefault()
     if (!name.trim() || !email.trim() || !password.trim()) return
+    if (password.trim().length < 8) { toast.error('Password must be at least 8 characters'); return }
     setSaving(true)
-    const { error } = await supabase.from('managers').insert({
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      password: password.trim(),
-      role: 'manager',
-      project_ids: selectedProjects,
-      visible_sections: selectedSections.length > 0 ? selectedSections : null,
-      company_id: cid,
-      is_active: true,
-    })
-    setSaving(false)
-    if (error) {
-      if (error.code === '23505') toast.error('Email already exists')
-      else toast.error('Failed to add manager')
-      return
+    try {
+      const res = await authFetch('/api/create-manager', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          password: password.trim(),
+          projectIds: selectedProjects,
+          visibleSections: selectedSections,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        toast.error(data.error || 'Failed to add manager')
+        setSaving(false)
+        return
+      }
+      toast.success('Manager created — welcome email sent')
+      setShowAdd(false)
+      setName(''); setEmail(''); setPassword(''); setSelectedProjects([]); setSelectedSections([])
+      loadData()
+    } catch {
+      toast.error('Failed to create manager')
     }
-    toast.success('Manager account created')
-    setShowAdd(false)
-    setName(''); setEmail(''); setPassword(''); setSelectedProjects([]); setSelectedSections([])
-    loadData()
+    setSaving(false)
   }
 
   async function updateManager(e) {
     e.preventDefault()
     if (!showEdit) return
     setSaving(true)
-    const updates = {
-      name: editName.trim(),
-      email: editEmail.trim().toLowerCase(),
-      project_ids: editProjects,
-      visible_sections: editSections.length > 0 ? editSections : null,
-      is_active: editActive,
-    }
-    if (editPassword.trim()) updates.password = editPassword.trim()
-    const { error } = await supabase.from('managers').update(updates).eq('id', showEdit.id)
-    setSaving(false)
-    if (error) {
+    try {
+      // Update manager record (no password in managers table)
+      const updates = {
+        name: editName.trim(),
+        email: editEmail.trim().toLowerCase(),
+        project_ids: editProjects,
+        visible_sections: editSections.length > 0 ? editSections : null,
+        is_active: editActive,
+      }
+      const { error } = await supabase.from('managers').update(updates).eq('id', showEdit.id)
+      if (error) { toast.error('Failed to update manager'); setSaving(false); return }
+
+      // If password was changed, update it in Supabase Auth (not in managers table)
+      if (editPassword.trim()) {
+        if (editPassword.trim().length < 8) { toast.error('Password must be at least 8 characters'); setSaving(false); return }
+        const res = await authFetch('/api/create-manager', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: editEmail.trim().toLowerCase(),
+            password: editPassword.trim(),
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok || data.error) {
+          toast.error(data.error || 'Manager updated but password change failed')
+          setSaving(false)
+          setShowEdit(null)
+          loadData()
+          return
+        }
+      }
+
+      toast.success('Manager updated')
+      setShowEdit(null)
+      loadData()
+    } catch {
       toast.error('Failed to update manager')
-      return
     }
-    toast.success('Manager updated')
-    setShowEdit(null)
-    loadData()
+    setSaving(false)
   }
 
   async function deleteManager(id, managerName) {

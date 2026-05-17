@@ -14,6 +14,27 @@ export default async function handler(req, res) {
   if (!supabaseUrl || !serviceKey) return res.status(500).json({ error: 'Server config missing' })
   const supabase = createClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
 
+  // Auth: require authenticated manager/admin
+  const { user, error: authErr } = await verifyAuth(req)
+  if (!user) return res.status(401).json({ error: authErr || 'Unauthorized' })
+  const callerCompanyId = user.user_metadata?.company_id
+  if (!callerCompanyId) return res.status(403).json({ error: 'No company associated with your account' })
+
+  // Helper: verify a project belongs to the caller's company
+  async function verifyProjectAccess(projectId) {
+    if (!projectId) return false
+    const { data: proj } = await supabase.from('projects').select('company_id').eq('id', projectId).single()
+    return proj?.company_id === callerCompanyId
+  }
+
+  // Helper: verify an item belongs to the caller's company (via its project)
+  async function verifyItemAccess(itemId) {
+    if (!itemId) return false
+    const { data: item } = await supabase.from('procurement_items').select('project_id').eq('id', itemId).single()
+    if (!item) return false
+    return verifyProjectAccess(item.project_id)
+  }
+
   const action = req.query.action || req.body?.action
 
   // ── GET ──
@@ -21,6 +42,7 @@ export default async function handler(req, res) {
     if (action === 'items') {
       const projectId = req.query.projectId
       if (!projectId) return res.status(400).json({ error: 'Missing projectId' })
+      if (!await verifyProjectAccess(projectId)) return res.status(403).json({ error: 'Not authorised' })
       let q = supabase.from('procurement_items').select('*, procurement_quotes(id, supplier_name, quoted_price, is_selected)').eq('project_id', projectId).neq('status', 'cancelled').order('item_number')
       if (req.query.status) q = q.eq('status', req.query.status)
       if (req.query.category) q = q.eq('category', req.query.category)
@@ -33,6 +55,7 @@ export default async function handler(req, res) {
     if (action === 'quotes') {
       const itemId = req.query.itemId
       if (!itemId) return res.status(400).json({ error: 'Missing itemId' })
+      if (!await verifyItemAccess(itemId)) return res.status(403).json({ error: 'Not authorised' })
       const { data } = await supabase.from('procurement_quotes').select('*').eq('procurement_item_id', itemId).order('created_at')
       return res.json({ quotes: data || [] })
     }
@@ -40,6 +63,7 @@ export default async function handler(req, res) {
     if (action === 'invoices') {
       const itemId = req.query.itemId
       if (!itemId) return res.status(400).json({ error: 'Missing itemId' })
+      if (!await verifyItemAccess(itemId)) return res.status(403).json({ error: 'Not authorised' })
       const { data } = await supabase.from('procurement_invoices').select('*').eq('procurement_item_id', itemId).order('invoice_date')
       return res.json({ invoices: data || [] })
     }
@@ -47,6 +71,7 @@ export default async function handler(req, res) {
     if (action === 'attachments') {
       const itemId = req.query.itemId
       if (!itemId) return res.status(400).json({ error: 'Missing itemId' })
+      if (!await verifyItemAccess(itemId)) return res.status(403).json({ error: 'Not authorised' })
       const { data } = await supabase.from('procurement_attachments').select('*').eq('procurement_item_id', itemId).order('uploaded_at', { ascending: false })
       return res.json({ attachments: data || [] })
     }
@@ -54,6 +79,7 @@ export default async function handler(req, res) {
     if (action === 'audit') {
       const itemId = req.query.itemId
       if (!itemId) return res.status(400).json({ error: 'Missing itemId' })
+      if (!await verifyItemAccess(itemId)) return res.status(403).json({ error: 'Not authorised' })
       const { data } = await supabase.from('procurement_audit_log').select('*').eq('procurement_item_id', itemId).order('created_at', { ascending: false }).limit(20)
       return res.json({ entries: data || [] })
     }
@@ -61,6 +87,7 @@ export default async function handler(req, res) {
     if (action === 'summary') {
       const projectId = req.query.projectId
       if (!projectId) return res.status(400).json({ error: 'Missing projectId' })
+      if (!await verifyProjectAccess(projectId)) return res.status(403).json({ error: 'Not authorised' })
       const { data } = await supabase.from('procurement_items').select('status, order_by_date, required_by_date, delivery_scheduled_date, delivery_received_date').eq('project_id', projectId).neq('status', 'cancelled')
       const items = data || []
       const today = new Date().toISOString().split('T')[0]
@@ -86,6 +113,7 @@ export default async function handler(req, res) {
     if (action === 'export') {
       const projectId = req.query.projectId
       if (!projectId) return res.status(400).json({ error: 'Missing projectId' })
+      if (!await verifyProjectAccess(projectId)) return res.status(403).json({ error: 'Not authorised' })
       const { data } = await supabase.from('procurement_items').select('*, procurement_quotes(supplier_name, quoted_price, is_selected)').eq('project_id', projectId).order('item_number')
       const items = data || []
       const headers = ['Item #','Description','Category','Qty','Unit','Status','Required By','Lead Time (wks)','Order By','Budget','Supplier','Quoted Price','PO Number','Delivery Scheduled','Delivery Received','Condition']
@@ -107,6 +135,7 @@ export default async function handler(req, res) {
     if (action === 'item') {
       const b = req.body
       if (!b.projectId || !b.description) return res.status(400).json({ error: 'Missing projectId or description' })
+      if (!await verifyProjectAccess(b.projectId)) return res.status(403).json({ error: 'Not authorised' })
 
       // Auto-generate item number
       const { data: existing } = await supabase.from('procurement_items').select('item_number').eq('project_id', b.projectId).order('item_number', { ascending: false }).limit(1)
@@ -158,6 +187,7 @@ export default async function handler(req, res) {
     if (action === 'quote') {
       const b = req.body
       if (!b.procurement_item_id || !b.supplier_name) return res.status(400).json({ error: 'Missing item or supplier' })
+      if (!await verifyItemAccess(b.procurement_item_id)) return res.status(403).json({ error: 'Not authorised' })
       const { data, error } = await supabase.from('procurement_quotes').insert({
         procurement_item_id: b.procurement_item_id,
         supplier_name: b.supplier_name.trim(),
@@ -184,6 +214,7 @@ export default async function handler(req, res) {
     if (action === 'invoice') {
       const b = req.body
       if (!b.procurement_item_id) return res.status(400).json({ error: 'Missing item' })
+      if (!await verifyItemAccess(b.procurement_item_id)) return res.status(403).json({ error: 'Not authorised' })
       const { data, error } = await supabase.from('procurement_invoices').insert({
         procurement_item_id: b.procurement_item_id,
         invoice_number: b.invoice_number?.trim() || null,
@@ -199,6 +230,7 @@ export default async function handler(req, res) {
     if (action === 'mark-received') {
       const b = req.body
       if (!b.id) return res.status(400).json({ error: 'Missing item id' })
+      if (!await verifyItemAccess(b.id)) return res.status(403).json({ error: 'Not authorised' })
       const updates = {
         status: 'received',
         delivery_received_date: new Date().toISOString().split('T')[0],
@@ -251,6 +283,7 @@ export default async function handler(req, res) {
     if (action === 'item') {
       const b = req.body
       if (!b.id) return res.status(400).json({ error: 'Missing item id' })
+      if (!await verifyItemAccess(b.id)) return res.status(403).json({ error: 'Not authorised' })
 
       const { data: existing } = await supabase.from('procurement_items').select('*').eq('id', b.id).single()
       if (!existing) return res.status(404).json({ error: 'Item not found' })
@@ -305,6 +338,9 @@ export default async function handler(req, res) {
     if (action === 'quote') {
       const b = req.body
       if (!b.id) return res.status(400).json({ error: 'Missing quote id' })
+      // Verify quote's item belongs to caller's company
+      const { data: qt } = await supabase.from('procurement_quotes').select('procurement_item_id').eq('id', b.id).single()
+      if (!qt || !await verifyItemAccess(qt.procurement_item_id)) return res.status(403).json({ error: 'Not authorised' })
 
       const updates = { updated_at: new Date().toISOString() }
       for (const f of ['supplier_name','supplier_contact_name','supplier_contact_email','supplier_contact_phone','quoted_price','quoted_lead_time_weeks','quote_date','quote_reference','notes']) {
@@ -336,18 +372,23 @@ export default async function handler(req, res) {
     if (action === 'item') {
       const id = req.query.id
       if (!id) return res.status(400).json({ error: 'Missing id' })
+      if (!await verifyItemAccess(id)) return res.status(403).json({ error: 'Not authorised' })
       await supabase.from('procurement_items').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', id)
       return res.json({ success: true })
     }
     if (action === 'quote') {
       const id = req.query.id
       if (!id) return res.status(400).json({ error: 'Missing id' })
+      const { data: delQt } = await supabase.from('procurement_quotes').select('procurement_item_id').eq('id', id).single()
+      if (!delQt || !await verifyItemAccess(delQt.procurement_item_id)) return res.status(403).json({ error: 'Not authorised' })
       await supabase.from('procurement_quotes').delete().eq('id', id)
       return res.json({ success: true })
     }
     if (action === 'attachment') {
       const id = req.query.id
       if (!id) return res.status(400).json({ error: 'Missing id' })
+      const { data: delAtt } = await supabase.from('procurement_attachments').select('procurement_item_id').eq('id', id).single()
+      if (!delAtt || !await verifyItemAccess(delAtt.procurement_item_id)) return res.status(403).json({ error: 'Not authorised' })
       const { data: att } = await supabase.from('procurement_attachments').select('file_url').eq('id', id).single()
       if (att?.file_url) {
         const path = att.file_url.split('/storage/v1/object/public/documents/')[1]

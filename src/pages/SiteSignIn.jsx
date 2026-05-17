@@ -96,32 +96,36 @@ export default function SiteSignIn() {
     setAuthError('')
 
     try {
-      // Try Supabase Auth
-      const { data: authData } = await supabase.auth.signInWithPassword({
+      // Authenticate via Supabase Auth — keep the session active for RLS
+      const { data: authData, error: signInErr } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password: password.trim(),
       })
 
-      // Restore anon mode so subsequent queries work with anon RLS policies
-      if (authData?.user) await supabase.auth.signOut()
+      if (signInErr || !authData?.user) {
+        // Check if this operative exists but has no auth account
+        const { data: ops } = await supabase.from('operatives')
+          .select('id, date_of_birth')
+          .ilike('email', email.trim().toLowerCase())
+        if (ops?.length && !ops[0].date_of_birth) {
+          setAuthError('You need to complete your profile first. Check your invite email for the link.')
+        } else if (ops?.length) {
+          setAuthError('Invalid password. If you haven\'t set a password yet, check your invite email to complete your profile.')
+        } else {
+          setAuthError('Invalid email or password')
+        }
+        setAuthLoading(false)
+        return
+      }
 
+      // Load operative record
       let op = null
-      if (authData?.user) {
-        const { data: ops } = await supabase.from('operatives')
-          .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
-          .ilike('email', email.trim().toLowerCase())
-        if (ops?.length) op = ops[0]
-      }
+      const { data: ops } = await supabase.from('operatives')
+        .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
+        .ilike('email', email.trim().toLowerCase())
+      if (ops?.length) op = ops[0]
 
-      // Fallback: email + DOB for legacy operatives
-      if (!op) {
-        const { data: ops } = await supabase.from('operatives')
-          .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
-          .ilike('email', email.trim().toLowerCase())
-        if (ops?.length && ops[0].date_of_birth === password.trim()) op = ops[0]
-      }
-
-      if (!op) { setAuthError('Invalid email or password'); setAuthLoading(false); return }
+      if (!op) { setAuthError('No worker account found for this email'); setAuthLoading(false); return }
 
       // Auto-link operative to this project if not already assigned
       await supabase.from('operative_projects').upsert(
@@ -353,7 +357,7 @@ export default function SiteSignIn() {
         <div style={{ background: '#1A2744', padding: '16px 20px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {project.companies?.logo_url ? (
-              <img src={project.companies.logo_url} alt="" style={{ height: 24, opacity: 0.8 }} />
+              <img src={project.companies?.logo_url} alt="" style={{ height: 24, opacity: 0.8 }} />
             ) : (
               <div style={{ color: '#fff', fontSize: 18, fontWeight: 300, letterSpacing: 1 }}>
                 CORE<span style={{ fontWeight: 700 }}>SITE</span>
@@ -439,7 +443,7 @@ export default function SiteSignIn() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#1A2744' }}>
       <div style={{ padding: '20px 20px 12px', flexShrink: 0 }}>
         {project.companies?.logo_url ? (
-          <img src={project.companies.logo_url} alt="" style={{ height: 28, opacity: 0.7 }} />
+          <img src={project.companies?.logo_url} alt="" style={{ height: 28, opacity: 0.7 }} />
         ) : (
           <div style={{ color: '#fff', fontSize: 20, fontWeight: 300, letterSpacing: 1 }}>
             CORE<span style={{ fontWeight: 700 }}>SITE</span>

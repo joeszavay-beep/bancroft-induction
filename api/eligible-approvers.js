@@ -1,10 +1,19 @@
 import { createClient } from '@supabase/supabase-js'
 
+import { verifyAuth } from './_auth.js'
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
   const operativeId = req.query.operativeId
   if (!operativeId) return res.status(400).json({ error: 'Missing operativeId' })
+
+  // Auth: either an authenticated manager or the operative themselves
+  const operativeSessionId = req.query.operativeSessionId
+  const { user } = await verifyAuth(req)
+  if (!user && operativeSessionId !== operativeId) {
+    return res.status(401).json({ error: 'Authentication required' })
+  }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY

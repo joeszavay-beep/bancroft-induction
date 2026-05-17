@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { authFetch } from '../lib/authFetch'
 import { useCompany } from '../lib/CompanyContext'
 import {
   Building2, Palette, FolderPlus, FileUp, UserPlus,
@@ -115,7 +116,7 @@ export default function Onboarding() {
       let logoUrl = company.logo_url
       if (logoFile) {
         const ext = logoFile.name.split('.').pop()
-        const path = `logos/${company.id}.${ext}`
+        const path = `logos/${company.id}/${crypto.randomUUID()}.${ext}`
         const { error: upErr } = await supabase.storage.from('documents').upload(path, logoFile, { upsert: true })
         if (upErr) throw upErr
         const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
@@ -219,7 +220,7 @@ export default function Onboarding() {
       if (error) throw error
 
       // Try to send invite email
-      await fetch('/api/invite', {
+      await authFetch('/api/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

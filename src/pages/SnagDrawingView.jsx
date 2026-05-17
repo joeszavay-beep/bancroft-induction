@@ -232,7 +232,7 @@ export default function SnagDrawingView() {
       } catch { setReplacingDrawing(false); toast.error('Failed to convert SVG'); return }
     }
 
-    const filePath = `${drawing.project_id}/${Date.now()}.${fileExt}`
+    const filePath = `${drawing.project_id}/${crypto.randomUUID()}.${fileExt}`
     const { error: upErr } = await supabase.storage.from('drawings').upload(filePath, fileToUpload, {
       contentType: fileExt === 'png' ? 'image/png' : fileToUpload.type || 'image/jpeg',
     })

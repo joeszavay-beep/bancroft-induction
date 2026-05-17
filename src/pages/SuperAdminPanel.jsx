@@ -99,7 +99,7 @@ export default function SuperAdminPanel() {
           setSaving(false)
           return
         }
-        const path = `${slug}/${Date.now()}.${logo.name.split('.').pop()}`
+        const path = `${slug}/${crypto.randomUUID()}.${logo.name.split('.').pop()}`
         const { error: upErr } = await supabase.storage.from('company-assets').upload(path, logo)
         if (!upErr) {
           const { data: urlData } = supabase.storage.from('company-assets').getPublicUrl(path)

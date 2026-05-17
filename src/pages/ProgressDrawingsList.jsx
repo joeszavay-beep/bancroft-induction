@@ -103,7 +103,7 @@ export default function ProgressDrawingsList() {
       }
     }
 
-    const filePath = `${cid || 'default'}/${Date.now()}.${fileExt}`
+    const filePath = `${cid || 'default'}/${crypto.randomUUID()}.${fileExt}`
     const { error: upErr } = await supabase.storage.from('progress-drawings').upload(filePath, fileToUpload, {
       contentType: fileExt === 'png' ? 'image/png' : fileToUpload.type || 'image/jpeg',
     })
@@ -212,7 +212,7 @@ export default function ProgressDrawingsList() {
       }
     }
 
-    const filePath = `${cid || 'default'}/${Date.now()}.${fileExt}`
+    const filePath = `${cid || 'default'}/${crypto.randomUUID()}.${fileExt}`
     const { error: upErr } = await supabase.storage.from('progress-drawings').upload(filePath, fileToUpload, {
       contentType: fileExt === 'png' ? 'image/png' : fileToUpload.type || 'image/jpeg',
     })

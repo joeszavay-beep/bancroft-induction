@@ -26,44 +26,28 @@ export default function OperativeLogin() {
     setError('')
 
     try {
-      // First try Supabase Auth login
-      const { data: authData } = await supabase.auth.signInWithPassword({
+      // Authenticate via Supabase Auth — keep the session active for RLS
+      const { data: authData, error: signInErr } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password: password.trim(),
       })
 
+      if (signInErr || !authData?.user) {
+        setError('Invalid email or password. If you haven\'t set a password yet, check your invite email to complete your profile.')
+        setLoading(false)
+        return
+      }
+
+      // Auth succeeded — find the operative record
       let operative = null
-
-      if (authData?.user) {
-        // Auth succeeded — find the operative record
-        const { data: ops } = await supabase
-          .from('operatives')
-          .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
-          .ilike('email', email.trim().toLowerCase())
-
-        if (ops?.length) {
-          operative = ops[0]
-        }
-      }
-
-      // Fallback: try email + password as DOB for legacy operatives without auth accounts
-      if (!operative) {
-        const { data: ops } = await supabase
-          .from('operatives')
-          .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
-          .ilike('email', email.trim().toLowerCase())
-
-        if (ops?.length) {
-          // Check if password matches DOB (legacy support)
-          const op = ops[0]
-          if (op.date_of_birth === password.trim()) {
-            operative = op
-          }
-        }
-      }
+      const { data: ops } = await supabase
+        .from('operatives')
+        .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
+        .ilike('email', email.trim().toLowerCase())
+      if (ops?.length) operative = ops[0]
 
       if (!operative) {
-        setError('Invalid email or password. If you\'ve just been invited, check your email for login details.')
+        setError('No worker account found for this email.')
         setLoading(false)
         return
       }

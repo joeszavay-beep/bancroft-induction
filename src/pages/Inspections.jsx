@@ -247,7 +247,7 @@ export default function Inspections() {
       toast.error('Photo must be under 10MB')
       return
     }
-    const path = `inspections/${activeInspection.id}/${idx}.jpg`
+    const path = `inspections/${activeInspection.id}/${crypto.randomUUID()}.jpg`
     const { error } = await supabase.storage.from('documents').upload(path, file, { upsert: true })
     if (error) return toast.error('Photo upload failed')
     const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)

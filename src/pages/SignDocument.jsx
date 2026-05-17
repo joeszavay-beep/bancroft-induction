@@ -116,6 +116,7 @@ export default function SignDocument() {
             to: notifyEmail,
             operativeName: operative.name,
             projectName: document.projects?.name,
+            operativeId,
           }),
         }).catch(() => {})
       }

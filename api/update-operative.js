@@ -69,7 +69,7 @@ export default async function handler(req, res) {
   let editorId = null
   let editorRole = null
 
-  const { operativeSessionId, managerCompanyId, managerName: reqManagerName } = req.body
+  const { operativeSessionId } = req.body
 
   const { user } = await verifyAuth(req)
   if (user) {
@@ -84,15 +84,6 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Not authorised to edit this operative' })
       }
     }
-  } else if (managerCompanyId) {
-    // Fallback for managers when Supabase Auth session token isn't available
-    const { data: op } = await supabase.from('operatives').select('company_id').eq('id', operativeId).single()
-    if (!op || op.company_id !== managerCompanyId) {
-      return res.status(403).json({ error: 'Not authorised to edit this operative' })
-    }
-    editorName = reqManagerName || 'Manager'
-    editorId = null
-    editorRole = 'manager'
   } else if (operativeSessionId) {
     // Operative self-edit: session ID must match operative ID
     if (operativeSessionId !== operativeId) {

@@ -73,6 +73,19 @@ export default async function handler(req, res) {
   if (!supabaseUrl || !serviceKey) return res.status(500).json({ error: 'Server config missing' })
   const supabase = createClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
 
+  // Auth: require authenticated manager/admin
+  const { user, error: authErr } = await verifyAuth(req)
+  if (!user) return res.status(401).json({ error: authErr || 'Unauthorized' })
+  const callerCompanyId = user.user_metadata?.company_id
+  if (!callerCompanyId) return res.status(403).json({ error: 'No company associated with your account' })
+
+  // Helper: verify a project belongs to the caller's company
+  async function verifyProjectAccess(projectId) {
+    if (!projectId) return false
+    const { data: proj } = await supabase.from('projects').select('company_id').eq('id', projectId).single()
+    return proj?.company_id === callerCompanyId
+  }
+
   const action = req.query.action || req.body?.action
 
   // Helper: load calendar settings for a project
@@ -96,6 +109,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const projectId = req.query.projectId
     if (!projectId) return res.status(400).json({ error: 'Missing projectId' })
+    if (!await verifyProjectAccess(projectId)) return res.status(403).json({ error: 'Not authorised' })
 
     if (action === 'settings') {
       const { data: cal } = await supabase.from('project_calendar_settings').select('*').eq('project_id', projectId).single()
@@ -133,6 +147,7 @@ export default async function handler(req, res) {
       if (!startDate) missing.push('start_date')
       if (!duration) missing.push('duration')
       if (missing.length > 0) return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` })
+      if (!await verifyProjectAccess(projectId)) return res.status(403).json({ error: 'Not authorised' })
       if (duration < 1) return res.status(400).json({ error: 'Duration must be at least 1' })
 
       const settings = await loadSettings(projectId)
@@ -159,6 +174,7 @@ export default async function handler(req, res) {
 
       const { data: original } = await supabase.from('programme_tasks').select('*').eq('id', taskId).single()
       if (!original) return res.status(404).json({ error: 'Task not found' })
+      if (!await verifyProjectAccess(original.project_id)) return res.status(403).json({ error: 'Not authorised' })
 
       const settings = await loadSettings(original.project_id)
       const newStart = nextWorkingDay(original.end_date, settings)
@@ -181,6 +197,7 @@ export default async function handler(req, res) {
     if (action === 'non-working-period') {
       const { projectId, name, startDate, endDate } = req.body
       if (!projectId || !name || !startDate || !endDate) return res.status(400).json({ error: 'Missing fields' })
+      if (!await verifyProjectAccess(projectId)) return res.status(403).json({ error: 'Not authorised' })
       const { data, error } = await supabase.from('project_non_working_periods').insert({
         project_id: projectId, name: name.trim(), start_date: startDate, end_date: endDate,
       }).select().single()
@@ -191,6 +208,7 @@ export default async function handler(req, res) {
     if (action === 'recalculate') {
       const projectId = req.body.projectId
       if (!projectId) return res.status(400).json({ error: 'Missing projectId' })
+      if (!await verifyProjectAccess(projectId)) return res.status(403).json({ error: 'Not authorised' })
 
       const settings = await loadSettings(projectId)
       const { data: tasks } = await supabase.from('programme_tasks').select('*').eq('project_id', projectId)
@@ -224,6 +242,7 @@ export default async function handler(req, res) {
 
       const { data: existing } = await supabase.from('programme_tasks').select('*').eq('id', id).single()
       if (!existing) return res.status(404).json({ error: 'Task not found' })
+      if (!await verifyProjectAccess(existing.project_id)) return res.status(403).json({ error: 'Not authorised' })
 
       const finalStart = startDate || existing.start_date
       const finalDuration = duration || existing.duration
@@ -259,6 +278,7 @@ export default async function handler(req, res) {
     if (action === 'settings') {
       const { projectId, workingDays, useUkBankHolidays, nonWorkingPeriods } = req.body
       if (!projectId) return res.status(400).json({ error: 'Missing projectId' })
+      if (!await verifyProjectAccess(projectId)) return res.status(403).json({ error: 'Not authorised' })
       if (workingDays && workingDays.length === 0) return res.status(400).json({ error: 'At least one working day required' })
 
       const updates = { updated_at: new Date().toISOString() }
@@ -300,6 +320,8 @@ export default async function handler(req, res) {
     if (action === 'task') {
       const id = req.query.id
       if (!id) return res.status(400).json({ error: 'Missing id' })
+      const { data: delTask } = await supabase.from('programme_tasks').select('project_id').eq('id', id).single()
+      if (!delTask || !await verifyProjectAccess(delTask.project_id)) return res.status(403).json({ error: 'Not authorised' })
       await supabase.from('programme_tasks').delete().eq('id', id)
       return res.json({ success: true })
     }
@@ -307,6 +329,8 @@ export default async function handler(req, res) {
     if (action === 'non-working-period') {
       const id = req.query.id
       if (!id) return res.status(400).json({ error: 'Missing id' })
+      const { data: delNwp } = await supabase.from('project_non_working_periods').select('project_id').eq('id', id).single()
+      if (!delNwp || !await verifyProjectAccess(delNwp.project_id)) return res.status(403).json({ error: 'Not authorised' })
       await supabase.from('project_non_working_periods').delete().eq('id', id)
       return res.json({ success: true })
     }

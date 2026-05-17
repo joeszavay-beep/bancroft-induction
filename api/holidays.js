@@ -161,20 +161,9 @@ export default async function handler(req, res) {
       return res.json({ requests })
     }
 
-    // Manager/Admin fetching inbox
+    // Manager/Admin fetching inbox — requires auth token
     const { user } = await verifyAuth(req)
     if (!user) {
-      // Try manager company fallback
-      const managerCompanyId = req.query.managerCompanyId
-      const managerId = req.query.managerId
-      if (managerCompanyId && managerId) {
-        let q = supabase.from('holiday_requests').select('*, operatives(name, photo_url, role)').eq('approver_id', managerId).order('start_date')
-        if (status) q = q.eq('status', status)
-        if (from_date) q = q.gte('start_date', from_date)
-        if (to_date) q = q.lte('end_date', to_date)
-        const { data } = await q
-        return res.json({ requests: data || [] })
-      }
       return res.status(401).json({ error: 'Authentication required' })
     }
 
@@ -197,24 +186,24 @@ export default async function handler(req, res) {
 
   // --- PATCH: Approve/Reject/Cancel/Reassign ---
   if (req.method === 'PATCH') {
-    const { requestId, action, note, operativeSessionId, newApproverId, managerCompanyId, managerId: reqManagerId } = req.body
+    const { requestId, action, note, operativeSessionId, newApproverId } = req.body
     if (!requestId || !action) return res.status(400).json({ error: 'Missing requestId or action' })
 
     const { data: request } = await supabase.from('holiday_requests').select('*').eq('id', requestId).single()
     if (!request) return res.status(404).json({ error: 'Request not found' })
 
-    // Determine caller identity
+    // Determine caller identity — auth token required for managers, session ID for operatives
     let callerId = null, callerName = 'Unknown', callerRole = 'unknown'
     const { user } = await verifyAuth(req)
     if (user) {
       callerId = user.id
       callerName = user.user_metadata?.name || user.email
       callerRole = user.user_metadata?.role || 'manager'
-    } else if (reqManagerId && managerCompanyId) {
-      callerId = reqManagerId
-      callerRole = 'manager'
-      const { data: mgr } = await supabase.from('managers').select('name').eq('id', reqManagerId).single()
-      callerName = mgr?.name || 'Manager'
+      // Verify manager belongs to the same company as the request
+      const callerCompanyId = user.user_metadata?.company_id
+      if (callerCompanyId && request.company_id && callerCompanyId !== request.company_id) {
+        return res.status(403).json({ error: 'Not authorised to action requests from another company' })
+      }
     } else if (operativeSessionId) {
       callerId = operativeSessionId
       callerRole = 'operative'

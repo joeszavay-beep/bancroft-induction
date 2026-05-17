@@ -4,7 +4,6 @@ import { useCompany } from '../lib/CompanyContext'
 import { supabase } from '../lib/supabase'
 import { Eye, EyeOff, ArrowLeft, Loader2, ChevronRight } from 'lucide-react'
 import LoadingButton from '../components/LoadingButton'
-import DateOfBirthPicker from '../components/DateOfBirthPicker'
 import { setSession } from '../lib/storage'
 
 export default function PMLogin() {
@@ -15,7 +14,6 @@ export default function PMLogin() {
   const [step, setStep] = useState('email')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [dob, setDob] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [checking, setChecking] = useState(false)
@@ -44,7 +42,7 @@ export default function PMLogin() {
     ])
 
     const foundManager = profiles?.length > 0
-    const foundWorker = operatives?.length > 0 && operatives[0].date_of_birth
+    const foundWorker = operatives?.length > 0
 
     setHasManager(foundManager)
     setHasWorker(foundWorker)
@@ -66,11 +64,6 @@ export default function PMLogin() {
     }
 
     if (operatives?.length > 0) {
-      if (!operatives[0].date_of_birth) {
-        setError('You need to complete your profile first. Check your invite email for the link.')
-        setChecking(false)
-        return
-      }
       setAccountName(operatives[0].name)
       setStep('worker')
       setChecking(false)
@@ -99,19 +92,31 @@ export default function PMLogin() {
 
   async function handleWorkerLogin(e) {
     e.preventDefault()
-    if (!dob) { setError('Please select your date of birth'); return }
+    if (!password.trim()) { setError('Please enter your password'); return }
+    if (password.trim().length < 8) { setError('Password must be at least 8 characters'); return }
     setLoading(true)
     setError('')
 
     try {
+      // Authenticate via Supabase Auth — keep the session active for RLS
+      const { data: authData, error: signInErr } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password: password.trim(),
+      })
+
+      if (signInErr || !authData?.user) {
+        setError('Invalid password. If you haven\'t set a password yet, check your invite email to complete your profile.')
+        setLoading(false)
+        return
+      }
+
       const { data: ops } = await supabase
         .from('operatives')
         .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
-        .eq('email', email.trim().toLowerCase())
-        .eq('date_of_birth', dob)
+        .ilike('email', email.trim().toLowerCase())
 
       if (!ops?.length) {
-        setError('Date of birth doesn\'t match our records')
+        setError('No worker account found for this email')
         setLoading(false)
         return
       }
@@ -150,7 +155,6 @@ export default function PMLogin() {
   function goBack() {
     setStep('email')
     setPassword('')
-    setDob('')
     setError('')
     setShowReset(false)
   }
@@ -293,7 +297,7 @@ export default function PMLogin() {
             </>
           )}
 
-          {/* ── STEP 2B: Worker — DOB ── */}
+          {/* ── STEP 2B: Worker — Password ── */}
           {step === 'worker' && (
             <>
               <button onClick={goBack} className="flex items-center gap-1 text-xs text-[#6B7A99] hover:text-[#1B6FC8] mb-4 transition-colors">
@@ -312,13 +316,23 @@ export default function PMLogin() {
 
               <form onSubmit={handleWorkerLogin} className="space-y-4">
                 <div>
-                  <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Date of Birth</label>
-                  <DateOfBirthPicker value={dob} onChange={v => { setDob(v); setError('') }} />
+                  <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Password</label>
+                  <div className="relative">
+                    <input type={showPassword ? 'text' : 'password'} value={password}
+                      onChange={e => { setPassword(e.target.value); setError('') }}
+                      className={`${inputCls} pr-10`} placeholder="Enter your password" autoFocus />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B0B8C9] hover:text-[#6B7A99]">
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 {error && <p className="text-sm text-[#DA3633]">{error}</p>}
                 <LoadingButton loading={loading} type="submit" className="w-full bg-[#2EA043] hover:bg-[#27903A] text-white rounded-lg text-sm font-semibold">
                   Sign In
                 </LoadingButton>
+                <button type="button" onClick={() => { setShowReset(true); setError('') }} className="w-full text-center text-xs text-[#6B7A99] hover:text-[#2EA043] transition-colors">
+                  Forgot password?
+                </button>
               </form>
             </>
           )}

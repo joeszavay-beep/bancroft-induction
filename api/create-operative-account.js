@@ -3,6 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 /**
  * Create a Supabase Auth account for an operative (server-side with service role key).
  * This bypasses email confirmation so the operative can log in immediately.
+ *
+ * Security:
+ * - Email must match the operative's stored email in the DB (prevents spoofing)
+ * - Will NOT update the password of an existing auth account (prevents account takeover)
+ * - Only creates new auth accounts for operatives completing first-time profile setup
  */
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -29,7 +34,7 @@ export default async function handler(req, res) {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-  // Verify the operative exists
+  // Verify the operative exists and the email matches their stored email
   const { data: op } = await supabase
     .from('operatives')
     .select('id, email')
@@ -40,7 +45,21 @@ export default async function handler(req, res) {
     return res.status(404).json({ error: 'Operative not found' })
   }
 
-  // Create auth account with email_confirm: true (auto-verified)
+  if (op.email?.toLowerCase() !== email.toLowerCase()) {
+    return res.status(403).json({ error: 'Email does not match the operative record' })
+  }
+
+  // Check if an auth account already exists for this email
+  // If it does, do NOT update the password — the operative should use "forgot password" instead
+  const { data: { users } } = await supabase.auth.admin.listUsers()
+  const existingUser = users?.find(u => u.email === email.toLowerCase())
+
+  if (existingUser) {
+    // Account already exists — don't allow password changes through this endpoint
+    return res.status(200).json({ message: 'Account already exists — use your existing password to sign in' })
+  }
+
+  // Create new auth account (auto-verified, no email confirmation needed)
   const { data, error } = await supabase.auth.admin.createUser({
     email: email.toLowerCase(),
     password,
@@ -49,21 +68,6 @@ export default async function handler(req, res) {
   })
 
   if (error) {
-    // If user already exists, try updating their password instead
-    if (error.message?.includes('already been registered') || error.message?.includes('already exists')) {
-      const { data: users } = await supabase.auth.admin.listUsers()
-      const existing = users?.users?.find(u => u.email === email.toLowerCase())
-      if (existing) {
-        const { error: updateErr } = await supabase.auth.admin.updateUserById(existing.id, {
-          password,
-          email_confirm: true,
-        })
-        if (updateErr) {
-          return res.status(500).json({ error: `Failed to update password: ${updateErr.message}` })
-        }
-        return res.status(200).json({ message: 'Password updated for existing account' })
-      }
-    }
     return res.status(500).json({ error: `Account creation failed: ${error.message}` })
   }
 
