@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { LogIn, LogOut, MapPin, Clock, CheckCircle2, Shield, Mail, Lock, Eye, EyeOff, HardHat, Check } from 'lucide-react'
 import { getSession, setSession, removeSession } from '../lib/storage'
-import { startOfDayUK } from '../lib/dates'
+import { startOfDayUK, formatTime } from '../lib/dates'
 
 export default function SiteSignIn() {
   const { projectId } = useParams()
@@ -149,7 +149,6 @@ export default function SiteSignIn() {
     }
   }
 
-  const formatTime = (dateStr) => new Date(dateStr).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 
   const getInitials = (name) => {
     if (!name) return '?'

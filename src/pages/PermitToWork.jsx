@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { formatDate } from '../lib/dates'
+import { formatDate, formatDateTime } from '../lib/dates'
 import { useCompany } from '../lib/CompanyContext'
 import { useProject } from '../lib/ProjectContext'
 import { getSession } from '../lib/storage'
@@ -176,13 +176,6 @@ const DEFAULT_TEMPLATES = [
 ]
 
 // ── Helpers ──
-function formatDateTime(d) {
-  if (!d) return '\u2014'
-  return new Date(d).toLocaleString('en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
 
 
 function timeRemaining(validTo) {

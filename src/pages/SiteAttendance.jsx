@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
-import { startOfDayUK, todayDateStr, formatDate } from '../lib/dates'
+import { startOfDayUK, todayDateStr, formatDate, formatTime, formatDuration } from '../lib/dates'
 import { useCompany } from '../lib/CompanyContext'
 import { useProject } from '../lib/ProjectContext'
 import toast from 'react-hot-toast'
@@ -12,19 +12,8 @@ import {
   ChevronRight, X, Check, UserX
 } from 'lucide-react'
 
-function formatTime(dateStr) {
-  if (!dateStr) return '--'
-  const d = new Date(dateStr)
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-}
 
 
-function formatDuration(minutes) {
-  if (!minutes || minutes < 0) return '--'
-  const h = Math.floor(minutes / 60)
-  const m = Math.round(minutes % 60)
-  return `${h}h ${m}m`
-}
 
 function getTodayStart() {
   return startOfDayUK()

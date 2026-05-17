@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { formatTime } from '../lib/dates'
 import { getSession } from '../lib/storage'
 import WorkerSidebarLayout from '../components/WorkerSidebarLayout'
 import { ChevronLeft, ChevronRight, Clock, CalendarDays, QrCode, AlertCircle, Palmtree } from 'lucide-react'
@@ -26,11 +27,7 @@ function formatDate(d) {
   return d.toISOString().split('T')[0]
 }
 
-function formatTime(iso) {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-}
+
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const STATUS_STYLES = {

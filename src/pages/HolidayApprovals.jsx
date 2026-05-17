@@ -5,15 +5,7 @@ import { getSession } from '../lib/storage'
 import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
 import { Calendar, Check, X, Clock, Users, ChevronDown, Filter } from 'lucide-react'
-
-
-function formatDateRange(start, end) {
-  const s = new Date(start)
-  const e = new Date(end)
-  const sStr = s.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-  const eStr = e.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-  return `${sStr} - ${eStr}`
-}
+import { formatDateRange } from '../lib/dates'
 
 function daysAgo(dateStr) {
   if (!dateStr) return ''
