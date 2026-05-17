@@ -154,7 +154,7 @@ export default function SiteAttendance() {
     const mondayOff = day === 0 ? -6 : 1 - day
     const monday = new Date(now)
     monday.setDate(now.getDate() + mondayOff + offset * 7)
-    monday.setHours(0, 0, 0, 0)
+    monday.setHours(12, 0, 0, 0)
     const days = []
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday)
