@@ -104,19 +104,31 @@ export default function SiteAttendance() {
   async function handleManualSignOut() {
     if (!manualSignOut || !manualTime) return
     setManualSaving(true)
-    const today = new Date().toISOString().split('T')[0]
+    // Use the sign-in date for the sign-out (handles past-day corrections from weekly register)
+    const signInDate = manualSignOut.sign_in_time ? new Date(manualSignOut.sign_in_time).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
     const timeParts = manualTime.split(':')
-    const recorded_at = new Date(`${today}T${timeParts[0]}:${timeParts[1]}:00`).toISOString()
-    const { error } = await supabase.from('site_attendance').insert({
-      company_id: manualSignOut.company_id || cid,
-      project_id: manualSignOut.project_id,
-      operative_id: manualSignOut.operative_id,
-      operative_name: manualSignOut.operative_name,
-      type: 'sign_out',
-      method: 'manual',
-      recorded_at,
-      notes: `Manual sign-out by manager — ${manualTime}`,
-    })
+    const recorded_at = new Date(`${signInDate}T${timeParts[0]}:${timeParts[1]}:00`).toISOString()
+    let error
+    if (manualSignOut.correct_record_id) {
+      // Correcting an existing auto sign-out — UPDATE the record
+      const result = await supabase.from('site_attendance')
+        .update({ recorded_at, notes: `Corrected sign-out — ${manualTime}`, method: 'manual' })
+        .eq('id', manualSignOut.correct_record_id)
+      error = result.error
+    } else {
+      // New manual sign-out — INSERT
+      const result = await supabase.from('site_attendance').insert({
+        company_id: manualSignOut.company_id || cid,
+        project_id: manualSignOut.project_id,
+        operative_id: manualSignOut.operative_id,
+        operative_name: manualSignOut.operative_name,
+        type: 'sign_out',
+        method: 'manual',
+        recorded_at,
+        notes: `Manual sign-out by manager — ${manualTime}`,
+      })
+      error = result.error
+    }
     setManualSaving(false)
     if (error) {
       toast.error('Failed to record sign-out')
@@ -125,6 +137,7 @@ export default function SiteAttendance() {
       setManualSignOut(null)
       setManualTime('')
       loadData()
+      if (registerOpen) loadRegister()
     }
   }
 
@@ -177,10 +190,17 @@ export default function SiteAttendance() {
         const firstIn = dayRecs.find(r => r.type === 'sign_in')
         const lastOut = [...dayRecs].reverse().find(r => r.type === 'sign_out')
         let hours = null
+        let autoSignOut = false
         if (firstIn && lastOut) {
           hours = Math.round((new Date(lastOut.recorded_at) - new Date(firstIn.recorded_at)) / 3600000 * 100) / 100
+          // Flag shifts over 12h as likely missed sign-out (auto-signout at 23:59)
+          if (hours > 12) {
+            autoSignOut = true
+            const lastOutRec = [...dayRecs].reverse().find(r => r.type === 'sign_out')
+            if (lastOutRec?.method === 'auto') autoSignOut = true
+          }
         }
-        return { dayStr, firstIn: firstIn?.recorded_at, lastOut: lastOut?.recorded_at, hours }
+        return { dayStr, firstIn: firstIn?.recorded_at, lastOut: lastOut?.recorded_at, hours, autoSignOut, operative_id: opId }
       })
       const totalHours = dayCells.reduce((sum, c) => sum + (c.hours || 0), 0)
       return { opId, name, dayCells, totalHours }
@@ -717,12 +737,49 @@ export default function SiteAttendance() {
                                 <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
                                   {formatTime(cell.firstIn)}–{formatTime(cell.lastOut)}
                                 </div>
-                                <div className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{cell.hours.toFixed(1)}h</div>
+                                {cell.autoSignOut ? (
+                                  <div>
+                                    <div className="text-[10px] font-medium text-amber-500">Missed sign-out</div>
+                                    <button
+                                      onClick={() => {
+                                        setManualSignOut({
+                                          operative_id: cell.operative_id,
+                                          operative_name: row.name,
+                                          project_id: registerRecords.find(r => r.operative_id === cell.operative_id)?.project_id,
+                                          company_id: registerRecords.find(r => r.operative_id === cell.operative_id)?.company_id,
+                                          sign_in_time: cell.firstIn,
+                                          correct_record_id: registerRecords.find(r => r.operative_id === cell.operative_id && r.type === 'sign_out' && r.recorded_at === cell.lastOut)?.id,
+                                        })
+                                        setManualTime('15:30')
+                                      }}
+                                      className="text-[9px] text-blue-500 hover:underline mt-0.5"
+                                    >
+                                      Correct time
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{cell.hours.toFixed(1)}h</div>
+                                )}
                               </div>
                             ) : cell.firstIn ? (
                               <div>
                                 <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{formatTime(cell.firstIn)}–?</div>
                                 <div className="text-[10px] font-medium text-amber-500">No sign-out</div>
+                                <button
+                                  onClick={() => {
+                                    setManualSignOut({
+                                      operative_id: cell.operative_id,
+                                      operative_name: row.name,
+                                      project_id: registerRecords.find(r => r.operative_id === cell.operative_id)?.project_id,
+                                      company_id: registerRecords.find(r => r.operative_id === cell.operative_id)?.company_id,
+                                      sign_in_time: cell.firstIn,
+                                    })
+                                    setManualTime('15:30')
+                                  }}
+                                  className="text-[9px] text-blue-500 hover:underline mt-0.5"
+                                >
+                                  Add sign-out
+                                </button>
                               </div>
                             ) : (
                               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
