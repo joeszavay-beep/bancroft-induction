@@ -19,7 +19,7 @@ export default defineConfig({
       manifest: false, // using public/manifest.json directly
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,ico}'],
-        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024, // 8MB — web-ifc WASM makes bundle larger
+        maximumFileSizeToCacheInBytes: 12 * 1024 * 1024, // 12MB — large bundle due to web-ifc WASM + PDF libs
       },
       devOptions: {
         enabled: true,
