@@ -108,7 +108,7 @@ export default function SiteAttendance() {
     const timeParts = manualTime.split(':')
     const recorded_at = new Date(`${today}T${timeParts[0]}:${timeParts[1]}:00`).toISOString()
     const { error } = await supabase.from('site_attendance').insert({
-      company_id: cid,
+      company_id: manualSignOut.company_id || cid,
       project_id: manualSignOut.project_id,
       operative_id: manualSignOut.operative_id,
       operative_name: manualSignOut.operative_name,
@@ -559,6 +559,7 @@ export default function SiteAttendance() {
                       operative_id: r.operative_id,
                       operative_name: r.operative?.name || r.operative_name || 'Unknown',
                       project_id: r.project_id,
+                      company_id: r.company_id,
                       sign_in_time: r.recorded_at,
                     })
                     // Default to current time
