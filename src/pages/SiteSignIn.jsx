@@ -22,6 +22,7 @@ export default function SiteSignIn() {
   const [showPassword, setShowPassword] = useState(false)
   const [authError, setAuthError] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
+  const [signInNote, setSignInNote] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
 
   // Load project + check existing session
@@ -189,21 +190,6 @@ export default function SiteSignIn() {
     if (!operative || recording) return
     setRecording(true)
 
-    // Re-check latest attendance from DB to prevent duplicate sign-in/out
-    const { data: latest } = await supabase.from('site_attendance')
-      .select('type')
-      .eq('project_id', projectId)
-      .eq('operative_id', operative.id)
-      .gte('recorded_at', startOfDayUK())
-      .order('recorded_at', { ascending: false })
-      .limit(1)
-    if (latest?.length && latest[0].type === type) {
-      // Already in this state — refresh UI to show correct button
-      await loadOperativeAndAttendance(operative.id, projectId)
-      setRecording(false)
-      return
-    }
-
     const now = new Date()
     const flag = checkTimingFlag(type, now)
 
@@ -215,30 +201,36 @@ export default function SiteSignIn() {
       if (dist > radius) offSiteDistance = Math.round(dist)
     }
 
-    // Build notes: timing flag + off-site flag
+    // Build notes: timing flag + off-site flag + optional user note
     const parts = []
     if (flag) parts.push(flag.charAt(0).toUpperCase() + flag.slice(1))
     if (offSiteDistance) parts.push(`Off-site (${offSiteDistance}m)`)
     const action = type === 'sign_in' ? 'arrived' : 'left'
-    const notes = parts.length ? `${parts.join(' · ')} — ${action} at ${formatTime(now)}` : null
-
-    const record = {
-      company_id: project?.company_id || project?.companies?.id || null,
-      project_id: projectId,
-      operative_id: operative.id,
-      operative_name: operative.name,
-      type,
-      method: 'qr',
-      ip_address: null,
-      recorded_at: now.toISOString(),
-      notes,
+    let notes = parts.length ? `${parts.join(' · ')} — ${action} at ${formatTime(now)}` : null
+    if (type === 'sign_in' && signInNote.trim()) {
+      notes = notes ? `${notes} | ${signInNote.trim()}` : signInNote.trim()
     }
-    if (geoPosition) { record.latitude = geoPosition.latitude; record.longitude = geoPosition.longitude }
 
-    const { error } = await supabase.from('site_attendance').insert(record)
-    if (!error) {
-      setAttendance((prev) => [{ ...record, id: crypto.randomUUID() }, ...prev])
+    // Atomic sign-in/out via RPC (prevents duplicate consecutive same-type events)
+    const { data: result } = await supabase.rpc('record_attendance', {
+      p_company_id: project?.company_id || project?.companies?.id || null,
+      p_project_id: projectId,
+      p_operative_id: operative.id,
+      p_operative_name: operative.name,
+      p_type: type,
+      p_method: 'qr',
+      p_notes: notes,
+      p_latitude: geoPosition?.latitude || null,
+      p_longitude: geoPosition?.longitude || null,
+    })
+
+    if (result?.duplicate) {
+      // Already in this state — refresh UI to show correct button
+      await loadOperativeAndAttendance(operative.id, projectId)
+    } else if (result?.success) {
+      setAttendance((prev) => [{ type, operative_id: operative.id, recorded_at: now.toISOString(), id: result.id }, ...prev])
       setSuccess({ type, name: operative.name, time: formatTime(now), flag, offSiteDistance })
+      if (type === 'sign_in') setSignInNote('')
     }
     setRecording(false)
   }
@@ -409,6 +401,18 @@ export default function SiteSignIn() {
                     <span style={{ fontSize: 14, color: '#64748b', fontWeight: 500 }}>Last signed out at {formatTime(lastRecord.recorded_at)}</span>
                   </div>
                 )}
+                <input
+                  type="text"
+                  value={signInNote}
+                  onChange={e => setSignInNote(e.target.value.slice(0, 500))}
+                  placeholder="Running late or anything to note? (optional)"
+                  style={{
+                    width: '100%', padding: '12px 16px', fontSize: 14,
+                    background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: 10,
+                    color: '#1e293b', outline: 'none', boxSizing: 'border-box',
+                    marginBottom: 12,
+                  }}
+                />
                 <button onClick={() => handleRecord('sign_in')} disabled={recording}
                   style={{
                     width: '100%', minHeight: 56, padding: '16px 24px',
