@@ -95,6 +95,14 @@ CREATE POLICY "storage_anon_snag_reply_upload" ON storage.objects
     AND (storage.foldername(name))[1] = 'snag-replies'
   );
 
+-- CSCS card photos: anon can upload during onboarding (before auth account exists)
+CREATE POLICY "storage_anon_card_upload" ON storage.objects
+  FOR INSERT WITH CHECK (
+    auth.role() = 'anon'
+    AND bucket_id = 'documents'
+    AND (storage.foldername(name))[1] = 'cards'
+  );
+
 
 -- =====================================================================
 -- STEP 4: VERIFICATION
