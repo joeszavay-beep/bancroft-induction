@@ -105,7 +105,8 @@ export default function SiteAttendance() {
     if (!manualSignOut || !manualTime) return
     setManualSaving(true)
     const today = new Date().toISOString().split('T')[0]
-    const recorded_at = new Date(`${today}T${manualTime}:00`).toISOString()
+    const timeParts = manualTime.split(':')
+    const recorded_at = new Date(`${today}T${timeParts[0]}:${timeParts[1]}:00`).toISOString()
     const { error } = await supabase.from('site_attendance').insert({
       company_id: cid,
       project_id: manualSignOut.project_id,
@@ -629,6 +630,11 @@ export default function SiteAttendance() {
                         {r.notes?.includes('Off-site') && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-50 text-orange-600">OFF-SITE</span>}
                         {r.method === 'auto' && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500">AUTO</span>}
                       </div>
+                      {r.notes?.includes('|') && (
+                        <p className="text-[10px] mt-1 italic" style={{ color: 'var(--text-muted)' }}>
+                          {r.notes.split('|').slice(1).join('|').trim()}
+                        </p>
+                      )}
                     </td>
                     <td className="py-2.5 px-3 hidden sm:table-cell" style={{ color: 'var(--text-muted)' }}>
                       {r.method || '--'}
@@ -852,6 +858,11 @@ export default function SiteAttendance() {
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
                               <LogOut size={11} /> OUT
                             </span>
+                          )}
+                          {r.notes?.includes('|') && (
+                            <p className="text-[10px] mt-1 italic" style={{ color: 'var(--text-muted)' }}>
+                              {r.notes.split('|').slice(1).join('|').trim()}
+                            </p>
                           )}
                         </td>
                         <td className="py-2 px-3 hidden md:table-cell" style={{ color: 'var(--text-muted)' }}>{r.duration ? formatDuration(r.duration) : '--'}</td>
