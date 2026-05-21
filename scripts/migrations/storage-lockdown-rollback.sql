@@ -13,6 +13,8 @@ DROP POLICY IF EXISTS "storage_authenticated_delete" ON storage.objects;
 DROP POLICY IF EXISTS "storage_anon_aftercare_upload" ON storage.objects;
 DROP POLICY IF EXISTS "storage_anon_snag_reply_upload" ON storage.objects;
 DROP POLICY IF EXISTS "storage_anon_card_upload" ON storage.objects;
+DROP POLICY IF EXISTS "storage_anon_signature_upload" ON storage.objects;
+DROP POLICY IF EXISTS "storage_anon_toolbox_upload" ON storage.objects;
 
 -- Restore original policies (exact pre-lockdown state)
 

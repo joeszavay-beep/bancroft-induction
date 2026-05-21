@@ -71,15 +71,33 @@ CREATE POLICY "storage_authenticated_delete" ON storage.objects
 
 -- =====================================================================
 -- STEP 3: ANON UPLOAD EXCEPTIONS
--- Some public flows need to upload files without auth:
--- - Aftercare defect photos (public portal)
--- - Snag reply photos (subcontractor reply via token)
--- - Toolbox signature images (may be unsigned operatives)
 --
--- These are scoped to specific path prefixes within their buckets.
+-- These are the ONLY paths where unauthenticated users can upload.
+-- Each exists because a specific public-facing flow requires file
+-- upload before the user has a Supabase Auth session.
+--
+-- COMPLETE LIST (if it's not here, anon can't upload there):
+--
+--   BUCKET        FOLDER PREFIX    WHY                                          ADDED
+--   snag-photos   aftercare/       Public aftercare defect portal                2026-05-17
+--   snag-photos   snag-replies/    Subcontractor snag reply via email link       2026-05-17
+--   documents     cards/           CSCS card upload during first-time onboarding 2026-05-20
+--   documents     signatures/      RAMS/document sign-off via invite link        2026-05-21
+--   documents     toolbox/         Toolbox talk signature via QR/link            2026-05-21
+--
+-- NOT included (not live / requires auth):
+--   documents     agencies/        Agency self-registration — feature not yet live
+--
+-- These are temporary. When all operatives authenticate via Supabase
+-- Auth before interacting with the app, these anon exceptions can be
+-- removed. Tracked as part of the Deploy 4 (RLS lockdown) plan.
+--
+-- Security note: all paths use UUID filenames (unguessable). Content
+-- is images/PDFs (non-executable). Bucket is already public-read.
+-- Risk is equivalent to a public file upload form scoped to a folder.
 -- =====================================================================
 
--- Aftercare defect photos: anon can upload to snag-photos/aftercare/*
+-- 1. Aftercare defect photos: public portal submits defect with photo
 CREATE POLICY "storage_anon_aftercare_upload" ON storage.objects
   FOR INSERT WITH CHECK (
     auth.role() = 'anon'
@@ -87,7 +105,7 @@ CREATE POLICY "storage_anon_aftercare_upload" ON storage.objects
     AND (storage.foldername(name))[1] = 'aftercare'
   );
 
--- Snag reply photos: anon can upload to snag-photos/snag-replies/*
+-- 2. Snag reply photos: subcontractor replies to snag via email link
 CREATE POLICY "storage_anon_snag_reply_upload" ON storage.objects
   FOR INSERT WITH CHECK (
     auth.role() = 'anon'
@@ -95,12 +113,28 @@ CREATE POLICY "storage_anon_snag_reply_upload" ON storage.objects
     AND (storage.foldername(name))[1] = 'snag-replies'
   );
 
--- CSCS card photos: anon can upload during onboarding (before auth account exists)
+-- 3. CSCS card photos: operative uploads card during first-time profile setup
 CREATE POLICY "storage_anon_card_upload" ON storage.objects
   FOR INSERT WITH CHECK (
     auth.role() = 'anon'
     AND bucket_id = 'documents'
     AND (storage.foldername(name))[1] = 'cards'
+  );
+
+-- 4. Document signatures: operative signs RAMS/induction docs via invite link
+CREATE POLICY "storage_anon_signature_upload" ON storage.objects
+  FOR INSERT WITH CHECK (
+    auth.role() = 'anon'
+    AND bucket_id = 'documents'
+    AND (storage.foldername(name))[1] = 'signatures'
+  );
+
+-- 5. Toolbox talk signatures: operative signs toolbox talk via QR/link
+CREATE POLICY "storage_anon_toolbox_upload" ON storage.objects
+  FOR INSERT WITH CHECK (
+    auth.role() = 'anon'
+    AND bucket_id = 'documents'
+    AND (storage.foldername(name))[1] = 'toolbox'
   );
 
 
