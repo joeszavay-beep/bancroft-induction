@@ -11,6 +11,7 @@ import {
   CheckCircle2, Trash2, ZoomIn, Camera, Box
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
+import { authFetch } from '../lib/authFetch'
 
 const TRADES = ['Electrical', 'Fire Alarm', 'Sound Masking', 'Pipework', 'Ductwork', 'BMS', 'Other']
 const TYPES = ['General', 'Installation', 'Commissioning', 'Design', 'Other']
@@ -142,6 +143,11 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
   async function handleSave() {
     setSaving(true)
     const newAssignee = status === 'reassigned' && reassignTo ? reassignTo : (assignedTo || null)
+    const assigneeChanged = newAssignee && newAssignee !== snag.assigned_to
+
+    // Generate reply token if assigning/reassigning
+    const replyToken = assigneeChanged ? crypto.randomUUID() : undefined
+
     const updates = {
       trade: trade || null,
       type: type || null,
@@ -150,6 +156,7 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
       due_date: dueDate || null,
       status,
       assigned_to: newAssignee,
+      ...(replyToken ? { reply_token: replyToken } : {}),
     }
     const { data, offline } = await offlineUpdate('snags', snag.id, updates)
     setSaving(false)
@@ -158,16 +165,58 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
       return
     }
 
-    // Notify assigned operative if assignment changed
-    if (newAssignee && newAssignee !== snag.assigned_to && !offline) {
+    // Send email + notification if assignment changed
+    if (assigneeChanged && !offline) {
       const mgr = JSON.parse(getSession('manager_data') || '{}')
+      const assigneeOp = operatives.find(op => op.name === newAssignee)
+      const assigneeEmail = assigneeOp?.email
+
+      // Send assignment email with reply link
+      if (assigneeEmail) {
+        const proj = drawing?.project_id ? { name: drawing.project_name || '' } : null
+        authFetch('/api/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            operativeId: 'snag-assign',
+            operativeName: newAssignee,
+            email: assigneeEmail,
+            projectName: `Snag Assignment — ${proj?.name || 'Project'}`,
+            customHtml: `
+              <div style="font-family:system-ui,sans-serif;max-width:580px;margin:0 auto;">
+                <div style="background:#1A2744;padding:20px 24px;border-radius:12px 12px 0 0;">
+                  <h1 style="color:white;margin:0;font-size:20px;">CoreSite</h1>
+                  <p style="color:#6B7A99;margin:4px 0 0;font-size:12px;">Snag Assignment — ${drawing?.name || 'Drawing'}</p>
+                </div>
+                <div style="background:#fff;padding:24px;border:1px solid #E2E6EA;border-top:none;">
+                  <p style="color:#1A1A2E;font-size:15px;margin:0 0 8px;">Hi ${newAssignee},</p>
+                  <p style="color:#6B7A99;font-size:14px;margin:0 0 20px;">You have been assigned <strong>Snag #${snag.snag_number}</strong> on <strong>${drawing?.name || 'a drawing'}</strong>.</p>
+                  <div style="background:#F5F6F8;border:1px solid #E2E6EA;border-left:4px solid #DA3633;border-radius:6px;padding:14px;margin-bottom:16px;">
+                    <p style="margin:0;color:#1A1A2E;font-weight:700;font-size:14px;">Snag #${snag.snag_number}</p>
+                    <p style="margin:2px 0 0;color:#6B7A99;font-size:12px;">${trade || 'General'}${type ? ' — ' + type : ''}</p>
+                    <p style="margin:6px 0 0;color:#1A1A2E;font-size:13px;">${description || 'No description'}</p>
+                    <p style="margin:6px 0 0;color:#6B7A99;font-size:11px;">Priority: <strong>${priority}</strong> | Due: <strong>${dueDate ? new Date(dueDate).toLocaleDateString('en-GB') : 'Not set'}</strong></p>
+                    <a href="https://coresite.io/snag-reply/${replyToken}" style="display:inline-block;margin-top:8px;background:#2EA043;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;font-weight:600;font-size:12px;">Submit Completion Photo</a>
+                  </div>
+                  <p style="color:#6B7A99;font-size:12px;">Please review and action this snag as soon as possible.</p>
+                </div>
+                <div style="background:#F5F6F8;padding:12px 24px;border-radius:0 0 12px 12px;border:1px solid #E2E6EA;border-top:none;">
+                  <p style="color:#B0B8C9;font-size:10px;margin:0;text-align:center;">CoreSite — Site Compliance Platform</p>
+                </div>
+              </div>
+            `,
+          }),
+        }).catch(() => {})
+      }
+
+      // In-app notification (use operative ID if found, fall back to name)
       supabase.from('notifications').insert({
         company_id: mgr.company_id,
-        user_id: newAssignee,
+        user_id: assigneeOp?.id || newAssignee,
         type: 'info',
         title: 'Snag Assigned',
         body: `Snag #${snag.snag_number} has been assigned to you`,
-        link: '/worker/snags',
+        link: '/worker',
       }).then(() => {})
     }
 
