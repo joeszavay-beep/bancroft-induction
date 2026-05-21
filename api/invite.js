@@ -17,9 +17,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields' })
   }
 
-  // Verify the operative belongs to the caller's company
+  // Verify the operative belongs to the caller's company (only for real operative IDs)
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(operativeId)
   const callerCompanyId = user.user_metadata?.company_id
-  if (callerCompanyId) {
+  if (callerCompanyId && isUUID) {
     const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(
       process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
