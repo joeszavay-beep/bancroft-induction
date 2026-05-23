@@ -3,6 +3,8 @@
  * Shared template functions for all PDF generators
  */
 
+import { supabase } from './supabase'
+
 /**
  * Build a branding config object from company data
  */
@@ -29,28 +31,58 @@ export function buildBranding(company) {
 }
 
 /**
- * Convert an image URL to a data URL via Image element + canvas.
- * Uses crossOrigin='anonymous' to handle CORS on Supabase storage URLs
- * (fetch() fails on cross-origin but Image elements with CORS headers work).
+ * Parse a Supabase storage public URL into bucket + path
  */
-function imageToDataUrl(url, canvasW, canvasH) {
+function parseStorageUrl(url) {
+  const match = url.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
+  if (!match) return null
+  return { bucket: match[1], path: decodeURIComponent(match[2]) }
+}
+
+/**
+ * Convert a Blob to a data URL via FileReader
+ */
+function blobToDataUrl(blob) {
   return new Promise((resolve) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = canvasW || img.naturalWidth || 400
-      canvas.height = canvasH || img.naturalHeight || 200
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
-      try {
-        resolve(canvas.toDataURL('image/png'))
-      } catch {
-        resolve(null)
-      }
-    }
-    img.onerror = () => resolve(null)
-    img.src = url
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => resolve(null)
+    reader.readAsDataURL(blob)
   })
+}
+
+/**
+ * Download an image from Supabase storage as a data URL.
+ * Uses supabase.storage.download() which goes through the authenticated
+ * API endpoint with proper CORS headers — unlike public URLs which
+ * block fetch() and canvas extraction.
+ */
+async function downloadAsDataUrl(url) {
+  const parsed = parseStorageUrl(url)
+  if (!parsed) return null
+  try {
+    const { data, error } = await supabase.storage.from(parsed.bucket).download(parsed.path)
+    if (!data || error) return null
+    // SVG needs rasterisation for jsPDF (only supports PNG/JPEG)
+    if (data.type.includes('svg') || parsed.path.endsWith('.svg')) {
+      const svgText = await data.text()
+      const svgBlob = new Blob([svgText], { type: 'image/svg+xml' })
+      const svgUrl = URL.createObjectURL(svgBlob)
+      return new Promise((resolve) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = 300; canvas.height = 100
+          canvas.getContext('2d').drawImage(img, 0, 0, 300, 100)
+          URL.revokeObjectURL(svgUrl)
+          try { resolve(canvas.toDataURL('image/png')) } catch { resolve(null) }
+        }
+        img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(null) }
+        img.src = svgUrl
+      })
+    }
+    return blobToDataUrl(data)
+  } catch { return null }
 }
 
 /**
@@ -58,7 +90,7 @@ function imageToDataUrl(url, canvasW, canvasH) {
  */
 export async function loadLogoImage(url) {
   if (!url) return null
-  return imageToDataUrl(url)
+  return downloadAsDataUrl(url)
 }
 
 // Brand colours
@@ -503,7 +535,7 @@ export function drawFooter(doc, { y, margin, pageW, pageNum, branding }) {
  */
 export async function fetchSignatureAsDataUrl(url) {
   if (!url) return null
-  return imageToDataUrl(url, 300, 100)
+  return downloadAsDataUrl(url)
 }
 
 export { formatDate, formatTime, formatDateTime, getInitials }
