@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 import {
   drawHeader, drawTitle, drawInfoStrip, drawSectionLabel,
-  drawCardGrid, drawSummaryRow, drawFooter,
+  drawCardGrid, drawSummaryRow, drawFooter, drawBodyFrame,
   fetchSignatureAsDataUrl, formatDate, formatDateTime, COLORS, loadLogoImage
 } from './reportTemplate'
 
@@ -25,7 +25,7 @@ export async function generateSignOffSheet({ projectName, documentTitle, signatu
     pageW, branding,
   })
 
-  const bodyStartY = y
+  let pageStartY = y
 
   // Title
   y = drawTitle(doc, {
@@ -66,8 +66,11 @@ export async function generateSignOffSheet({ projectName, documentTitle, signatu
   }
 
   const checkPage = () => {
-    drawFooter(doc, { y: 280, margin, pageW, pageNum: doc.internal.getNumberOfPages(), branding })
+    // Close current page: body frame + footer
+    drawBodyFrame(doc, { startY: pageStartY, endY: 280, pageW, branding })
+    drawFooter(doc, { y: 282, margin, pageW, pageNum: doc.internal.getNumberOfPages(), branding })
     doc.addPage()
+    pageStartY = 10
     return drawSectionLabel(doc, { label: 'Sign-off record (continued)', y: 14, margin, branding })
   }
 
@@ -80,16 +83,9 @@ export async function generateSignOffSheet({ projectName, documentTitle, signatu
     y, margin, pageW,
   })
 
-  // Footer
-  drawFooter(doc, { y: y + 4, margin, pageW, pageNum: 1, branding })
-
-  // Body frame
-  const primary = branding?.primaryColor || COLORS.blue
-  doc.setDrawColor(...COLORS.border)
-  doc.setLineWidth(0.3)
-  doc.rect(margin, bodyStartY, pageW - margin * 2, y + 10 - bodyStartY)
-  doc.setFillColor(...primary)
-  doc.rect(margin, bodyStartY, 3, y + 10 - bodyStartY, 'F')
+  // Close final page: body frame + footer
+  drawBodyFrame(doc, { startY: pageStartY, endY: y + 6, pageW, branding })
+  drawFooter(doc, { y: y + 8, margin, pageW, pageNum: doc.internal.getNumberOfPages(), branding })
 
   const fileName = `Sign-Off - ${documentTitle} - ${new Date().toISOString().slice(0, 10)}.pdf`.replace(/[^a-zA-Z0-9 \-_.]/g, '')
   doc.save(fileName)

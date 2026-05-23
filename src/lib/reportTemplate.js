@@ -29,20 +29,36 @@ export function buildBranding(company) {
 }
 
 /**
+ * Convert an image URL to a data URL via Image element + canvas.
+ * Uses crossOrigin='anonymous' to handle CORS on Supabase storage URLs
+ * (fetch() fails on cross-origin but Image elements with CORS headers work).
+ */
+function imageToDataUrl(url, canvasW, canvasH) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = canvasW || img.naturalWidth || 400
+      canvas.height = canvasH || img.naturalHeight || 200
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+      try {
+        resolve(canvas.toDataURL('image/png'))
+      } catch {
+        resolve(null)
+      }
+    }
+    img.onerror = () => resolve(null)
+    img.src = url
+  })
+}
+
+/**
  * Load a company logo image as a data URL
  */
 export async function loadLogoImage(url) {
   if (!url) return null
-  try {
-    const res = await fetch(url)
-    const blob = await res.blob()
-    return new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result)
-      reader.onerror = () => resolve(null)
-      reader.readAsDataURL(blob)
-    })
-  } catch { return null }
+  return imageToDataUrl(url)
 }
 
 // Brand colours
@@ -483,36 +499,11 @@ export function drawFooter(doc, { y, margin, pageW, pageNum, branding }) {
 }
 
 /**
- * SVG signature to PNG data URL converter
+ * Load a signature image as a data URL (handles PNG, JPG, SVG)
  */
 export async function fetchSignatureAsDataUrl(url) {
-  try {
-    const res = await fetch(url)
-    const blob = await res.blob()
-    if (blob.type.includes('svg') || url.endsWith('.svg')) {
-      const svgText = await blob.text()
-      const img = new Image()
-      const svgBlob = new Blob([svgText], { type: 'image/svg+xml' })
-      const svgUrl = URL.createObjectURL(svgBlob)
-      return new Promise((resolve) => {
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          canvas.width = 300; canvas.height = 100
-          canvas.getContext('2d').drawImage(img, 0, 0, 300, 100)
-          URL.revokeObjectURL(svgUrl)
-          resolve(canvas.toDataURL('image/png'))
-        }
-        img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(null) }
-        img.src = svgUrl
-      })
-    }
-    return new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result)
-      reader.onerror = () => resolve(null)
-      reader.readAsDataURL(blob)
-    })
-  } catch { return null }
+  if (!url) return null
+  return imageToDataUrl(url, 300, 100)
 }
 
 export { formatDate, formatTime, formatDateTime, getInitials }
