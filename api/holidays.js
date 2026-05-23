@@ -174,7 +174,7 @@ export default async function handler(req, res) {
     const { data: mgrRow } = await supabase.from('managers').select('id').eq('email', user.email).eq('company_id', meta.company_id).limit(1)
     const managerId = mgrRow?.[0]?.id
 
-    let q = supabase.from('holiday_requests').select('*, operatives(name, photo_url, role)').eq('company_id', meta.company_id).order('start_date')
+    let q = supabase.from('holiday_requests').select('*, operatives(id, name, photo_url, role)').eq('company_id', meta.company_id).order('start_date')
     if (!isAdmin && managerId) q = q.eq('approver_id', managerId)
     if (status) q = q.eq('status', status)
     if (from_date) q = q.gte('start_date', from_date)
