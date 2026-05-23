@@ -65,7 +65,13 @@ export async function generateSignOffSheet({ projectName, documentTitle, signatu
     })
   }
 
-  y = drawCardGrid(doc, { people, y, margin, pageW, branding })
+  const checkPage = () => {
+    drawFooter(doc, { y: 280, margin, pageW, pageNum: doc.internal.getNumberOfPages(), branding })
+    doc.addPage()
+    return drawSectionLabel(doc, { label: 'Sign-off record (continued)', y: 14, margin, branding })
+  }
+
+  y = drawCardGrid(doc, { people, y, margin, pageW, branding, checkPage })
 
   // Summary
   y = drawSummaryRow(doc, {

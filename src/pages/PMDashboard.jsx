@@ -615,8 +615,9 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                       ) : (
                         <div className="space-y-1.5">
                           {projDocs.map(d => {
-                            const docSigs = signatures.filter(s => s.document_id === d.id && !s.invalidated)
-                            const invalidatedCount = signatures.filter(s => s.document_id === d.id && s.invalidated).length
+                            const allDocSigs = signatures.filter(s => s.document_id === d.id)
+                            const docSigs = allDocSigs.filter(s => !s.invalidated)
+                            const invalidatedCount = allDocSigs.length - docSigs.length
                             return (
                               <div key={d.id} className="rounded-lg px-3 py-2.5" style={{ backgroundColor: 'var(--bg-main)' }}>
                                 <div className="flex items-center gap-2">
@@ -627,8 +628,8 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                                     <button disabled={downloading === d.id} onClick={async () => {
                                       setDownloading(d.id)
                                       try {
-                                        await generateSignOffSheet({ projectName: p.name, documentTitle: d.title, signatures: docSigs, branding: companyBranding })
-                                      } catch { /* ignore */ }
+                                        await generateSignOffSheet({ projectName: p.name, documentTitle: d.title, signatures: allDocSigs, branding: companyBranding })
+                                      } catch { toast.error('Failed to generate sign-off sheet') }
                                       setDownloading(null)
                                     }} className="p-1 transition-colors" style={{ color: 'var(--primary-color)' }} title="Download sign-off sheet">
                                       {downloading === d.id ? <div className="w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--primary-color)' }} /> : <Download size={14} />}

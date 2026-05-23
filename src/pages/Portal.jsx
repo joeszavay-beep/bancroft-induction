@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { ArrowLeft, FileText, CheckCircle2, User, Calendar, FolderOpen, X, Shield, Globe, Clock } from 'lucide-react'
+import { ArrowLeft, FileText, CheckCircle2, User, Calendar, FolderOpen, X, Shield, Globe, Clock, Download } from 'lucide-react'
+import { generateSignOffSheet } from '../lib/generateSignOffSheet'
+import { buildBranding } from '../lib/reportTemplate'
 
 export default function Portal() {
   const { projectId } = useParams()
@@ -12,6 +14,8 @@ export default function Portal() {
   const [operatives, setOperatives] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedSig, setSelectedSig] = useState(null)
+  const [branding, setBranding] = useState(null)
+  const [downloading, setDownloading] = useState(null)
 
   async function loadProjects() {
     // Don't list all projects publicly — redirect to login
@@ -19,16 +23,22 @@ export default function Portal() {
   }
 
   async function loadProjectData() {
-    const [proj, sigs, docs, ops] = await Promise.all([
-      supabase.from('projects').select('*, companies(name, logo_url)').eq('id', projectId).single(),
+    const [proj, sigs, docs] = await Promise.all([
+      supabase.from('projects').select('*, companies(name, logo_url, primary_colour, secondary_colour, settings)').eq('id', projectId).single(),
       supabase.from('signatures').select('*').eq('project_id', projectId).order('signed_at', { ascending: false }),
       supabase.from('documents').select('*').eq('project_id', projectId).order('created_at'),
-      supabase.from('operatives').select('*').eq('project_id', projectId).order('name'),
     ])
     setProject(proj.data)
     setSignatures(sigs.data || [])
     setDocuments(docs.data || [])
-    setOperatives(ops.data || [])
+    if (proj.data?.companies) setBranding(buildBranding(proj.data.companies))
+
+    // Derive operatives from signatures — no direct project_id on operatives table
+    const opIds = [...new Set((sigs.data || []).map(s => s.operative_id).filter(Boolean))]
+    if (opIds.length > 0) {
+      const { data: opsData } = await supabase.from('operatives').select('*').in('id', opIds).order('name')
+      setOperatives(opsData || [])
+    }
     setLoading(false)
   }
 
@@ -101,6 +111,42 @@ export default function Portal() {
             <p className="text-xs text-slate-500">Signatures</p>
           </div>
         </div>
+
+        {/* Documents with download */}
+        {documents.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Documents</h3>
+            {documents.map(d => {
+              const docSigs = signatures.filter(s => s.document_id === d.id)
+              const validCount = docSigs.filter(s => !s.invalidated).length
+              return (
+                <div key={d.id} className="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-3">
+                  <FileText size={16} className="text-blue-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-900 font-medium truncate">{d.title}</p>
+                    <p className="text-xs text-slate-500">{validCount} signature{validCount !== 1 ? 's' : ''}{docSigs.length > validCount ? ` · ${docSigs.length - validCount} invalidated` : ''}</p>
+                  </div>
+                  {validCount > 0 && (
+                    <button
+                      disabled={downloading === d.id}
+                      onClick={async () => {
+                        setDownloading(d.id)
+                        try {
+                          await generateSignOffSheet({ projectName: project?.name, documentTitle: d.title, signatures: docSigs, branding })
+                        } catch { /* ignore */ }
+                        setDownloading(null)
+                      }}
+                      className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Download sign-off sheet"
+                    >
+                      {downloading === d.id ? <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /> : <Download size={16} />}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {/* Per operative breakdown */}
         {operatives.length === 0 ? (
