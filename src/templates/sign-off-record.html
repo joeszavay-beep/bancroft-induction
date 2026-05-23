@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document Sign-off Record — CoreSite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --navy:    #0D1426;
+      --navy-2:  #16213B;
+      --blue:    #1B6FC8;
+      --blue-ink:#155CA8;
+      --blue-soft:#E9F1FB;
+      --green:   #2C9C5E;
+      --green-soft:#E7F5EC;
+      --green-line:#C4E6D1;
+      --paper:   #FFFFFF;
+      --paper-2: #F5F7FA;
+      --tint:    #EEF2F7;
+      --ink:     #0D1426;
+      --ink-2:   #3A4254;
+      --muted:   #7C828F;
+      --muted-2: #A2A7B2;
+      --line:    #E8EBF1;
+      --line-2:  #DCE0EA;
+    }
+
+    html {
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: 'Hanken Grotesk', system-ui, sans-serif;
+      color: var(--ink);
+      background: radial-gradient(130% 90% at 50% 0%, #eef1f6 0%, #e2e7f0 58%, #d6dce8 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 48px 24px 80px;
+    }
+
+    /* ====== SHEET ====== */
+    .sheet {
+      width: 100%;
+      max-width: 880px;
+      background: var(--paper);
+      box-shadow: 0 30px 70px -30px rgba(13, 20, 38, 0.45);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Spine */
+    .sheet::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: linear-gradient(to bottom, var(--blue), var(--navy));
+      z-index: 10;
+    }
+
+    /* ====== MASTHEAD ====== */
+    .masthead {
+      background: linear-gradient(112deg, var(--navy), var(--navy-2));
+      padding: 26px 56px 26px 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .masthead-left {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .logo-tile {
+      width: 50px;
+      height: 50px;
+      background: var(--paper);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .logo-tile img {
+      height: 34px;
+      width: auto;
+      display: block;
+      object-fit: contain;
+    }
+
+    .logo-tile-fallback {
+      font-family: 'Fraunces', serif;
+      font-weight: 700;
+      font-size: 20px;
+      color: var(--navy);
+      line-height: 1;
+    }
+
+    .masthead-divider {
+      width: 1px;
+      height: 36px;
+      background: rgba(255, 255, 255, 0.15);
+      flex-shrink: 0;
+    }
+
+    .masthead-company {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .masthead-name {
+      color: #fff;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+
+    .masthead-subtitle {
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-weight: 500;
+    }
+
+    .masthead-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 16px 7px 12px;
+      background: rgba(44, 156, 94, 0.14);
+      border: 1px solid rgba(44, 156, 94, 0.35);
+      color: #62D69C;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .status-led {
+      width: 7px;
+      height: 7px;
+      background: #62D69C;
+      border-radius: 50%;
+      animation: pulse 2.5s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    .status-count {
+      color: rgba(255, 255, 255, 0.35);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* Accent hairline under masthead */
+    .masthead-accent {
+      height: 2px;
+      background: linear-gradient(to right, var(--blue), transparent 70%);
+    }
+
+    /* ====== HERO ====== */
+    .hero {
+      padding: 46px 56px 42px 60px;
+    }
+
+    .hero-eyebrow {
+      color: var(--blue);
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.26em;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .hero-title {
+      font-family: 'Fraunces', serif;
+      font-optical-sizing: auto;
+      font-size: 46px;
+      font-weight: 700;
+      color: var(--navy);
+      line-height: 1.08;
+      margin-bottom: 12px;
+    }
+
+    .hero-code {
+      color: var(--muted);
+      font-size: 13.5px;
+      margin-bottom: 22px;
+      letter-spacing: 0.01em;
+    }
+
+    .hero-project {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hero-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--blue);
+      flex-shrink: 0;
+    }
+
+    .hero-project-name {
+      font-family: 'Fraunces', serif;
+      font-optical-sizing: auto;
+      font-style: italic;
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--blue-ink);
+    }
+
+    /* ====== META STRIP ====== */
+    .meta-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      background: var(--paper-2);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .meta-cell {
+      padding: 22px 28px;
+      text-align: center;
+    }
+
+    .meta-cell + .meta-cell {
+      border-left: 1px solid var(--line);
+    }
+
+    .meta-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 7px;
+    }
+
+    .meta-value {
+      font-family: 'Fraunces', serif;
+      font-optical-sizing: auto;
+      font-size: 21px;
+      font-weight: 500;
+      color: var(--ink);
+    }
+
+    .meta-value--green {
+      color: var(--green);
+    }
+
+    /* ====== REGISTER ====== */
+    .register {
+      padding: 40px 56px 36px 60px;
+    }
+
+    .register-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 0;
+    }
+
+    .register-title {
+      font-family: 'Fraunces', serif;
+      font-optical-sizing: auto;
+      font-size: 25px;
+      font-weight: 600;
+      color: var(--navy);
+    }
+
+    .register-count {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 400;
+    }
+
+    .register-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 48px;
+    }
+
+    /* ====== ENTRY ====== */
+    .entry {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 22px 4px 20px;
+      border-bottom: 1px solid var(--line);
+      animation: fadeUp 0.45s ease both;
+    }
+
+    .entry-left {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      min-width: 0;
+    }
+
+    .entry-chip {
+      width: 42px;
+      height: 42px;
+      background: var(--blue-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-family: 'Fraunces', serif;
+      font-optical-sizing: auto;
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--blue-ink);
+      letter-spacing: 0.02em;
+    }
+
+    .entry-info {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+      padding-top: 2px;
+    }
+
+    .entry-name {
+      font-weight: 600;
+      font-size: 16.5px;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+
+    .entry-date {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    .entry-check {
+      width: 13px;
+      height: 13px;
+      color: var(--green);
+      flex-shrink: 0;
+    }
+
+    .entry-middot {
+      width: 3px;
+      height: 3px;
+      background: var(--muted-2);
+      flex-shrink: 0;
+    }
+
+    .entry-signature {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .entry-signature img {
+      max-height: 52px;
+      width: auto;
+      max-width: 150px;
+      opacity: 0.88;
+      display: block;
+    }
+
+    .entry-sig-line {
+      width: 100%;
+      min-width: 90px;
+      height: 1px;
+      background: var(--line-2);
+      margin-top: 5px;
+    }
+
+    .entry-fallback {
+      font-family: 'Fraunces', serif;
+      font-style: italic;
+      color: var(--muted-2);
+      font-size: 12.5px;
+      padding-bottom: 2px;
+      white-space: nowrap;
+    }
+
+    /* ====== FOOTER ====== */
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 22px 56px 22px 60px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .footer-center {
+      text-align: center;
+    }
+
+    .footer-brand {
+      color: var(--blue-ink);
+      font-weight: 700;
+    }
+
+    /* ====== ANIMATIONS ====== */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(9px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+
+    /* ====== PRINT ====== */
+    @media print {
+      @page {
+        size: A4;
+        margin: 14mm 10mm;
+      }
+      body {
+        background: white !important;
+        padding: 0;
+        min-height: auto;
+      }
+      .sheet {
+        box-shadow: none !important;
+        max-width: none;
+        width: 100%;
+      }
+      .entry {
+        animation: none !important;
+        page-break-inside: avoid;
+      }
+      .status-led {
+        animation: none !important;
+      }
+    }
+
+    /* ====== REDUCED MOTION ====== */
+    @media (prefers-reduced-motion: reduce) {
+      .entry,
+      .status-led {
+        animation: none !important;
+      }
+    }
+
+    /* ====== RESPONSIVE ====== */
+    @media (max-width: 680px) {
+      .register-grid {
+        grid-template-columns: 1fr;
+      }
+      .masthead {
+        padding: 22px 24px 22px 28px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 18px;
+      }
+      .masthead-right {
+        align-items: flex-start;
+      }
+      .hero {
+        padding: 36px 24px 32px 28px;
+      }
+      .hero-title {
+        font-size: 32px;
+      }
+      .hero-project-name {
+        font-size: 16px;
+      }
+      .register {
+        padding: 28px 24px 24px 28px;
+      }
+      .footer {
+        padding: 18px 24px 18px 28px;
+        flex-direction: column;
+        gap: 6px;
+        text-align: center;
+      }
+      .meta-strip {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .meta-cell:nth-child(3) {
+        border-left: none;
+      }
+      .meta-cell:nth-child(n+3) {
+        border-top: 1px solid var(--line);
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="sheet" id="sheet"></div>
+
+<script>
+  // ────────────────────────────────────────────────
+  // Placeholder signature SVG paths (unique per entry)
+  // ────────────────────────────────────────────────
+  const SIG_PATHS = [
+    'M12 38 C26 6, 46 8, 58 30 Q70 48, 86 16 C98 0, 114 12, 128 26 Q138 36, 152 18',
+    'M14 34 Q34 2, 52 22 C62 38, 72 4, 90 20 T120 14 Q136 8, 154 26',
+    'M10 42 C26 10, 48 8, 62 32 S84 50, 104 18 Q118 2, 138 22 L160 18',
+    'M12 32 L36 6 Q50 0, 58 18 L78 34 Q90 42, 106 14 L128 22 M36 48 L120 46',
+    'M8 36 C24 2, 44 4, 56 28 C68 50, 80 2, 96 24 Q110 42, 126 14 C138 2, 154 14, 168 22',
+    'M14 28 Q32 4, 48 24 C58 38, 66 8, 84 18 T112 12 L136 26 Q148 34, 164 14',
+    'M10 40 C30 4, 50 6, 64 28 Q76 46, 92 14 S110 -2, 130 22 Q142 36, 158 16',
+    'M12 36 C28 8, 42 10, 54 30 Q66 46, 82 18 C94 4, 108 16, 122 28 L146 20 Q156 16, 168 24',
+  ];
+
+  function makeSigSrc(index) {
+    const d = SIG_PATHS[index % SIG_PATHS.length];
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 52" fill="none">' +
+      '<path d="' + d + '" stroke="#0D1426" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/></svg>';
+    return 'data:image/svg+xml,' + encodeURIComponent(svg);
+  }
+
+  // ────────────────────────────────────────────────
+  // CONFIGURATION — edit this object to drive content
+  // ────────────────────────────────────────────────
+  const config = {
+    company:         'Thomas Worley Electrical',
+    companySubtitle: 'Electrical Services Ltd',
+    logoSrc:         null,
+    documentCode:    'ML-BAN-XX-ZZ-MS-X-00005',
+    revision:        'Rev -',
+    title:           'Management of Deliveries',
+    project:         'Morgan Lewis',
+    issuedDate:      '23 May 2026',
+    statusLabel:     'Completed',
+    completionLabel: 'Complete',
+    signatories: [
+      { name: 'Colin Cameron',      dateLabel: '21 May 2026', timeLabel: '17:18', signatureSrc: makeSigSrc(0) },
+      { name: 'Hesham Elsawify',     dateLabel: '15 May 2026', timeLabel: '15:12', signatureSrc: makeSigSrc(1) },
+      { name: 'Luke Taylor',        dateLabel: '14 May 2026', timeLabel: '17:09', signatureSrc: makeSigSrc(2) },
+      { name: 'Andrei Raduly',      dateLabel: '14 May 2026', timeLabel: '06:59', signatureSrc: makeSigSrc(3) },
+      { name: 'Stephen Pendry',     dateLabel: '13 May 2026', timeLabel: '11:10', signatureSrc: makeSigSrc(4) },
+      { name: 'Jamie Sellek',       dateLabel: '13 May 2026', timeLabel: '10:41', signatureSrc: makeSigSrc(5) },
+      { name: 'Mihai Luta',         dateLabel: '13 May 2026', timeLabel: '08:09', signatureSrc: makeSigSrc(6) },
+      { name: 'Florin Pop',         dateLabel: '13 May 2026', timeLabel: '08:08', signatureSrc: makeSigSrc(7) },
+      { name: 'Reece Thomas',       dateLabel: '13 May 2026', timeLabel: '07:13', signatureSrc: makeSigSrc(0) },
+      { name: 'Lewis Wretham',      dateLabel: '12 May 2026', timeLabel: '16:04', signatureSrc: makeSigSrc(1) },
+      { name: 'Ryan Gatorex',       dateLabel: '12 May 2026', timeLabel: '15:55', signatureSrc: makeSigSrc(2) },
+      { name: 'Bradley Rowlinson',  dateLabel: '12 May 2026', timeLabel: '15:46' },
+      { name: 'Rodrigo Chiste',     dateLabel: '12 May 2026', timeLabel: '15:29', signatureSrc: makeSigSrc(4) },
+    ],
+  };
+
+  // ────────────────────────────────────────────────
+  // HELPERS
+  // ────────────────────────────────────────────────
+  function initials(name) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length < 2) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  const CHECK_SVG = '<svg class="entry-check" viewBox="0 0 14 14" fill="none"><path d="M3 7.5 L5.8 10.2 L11 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  // ────────────────────────────────────────────────
+  // RENDER
+  // ────────────────────────────────────────────────
+  function render(c) {
+    const total = c.signatories.length;
+    const signed = c.signatories.filter(s => s.signatureSrc).length;
+    const allSigned = signed === total;
+
+    // Logo
+    let logoInner;
+    if (c.logoSrc) {
+      logoInner = '<img src="' + esc(c.logoSrc) + '" alt="' + esc(c.company) + ' logo">';
+    } else {
+      const li = c.company.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      logoInner = '<span class="logo-tile-fallback">' + li + '</span>';
+    }
+
+    // Entries
+    const entriesHtml = c.signatories.map((s, i) => {
+      const ini = initials(s.name);
+      const delay = (i * 0.04).toFixed(2);
+
+      let sigBlock;
+      if (s.signatureSrc) {
+        sigBlock =
+          '<div class="entry-signature">' +
+            '<img src="' + esc(s.signatureSrc) + '" alt="' + esc(s.name) + ' signature">' +
+            '<div class="entry-sig-line"></div>' +
+          '</div>';
+      } else {
+        sigBlock =
+          '<div class="entry-signature">' +
+            '<span class="entry-fallback">signed electronically</span>' +
+            '<div class="entry-sig-line"></div>' +
+          '</div>';
+      }
+
+      return (
+        '<div class="entry" style="animation-delay:' + delay + 's">' +
+          '<div class="entry-left">' +
+            '<div class="entry-chip">' + ini + '</div>' +
+            '<div class="entry-info">' +
+              '<div class="entry-name">' + esc(s.name) + '</div>' +
+              '<div class="entry-date">' +
+                CHECK_SVG +
+                '<span>' + esc(s.dateLabel) + '</span>' +
+                '<span class="entry-middot"></span>' +
+                '<span>' + esc(s.timeLabel) + '</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          sigBlock +
+        '</div>'
+      );
+    }).join('');
+
+    // Footer date
+    const now = new Date();
+    const footerDate = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    document.getElementById('sheet').innerHTML =
+      // ── MASTHEAD ──
+      '<div class="masthead">' +
+        '<div class="masthead-left">' +
+          '<div class="logo-tile">' + logoInner + '</div>' +
+          '<div class="masthead-divider"></div>' +
+          '<div class="masthead-company">' +
+            '<div class="masthead-name">' + esc(c.company) + '</div>' +
+            '<div class="masthead-subtitle">' + esc(c.companySubtitle) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="masthead-right">' +
+          '<div class="status-pill">' +
+            '<span class="status-led"></span>' +
+            '<span>' + esc(c.statusLabel) + '</span>' +
+          '</div>' +
+          '<span class="status-count">' + total + ' of ' + total + ' signed</span>' +
+        '</div>' +
+      '</div>' +
+
+      // ── ACCENT ──
+      '<div class="masthead-accent"></div>' +
+
+      // ── HERO ──
+      '<div class="hero">' +
+        '<div class="hero-eyebrow">Document Sign-off</div>' +
+        '<h1 class="hero-title">' + esc(c.title) + '</h1>' +
+        '<div class="hero-code">' + esc(c.documentCode) + ' &middot; ' + esc(c.revision) + '</div>' +
+        '<div class="hero-project">' +
+          '<span class="hero-dot"></span>' +
+          '<span class="hero-project-name">' + esc(c.project) + '</span>' +
+        '</div>' +
+      '</div>' +
+
+      // ── META STRIP ──
+      '<div class="meta-strip">' +
+        '<div class="meta-cell">' +
+          '<div class="meta-label">Issued</div>' +
+          '<div class="meta-value">' + esc(c.issuedDate) + '</div>' +
+        '</div>' +
+        '<div class="meta-cell">' +
+          '<div class="meta-label">Revision</div>' +
+          '<div class="meta-value">' + esc(c.revision) + '</div>' +
+        '</div>' +
+        '<div class="meta-cell">' +
+          '<div class="meta-label">Signatories</div>' +
+          '<div class="meta-value">' + total + '</div>' +
+        '</div>' +
+        '<div class="meta-cell">' +
+          '<div class="meta-label">Completion</div>' +
+          '<div class="meta-value meta-value--green">' + esc(c.completionLabel) + '</div>' +
+        '</div>' +
+      '</div>' +
+
+      // ── REGISTER ──
+      '<div class="register">' +
+        '<div class="register-header">' +
+          '<h2 class="register-title">Signatories</h2>' +
+          '<span class="register-count">All ' + total + ' signed</span>' +
+        '</div>' +
+        '<div class="register-grid">' +
+          entriesHtml +
+        '</div>' +
+      '</div>' +
+
+      // ── FOOTER ──
+      '<div class="footer">' +
+        '<span>' + esc(c.company) + '</span>' +
+        '<span class="footer-center">Powered by <span class="footer-brand">CoreSite</span></span>' +
+        '<span>' + footerDate + '</span>' +
+      '</div>';
+  }
+
+  render(config);
+</script>
+
+</body>
+</html>
