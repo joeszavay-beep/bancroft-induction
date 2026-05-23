@@ -23,6 +23,7 @@ export default function SiteSignIn() {
   const [authError, setAuthError] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
   const [signInNote, setSignInNote] = useState('')
+  const [signOutNote, setSignOutNote] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
 
   // Load project + check existing session
@@ -207,8 +208,9 @@ export default function SiteSignIn() {
     if (offSiteDistance) parts.push(`Off-site (${offSiteDistance}m)`)
     const action = type === 'sign_in' ? 'arrived' : 'left'
     let notes = parts.length ? `${parts.join(' · ')} — ${action} at ${formatTime(now)}` : null
-    if (type === 'sign_in' && signInNote.trim()) {
-      notes = notes ? `${notes} | ${signInNote.trim()}` : signInNote.trim()
+    const userNote = type === 'sign_in' ? signInNote.trim() : signOutNote.trim()
+    if (userNote) {
+      notes = notes ? `${notes} | ${userNote}` : userNote
     }
 
     // Atomic sign-in/out via RPC (prevents duplicate consecutive same-type events)
@@ -231,6 +233,7 @@ export default function SiteSignIn() {
       setAttendance((prev) => [{ type, operative_id: operative.id, recorded_at: now.toISOString(), id: result.id }, ...prev])
       setSuccess({ type, name: operative.name, time: formatTime(now), flag, offSiteDistance })
       if (type === 'sign_in') setSignInNote('')
+      if (type === 'sign_out') setSignOutNote('')
     }
     setRecording(false)
   }
@@ -382,6 +385,18 @@ export default function SiteSignIn() {
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#2EA043', boxShadow: '0 0 0 3px rgba(46,160,67,0.2)' }} />
                   <span style={{ fontSize: 15, color: '#166534', fontWeight: 600 }}>On site since {formatTime(lastRecord.recorded_at)}</span>
                 </div>
+                <input
+                  type="text"
+                  value={signOutNote}
+                  onChange={e => setSignOutNote(e.target.value.slice(0, 500))}
+                  placeholder="Leaving early or anything to note? (optional)"
+                  style={{
+                    width: '100%', padding: '12px 16px', fontSize: 14,
+                    background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: 10,
+                    color: '#1e293b', outline: 'none', boxSizing: 'border-box',
+                    marginBottom: 12,
+                  }}
+                />
                 <button onClick={() => handleRecord('sign_out')} disabled={recording}
                   style={{
                     width: '100%', minHeight: 56, padding: '16px 24px',
