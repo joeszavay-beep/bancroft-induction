@@ -31,7 +31,7 @@ export function parseMoney(input) {
  * @param {string} signOutTime - ISO timestamp
  * @returns {{ hours: number, dayType: 'full'|'half'|'none' }}
  */
-export function calculateHoursWorked(signInTime, signOutTime, fullDayThreshold = 8) {
+export function calculateHoursWorked(signInTime, signOutTime, fullDayThreshold = 7) {
   if (!signInTime || !signOutTime) return { hours: 0, dayType: 'none' }
   const inTime = new Date(signInTime)
   const outTime = new Date(signOutTime)
@@ -44,7 +44,7 @@ export function calculateHoursWorked(signInTime, signOutTime, fullDayThreshold =
 
   let dayType = 'none'
   if (hours >= fullDayThreshold) dayType = 'full'
-  else if (hours >= 4) dayType = 'half'
+  else if (hours >= fullDayThreshold / 2) dayType = 'half'
 
   return { hours, dayType }
 }

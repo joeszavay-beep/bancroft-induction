@@ -78,7 +78,7 @@ export default function SubcontractorJobDetail() {
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [assignForm, setAssignForm] = useState({
     operative_id: '', pay_type: 'daily', pay_rate: '', trade_role: '',
-    employment_status: 'self_employed', cis_rate: '20',
+    employment_status: 'self_employed', cis_rate: '20', full_day_hours: '7',
   })
   const [complianceResult, setComplianceResult] = useState(null)
   const [savingAssign, setSavingAssign] = useState(false)
@@ -522,6 +522,7 @@ export default function SubcontractorJobDetail() {
         trade_role: assignForm.trade_role.trim(),
         employment_status: assignForm.employment_status,
         cis_rate: parseFloat(assignForm.cis_rate) || 20,
+        full_day_hours: parseFloat(assignForm.full_day_hours) || 7,
         status: 'active',
         start_date: new Date().toISOString().split('T')[0],
       }
@@ -536,7 +537,7 @@ export default function SubcontractorJobDetail() {
       }
       setShowAssignModal(false)
       setEditingOp(null)
-      setAssignForm({ operative_id: '', pay_type: 'daily', pay_rate: '', trade_role: '', employment_status: 'self_employed', cis_rate: '20' })
+      setAssignForm({ operative_id: '', pay_type: 'daily', pay_rate: '', trade_role: '', employment_status: 'self_employed', cis_rate: '20', full_day_hours: '7' })
       setComplianceResult(null)
       loadJob()
     } catch (err) {
@@ -561,6 +562,7 @@ export default function SubcontractorJobDetail() {
       trade_role: jop.trade_role || '',
       employment_status: jop.employment_status || 'self_employed',
       cis_rate: String(jop.cis_rate ?? 20),
+      full_day_hours: String(jop.full_day_hours ?? 7),
     })
     if (jop.operatives) setComplianceResult(checkCompliance(jop.operatives))
     setShowAssignModal(true)
@@ -616,8 +618,8 @@ export default function SubcontractorJobDetail() {
     if (!job?.project_id) { toast.error('Job has no project linked'); return }
     setGeneratingQR(true)
     try {
-      const dayStart = weekDates[0].toISOString().split('T')[0] + 'T00:00:00.000Z'
-      const dayEnd = weekDates[6].toISOString().split('T')[0] + 'T23:59:59.999Z'
+      const dayStart = weekDates[0] + 'T00:00:00.000Z'
+      const dayEnd = weekDates[6] + 'T23:59:59.999Z'
 
       const { data: attendance } = await supabase.from('site_attendance')
         .select('*')
@@ -647,7 +649,7 @@ export default function SubcontractorJobDetail() {
 
         const signIn = g.signIns[0]
         const signOut = g.signOuts[g.signOuts.length - 1]
-        const hoursData = calculateHoursWorked(signIn?.recorded_at, signOut?.recorded_at)
+        const hoursData = calculateHoursWorked(signIn?.recorded_at, signOut?.recorded_at, jop.full_day_hours || 7)
         const cost = calculateCost(hoursData, jop.pay_type, jop.pay_rate)
 
         entries.push({
@@ -716,7 +718,8 @@ export default function SubcontractorJobDetail() {
     const entry = timesheetEntries.find(e => e.id === entryId)
     if (!entry) return
     const jop = jobOperatives.find(o => o.id === entry.job_operative_id)
-    const hoursData = { hours, dayType: hours >= 8 ? 'full' : hours >= 4 ? 'half' : 'none' }
+    const threshold = jop?.full_day_hours || 7
+    const hoursData = { hours, dayType: hours >= threshold ? 'full' : hours >= (threshold / 2) ? 'half' : 'none' }
     const cost = jop ? calculateCost(hoursData, jop.pay_type, jop.pay_rate) : 0
     const { error } = await supabase.from('timesheet_entries')
       .update({ hours_adjusted: hours, cost_calculated: cost, day_type: hoursData.dayType })
@@ -1285,7 +1288,7 @@ function OperativesTab({
         <button
           onClick={() => {
             setEditingOp(null)
-            setAssignForm({ operative_id: '', pay_type: 'daily', pay_rate: '', trade_role: '', employment_status: 'self_employed', cis_rate: '20' })
+            setAssignForm({ operative_id: '', pay_type: 'daily', pay_rate: '', trade_role: '', employment_status: 'self_employed', cis_rate: '20', full_day_hours: '7' })
             setComplianceResult(null)
             setShowAssignModal(true)
           }}
@@ -1388,7 +1391,7 @@ function OperativesTab({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <Field label="Pay Type">
                   <select value={assignForm.pay_type} onChange={e => setAssignForm(f => ({ ...f, pay_type: e.target.value }))} className="input-field">
                     {PAY_TYPES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
@@ -1399,6 +1402,9 @@ function OperativesTab({
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">£</span>
                     <input type="text" value={assignForm.pay_rate} onChange={e => setAssignForm(f => ({ ...f, pay_rate: e.target.value }))} className="input-field" style={{ paddingLeft: '1.75rem' }} placeholder="0.00" />
                   </div>
+                </Field>
+                <Field label="Full Day (hrs)">
+                  <input type="number" min="1" max="12" step="0.5" value={assignForm.full_day_hours} onChange={e => setAssignForm(f => ({ ...f, full_day_hours: e.target.value }))} className="input-field" placeholder="7" />
                 </Field>
               </div>
               <Field label="Trade / Role">
