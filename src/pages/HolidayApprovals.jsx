@@ -130,6 +130,7 @@ export default function HolidayApprovals() {
     if (activeTab === 'pending') {
       fetchPending()
     } else if (activeTab === 'calendar') {
+      setLoading(false)
       fetchCalendarData()
     } else {
       fetchAll()
