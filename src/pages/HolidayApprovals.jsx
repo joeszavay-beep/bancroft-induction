@@ -279,15 +279,15 @@ export default function HolidayApprovals() {
               <div className="flex items-center gap-4">
                 <div>
                   <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Total Allowance</p>
-                  <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{allowance.total_days ?? '--'} days</p>
+                  <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{allowance.total ?? '--'} days</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Used</p>
-                  <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{allowance.used_days ?? '--'} days</p>
+                  <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{allowance.used ?? '--'} days</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Remaining</p>
-                  <p className="text-sm font-bold" style={{ color: 'var(--primary-color)' }}>{allowance.remaining_days ?? '--'} days</p>
+                  <p className="text-sm font-bold" style={{ color: 'var(--primary-color)' }}>{allowance.remaining ?? '--'} days</p>
                 </div>
               </div>
             ) : (
