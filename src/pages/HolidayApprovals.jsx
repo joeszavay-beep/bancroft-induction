@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useCompany } from '../lib/CompanyContext'
 import { authFetch } from '../lib/authFetch'
+import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
 import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
-import { Calendar, Check, X, Clock, Users, ChevronDown, Filter } from 'lucide-react'
+import { Calendar, Check, X, Clock, Users, ChevronDown, ChevronLeft, ChevronRight, Filter, Plus } from 'lucide-react'
 import { formatDateRange } from '../lib/dates'
 
 function daysAgo(dateStr) {
@@ -53,6 +54,13 @@ export default function HolidayApprovals() {
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo] = useState('')
 
+  // Calendar state
+  const [calMonth, setCalMonth] = useState(new Date().getMonth())
+  const [calYear, setCalYear] = useState(new Date().getFullYear())
+  const [calRequests, setCalRequests] = useState([])
+  const [bankHolidays, setBankHolidays] = useState([])
+  const [loadingCal, setLoadingCal] = useState(false)
+
   async function fetchPending() {
     if (!managerId || !managerCompanyId) return
     setLoading(true)
@@ -99,13 +107,34 @@ export default function HolidayApprovals() {
     setLoading(false)
   }
 
+  async function fetchCalendarData() {
+    setLoadingCal(true)
+    try {
+      // Fetch all approved + pending requests for the visible month range
+      const firstDay = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-01`
+      const lastDay = new Date(calYear, calMonth + 1, 0)
+      const lastStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`
+
+      const res = await authFetch(`/api/holidays?from_date=${firstDay}&to_date=${lastStr}`)
+      const data = await res.json()
+      setCalRequests((data.requests || []).filter(r => r.status === 'approved' || r.status === 'pending'))
+
+      // Fetch bank holidays
+      const { data: bh } = await supabase.from('uk_bank_holidays').select('date, name').eq('division', 'england-and-wales')
+      setBankHolidays(bh || [])
+    } catch { /* ignore */ }
+    setLoadingCal(false)
+  }
+
   useEffect(() => {
     if (activeTab === 'pending') {
       fetchPending()
+    } else if (activeTab === 'calendar') {
+      fetchCalendarData()
     } else {
       fetchAll()
     }
-  }, [activeTab, managerId, managerCompanyId])
+  }, [activeTab, managerId, managerCompanyId, calMonth, calYear])
 
   async function fetchAllowance(operativeId) {
     if (allowanceCache[operativeId]) return
@@ -183,6 +212,57 @@ export default function HolidayApprovals() {
     setActionLoading(null)
     setRejectModal(null)
     setRejectNote('')
+  }
+
+  // Calendar grid
+  const calendarGrid = useMemo(() => {
+    const firstOfMonth = new Date(calYear, calMonth, 1)
+    const lastOfMonth = new Date(calYear, calMonth + 1, 0)
+    const startDay = firstOfMonth.getDay() // 0=Sun
+    const totalDays = lastOfMonth.getDate()
+
+    // Build array of day cells (pad start to Monday)
+    const mondayOffset = startDay === 0 ? 6 : startDay - 1
+    const cells = []
+    for (let i = 0; i < mondayOffset; i++) cells.push(null) // empty padding
+    for (let d = 1; d <= totalDays; d++) {
+      const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      const dayOfWeek = new Date(calYear, calMonth, d).getDay()
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+      const bh = bankHolidays.find(h => h.date === dateStr)
+      const dayRequests = calRequests.filter(r => r.start_date <= dateStr && r.end_date >= dateStr)
+      cells.push({ day: d, dateStr, isWeekend, bankHoliday: bh, requests: dayRequests })
+    }
+    return cells
+  }, [calMonth, calYear, calRequests, bankHolidays])
+
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+  function prevMonth() {
+    if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1) }
+    else setCalMonth(m => m - 1)
+  }
+  function nextMonth() {
+    if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1) }
+    else setCalMonth(m => m + 1)
+  }
+  function goToday() { setCalMonth(new Date().getMonth()); setCalYear(new Date().getFullYear()) }
+
+  // Unique operatives with holidays this month (for legend)
+  const calOperatives = useMemo(() => {
+    const opMap = {}
+    for (const r of calRequests) {
+      const name = r.operatives?.name || 'Unknown'
+      if (!opMap[name]) opMap[name] = { name, photo_url: r.operatives?.photo_url, status: r.status }
+    }
+    return Object.values(opMap)
+  }, [calRequests])
+
+  const opColors = ['#3B82F6', '#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#6366F1', '#14B8A6', '#F97316']
+  function getOpColor(name) {
+    let hash = 0
+    for (let i = 0; i < (name || '').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+    return opColors[Math.abs(hash) % opColors.length]
   }
 
   // Filter all-requests
@@ -341,7 +421,7 @@ export default function HolidayApprovals() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
+    <div className={`${activeTab === 'calendar' ? 'max-w-6xl' : 'max-w-4xl'} mx-auto p-4 sm:p-6 space-y-6 transition-all`}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -391,6 +471,20 @@ export default function HolidayApprovals() {
           }}
         >
           All Requests
+        </button>
+        <button
+          onClick={() => setActiveTab('calendar')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            activeTab === 'calendar'
+              ? 'border-[var(--primary-color)]'
+              : 'border-transparent'
+          }`}
+          style={{
+            color: activeTab === 'calendar' ? 'var(--primary-color)' : 'var(--text-muted)',
+          }}
+        >
+          <Calendar size={14} />
+          Calendar
         </button>
       </div>
 
@@ -498,6 +592,149 @@ export default function HolidayApprovals() {
             filteredAll.map(request =>
               renderRequestCard(request, request.status === 'pending')
             )
+          )}
+        </div>
+      )}
+
+      {/* Calendar Tab */}
+      {activeTab === 'calendar' && (
+        <div className="space-y-4">
+          {/* Month navigation */}
+          <div
+            className="rounded-xl border p-4 flex items-center justify-between"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+          >
+            <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-black/5 transition-colors" style={{ color: 'var(--text-primary)' }}>
+              <ChevronLeft size={20} />
+            </button>
+            <div className="text-center">
+              <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+                {monthNames[calMonth]} {calYear}
+              </h2>
+              <button onClick={goToday} className="text-xs font-medium mt-0.5 hover:underline" style={{ color: 'var(--primary-color)' }}>
+                Today
+              </button>
+            </div>
+            <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-black/5 transition-colors" style={{ color: 'var(--text-primary)' }}>
+              <ChevronRight size={20} />
+            </button>
+          </div>
+
+          {/* Calendar grid */}
+          <div
+            className="rounded-xl border overflow-hidden"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+          >
+            {/* Day headers */}
+            <div className="grid grid-cols-7 border-b" style={{ borderColor: 'var(--border-color)' }}>
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                <div key={day} className="px-2 py-2.5 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            {/* Day cells */}
+            {loadingCal ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-6 w-6 border-2 border-t-transparent" style={{ borderColor: 'var(--primary-color)' }} />
+              </div>
+            ) : (
+              <div className="grid grid-cols-7">
+                {calendarGrid.map((cell, i) => {
+                  if (!cell) {
+                    return <div key={`empty-${i}`} className="min-h-[90px] border-b border-r" style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)' }} />
+                  }
+                  const today = new Date()
+                  const isToday = cell.day === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear()
+                  return (
+                    <div
+                      key={cell.dateStr}
+                      className={`min-h-[90px] border-b border-r p-1.5 relative transition-colors ${cell.isWeekend ? 'bg-slate-50/50' : ''}`}
+                      style={{ borderColor: 'var(--border-color)', backgroundColor: cell.bankHoliday ? 'rgba(239,68,68,0.04)' : cell.isWeekend ? 'var(--bg-main)' : undefined }}
+                    >
+                      {/* Day number */}
+                      <div className="flex items-center justify-between mb-1">
+                        <span
+                          className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-[var(--primary-color)] text-white' : ''}`}
+                          style={{ color: isToday ? undefined : cell.isWeekend ? 'var(--text-muted)' : 'var(--text-primary)' }}
+                        >
+                          {cell.day}
+                        </span>
+                        {cell.bankHoliday && (
+                          <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-red-100 text-red-600 truncate max-w-[70px]" title={cell.bankHoliday.name}>
+                            {cell.bankHoliday.name}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Holiday bars */}
+                      <div className="space-y-0.5">
+                        {cell.requests.slice(0, 3).map(r => {
+                          const name = r.operatives?.name || 'Unknown'
+                          const color = getOpColor(name)
+                          const isPending = r.status === 'pending'
+                          return (
+                            <div
+                              key={r.id}
+                              className="text-[9px] font-medium px-1.5 py-0.5 rounded truncate"
+                              style={{
+                                backgroundColor: isPending ? 'transparent' : color + '18',
+                                color: color,
+                                border: isPending ? `1px dashed ${color}` : `1px solid ${color}30`,
+                              }}
+                              title={`${name} — ${r.status} (${r.start_date} to ${r.end_date})`}
+                            >
+                              {name.split(' ')[0]}
+                            </div>
+                          )
+                        })}
+                        {cell.requests.length > 3 && (
+                          <p className="text-[8px] font-medium px-1" style={{ color: 'var(--text-muted)' }}>
+                            +{cell.requests.length - 3} more
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Legend */}
+          {calOperatives.length > 0 && (
+            <div
+              className="rounded-xl border p-4"
+              style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+            >
+              <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
+                People off this month
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {calOperatives.map(op => {
+                  const color = getOpColor(op.name)
+                  return (
+                    <div key={op.name} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium" style={{ backgroundColor: color + '12', color, border: `1px solid ${color}25` }}>
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                      {op.name}
+                      {op.status === 'pending' && <span className="text-[9px] opacity-60">(pending)</span>}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="flex items-center gap-4 mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                <div className="flex items-center gap-1.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                  <div className="w-3 h-3 rounded bg-red-100 border border-red-200" /> Bank Holiday
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                  <div className="w-3 h-3 rounded bg-blue-100 border border-blue-300" /> Approved
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                  <div className="w-3 h-3 rounded border border-dashed border-blue-400" /> Pending
+                </div>
+              </div>
+            </div>
           )}
         </div>
       )}
