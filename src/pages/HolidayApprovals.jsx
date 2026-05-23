@@ -36,7 +36,7 @@ export default function HolidayApprovals() {
   const managerId = managerData.manager_id
   const managerCompanyId = user?.company_id
 
-  const [activeTab, setActiveTab] = useState('pending')
+  const [activeTab, setActiveTab] = useState('calendar')
   const [pendingRequests, setPendingRequests] = useState([])
   const [allRequests, setAllRequests] = useState([])
   const [loading, setLoading] = useState(true)
@@ -442,6 +442,33 @@ export default function HolidayApprovals() {
       {/* Tabs */}
       <div className="flex border-b" style={{ borderColor: 'var(--border-color)' }}>
         <button
+          onClick={() => setActiveTab('calendar')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            activeTab === 'calendar'
+              ? 'border-[var(--primary-color)]'
+              : 'border-transparent'
+          }`}
+          style={{
+            color: activeTab === 'calendar' ? 'var(--primary-color)' : 'var(--text-muted)',
+          }}
+        >
+          <Calendar size={14} />
+          Calendar
+        </button>
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'all'
+              ? 'border-[var(--primary-color)]'
+              : 'border-transparent'
+          }`}
+          style={{
+            color: activeTab === 'all' ? 'var(--primary-color)' : 'var(--text-muted)',
+          }}
+        >
+          All Requests
+        </button>
+        <button
           onClick={() => setActiveTab('pending')}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'pending'
@@ -458,33 +485,6 @@ export default function HolidayApprovals() {
               {pendingRequests.length}
             </span>
           )}
-        </button>
-        <button
-          onClick={() => setActiveTab('all')}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'all'
-              ? 'border-[var(--primary-color)]'
-              : 'border-transparent'
-          }`}
-          style={{
-            color: activeTab === 'all' ? 'var(--primary-color)' : 'var(--text-muted)',
-          }}
-        >
-          All Requests
-        </button>
-        <button
-          onClick={() => setActiveTab('calendar')}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
-            activeTab === 'calendar'
-              ? 'border-[var(--primary-color)]'
-              : 'border-transparent'
-          }`}
-          style={{
-            color: activeTab === 'calendar' ? 'var(--primary-color)' : 'var(--text-muted)',
-          }}
-        >
-          <Calendar size={14} />
-          Calendar
         </button>
       </div>
 
