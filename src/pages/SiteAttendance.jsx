@@ -249,11 +249,32 @@ export default function SiteAttendance() {
     return records
   }, [todayRecords, projectId, searchTerm, operatives])
 
-  // Per-operative summary for history
+  // All-time attendance for per-operative summary
+  const [allTimeRecords, setAllTimeRecords] = useState([])
+  const [loadingAllTime, setLoadingAllTime] = useState(false)
+
+  async function loadAllTimeSummary() {
+    if (allTimeRecords.length > 0) return // already loaded
+    setLoadingAllTime(true)
+    let q = supabase.from('site_attendance').select('operative_id, operative_name, type, recorded_at, notes')
+      .eq('company_id', cid)
+      .order('recorded_at')
+    if (projectId) q = q.eq('project_id', projectId)
+    const { data } = await q
+    setAllTimeRecords(data || [])
+    setLoadingAllTime(false)
+  }
+
+  // Load all-time data on mount
+  useEffect(() => {
+    if (cid) loadAllTimeSummary()
+  }, [cid, projectId])
+
+  // Per-operative summary from ALL-TIME data
   const operativeSummary = useMemo(() => {
-    const records = historyRecords.length > 0 ? historyRecords : todayRecords
+    if (allTimeRecords.length === 0) return []
     const byOp = {}
-    for (const rec of records) {
+    for (const rec of allTimeRecords) {
       if (!byOp[rec.operative_id]) byOp[rec.operative_id] = []
       byOp[rec.operative_id].push(rec)
     }
@@ -266,6 +287,9 @@ export default function SiteAttendance() {
       const days = new Set(sorted.map(r => new Date(r.recorded_at).toDateString()))
       let totalMinutes = 0
       let lateArrivals = 0
+
+      // Find first sign-in date
+      const firstSignIn = sorted.find(r => r.type === 'sign_in')
 
       for (let i = 0; i < sorted.length; i++) {
         if (sorted[i].type === 'sign_in') {
@@ -292,9 +316,10 @@ export default function SiteAttendance() {
         totalHours,
         avgHours,
         lateArrivals,
+        firstDate: firstSignIn ? new Date(firstSignIn.recorded_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
       }
     })
-  }, [historyRecords, todayRecords, operatives])
+  }, [allTimeRecords, operatives])
 
   // Sort state for summary
   const [summarySort, setSummarySort] = useState({ col: 'name', asc: true })
@@ -947,7 +972,7 @@ export default function SiteAttendance() {
         </h2>
 
         {sortedSummary.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No data for the selected period.</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{loadingAllTime ? 'Loading summary...' : 'No attendance data yet.'}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -955,6 +980,7 @@ export default function SiteAttendance() {
                 <tr className="border-b" style={{ borderColor: 'var(--border-color)' }}>
                   {[
                     { key: 'name', label: 'Operative' },
+                    { key: 'firstDate', label: 'First Seen' },
                     { key: 'daysAttended', label: 'Days Attended' },
                     { key: 'totalHours', label: 'Total Hours' },
                     { key: 'avgHours', label: 'Avg Hours/Day' },
@@ -980,6 +1006,7 @@ export default function SiteAttendance() {
                 {sortedSummary.map(row => (
                   <tr key={row.id} className="border-b last:border-0" style={{ borderColor: 'var(--border-color)' }}>
                     <td className="py-2.5 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>{row.name}</td>
+                    <td className="py-2.5 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{row.firstDate}</td>
                     <td className="py-2.5 px-3" style={{ color: 'var(--text-primary)' }}>{row.daysAttended}</td>
                     <td className="py-2.5 px-3" style={{ color: 'var(--text-primary)' }}>{row.totalHours}h</td>
                     <td className="py-2.5 px-3" style={{ color: 'var(--text-primary)' }}>{row.avgHours}h</td>
