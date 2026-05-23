@@ -214,7 +214,13 @@ export default async function handler(req, res) {
     }
 
     const isAdmin = callerRole === 'admin' || callerRole === 'super_admin'
-    const isAssignedApprover = callerId === request.approver_id || reqManagerId === request.approver_id
+    // Approver ID may be from the managers table, not the auth user ID
+    let callerManagerId = null
+    if (user) {
+      const { data: mgrRow } = await supabase.from('managers').select('id').eq('email', user.email).eq('is_active', true).limit(1)
+      callerManagerId = mgrRow?.[0]?.id
+    }
+    const isAssignedApprover = callerId === request.approver_id || callerManagerId === request.approver_id
     const isOperativeOwner = operativeSessionId === request.operative_id
 
     // Permission checks per action
