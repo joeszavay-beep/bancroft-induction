@@ -101,21 +101,8 @@ export function countCalendarDays(start, end) {
 
 export const DEFAULT_RULES = {
   deliveryWeeksBefore: 1,
-  orderPlacedWeekday: 1,    // Mon
-  approvalWeekday: 5,       // Fri
   techSubDaysBefore: 10,
-  techSubWeekday: 1,        // Mon
 }
-
-export const WEEKDAY_OPTIONS = [
-  { value: 1, label: 'Monday' },
-  { value: 2, label: 'Tuesday' },
-  { value: 3, label: 'Wednesday' },
-  { value: 4, label: 'Thursday' },
-  { value: 5, label: 'Friday' },
-  { value: 6, label: 'Saturday' },
-  { value: 7, label: 'Sunday' },
-]
 
 // ── Core algorithm ──
 
@@ -136,16 +123,14 @@ export function computeMilestones(onSite, leadWeeks, rules = DEFAULT_RULES) {
   // 1. Delivery = onSite - (deliveryWeeksBefore × 7)
   const delivery = addDays(onSiteDate, -(r.deliveryWeeksBefore * 7))
 
-  // 2. Order Placed = delivery - (leadWeeks × 7), snapped backward to orderPlacedWeekday
-  const orderPlacedRaw = addDays(delivery, -(leadWeeks * 7))
-  const orderPlaced = snapBackward(orderPlacedRaw, r.orderPlacedWeekday)
+  // 2. Order Placed = delivery - (leadWeeks × 7)
+  const orderPlaced = addDays(delivery, -(leadWeeks * 7))
 
-  // 3. Approval Required = orderPlaced, snapped backward to approvalWeekday
-  const approvalRequired = snapBackward(orderPlaced, r.approvalWeekday)
+  // 3. Approval Required = same as order placed (approval needed before order)
+  const approvalRequired = new Date(orderPlaced)
 
-  // 4. Tech Sub = approvalRequired - techSubDaysBefore, snapped backward to techSubWeekday
-  const techSubRaw = addDays(approvalRequired, -r.techSubDaysBefore)
-  const techSubIssue = snapBackward(techSubRaw, r.techSubWeekday)
+  // 4. Tech Sub = approvalRequired - techSubDaysBefore
+  const techSubIssue = addDays(approvalRequired, -r.techSubDaysBefore)
 
   return {
     delivery,
@@ -165,20 +150,9 @@ export function computeForward(techSubDate, leadWeeks, rules = DEFAULT_RULES) {
   const r = { ...DEFAULT_RULES, ...rules }
 
   // Reverse the algorithm: techSub → approval → orderPlaced → delivery → onSite
-  // Tech Sub + snap forward to approval day + techSubDaysBefore
-  const approvalRaw = addDays(ts, r.techSubDaysBefore)
-  // Snap forward to approvalWeekday
-  const approvalFwd = (isoWeekday(approvalRaw) - r.approvalWeekday + 7) % 7
-  const approvalRequired = approvalFwd === 0 ? new Date(approvalRaw) : addDays(approvalRaw, 7 - approvalFwd)
-
-  // Order placed = next orderPlacedWeekday after approval
-  const opFwd = (isoWeekday(approvalRequired) - r.orderPlacedWeekday + 7) % 7
-  const orderPlaced = opFwd === 0 ? addDays(approvalRequired, 7) : addDays(approvalRequired, 7 - opFwd)
-
-  // Delivery = orderPlaced + leadWeeks * 7
+  const approvalRequired = addDays(ts, r.techSubDaysBefore)
+  const orderPlaced = new Date(approvalRequired)
   const delivery = addDays(orderPlaced, leadWeeks * 7)
-
-  // On site = delivery + deliveryWeeksBefore * 7
   const onSite = addDays(delivery, r.deliveryWeeksBefore * 7)
 
   return {
