@@ -125,7 +125,7 @@ export default function SidebarLayout({ children }) {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [favourites, setFavourites] = useState(loadFavourites)
-  const [expandedSections, setExpandedSections] = useState(['People', 'Projects', 'Documents', 'Drawings & Snags', 'Programme', 'Commercial', 'Labour', 'H&S', 'Agency', 'Admin'])
+  const [expandedSections, setExpandedSections] = useState(['People', 'Projects', 'Templates', 'Documents', 'Drawings & Snags', 'Programme', 'Commercial', 'Labour', 'H&S', 'Agency', 'Admin'])
 
   function toggleFavourite(path) {
     setFavourites(prev => {
