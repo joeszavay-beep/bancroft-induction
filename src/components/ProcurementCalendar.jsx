@@ -93,6 +93,7 @@ export default function ProcurementCalendar({ rules = DEFAULT_RULES, trackerRows
       case 'ArrowDown': next.setDate(next.getDate() + 7); break
     }
     setCursor(next)
+    setSelectedDate(next)
     if (next.getMonth() !== month) setViewDate(new Date(next.getFullYear(), next.getMonth(), 1))
   }
 
