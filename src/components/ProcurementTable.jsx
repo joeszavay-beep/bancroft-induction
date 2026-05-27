@@ -39,7 +39,7 @@ function StatusPills({ value = {}, onChange }) {
 // (PriorityPips removed — Level is now a free-text EditCell)
 
 // ── Editable cell ──
-function EditCell({ value, displayValue, onCommit, type = 'text', placeholder = '\u2014', readOnly, calculated, italic, muted, title, className = '' }) {
+function EditCell({ value, displayValue, onCommit, type = 'text', placeholder = '\u2014', readOnly, calculated, danger, italic, muted, title, className = '' }) {
   const [editing, setEditing] = useState(false)
   const shown = displayValue || value
 
@@ -48,10 +48,10 @@ function EditCell({ value, displayValue, onCommit, type = 'text', placeholder = 
       <div title={title}
         className={`px-2 py-1.5 text-sm whitespace-nowrap overflow-hidden text-ellipsis ${className}`}
         style={{
-          color: calculated && value ? 'var(--primary-color)' : muted ? 'var(--text-muted)' : 'var(--text-primary)',
+          color: danger ? '#D93E3E' : calculated && value ? 'var(--primary-color)' : muted ? 'var(--text-muted)' : 'var(--text-primary)',
           fontWeight: calculated && value ? 600 : 400,
           fontStyle: italic ? 'italic' : 'normal',
-          background: calculated && value ? 'rgba(27,111,200,.04)' : 'transparent',
+          background: danger ? 'rgba(217,62,62,.06)' : calculated && value ? 'rgba(27,111,200,.04)' : 'transparent',
         }}
         aria-readonly="true">
         {shown || '\u2014'}
@@ -174,6 +174,8 @@ function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, deleteRow
   const lw = parseLeadTime(row.leadTime)
   const ms = lw && row.requiredOnSite ? computeMilestones(row.requiredOnSite, lw, rules) : null
   const flags = getRowFlags(row, ms)
+  const now = new Date(); now.setHours(0, 0, 0, 0)
+  const isPast = (d) => d && d < now
 
   const rowStyle = {
     transform: CSS.Transform.toString(transform),
@@ -214,13 +216,13 @@ function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, deleteRow
       </td>
       <td style={bdr}><SupplierCell value={row.supplier} onCommit={v => updateRow(row.id, 'supplier', v)} suggestions={supplierSuggestions} /></td>
       <td className="text-center" style={bdr}><EditCell value={row.firstLevel != null ? String(row.firstLevel) : ''} onCommit={v => updateRow(row.id, 'firstLevel', v)} className="text-center" /></td>
-      <td style={bdr}><EditCell value={ms ? fmtDate(ms.techSubIssue) : ''} readOnly calculated title="Auto-calculated" /></td>
-      <td style={bdr}><EditCell value={ms ? fmtDate(ms.approvalRequired) : ''} readOnly calculated title="Auto-calculated" /></td>
+      <td style={bdr}><EditCell value={ms ? fmtDate(ms.techSubIssue) : ''} readOnly calculated danger={ms && isPast(ms.techSubIssue)} title={ms && isPast(ms.techSubIssue) ? 'Date has passed' : 'Auto-calculated'} /></td>
+      <td style={bdr}><EditCell value={ms ? fmtDate(ms.approvalRequired) : ''} readOnly calculated danger={ms && isPast(ms.approvalRequired)} title={ms && isPast(ms.approvalRequired) ? 'Date has passed' : 'Auto-calculated'} /></td>
       <td style={bdr}><EditCell value={row.dateApproved ? fmtDateISO(row.dateApproved) : ''} displayValue={row.dateApproved ? fmtDate(row.dateApproved) : ''} type="date" onCommit={v => updateRow(row.id, 'dateApproved', v)} /></td>
       <td className="text-center px-1" style={bdr}><StatusPills value={row.status || {}} onChange={v => updateRow(row.id, 'status', v)} /></td>
-      <td style={bdr}><EditCell value={ms ? fmtDate(ms.orderPlaced) : ''} readOnly calculated title="Auto-calculated" /></td>
+      <td style={bdr}><EditCell value={ms ? fmtDate(ms.orderPlaced) : ''} readOnly calculated danger={ms && isPast(ms.orderPlaced)} title={ms && isPast(ms.orderPlaced) ? 'Date has passed' : 'Auto-calculated'} /></td>
       <td className="text-center" style={bdr}><EditCell value={row.leadTime || ''} onCommit={v => updateRow(row.id, 'leadTime', v)} placeholder="e.g. 12W" className="text-center" /></td>
-      <td style={bdr}><EditCell value={ms ? fmtDate(ms.delivery) : ''} readOnly calculated title="Auto-calculated" /></td>
+      <td style={bdr}><EditCell value={ms ? fmtDate(ms.delivery) : ''} readOnly calculated danger={ms && isPast(ms.delivery)} title={ms && isPast(ms.delivery) ? 'Date has passed' : 'Auto-calculated'} /></td>
       <td style={bdr}><EditCell value={row.requiredOnSite ? fmtDateISO(row.requiredOnSite) : ''} displayValue={row.requiredOnSite ? fmtDate(row.requiredOnSite) : ''} type="date" onCommit={v => updateRow(row.id, 'requiredOnSite', v)} /></td>
       <td style={bdr}><EditCell value={row.comments || ''} onCommit={v => updateRow(row.id, 'comments', v)} /></td>
       <td className="px-1 text-center" style={{ width: 52 }}>
