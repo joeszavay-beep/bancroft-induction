@@ -36,18 +36,7 @@ function StatusPills({ value = {}, onChange }) {
   )
 }
 
-// ── Priority pips ──
-function PriorityPips({ value, onChange }) {
-  const n = Math.min(4, Math.max(0, value || 0))
-  return (
-    <div className="flex gap-1 justify-center cursor-pointer" onClick={() => onChange(n >= 4 ? 1 : n + 1)}>
-      {[1, 2, 3, 4].map(i => (
-        <span key={i} className="w-2 h-2 transition-colors"
-          style={{ background: i <= n ? 'var(--primary-color)' : 'var(--border-color)' }} />
-      ))}
-    </div>
-  )
-}
+// (PriorityPips removed — Level is now a free-text EditCell)
 
 // ── Editable cell ──
 function EditCell({ value, onCommit, type = 'text', placeholder = '\u2014', readOnly, italic, muted, title, className = '' }) {
@@ -217,7 +206,7 @@ function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, setContex
       </td>
       <td style={bdr}><EditCell value={row.description} onCommit={v => updateRow(row.id, 'description', v)} /></td>
       <td style={bdr}><SupplierCell value={row.supplier} onCommit={v => updateRow(row.id, 'supplier', v)} suggestions={supplierSuggestions} /></td>
-      <td className="text-center" style={bdr}><PriorityPips value={row.firstLevel} onChange={v => updateRow(row.id, 'firstLevel', v)} /></td>
+      <td className="text-center" style={bdr}><EditCell value={row.firstLevel != null ? String(row.firstLevel) : ''} onCommit={v => updateRow(row.id, 'firstLevel', v)} className="text-center" /></td>
       <td style={bdr}><EditCell value={ms ? fmtDate(ms.techSubIssue) : ''} readOnly italic muted title="Auto-calculated" /></td>
       <td style={bdr}><EditCell value={ms ? fmtDate(ms.approvalRequired) : ''} readOnly italic muted title="Auto-calculated" /></td>
       <td style={bdr}><EditCell value={row.dateApproved ? fmtDate(row.dateApproved) : ''} type="date" onCommit={v => updateRow(row.id, 'dateApproved', v)} /></td>
@@ -268,7 +257,7 @@ export default function ProcurementTable({ rows, setRows, rules }) {
     const maxId = rows.length > 0 ? rows.reduce((m, r) => Math.max(m, r.id || 0), 0) : 0
     setRows(prev => [...prev, {
       id: maxId + 1, category: 'General',
-      description: '', supplier: '', firstLevel: 1, leadTime: '', requiredOnSite: '',
+      description: '', supplier: '', firstLevel: '', leadTime: '', requiredOnSite: '',
       dateApproved: '', status: {}, comments: '',
     }])
   }
@@ -280,7 +269,7 @@ export default function ProcurementTable({ rows, setRows, rules }) {
     const row = rows[idx]
     switch (action) {
       case 'insertAbove': case 'insertBelow': {
-        const nr = { id: maxId + 1, category: row.category || 'General', description: '', supplier: '', firstLevel: 1, leadTime: '', requiredOnSite: '', dateApproved: '', status: {}, comments: '' }
+        const nr = { id: maxId + 1, category: row.category || 'General', description: '', supplier: '', firstLevel: '', leadTime: '', requiredOnSite: '', dateApproved: '', status: {}, comments: '' }
         const next = [...rows]; next.splice(action === 'insertAbove' ? idx : idx + 1, 0, nr); setRows(next); break
       }
       case 'duplicate': { const next = [...rows]; next.splice(idx + 1, 0, { ...row, id: maxId + 1 }); setRows(next); break }
