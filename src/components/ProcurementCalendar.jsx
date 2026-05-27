@@ -71,6 +71,13 @@ export default function ProcurementCalendar({ rules = DEFAULT_RULES, trackerRows
     setCursor(day)
   }
 
+  // Re-focus the cursor button after month change re-render
+  useEffect(() => {
+    if (!cursor || !gridRef.current) return
+    const btn = gridRef.current.querySelector(`[data-day="${dayKey(cursor)}"]`)
+    if (btn) btn.focus({ preventScroll: true })
+  }, [cursor, viewDate])
+
   // Arrow key nav — attached to each day button so it fires before scroll
   function handleKeyDown(e) {
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter'].includes(e.key)) return
@@ -197,7 +204,7 @@ export default function ProcurementCalendar({ rules = DEFAULT_RULES, trackerRows
           const isWeekend = day.getDay() === 0 || day.getDay() === 6
 
           const dayCell = (
-            <button key={key} onClick={() => handleDayClick(day)} onKeyDown={handleKeyDown}
+            <button key={key} data-day={key} onClick={() => handleDayClick(day)} onKeyDown={handleKeyDown}
               className="relative flex flex-col items-center justify-center gap-0.5 border-b border-r transition-all min-h-[40px] outline-none"
               style={{
                 borderColor: 'var(--border-color)',
