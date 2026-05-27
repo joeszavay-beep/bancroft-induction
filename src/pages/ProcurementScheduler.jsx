@@ -1,5 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Download, FileSpreadsheet, Printer, CalendarRange, Settings2 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { supabase } from '../lib/supabase'
+import { useCompany } from '../lib/CompanyContext'
+import { useProject } from '../lib/ProjectContext'
 import ProcurementCalendar from '../components/ProcurementCalendar'
 import ProcurementTable from '../components/ProcurementTable'
 import {
@@ -109,33 +113,65 @@ function ProjectHeader({ header, setHeader }) {
 // ── CSV export helper ──
 const CSV_HEADERS = ['ID', 'Description', 'Supplier', 'Level', 'Tech Sub', 'Approval', 'Approved', 'Status', 'Order Placed', 'Lead Time', 'Delivery', 'On Site', 'Comments']
 
-// ── Persistence ──
-const STORAGE_KEY = 'coresite_procurement_schedule'
-
-function loadSaved() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw)
-  } catch { return null }
-}
-
-function save(data) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) } catch { /* full */ }
-}
-
 // ── Main page ──
 export default function ProcurementScheduler() {
-  const saved = useRef(loadSaved())
-  const [header, setHeader] = useState(saved.current?.header || { project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' })
-  const [rules, setRules] = useState(saved.current?.rules || { ...DEFAULT_RULES })
-  const [rows, setRows] = useState((saved.current?.rows || []).map(r => ({ ...r, _leadWeeks: parseLeadTime(r.leadTime) })))
-  const [rulesOpen, setRulesOpen] = useState(false)
+  const { user } = useCompany()
+  const { projectId } = useProject()
+  const cid = user?.company_id
 
-  // Auto-save on every change
+  const [header, setHeader] = useState({ project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' })
+  const [rules, setRules] = useState({ ...DEFAULT_RULES })
+  const [rows, setRows] = useState([])
+  const [rulesOpen, setRulesOpen] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const saveTimer = useRef(null)
+
+  // Load from Supabase on mount / project change
   useEffect(() => {
-    save({ header, rules, rows: rows.map(({ _leadWeeks, ...r }) => r) })
-  }, [header, rules, rows])
+    if (!cid || !projectId) { setLoaded(true); return }
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('procurement_schedules')
+        .select('header, rules, rows')
+        .eq('company_id', cid)
+        .eq('project_id', projectId)
+        .maybeSingle()
+      if (cancelled) return
+      if (data) {
+        setHeader(data.header || { project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' })
+        setRules(data.rules || { ...DEFAULT_RULES })
+        setRows((data.rows || []).map(r => ({ ...r, _leadWeeks: parseLeadTime(r.leadTime) })))
+      } else {
+        setHeader({ project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' })
+        setRules({ ...DEFAULT_RULES })
+        setRows([])
+      }
+      setLoaded(true)
+    })()
+    return () => { cancelled = true }
+  }, [cid, projectId])
+
+  // Auto-save to Supabase (debounced 1.5s after last change)
+  useEffect(() => {
+    if (!loaded || !cid || !projectId) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      const cleanRows = rows.map(({ _leadWeeks, ...r }) => r)
+      const { error } = await supabase
+        .from('procurement_schedules')
+        .upsert({
+          company_id: cid,
+          project_id: projectId,
+          header,
+          rules,
+          rows: cleanRows,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'company_id,project_id' })
+      if (error) console.error('Save failed:', error.message)
+    }, 1500)
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
+  }, [header, rules, rows, loaded, cid, projectId])
 
   const setRowsWrapped = useCallback(fn => {
     setRows(prev => {
@@ -169,6 +205,15 @@ export default function ProcurementScheduler() {
     a.download = `${header.projectNo || 'Procurement'}_${header.trade || ''}_Schedule_${header.revision || ''}_${fmtDateISO(new Date())}.csv`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  if (!projectId) {
+    return (
+      <div className="max-w-[1400px] mx-auto py-16 text-center">
+        <CalendarRange size={40} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--text-muted)' }} />
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Select a project from the sidebar to get started</p>
+      </div>
+    )
   }
 
   return (
