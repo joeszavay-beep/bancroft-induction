@@ -7,15 +7,18 @@ import { useProject } from '../lib/ProjectContext'
 import ProcurementCalendar from '../components/ProcurementCalendar'
 import ProcurementTable from '../components/ProcurementTable'
 import {
-  DEFAULT_RULES,
+  DEFAULT_RULES, WEEKDAY_OPTIONS,
   parseLeadTime, fmtDate, fmtDateISO, computeMilestones,
 } from '../lib/procurementSchedule'
 
 // ── Scheduling rules (collapsible) ──
 function AlgorithmPanel({ rules, setRules, open, setOpen }) {
   const fields = [
-    { key: 'deliveryWeeksBefore', label: 'Delivery buffer', desc: 'Weeks between delivery arriving and the Required On Site date', min: 0, max: 8, suffix: 'weeks' },
-    { key: 'techSubDaysBefore', label: 'Tech submittal lead time', desc: 'Calendar days needed between issuing the tech submittal and placing the order', min: 0, max: 60, suffix: 'days' },
+    { key: 'deliveryWeeksBefore', label: 'Delivery buffer', desc: 'Weeks between delivery and the Required On Site date', type: 'number', min: 0, max: 8 },
+    { key: 'orderPlacedWeekday', label: 'Order placed day', desc: 'Orders are placed on this day of the week', type: 'weekday' },
+    { key: 'approvalWeekday', label: 'Approval deadline day', desc: 'Approval must be received by this day each week', type: 'weekday' },
+    { key: 'techSubDaysBefore', label: 'Tech submittal lead time', desc: 'Calendar days needed between issuing the submittal and placing the order', type: 'number', min: 0, max: 60 },
+    { key: 'techSubWeekday', label: 'Tech submittal day', desc: 'Technical submittals are issued on this day', type: 'weekday' },
   ]
 
   return (
@@ -36,20 +39,26 @@ function AlgorithmPanel({ rules, setRules, open, setOpen }) {
 
       {open && (
         <div className="px-5 pb-4 pt-1 border-t" style={{ borderColor: 'var(--border-color)' }}>
-          <div className="flex flex-wrap gap-8 mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-3 mt-3">
             {fields.map(f => (
               <div key={f.key} className="flex items-start gap-3">
-                <div className="min-w-0">
+                <div className="flex-1 min-w-0">
                   <label className="text-sm font-medium block" style={{ color: 'var(--text-primary)' }}>{f.label}</label>
                   <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{f.desc}</p>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                {f.type === 'weekday' ? (
+                  <select value={rules[f.key]}
+                    onChange={e => setRules(prev => ({ ...prev, [f.key]: parseInt(e.target.value) }))}
+                    className="w-[110px] px-2 py-1.5 border text-sm shrink-0 mt-0.5"
+                    style={{ borderColor: 'var(--border-color)', background: '#FFFBEB', color: 'var(--text-primary)' }}>
+                    {WEEKDAY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                ) : (
                   <input type="number" value={rules[f.key]} min={f.min} max={f.max}
                     onChange={e => setRules(prev => ({ ...prev, [f.key]: parseInt(e.target.value) || 0 }))}
-                    className="w-[56px] px-2 py-1.5 border text-sm text-center"
+                    className="w-[64px] px-2 py-1.5 border text-sm text-center shrink-0 mt-0.5"
                     style={{ borderColor: 'var(--border-color)', background: '#FFFBEB', color: 'var(--text-primary)' }} />
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{f.suffix}</span>
-                </div>
+                )}
               </div>
             ))}
           </div>
