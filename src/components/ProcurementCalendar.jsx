@@ -71,13 +71,14 @@ export default function ProcurementCalendar({ rules = DEFAULT_RULES, trackerRows
     setCursor(day)
   }
 
-  // Arrow key nav — prevent page scroll, keep calendar in view
-  const handleKeyDown = useCallback((e) => {
+  // Arrow key nav — attached to each day button so it fires before scroll
+  function handleKeyDown(e) {
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter'].includes(e.key)) return
     e.preventDefault()
+    e.stopPropagation()
     if (e.key === 'Enter') { if (cursor) handleDayClick(cursor); return }
-    if (!cursor) { setCursor(new Date()); return }
-    const next = new Date(cursor)
+    const base = cursor || new Date()
+    const next = new Date(base)
     switch (e.key) {
       case 'ArrowLeft': next.setDate(next.getDate() - 1); break
       case 'ArrowRight': next.setDate(next.getDate() + 1); break
@@ -86,7 +87,7 @@ export default function ProcurementCalendar({ rules = DEFAULT_RULES, trackerRows
     }
     setCursor(next)
     if (next.getMonth() !== month) setViewDate(new Date(next.getFullYear(), next.getMonth(), 1))
-  }, [cursor, month])
+  }
 
   // Result highlights
   const highlights = {}
@@ -168,7 +169,7 @@ export default function ProcurementCalendar({ rules = DEFAULT_RULES, trackerRows
       </div>
 
       {/* Calendar grid */}
-      <div ref={gridRef} tabIndex={0} onKeyDown={handleKeyDown}
+      <div ref={gridRef}
         className="grid outline-none border" style={{ gridTemplateColumns: '26px repeat(7, 1fr)', borderColor: 'var(--border-color)' }}>
         {/* Day headers */}
         {['', 'M', 'T', 'W', 'T', 'F', 'S', 'S'].map((h, i) => (
@@ -196,8 +197,8 @@ export default function ProcurementCalendar({ rules = DEFAULT_RULES, trackerRows
           const isWeekend = day.getDay() === 0 || day.getDay() === 6
 
           const dayCell = (
-            <button key={key} onClick={() => handleDayClick(day)}
-              className="relative flex flex-col items-center justify-center gap-0.5 border-b border-r transition-all min-h-[40px]"
+            <button key={key} onClick={() => handleDayClick(day)} onKeyDown={handleKeyDown}
+              className="relative flex flex-col items-center justify-center gap-0.5 border-b border-r transition-all min-h-[40px] outline-none"
               style={{
                 borderColor: 'var(--border-color)',
                 cursor: 'pointer',
