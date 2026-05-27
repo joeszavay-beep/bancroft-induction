@@ -15,7 +15,7 @@ export const TEMPLATES = [
   },
   {
     key: 'procurement-scheduler',
-    label: 'Procurement Scheduler',
+    label: 'Procurement Schedule',
     icon: 'CalendarRange',
     path: '/app/procurement-scheduler',
     active: true,

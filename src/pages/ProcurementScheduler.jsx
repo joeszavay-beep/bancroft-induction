@@ -1,13 +1,13 @@
 import { useState, useCallback } from 'react'
-import { Download, Upload, FileSpreadsheet, Printer } from 'lucide-react'
+import { Download, Upload, FileSpreadsheet, Printer, CalendarRange } from 'lucide-react'
 import ProcurementCalendar from '../components/ProcurementCalendar'
 import ProcurementTable from '../components/ProcurementTable'
 import {
-  DEFAULT_RULES, WEEKDAY_OPTIONS, SAMPLE_HEADER, SAMPLE_ROWS, SAMPLE_CATEGORIES,
+  DEFAULT_RULES, WEEKDAY_OPTIONS,
   parseLeadTime, fmtDate, fmtDateISO, computeMilestones,
 } from '../lib/procurementSchedule'
 
-// ── Algorithm panel inputs ──
+// ── Algorithm panel ──
 function AlgorithmPanel({ rules, setRules }) {
   const fields = [
     { key: 'deliveryWeeksBefore', label: 'Delivery: weeks before Required On Site', type: 'number', min: 0, max: 8 },
@@ -18,44 +18,31 @@ function AlgorithmPanel({ rules, setRules }) {
   ]
 
   return (
-    <div style={{ flex: '1 1 360px', minWidth: 300, padding: 24 }}>
-      <h3 style={{
-        fontFamily: "'Fraunces',serif", fontSize: 18, fontWeight: 600, color: 'var(--navy)',
-        marginBottom: 16,
-      }}>
+    <div className="flex-1 min-w-[300px] p-5">
+      <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
         Scheduling Rules
       </h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="space-y-2.5">
         {fields.map(f => (
-          <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <label style={{ flex: 1, fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.3 }}>
-              {f.label}
-            </label>
+          <div key={f.key} className="flex items-center gap-3">
+            <label className="flex-1 text-sm" style={{ color: 'var(--text-primary)' }}>{f.label}</label>
             {f.type === 'weekday' ? (
-              <select value={rules[f.key]} onChange={e => setRules(prev => ({ ...prev, [f.key]: parseInt(e.target.value) }))}
-                style={{
-                  width: 120, padding: '6px 8px', border: '1px solid var(--line)',
-                  fontSize: 13, background: '#FFFBEB', color: 'var(--ink)',
-                  fontFamily: "'Hanken Grotesk',sans-serif",
-                }}>
+              <select value={rules[f.key]}
+                onChange={e => setRules(prev => ({ ...prev, [f.key]: parseInt(e.target.value) }))}
+                className="w-[120px] px-2 py-1.5 border text-sm"
+                style={{ borderColor: 'var(--border-color)', background: '#FFFBEB', color: 'var(--text-primary)' }}>
                 {WEEKDAY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             ) : (
               <input type="number" value={rules[f.key]} min={f.min} max={f.max}
                 onChange={e => setRules(prev => ({ ...prev, [f.key]: parseInt(e.target.value) || 0 }))}
-                style={{
-                  width: 72, padding: '6px 8px', border: '1px solid var(--line)',
-                  fontSize: 13, textAlign: 'center', background: '#FFFBEB', color: 'var(--ink)',
-                  fontFamily: "'Hanken Grotesk',sans-serif",
-                }} />
+                className="w-[72px] px-2 py-1.5 border text-sm text-center"
+                style={{ borderColor: 'var(--border-color)', background: '#FFFBEB', color: 'var(--text-primary)' }} />
             )}
           </div>
         ))}
       </div>
-      <p style={{
-        marginTop: 16, fontSize: 12, color: 'var(--muted)', lineHeight: 1.5,
-        fontStyle: 'italic',
-      }}>
+      <p className="mt-4 text-xs italic" style={{ color: 'var(--text-muted)' }}>
         Per item, enter Required On Site + Lead Time. Delivery, Order Placed, Approval Required and Tech Sub Issue dates auto-calculate.
       </p>
     </div>
@@ -74,36 +61,28 @@ function ProjectHeader({ header, setHeader }) {
   ]
 
   return (
-    <div style={{ padding: '36px 48px 28px', borderBottom: '1px solid var(--line)' }}>
-      <h1 style={{
-        fontFamily: "'Fraunces',serif", fontSize: 36, fontWeight: 700, color: 'var(--navy)',
-        marginBottom: 24, lineHeight: 1.1,
-      }}>
-        Procurement Tracker
-      </h1>
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-        gap: '12px 32px',
-      }}>
+    <div className="px-6 py-5 border-b" style={{ borderColor: 'var(--border-color)' }}>
+      <div className="flex items-center gap-3 mb-5">
+        <div className="p-2 rounded-lg" style={{ background: 'var(--primary-color)', color: '#fff' }}>
+          <CalendarRange size={20} />
+        </div>
+        <div>
+          <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Procurement Schedule</h1>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Reverse-scheduled procurement tracker</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-6 gap-y-3">
         {fields.map(f => (
           <div key={f.key}>
-            <label style={{
-              display: 'block', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.14em',
-              color: 'var(--muted)', fontWeight: 600, marginBottom: 4,
-            }}>
+            <label className="block text-[10px] uppercase tracking-wider font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
               {f.label}
             </label>
             <input type={f.key === 'date' ? 'date' : 'text'}
               value={header[f.key] || ''}
               onChange={e => setHeader(prev => ({ ...prev, [f.key]: e.target.value }))}
-              style={{
-                width: '100%', padding: '8px 10px', border: '1px solid transparent',
-                fontSize: 15, fontWeight: 500, color: 'var(--ink)',
-                fontFamily: f.key === 'project' ? "'Fraunces',serif" : "'Hanken Grotesk',sans-serif",
-                background: 'transparent',
-              }}
-              onFocus={e => e.target.style.borderColor = 'var(--blue)'}
-              onBlur={e => e.target.style.borderColor = 'transparent'}
+              className="w-full px-2 py-1.5 text-sm border border-transparent hover:border-[var(--border-color)] focus:border-[var(--primary-color)] outline-none transition-colors"
+              style={{ color: 'var(--text-primary)', background: 'transparent' }}
+              placeholder={'\u2014'}
             />
           </div>
         ))}
@@ -112,20 +91,14 @@ function ProjectHeader({ header, setHeader }) {
   )
 }
 
+// ── CSV export helper ──
+const CSV_HEADERS = ['ID', 'Description', 'Supplier', '1st Level', 'Tech Sub', 'Approval', 'Approved', 'Status', 'Order Placed', 'Lead Time', 'Delivery', 'On Site', 'Comments']
+
 // ── Main page ──
 export default function ProcurementScheduler() {
-  const [header, setHeader] = useState({
-    ...SAMPLE_HEADER,
-    date: fmtDateISO(new Date()),
-  })
+  const [header, setHeader] = useState({ project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' })
   const [rules, setRules] = useState({ ...DEFAULT_RULES })
-  const [rows, setRows] = useState(SAMPLE_ROWS.map(r => ({
-    ...r,
-    status: {},
-    dateApproved: '',
-    comments: '',
-    _leadWeeks: parseLeadTime(r.leadTime),
-  })))
+  const [rows, setRows] = useState([])
 
   // Keep _leadWeeks synced
   const setRowsWrapped = useCallback(fn => {
@@ -135,15 +108,13 @@ export default function ProcurementScheduler() {
     })
   }, [])
 
-  // Excel export
   async function handleExportExcel() {
     const { exportToExcel } = await import('../lib/procurementExport.js')
     exportToExcel(header, rules, rows)
   }
 
-  // CSV export
   function handleExportCSV() {
-    const csvRows = [COLUMNS_FOR_CSV.map(c => c.label).join(',')]
+    const csvRows = [CSV_HEADERS.join(',')]
     rows.forEach(row => {
       const lw = parseLeadTime(row.leadTime)
       const ms = lw && row.requiredOnSite ? computeMilestones(row.requiredOnSite, lw, rules) : null
@@ -159,12 +130,11 @@ export default function ProcurementScheduler() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${header.projectNo || 'Procurement'}_${header.trade || ''}_Tracker_${header.revision || ''}_${fmtDateISO(new Date())}.csv`
+    a.download = `${header.projectNo || 'Procurement'}_${header.trade || ''}_Schedule_${header.revision || ''}_${fmtDateISO(new Date())}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
 
-  // Excel import
   async function handleImport(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -175,90 +145,63 @@ export default function ProcurementScheduler() {
       if (result.rules) setRules(prev => ({ ...prev, ...result.rules }))
       if (result.rows) setRowsWrapped(result.rows)
     }
+    e.target.value = ''
   }
 
   return (
-    <div style={{ minHeight: '100vh' }}>
-      {/* CSS variables */}
-      <style>{`
-        .ps-root {
-          --navy: #0D1426; --navy-2: #16213B;
-          --blue: #1B6FC8; --blue-ink: #155CA8; --blue-soft: #E9F1FB;
-          --green: #2C9C5E; --green-soft: #E7F5EC; --green-line: #C4E6D1;
-          --paper: #FFFFFF; --paper-2: #F5F7FA; --tint: #EEF2F7;
-          --ink: #0D1426; --ink-2: #3A4254; --muted: #7C828F; --muted-2: #A2A7B2;
-          --line: #E8EBF1; --line-2: #DCE0EA;
-        }
-        @media print {
-          .ps-algo-panel, .ps-toolbar { display: none !important; }
-          .ps-root { background: white !important; }
-          @page { size: A3 landscape; margin: 10mm; }
-          .ps-table-wrap { overflow: visible !important; }
-        }
-      `}</style>
-
-      <div className="ps-root" style={{ fontFamily: "'Hanken Grotesk',sans-serif", color: 'var(--ink)' }}>
-        {/* Region 1: Project Header */}
+    <div className="max-w-[1400px] mx-auto">
+      {/* Region 1: Project Header */}
+      <div className="rounded-xl border mb-4" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <ProjectHeader header={header} setHeader={setHeader} />
 
         {/* Toolbar */}
-        <div className="ps-toolbar" style={{
-          display: 'flex', gap: 8, padding: '12px 48px', borderBottom: '1px solid var(--line)',
-          background: 'var(--paper)', flexWrap: 'wrap', alignItems: 'center',
-        }}>
+        <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
           <button onClick={handleExportExcel}
-            style={toolBtnStyle}>
-            <FileSpreadsheet size={14} /> Export Excel
+            className="flex items-center gap-1.5 px-3 py-1.5 border text-xs font-medium transition-colors hover:bg-black/[0.02]"
+            style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
+            <FileSpreadsheet size={13} /> Export Excel
           </button>
           <button onClick={handleExportCSV}
-            style={toolBtnStyle}>
-            <Download size={14} /> Export CSV
+            className="flex items-center gap-1.5 px-3 py-1.5 border text-xs font-medium transition-colors hover:bg-black/[0.02]"
+            style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
+            <Download size={13} /> Export CSV
           </button>
-          <label style={{ ...toolBtnStyle, cursor: 'pointer' }}>
-            <Upload size={14} /> Import .xlsx
-            <input type="file" accept=".xlsx,.xls" onChange={handleImport} style={{ display: 'none' }} />
+          <label className="flex items-center gap-1.5 px-3 py-1.5 border text-xs font-medium cursor-pointer transition-colors hover:bg-black/[0.02]"
+            style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
+            <Upload size={13} /> Import .xlsx
+            <input type="file" accept=".xlsx,.xls" onChange={handleImport} className="hidden" />
           </label>
-          <button onClick={() => window.print()} style={toolBtnStyle}>
-            <Printer size={14} /> Print
+          <button onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3 py-1.5 border text-xs font-medium transition-colors hover:bg-black/[0.02]"
+            style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
+            <Printer size={13} /> Print
           </button>
-        </div>
-
-        {/* Region 2: Algorithm Panel + Calendar */}
-        <div className="ps-algo-panel" style={{
-          display: 'flex', gap: 0, background: 'var(--paper-2)',
-          borderBottom: '1px solid var(--line)', flexWrap: 'wrap',
-        }}>
-          <AlgorithmPanel rules={rules} setRules={setRules} />
-          <div style={{ width: 1, background: 'var(--line)', alignSelf: 'stretch' }} />
-          <div style={{ flex: '1 1 400px', minWidth: 340, padding: 24 }}>
-            <h3 style={{
-              fontFamily: "'Fraunces',serif", fontSize: 18, fontWeight: 600, color: 'var(--navy)',
-              marginBottom: 16,
-            }}>
-              Date Calculator
-            </h3>
-            <ProcurementCalendar rules={rules} trackerRows={rows} />
-          </div>
-        </div>
-
-        {/* Region 3: Tracker Table */}
-        <div className="ps-table-wrap" style={{ padding: '24px 48px 48px', overflow: 'auto' }}>
-          <ProcurementTable rows={rows} setRows={setRowsWrapped} rules={rules} categories={SAMPLE_CATEGORIES} />
         </div>
       </div>
+
+      {/* Region 2: Algorithm Panel + Calendar */}
+      <div className="rounded-xl border mb-4 flex flex-wrap" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <AlgorithmPanel rules={rules} setRules={setRules} />
+        <div className="w-px self-stretch" style={{ background: 'var(--border-color)' }} />
+        <div className="flex-1 min-w-[340px] p-5">
+          <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
+            Date Calculator
+          </h3>
+          <ProcurementCalendar rules={rules} trackerRows={rows} />
+        </div>
+      </div>
+
+      {/* Region 3: Tracker Table */}
+      <div className="rounded-xl border p-4" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <ProcurementTable rows={rows} setRows={setRowsWrapped} rules={rules} />
+      </div>
+
+      <style>{`
+        @media print {
+          .max-w-\\[1400px\\] > div:nth-child(2) { display: none !important; }
+          @page { size: A3 landscape; margin: 10mm; }
+        }
+      `}</style>
     </div>
   )
-}
-
-const COLUMNS_FOR_CSV = [
-  { label: 'ID' }, { label: 'Description' }, { label: 'Supplier' }, { label: '1st Level' },
-  { label: 'Tech Sub Issue' }, { label: 'Approval Req' }, { label: 'Date Approved' },
-  { label: 'Status' }, { label: 'Order Placed' }, { label: 'Lead Time' },
-  { label: 'Delivery Req' }, { label: 'Required On Site' }, { label: 'Comments' },
-]
-
-const toolBtnStyle = {
-  display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px',
-  border: '1px solid var(--line)', background: 'var(--paper)', cursor: 'pointer',
-  color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, fontFamily: "'Hanken Grotesk',sans-serif",
 }

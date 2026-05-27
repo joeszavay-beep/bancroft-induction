@@ -41,7 +41,7 @@ const NAV_SECTIONS = [
     items: [
       { label: 'Templates Hub', path: '/app/templates', icon: ClipboardList },
       { label: 'Procurement', path: '/app/procurement', icon: Globe },
-      { label: 'Procurement Scheduler', path: '/app/procurement-scheduler', icon: CalendarRange },
+      { label: 'Procurement Schedule', path: '/app/procurement-scheduler', icon: CalendarRange },
     ],
   },
   {

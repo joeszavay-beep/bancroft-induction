@@ -1,13 +1,15 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { Plus, ChevronDown, ChevronRight, MoreHorizontal, AlertCircle } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, MoreHorizontal, AlertCircle, GripVertical } from 'lucide-react'
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import {
-  computeMilestones, parseLeadTime, formatLeadTime, fmtDate, fmtDateISO,
-  parseDate, getRowFlags,
+  computeMilestones, parseLeadTime, fmtDate, fmtDateISO,
+  getRowFlags,
 } from '../lib/procurementSchedule'
 
 // ── Status pills (A/B/C review states) ──
-
-const STATUS_STATES = [null, 'yes', 'no'] // cycle: empty → ✓ → ✗
+const STATUS_STATES = [null, 'yes', 'no']
 const STATUS_LABELS = ['A', 'B', 'C']
 
 function StatusPills({ value = {}, onChange }) {
@@ -19,22 +21,19 @@ function StatusPills({ value = {}, onChange }) {
     onChange({ ...vals, [key]: next })
   }
   return (
-    <div style={{ display: 'flex', gap: 3 }}>
-      {STATUS_LABELS.map((label, i) => {
+    <div className="flex gap-1 justify-center">
+      {STATUS_LABELS.map(label => {
         const key = label.toLowerCase()
         const v = vals[key]
-        const bg = v === 'yes' ? 'var(--green-soft)' : v === 'no' ? '#FDECEC' : 'var(--paper-2)'
-        const color = v === 'yes' ? 'var(--green)' : v === 'no' ? '#D93E3E' : 'var(--muted-2)'
-        const text = v === 'yes' ? '✓' : v === 'no' ? '✗' : label
         return (
           <button key={key} onClick={() => cycle(key)}
+            className="w-6 h-6 border text-[11px] font-semibold flex items-center justify-center transition-colors"
             style={{
-              width: 24, height: 22, border: '1px solid var(--line)', background: bg,
-              color, fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-              fontFamily: v ? 'system-ui' : "'Hanken Grotesk',sans-serif",
+              borderColor: 'var(--border-color)',
+              background: v === 'yes' ? '#E7F5EC' : v === 'no' ? '#FDECEC' : 'var(--bg-main)',
+              color: v === 'yes' ? '#2C9C5E' : v === 'no' ? '#D93E3E' : 'var(--text-muted)',
             }}>
-            {text}
+            {v === 'yes' ? '✓' : v === 'no' ? '✗' : label}
           </button>
         )
       })}
@@ -46,40 +45,36 @@ function StatusPills({ value = {}, onChange }) {
 function PriorityPips({ value, onChange }) {
   const n = Math.min(4, Math.max(0, value || 0))
   return (
-    <div style={{ display: 'flex', gap: 3, cursor: 'pointer' }}
-      onClick={() => onChange(n >= 4 ? 1 : n + 1)}>
+    <div className="flex gap-1 justify-center cursor-pointer" onClick={() => onChange(n >= 4 ? 1 : n + 1)}>
       {[1, 2, 3, 4].map(i => (
-        <span key={i} style={{
-          width: 8, height: 8, background: i <= n ? 'var(--blue)' : 'var(--line)',
-          transition: 'background .15s',
-        }} />
+        <span key={i} className="w-2 h-2 transition-colors"
+          style={{ background: i <= n ? 'var(--primary-color)' : 'var(--border-color)' }} />
       ))}
     </div>
   )
 }
 
-// ── Editable cell ──
-function EditCell({ value, onChange, type = 'text', placeholder = '\u2014', readOnly, italic, muted, style: extraStyle, ...props }) {
+// ── Editable cell — uses local state to avoid re-render on every keystroke ──
+function EditCell({ value, onCommit, type = 'text', placeholder = '\u2014', readOnly, italic, muted, title, className = '' }) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value || '')
-  const inputRef = useRef(null)
+  const [draft, setDraft] = useState('')
 
-  useEffect(() => { setDraft(value || '') }, [value])
+  function startEdit() {
+    setDraft(value || '')
+    setEditing(true)
+  }
 
-  function commit() {
+  function commit(val) {
     setEditing(false)
-    if (draft !== (value || '')) onChange(draft)
+    const final = val !== undefined ? val : draft
+    if (final !== (value || '')) onCommit(final)
   }
 
   if (readOnly) {
     return (
-      <div title={props.title}
-        style={{
-          padding: '6px 8px', fontSize: 13, fontStyle: italic ? 'italic' : 'normal',
-          color: muted ? 'var(--muted-2)' : 'var(--ink)', whiteSpace: 'nowrap',
-          overflow: 'hidden', textOverflow: 'ellipsis',
-          fontFamily: "'Hanken Grotesk',sans-serif", ...extraStyle,
-        }}
+      <div title={title}
+        className={`px-2 py-1.5 text-sm whitespace-nowrap overflow-hidden text-ellipsis ${className}`}
+        style={{ color: muted ? 'var(--text-muted)' : 'var(--text-primary)', fontStyle: italic ? 'italic' : 'normal' }}
         aria-readonly="true">
         {value || '\u2014'}
       </div>
@@ -88,31 +83,30 @@ function EditCell({ value, onChange, type = 'text', placeholder = '\u2014', read
 
   if (!editing) {
     return (
-      <div onClick={() => setEditing(true)} tabIndex={0}
-        onFocus={() => setEditing(true)}
-        onKeyDown={e => e.key === 'Enter' && setEditing(true)}
-        style={{
-          padding: '6px 8px', fontSize: 13, cursor: 'text',
-          color: value ? 'var(--ink)' : 'var(--muted-2)',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          border: '1px solid transparent', fontFamily: "'Hanken Grotesk',sans-serif",
-          ...extraStyle,
-        }}>
+      <div onClick={startEdit} tabIndex={0} onFocus={startEdit}
+        onKeyDown={e => e.key === 'Enter' && startEdit()}
+        className={`px-2 py-1.5 text-sm cursor-text whitespace-nowrap overflow-hidden text-ellipsis border border-transparent hover:border-[var(--border-color)] transition-colors ${className}`}
+        style={{ color: value ? 'var(--text-primary)' : 'var(--text-muted)' }}>
         {value || placeholder}
       </div>
     )
   }
 
   return (
-    <input ref={el => { inputRef.current = el; el?.focus(); el?.select() }}
-      type={type === 'date' ? 'date' : 'text'} value={draft}
+    <input
+      autoFocus
+      type={type === 'date' ? 'date' : 'text'}
+      defaultValue={value || ''}
+      ref={el => { if (el) { el.focus(); if (type !== 'date') el.select() } }}
       onChange={e => setDraft(e.target.value)}
-      onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value || ''); setEditing(false) } }}
-      style={{
-        width: '100%', padding: '5px 7px', fontSize: 13, border: '1px solid var(--blue)',
-        outline: 'none', background: 'var(--paper)', color: 'var(--ink)',
-        fontFamily: "'Hanken Grotesk',sans-serif", ...extraStyle,
-      }} />
+      onBlur={e => commit(e.target.value)}
+      onKeyDown={e => {
+        if (e.key === 'Enter') commit(e.target.value)
+        if (e.key === 'Escape') setEditing(false)
+      }}
+      className={`w-full px-2 py-1 text-sm border outline-none ${className}`}
+      style={{ borderColor: 'var(--primary-color)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
+    />
   )
 }
 
@@ -128,8 +122,6 @@ function ContextMenu({ x, y, onAction, onClose }) {
     { id: 'insertAbove', label: 'Insert above' },
     { id: 'insertBelow', label: 'Insert below' },
     { id: 'duplicate', label: 'Duplicate' },
-    { id: 'moveUp', label: 'Move up' },
-    { id: 'moveDown', label: 'Move down' },
     { id: 'sep1', sep: true },
     { id: 'copyExcel', label: 'Copy as Excel' },
     { id: 'copyMd', label: 'Copy as Markdown' },
@@ -137,22 +129,13 @@ function ContextMenu({ x, y, onAction, onClose }) {
     { id: 'delete', label: 'Delete', danger: true },
   ]
   return (
-    <div ref={ref} style={{
-      position: 'fixed', left: x, top: y, zIndex: 1000, background: 'var(--paper)',
-      border: '1px solid var(--line)', boxShadow: '0 8px 24px rgba(0,0,0,.12)',
-      padding: '4px 0', minWidth: 180,
-    }}>
+    <div ref={ref} className="fixed z-[1000] border shadow-lg py-1 min-w-[180px]"
+      style={{ left: x, top: y, background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
       {items.map(item => item.sep
-        ? <div key={item.id} style={{ height: 1, background: 'var(--line)', margin: '4px 0' }} />
+        ? <div key={item.id} className="h-px my-1" style={{ background: 'var(--border-color)' }} />
         : <button key={item.id} onClick={() => { onAction(item.id); onClose() }}
-            style={{
-              display: 'block', width: '100%', padding: '7px 14px', border: 'none',
-              background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
-              color: item.danger ? '#D93E3E' : 'var(--ink)',
-              fontFamily: "'Hanken Grotesk',sans-serif",
-            }}
-            onMouseEnter={e => e.target.style.background = 'var(--paper-2)'}
-            onMouseLeave={e => e.target.style.background = 'none'}>
+            className="block w-full px-3.5 py-1.5 text-left text-sm hover:bg-black/[0.03] transition-colors"
+            style={{ color: item.danger ? '#D93E3E' : 'var(--text-primary)' }}>
             {item.label}
           </button>
       )}
@@ -161,56 +144,46 @@ function ContextMenu({ x, y, onAction, onClose }) {
 }
 
 // ── Supplier autocomplete ──
-function SupplierCell({ value, onChange, suggestions }) {
+function SupplierCell({ value, onCommit, suggestions }) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value || '')
+  const [draft, setDraft] = useState('')
   const [showSugg, setShowSugg] = useState(false)
   const filtered = suggestions.filter(s => s.toLowerCase().includes(draft.toLowerCase()) && s !== draft)
 
-  useEffect(() => { setDraft(value || '') }, [value])
+  function startEdit() { setDraft(value || ''); setEditing(true) }
 
   function commit(val) {
     setEditing(false)
     setShowSugg(false)
-    if ((val || draft) !== (value || '')) onChange(val || draft)
+    const final = val || draft
+    if (final !== (value || '')) onCommit(final)
   }
 
   if (!editing) {
     return (
-      <div onClick={() => setEditing(true)} tabIndex={0} onFocus={() => setEditing(true)}
-        style={{
-          padding: '6px 8px', fontSize: 13, cursor: 'text',
-          color: value ? 'var(--ink)' : 'var(--muted-2)', whiteSpace: 'nowrap',
-          overflow: 'hidden', textOverflow: 'ellipsis', border: '1px solid transparent',
-          fontFamily: "'Hanken Grotesk',sans-serif",
-        }}>
+      <div onClick={startEdit} tabIndex={0} onFocus={startEdit}
+        className="px-2 py-1.5 text-sm cursor-text whitespace-nowrap overflow-hidden text-ellipsis border border-transparent hover:border-[var(--border-color)] transition-colors"
+        style={{ color: value ? 'var(--text-primary)' : 'var(--text-muted)' }}>
         {value || '\u2014'}
       </div>
     )
   }
 
   return (
-    <div style={{ position: 'relative' }}>
-      <input autoFocus value={draft}
+    <div className="relative">
+      <input autoFocus defaultValue={value || ''}
         onChange={e => { setDraft(e.target.value); setShowSugg(true) }}
-        onBlur={() => setTimeout(() => commit(), 150)}
-        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value || ''); setEditing(false) } }}
-        style={{
-          width: '100%', padding: '5px 7px', fontSize: 13, border: '1px solid var(--blue)',
-          outline: 'none', background: 'var(--paper)', color: 'var(--ink)',
-          fontFamily: "'Hanken Grotesk',sans-serif",
-        }} />
+        onBlur={e => setTimeout(() => commit(e.target.value), 150)}
+        onKeyDown={e => { if (e.key === 'Enter') commit(e.target.value); if (e.key === 'Escape') setEditing(false) }}
+        className="w-full px-2 py-1 text-sm border outline-none"
+        style={{ borderColor: 'var(--primary-color)', background: 'var(--bg-card)', color: 'var(--text-primary)' }} />
       {showSugg && filtered.length > 0 && (
-        <div style={{
-          position: 'absolute', left: 0, top: '100%', width: '100%', zIndex: 50,
-          background: 'var(--paper)', border: '1px solid var(--line)', boxShadow: '0 4px 12px rgba(0,0,0,.08)',
-          maxHeight: 120, overflow: 'auto',
-        }}>
+        <div className="absolute left-0 top-full w-full z-50 border shadow-md max-h-[120px] overflow-auto"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           {filtered.slice(0, 6).map(s => (
-            <div key={s} onMouseDown={() => { setDraft(s); commit(s) }}
-              style={{ padding: '6px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--ink)' }}
-              onMouseEnter={e => e.target.style.background = 'var(--paper-2)'}
-              onMouseLeave={e => e.target.style.background = 'none'}>
+            <div key={s} onMouseDown={() => commit(s)}
+              className="px-2.5 py-1.5 text-xs cursor-pointer hover:bg-black/[0.03]"
+              style={{ color: 'var(--text-primary)' }}>
               {s}
             </div>
           ))}
@@ -220,49 +193,124 @@ function SupplierCell({ value, onChange, suggestions }) {
   )
 }
 
-// ── Column definitions ──
-const COLUMNS = [
-  { key: 'id', label: 'ID', width: 52, align: 'center' },
-  { key: 'description', label: 'Description', width: 220, flex: 1 },
-  { key: 'supplier', label: 'Supplier', width: 140 },
-  { key: 'firstLevel', label: '1st Level', width: 72, align: 'center' },
-  { key: 'techSubIssue', label: 'Tech Sub Issue', width: 120, calc: true },
-  { key: 'approvalRequired', label: 'Approval Req\u2019d', width: 120, calc: true },
-  { key: 'dateApproved', label: 'Date Approved', width: 120 },
-  { key: 'status', label: 'Status', width: 90, align: 'center' },
-  { key: 'orderPlaced', label: 'Order Placed', width: 120, calc: true },
-  { key: 'leadTime', label: 'Lead Time', width: 80, align: 'center' },
-  { key: 'deliveryRequired', label: 'Delivery Req\u2019d', width: 120, calc: true },
-  { key: 'requiredOnSite', label: 'Req\u2019d On Site', width: 120 },
-  { key: 'comments', label: 'Comments', width: 200, flex: 1 },
-]
+// ── Sortable row ──
+function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, setContextMenu, selectMode, selected, setSelected }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    background: ri % 2 === 1 ? 'var(--bg-main)' : 'var(--bg-card)',
+  }
+
+  const lw = parseLeadTime(row.leadTime)
+  const ms = lw && row.requiredOnSite ? computeMilestones(row.requiredOnSite, lw, rules) : null
+  const flags = getRowFlags(row, ms)
+
+  return (
+    <tr ref={setNodeRef} style={style}
+      onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, rowId: row.id }) }}
+      className="border-b transition-colors" style={{ ...style, borderColor: 'var(--border-color)' }}>
+      {/* Drag handle */}
+      <td className="px-1 py-1.5 text-center w-8" style={{ borderRight: '1px solid var(--border-color)' }}>
+        <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-black/5 transition-colors"
+          style={{ color: 'var(--text-muted)' }}>
+          <GripVertical size={13} />
+        </button>
+      </td>
+      {selectMode && (
+        <td className="px-1 py-1.5 text-center w-8" style={{ borderRight: '1px solid var(--border-color)' }}>
+          <input type="checkbox" checked={selected.has(row.id)}
+            onChange={e => { const next = new Set(selected); e.target.checked ? next.add(row.id) : next.delete(row.id); setSelected(next) }} />
+        </td>
+      )}
+      {/* ID */}
+      <td className="text-center relative w-[50px]" style={{ borderRight: '1px solid var(--border-color)' }}>
+        {flags.length > 0 && (
+          <span title={flags.map(f => f.message).join('; ')} className="absolute left-1 top-1/2 -translate-y-1/2">
+            <AlertCircle size={12} color="#D93E3E" />
+          </span>
+        )}
+        <EditCell value={String(row.id)} onCommit={v => updateRow(row.id, 'id', parseInt(v) || row.id)} className="text-center" />
+      </td>
+      {/* Description */}
+      <td style={{ borderRight: '1px solid var(--border-color)' }}>
+        <EditCell value={row.description} onCommit={v => updateRow(row.id, 'description', v)} />
+      </td>
+      {/* Supplier */}
+      <td style={{ borderRight: '1px solid var(--border-color)' }}>
+        <SupplierCell value={row.supplier} onCommit={v => updateRow(row.id, 'supplier', v)} suggestions={supplierSuggestions} />
+      </td>
+      {/* First Level */}
+      <td className="text-center" style={{ borderRight: '1px solid var(--border-color)' }}>
+        <PriorityPips value={row.firstLevel} onChange={v => updateRow(row.id, 'firstLevel', v)} />
+      </td>
+      {/* Tech Sub (calc) */}
+      <td style={{ borderRight: '1px solid var(--border-color)' }}>
+        <EditCell value={ms ? fmtDate(ms.techSubIssue) : ''} readOnly italic muted title="Auto-calculated" />
+      </td>
+      {/* Approval Req (calc) */}
+      <td style={{ borderRight: '1px solid var(--border-color)' }}>
+        <EditCell value={ms ? fmtDate(ms.approvalRequired) : ''} readOnly italic muted title="Auto-calculated" />
+      </td>
+      {/* Date Approved */}
+      <td style={{ borderRight: '1px solid var(--border-color)' }}>
+        <EditCell value={row.dateApproved ? fmtDate(row.dateApproved) : ''} type="date" onCommit={v => updateRow(row.id, 'dateApproved', v)} />
+      </td>
+      {/* Status (A/B/C) */}
+      <td className="text-center px-1" style={{ borderRight: '1px solid var(--border-color)' }}>
+        <StatusPills value={row.status || {}} onChange={v => updateRow(row.id, 'status', v)} />
+      </td>
+      {/* Order Placed (calc) */}
+      <td style={{ borderRight: '1px solid var(--border-color)' }}>
+        <EditCell value={ms ? fmtDate(ms.orderPlaced) : ''} readOnly italic muted title="Auto-calculated" />
+      </td>
+      {/* Lead Time */}
+      <td className="text-center" style={{ borderRight: '1px solid var(--border-color)' }}>
+        <EditCell value={row.leadTime || ''} onCommit={v => updateRow(row.id, 'leadTime', v)} placeholder="e.g. 12W" className="text-center" />
+      </td>
+      {/* Delivery Req (calc) */}
+      <td style={{ borderRight: '1px solid var(--border-color)' }}>
+        <EditCell value={ms ? fmtDate(ms.delivery) : ''} readOnly italic muted title="Auto-calculated" />
+      </td>
+      {/* Required On Site */}
+      <td style={{ borderRight: '1px solid var(--border-color)' }}>
+        <EditCell value={row.requiredOnSite ? fmtDateISO(row.requiredOnSite) : ''} type="date" onCommit={v => updateRow(row.id, 'requiredOnSite', v)} />
+      </td>
+      {/* Comments */}
+      <td style={{ borderRight: '1px solid var(--border-color)' }}>
+        <EditCell value={row.comments || ''} onCommit={v => updateRow(row.id, 'comments', v)} />
+      </td>
+      {/* Context menu btn */}
+      <td className="px-1 text-center w-8">
+        <button onClick={e => setContextMenu({ x: e.clientX, y: e.clientY, rowId: row.id })}
+          className="p-1 hover:bg-black/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
+          <MoreHorizontal size={14} />
+        </button>
+      </td>
+    </tr>
+  )
+}
 
 // ── Main component ──
-
-export default function ProcurementTable({ rows, setRows, rules, categories = [] }) {
+export default function ProcurementTable({ rows, setRows, rules }) {
   const [collapsed, setCollapsed] = useState({})
   const [contextMenu, setContextMenu] = useState(null)
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState(new Set())
 
-  // All unique suppliers for autocomplete
-  const supplierSuggestions = useMemo(() =>
-    [...new Set(rows.map(r => r.supplier).filter(Boolean))].sort(),
-    [rows]
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
-  // Group rows by category
+  const supplierSuggestions = useMemo(() =>
+    [...new Set(rows.map(r => r.supplier).filter(Boolean))].sort(), [rows])
+
   const grouped = useMemo(() => {
-    const cats = []
     const catOrder = []
-    rows.forEach(row => {
-      const cat = row.category || 'Uncategorised'
-      if (!catOrder.includes(cat)) catOrder.push(cat)
-    })
-    catOrder.forEach(cat => {
-      cats.push({ category: cat, rows: rows.filter(r => (r.category || 'Uncategorised') === cat) })
-    })
-    return cats
+    rows.forEach(r => { const c = r.category || 'General'; if (!catOrder.includes(c)) catOrder.push(c) })
+    return catOrder.map(cat => ({ category: cat, rows: rows.filter(r => (r.category || 'General') === cat) }))
   }, [rows])
 
   function updateRow(id, field, value) {
@@ -272,251 +320,125 @@ export default function ProcurementTable({ rows, setRows, rules, categories = []
   function addRow(category) {
     const maxId = rows.reduce((m, r) => Math.max(m, r.id || 0), 0)
     setRows(prev => [...prev, {
-      id: maxId + 1, category: category || 'Uncategorised',
+      id: maxId + 1, category: category || 'General',
       description: '', supplier: '', firstLevel: 1, leadTime: '', requiredOnSite: '',
       dateApproved: '', status: {}, comments: '',
     }])
   }
 
-  function deleteRow(id) { setRows(prev => prev.filter(r => r.id !== id)) }
-  function duplicateRow(id) {
-    const row = rows.find(r => r.id === id)
-    if (!row) return
-    const maxId = rows.reduce((m, r) => Math.max(m, r.id || 0), 0)
-    const idx = rows.indexOf(row)
-    const newRow = { ...row, id: maxId + 1 }
-    const next = [...rows]
-    next.splice(idx + 1, 0, newRow)
-    setRows(next)
-  }
-  function insertRow(id, pos) {
+  function handleContextAction(id, action) {
     const idx = rows.findIndex(r => r.id === id)
     if (idx < 0) return
     const maxId = rows.reduce((m, r) => Math.max(m, r.id || 0), 0)
-    const cat = rows[idx].category
-    const newRow = { id: maxId + 1, category: cat, description: '', supplier: '', firstLevel: 1, leadTime: '', requiredOnSite: '', dateApproved: '', status: {}, comments: '' }
-    const next = [...rows]
-    next.splice(pos === 'above' ? idx : idx + 1, 0, newRow)
-    setRows(next)
-  }
-  function moveRow(id, dir) {
-    const idx = rows.findIndex(r => r.id === id)
-    const swap = idx + dir
-    if (swap < 0 || swap >= rows.length) return
-    const next = [...rows]
-    ;[next[idx], next[swap]] = [next[swap], next[idx]]
-    setRows(next)
-  }
-  function copyRowAsExcel(id) {
-    const row = rows.find(r => r.id === id)
-    if (!row) return
-    const lw = parseLeadTime(row.leadTime)
-    const ms = lw ? computeMilestones(row.requiredOnSite, lw, rules) : null
-    const vals = [row.id, row.description, row.supplier, row.firstLevel, ms ? fmtDate(ms.techSubIssue) : '', ms ? fmtDate(ms.approvalRequired) : '', row.dateApproved || '', '', ms ? fmtDate(ms.orderPlaced) : '', row.leadTime, ms ? fmtDate(ms.delivery) : '', row.requiredOnSite ? fmtDate(row.requiredOnSite) : '', row.comments]
-    navigator.clipboard?.writeText(vals.join('\t'))
-  }
-  function copyRowAsMd(id) {
-    const row = rows.find(r => r.id === id)
-    if (!row) return
-    const lw = parseLeadTime(row.leadTime)
-    const ms = lw ? computeMilestones(row.requiredOnSite, lw, rules) : null
-    const vals = [row.id, row.description, row.supplier, row.firstLevel, ms ? fmtDate(ms.techSubIssue) : '', ms ? fmtDate(ms.approvalRequired) : '', row.dateApproved || '', '', ms ? fmtDate(ms.orderPlaced) : '', row.leadTime, ms ? fmtDate(ms.delivery) : '', row.requiredOnSite ? fmtDate(row.requiredOnSite) : '', row.comments]
-    navigator.clipboard?.writeText('| ' + vals.join(' | ') + ' |')
-  }
-
-  function handleContextAction(id, action) {
+    const row = rows[idx]
     switch (action) {
-      case 'insertAbove': insertRow(id, 'above'); break
-      case 'insertBelow': insertRow(id, 'below'); break
-      case 'duplicate': duplicateRow(id); break
-      case 'moveUp': moveRow(id, -1); break
-      case 'moveDown': moveRow(id, 1); break
-      case 'delete': deleteRow(id); break
-      case 'copyExcel': copyRowAsExcel(id); break
-      case 'copyMd': copyRowAsMd(id); break
+      case 'insertAbove': case 'insertBelow': {
+        const newRow = { id: maxId + 1, category: row.category, description: '', supplier: '', firstLevel: 1, leadTime: '', requiredOnSite: '', dateApproved: '', status: {}, comments: '' }
+        const next = [...rows]; next.splice(action === 'insertAbove' ? idx : idx + 1, 0, newRow); setRows(next); break
+      }
+      case 'duplicate': { const next = [...rows]; next.splice(idx + 1, 0, { ...row, id: maxId + 1 }); setRows(next); break }
+      case 'delete': setRows(prev => prev.filter(r => r.id !== id)); break
+      case 'copyExcel': {
+        const lw = parseLeadTime(row.leadTime); const ms = lw ? computeMilestones(row.requiredOnSite, lw, rules) : null
+        navigator.clipboard?.writeText([row.id, row.description, row.supplier, row.firstLevel, ms ? fmtDate(ms.techSubIssue) : '', ms ? fmtDate(ms.approvalRequired) : '', row.dateApproved || '', '', ms ? fmtDate(ms.orderPlaced) : '', row.leadTime, ms ? fmtDate(ms.delivery) : '', row.requiredOnSite ? fmtDate(row.requiredOnSite) : '', row.comments].join('\t'))
+        break
+      }
+      case 'copyMd': {
+        const lw = parseLeadTime(row.leadTime); const ms = lw ? computeMilestones(row.requiredOnSite, lw, rules) : null
+        navigator.clipboard?.writeText('| ' + [row.id, row.description, row.supplier, row.firstLevel, ms ? fmtDate(ms.techSubIssue) : '', ms ? fmtDate(ms.approvalRequired) : '', row.dateApproved || '', '', ms ? fmtDate(ms.orderPlaced) : '', row.leadTime, ms ? fmtDate(ms.delivery) : '', row.requiredOnSite ? fmtDate(row.requiredOnSite) : '', row.comments].join(' | ') + ' |')
+        break
+      }
     }
   }
 
-  function toggleCat(cat) {
-    setCollapsed(prev => ({ ...prev, [cat]: !prev[cat] }))
+  function handleDragEnd(event) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIdx = rows.findIndex(r => r.id === active.id)
+    const newIdx = rows.findIndex(r => r.id === over.id)
+    setRows(arrayMove(rows, oldIdx, newIdx))
   }
 
+  const thCls = "px-2 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap"
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div>
       {/* Toolbar */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 10 }}>
-        <button onClick={() => setSelectMode(prev => !prev)}
+      <div className="flex justify-end gap-2 mb-3">
+        <button onClick={() => setSelectMode(p => !p)}
+          className="px-3 py-1.5 text-xs border transition-colors"
           style={{
-            padding: '6px 14px', fontSize: 12, border: '1px solid var(--line)',
-            background: selectMode ? 'var(--blue-soft)' : 'var(--paper)', cursor: 'pointer',
-            color: selectMode ? 'var(--blue)' : 'var(--muted)', fontWeight: 500,
-            fontFamily: "'Hanken Grotesk',sans-serif",
+            borderColor: 'var(--border-color)',
+            background: selectMode ? 'var(--primary-color)' : 'var(--bg-card)',
+            color: selectMode ? '#fff' : 'var(--text-muted)',
           }}>
           {selectMode ? 'Done' : 'Select'}
         </button>
       </div>
 
-      {/* Table container */}
-      <div style={{ overflow: 'auto', border: '1px solid var(--line)' }}>
-        <table style={{
-          width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed',
-          fontFamily: "'Hanken Grotesk',sans-serif", fontSize: 13,
-        }}>
-          <colgroup>
-            {selectMode && <col style={{ width: 36 }} />}
-            {COLUMNS.map(c => <col key={c.key} style={{ width: c.flex ? undefined : c.width, minWidth: c.width }} />)}
-            <col style={{ width: 36 }} />
-          </colgroup>
-          <thead>
-            <tr>
-              {selectMode && <th style={thStyle}></th>}
-              {COLUMNS.map(c => (
-                <th key={c.key} style={{ ...thStyle, textAlign: c.align || 'left', position: 'sticky', top: 0, zIndex: 10 }}>
-                  {c.label}
-                </th>
-              ))}
-              <th style={{ ...thStyle, position: 'sticky', top: 0, zIndex: 10 }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {grouped.map(group => {
-              const isCollapsed = collapsed[group.category]
-              return [
-                // Category header row
-                <tr key={`cat-${group.category}`}>
-                  <td colSpan={COLUMNS.length + (selectMode ? 2 : 1)} onClick={() => toggleCat(group.category)}
-                    style={{
-                      padding: '10px 12px', background: 'var(--blue-soft)', cursor: 'pointer',
-                      borderBottom: '1px solid var(--line)', fontFamily: "'Fraunces',serif",
-                      fontStyle: 'italic', fontSize: 15, fontWeight: 500, color: 'var(--blue-ink)',
-                      display: 'flex', alignItems: 'center', gap: 8, userSelect: 'none',
-                    }}>
-                    {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                    {group.category}
-                    <span style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'normal', fontFamily: "'Hanken Grotesk',sans-serif" }}>
-                      ({group.rows.length})
-                    </span>
-                  </td>
-                </tr>,
-                // Data rows
-                ...(!isCollapsed ? group.rows.map((row, ri) => {
-                  const lw = parseLeadTime(row.leadTime)
-                  const ms = lw && row.requiredOnSite ? computeMilestones(row.requiredOnSite, lw, rules) : null
-                  const flags = getRowFlags(row, ms)
-                  const stripe = ri % 2 === 1
-
-                  return (
-                    <tr key={row.id}
-                      onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, rowId: row.id }) }}
-                      style={{ background: stripe ? 'var(--paper-2)' : 'var(--paper)' }}>
-                      {selectMode && (
-                        <td style={tdStyle}>
-                          <input type="checkbox" checked={selected.has(row.id)}
-                            onChange={e => {
-                              const next = new Set(selected)
-                              e.target.checked ? next.add(row.id) : next.delete(row.id)
-                              setSelected(next)
-                            }} />
-                        </td>
-                      )}
-                      {/* ID */}
-                      <td style={{ ...tdStyle, textAlign: 'center', position: 'relative' }}>
-                        {flags.length > 0 && (
-                          <span title={flags.map(f => f.message).join('; ')}
-                            style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)' }}>
-                            <AlertCircle size={12} color="#D93E3E" />
-                          </span>
-                        )}
-                        <EditCell value={String(row.id)} onChange={v => updateRow(row.id, 'id', parseInt(v) || row.id)} style={{ textAlign: 'center' }} />
-                      </td>
-                      {/* Description */}
-                      <td style={tdStyle}>
-                        <EditCell value={row.description} onChange={v => updateRow(row.id, 'description', v)} />
-                      </td>
-                      {/* Supplier */}
-                      <td style={tdStyle}>
-                        <SupplierCell value={row.supplier} onChange={v => updateRow(row.id, 'supplier', v)} suggestions={supplierSuggestions} />
-                      </td>
-                      {/* First Level */}
-                      <td style={{ ...tdStyle, textAlign: 'center' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                          <PriorityPips value={row.firstLevel} onChange={v => updateRow(row.id, 'firstLevel', v)} />
-                        </div>
-                      </td>
-                      {/* Tech Sub Issue (calc) */}
-                      <td style={tdStyle}>
-                        <EditCell value={ms ? fmtDate(ms.techSubIssue) : ''} readOnly italic muted
-                          title="Auto-calculated: approval date − tech sub days, snapped to weekday" />
-                      </td>
-                      {/* Approval Required (calc) */}
-                      <td style={tdStyle}>
-                        <EditCell value={ms ? fmtDate(ms.approvalRequired) : ''} readOnly italic muted
-                          title="Auto-calculated: order date snapped to approval weekday" />
-                      </td>
-                      {/* Date Approved */}
-                      <td style={tdStyle}>
-                        <EditCell value={row.dateApproved ? fmtDate(row.dateApproved) : ''} type="date"
-                          onChange={v => updateRow(row.id, 'dateApproved', v)} />
-                      </td>
-                      {/* Status (A/B/C) */}
-                      <td style={{ ...tdStyle, textAlign: 'center' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                          <StatusPills value={row.status || {}} onChange={v => updateRow(row.id, 'status', v)} />
-                        </div>
-                      </td>
-                      {/* Order Placed (calc) */}
-                      <td style={tdStyle}>
-                        <EditCell value={ms ? fmtDate(ms.orderPlaced) : ''} readOnly italic muted
-                          title="Auto-calculated: delivery − lead time, snapped to weekday" />
-                      </td>
-                      {/* Lead Time */}
-                      <td style={{ ...tdStyle, textAlign: 'center' }}>
-                        <EditCell value={row.leadTime || ''} onChange={v => updateRow(row.id, 'leadTime', v)}
-                          placeholder="e.g. 12W" style={{ textAlign: 'center' }} />
-                      </td>
-                      {/* Delivery Required (calc) */}
-                      <td style={tdStyle}>
-                        <EditCell value={ms ? fmtDate(ms.delivery) : ''} readOnly italic muted
-                          title="Auto-calculated: on-site date − delivery weeks" />
-                      </td>
-                      {/* Required On Site */}
-                      <td style={tdStyle}>
-                        <EditCell value={row.requiredOnSite ? fmtDateISO(row.requiredOnSite) : ''} type="date"
-                          onChange={v => updateRow(row.id, 'requiredOnSite', v)} />
-                      </td>
-                      {/* Comments */}
-                      <td style={tdStyle}>
-                        <EditCell value={row.comments || ''} onChange={v => updateRow(row.id, 'comments', v)} />
-                      </td>
-                      {/* Context menu button */}
-                      <td style={tdStyle}>
-                        <button onClick={e => setContextMenu({ x: e.clientX, y: e.clientY, rowId: row.id })}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}>
-                          <MoreHorizontal size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                }) : []),
-              ]
-            }).flat()}
-          </tbody>
-        </table>
+      {/* Table */}
+      <div className="border overflow-x-auto" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+            <thead>
+              <tr className="border-b" style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                <th className={`${thCls} w-8`} style={{ color: 'var(--text-muted)' }}></th>
+                {selectMode && <th className={`${thCls} w-8`} style={{ color: 'var(--text-muted)' }}></th>}
+                <th className={thCls} style={{ color: 'var(--text-muted)', width: 50 }}>ID</th>
+                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 200 }}>Description</th>
+                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 130 }}>Supplier</th>
+                <th className={`${thCls} text-center`} style={{ color: 'var(--text-muted)', width: 70 }}>Level</th>
+                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Tech Sub</th>
+                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Approval</th>
+                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Approved</th>
+                <th className={`${thCls} text-center`} style={{ color: 'var(--text-muted)', width: 90 }}>Status</th>
+                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Order</th>
+                <th className={`${thCls} text-center`} style={{ color: 'var(--text-muted)', width: 80 }}>Lead</th>
+                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Delivery</th>
+                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>On Site</th>
+                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 160 }}>Comments</th>
+                <th className={`${thCls} w-8`}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {grouped.map(group => {
+                const isCollapsed = collapsed[group.category]
+                return [
+                  <tr key={`cat-${group.category}`} className="border-b cursor-pointer select-none"
+                    onClick={() => setCollapsed(p => ({ ...p, [group.category]: !p[group.category] }))}
+                    style={{ borderColor: 'var(--border-color)' }}>
+                    <td colSpan={100} className="px-3 py-2.5" style={{ background: 'var(--bg-main)' }}>
+                      <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--primary-color)' }}>
+                        {isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+                        {group.category}
+                        <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>({group.rows.length})</span>
+                      </div>
+                    </td>
+                  </tr>,
+                  ...(!isCollapsed ? (
+                    <SortableContext key={`sc-${group.category}`} items={group.rows.map(r => r.id)} strategy={verticalListSortingStrategy}>
+                      {group.rows.map((row, ri) => (
+                        <SortableRow key={row.id} row={row} ri={ri} rules={rules}
+                          supplierSuggestions={supplierSuggestions} updateRow={updateRow}
+                          setContextMenu={setContextMenu} selectMode={selectMode}
+                          selected={selected} setSelected={setSelected} />
+                      ))}
+                    </SortableContext>
+                  ) : []),
+                ]
+              }).flat()}
+            </tbody>
+          </table>
+        </DndContext>
       </div>
 
       {/* Add row */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-        <button onClick={() => addRow(grouped[grouped.length - 1]?.category)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-            border: '1px dashed var(--line)', background: 'none', cursor: 'pointer',
-            color: 'var(--muted)', fontSize: 13, fontFamily: "'Hanken Grotesk',sans-serif",
-          }}>
-          <Plus size={14} /> Add row
-        </button>
-      </div>
+      <button onClick={() => addRow(grouped[grouped.length - 1]?.category || 'General')}
+        className="flex items-center gap-2 mt-3 px-4 py-2 border border-dashed text-sm transition-colors hover:bg-black/[0.02]"
+        style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
+        <Plus size={14} /> Add row
+      </button>
 
-      {/* Context menu */}
       {contextMenu && (
         <ContextMenu x={contextMenu.x} y={contextMenu.y}
           onAction={action => handleContextAction(contextMenu.rowId, action)}
@@ -524,16 +446,4 @@ export default function ProcurementTable({ rows, setRows, rules, categories = []
       )}
     </div>
   )
-}
-
-const thStyle = {
-  padding: '10px 8px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
-  letterSpacing: '.08em', color: 'var(--paper)', background: 'var(--navy)',
-  borderBottom: '2px solid var(--blue)', whiteSpace: 'nowrap',
-  fontFamily: "'Hanken Grotesk',sans-serif",
-}
-
-const tdStyle = {
-  padding: 0, borderBottom: '1px solid var(--line)', borderRight: '1px solid var(--line)',
-  verticalAlign: 'middle',
 }
