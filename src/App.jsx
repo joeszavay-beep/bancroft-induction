@@ -56,6 +56,7 @@ import MasterProgramme from './pages/MasterProgramme'
 import ProgrammeCalculator from './pages/ProgrammeCalculator'
 import TemplatesHub from './pages/TemplatesHub'
 import ProcurementTracker from './pages/ProcurementTracker'
+import ProcurementScheduler from './pages/ProcurementScheduler'
 import LabourRequests from './pages/LabourRequests'
 import LabourRequestForm from './pages/LabourRequestForm'
 import LabourRequestDetail from './pages/LabourRequestDetail'
@@ -142,6 +143,7 @@ function AppLayout() {
         <Route path="/programme-calculator" element={<ProgrammeCalculator />} />
         <Route path="/templates" element={<TemplatesHub />} />
         <Route path="/procurement" element={<ProcurementTracker />} />
+        <Route path="/procurement-scheduler" element={<ProcurementScheduler />} />
         <Route path="/snags" element={<PMDashboard key="snags" initialTab="snags" />} />
         <Route path="/drawings" element={<PMDashboard key="drawings" initialTab="snags" />} />
         <Route path="/toolbox" element={<PMDashboard key="toolbox" initialTab="toolbox" />} />
