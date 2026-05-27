@@ -7,8 +7,8 @@ import {
 } from '../lib/procurementSchedule'
 
 const MODES = [
-  { id: 'reverse', label: 'Reverse-plan' },
-  { id: 'forward', label: 'Forward-plan' },
+  { id: 'reverse', label: 'Reverse-plan', tip: 'Pick a Required On Site date — calculates when to start the procurement process' },
+  { id: 'forward', label: 'Forward-plan', tip: 'Pick a Tech Sub Issue date — calculates when items will arrive on site' },
 ]
 
 const MILESTONE_COLORS = {
@@ -125,7 +125,7 @@ export default function ProcurementCalendar({ rules = DEFAULT_RULES, trackerRows
       {/* Mode tabs */}
       <div className="flex border mb-4 overflow-hidden" style={{ borderColor: 'var(--border-color)' }}>
         {MODES.map((m, i) => (
-          <button key={m.id}
+          <button key={m.id} title={m.tip}
             onClick={() => { setMode(m.id); setResults(null); setSelectedDate(null) }}
             className="flex-1 py-2 text-xs font-medium transition-colors"
             style={{
