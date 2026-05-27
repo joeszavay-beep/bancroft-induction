@@ -201,15 +201,16 @@ function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, deleteRow
             onChange={e => { const next = new Set(selected); e.target.checked ? next.add(row.id) : next.delete(row.id); setSelected(next) }} />
         </td>
       )}
-      <td className="text-center relative w-[50px]" style={bdr}>
-        {flags.length > 0 && (
-          <span title={flags.map(f => f.message).join('; ')} className="absolute left-1 top-1/2 -translate-y-1/2">
-            <AlertCircle size={12} color="#D93E3E" />
-          </span>
-        )}
-        <EditCell value={String(row.id)} onCommit={v => updateRow(row.id, 'id', parseInt(v) || row.id)} className="text-center" />
+      <td style={bdr}>
+        <div className="flex items-center gap-1">
+          {flags.length > 0 && (
+            <span title={flags.map(f => f.message).join('; ')} className="shrink-0 ml-1">
+              <AlertCircle size={12} color="#D93E3E" />
+            </span>
+          )}
+          <EditCell value={row.description} onCommit={v => updateRow(row.id, 'description', v)} />
+        </div>
       </td>
-      <td style={bdr}><EditCell value={row.description} onCommit={v => updateRow(row.id, 'description', v)} /></td>
       <td style={bdr}><SupplierCell value={row.supplier} onCommit={v => updateRow(row.id, 'supplier', v)} suggestions={supplierSuggestions} /></td>
       <td className="text-center" style={bdr}><EditCell value={row.firstLevel != null ? String(row.firstLevel) : ''} onCommit={v => updateRow(row.id, 'firstLevel', v)} className="text-center" /></td>
       <td style={bdr}><EditCell value={ms ? fmtDate(ms.techSubIssue) : ''} readOnly calculated title="Auto-calculated" /></td>
@@ -328,7 +329,6 @@ export default function ProcurementTable({ rows, setRows, rules }) {
                 <tr className="border-b" style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
                   <th className={`${thCls} w-8`} style={{ color: 'var(--text-muted)' }}></th>
                   {selectMode && <th className={`${thCls} w-8`} style={{ color: 'var(--text-muted)' }}></th>}
-                  <th className={thCls} style={{ color: 'var(--text-muted)', width: 50 }}>ID</th>
                   <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 200 }}>Description</th>
                   <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 130 }}>Supplier</th>
                   <th className={`${thCls} text-center`} style={{ color: 'var(--text-muted)', width: 70 }}>Level</th>
