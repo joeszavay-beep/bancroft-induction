@@ -123,6 +123,7 @@ export default function ProcurementScheduler() {
   const [rules, setRules] = useState({ ...DEFAULT_RULES })
   const [rows, setRows] = useState([])
   const [rulesOpen, setRulesOpen] = useState(false)
+  const [calendarOpen, setCalendarOpen] = useState(true)
   const [loaded, setLoaded] = useState(false)
   const saveTimer = useRef(null)
 
@@ -243,12 +244,25 @@ export default function ProcurementScheduler() {
       {/* Scheduling rules (collapsible) */}
       <AlgorithmPanel rules={rules} setRules={setRules} open={rulesOpen} setOpen={setRulesOpen} />
 
-      {/* Calendar */}
-      <div className="rounded-xl border mb-4 p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
-          Date calculator
-        </h3>
-        <ProcurementCalendar rules={rules} trackerRows={rows} />
+      {/* Calendar (collapsible) */}
+      <div className="rounded-xl border mb-4" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <button onClick={() => setCalendarOpen(!calendarOpen)}
+          className="w-full flex items-center justify-between px-5 py-3 text-left transition-colors hover:bg-black/[0.01]">
+          <div className="flex items-center gap-2">
+            <CalendarRange size={15} style={{ color: 'var(--text-muted)' }} />
+            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Date calculator</span>
+            <span className="text-[11px] px-2 py-0.5 border" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-color)' }}>
+              {calendarOpen ? 'Hide' : 'Show'}
+            </span>
+          </div>
+        </button>
+        {calendarOpen && (
+          <div className="px-5 pb-5 border-t" style={{ borderColor: 'var(--border-color)' }}>
+            <div className="mt-4">
+              <ProcurementCalendar rules={rules} trackerRows={rows} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tracker table */}
