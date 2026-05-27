@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Download, FileSpreadsheet, Printer, CalendarRange, Settings2 } from 'lucide-react'
 import ProcurementCalendar from '../components/ProcurementCalendar'
 import ProcurementTable from '../components/ProcurementTable'
@@ -109,12 +109,33 @@ function ProjectHeader({ header, setHeader }) {
 // ── CSV export helper ──
 const CSV_HEADERS = ['ID', 'Description', 'Supplier', 'Level', 'Tech Sub', 'Approval', 'Approved', 'Status', 'Order Placed', 'Lead Time', 'Delivery', 'On Site', 'Comments']
 
+// ── Persistence ──
+const STORAGE_KEY = 'coresite_procurement_schedule'
+
+function loadSaved() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch { return null }
+}
+
+function save(data) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) } catch { /* full */ }
+}
+
 // ── Main page ──
 export default function ProcurementScheduler() {
-  const [header, setHeader] = useState({ project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' })
-  const [rules, setRules] = useState({ ...DEFAULT_RULES })
-  const [rows, setRows] = useState([])
+  const saved = useRef(loadSaved())
+  const [header, setHeader] = useState(saved.current?.header || { project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' })
+  const [rules, setRules] = useState(saved.current?.rules || { ...DEFAULT_RULES })
+  const [rows, setRows] = useState((saved.current?.rows || []).map(r => ({ ...r, _leadWeeks: parseLeadTime(r.leadTime) })))
   const [rulesOpen, setRulesOpen] = useState(false)
+
+  // Auto-save on every change
+  useEffect(() => {
+    save({ header, rules, rows: rows.map(({ _leadWeeks, ...r }) => r) })
+  }, [header, rules, rows])
 
   const setRowsWrapped = useCallback(fn => {
     setRows(prev => {
