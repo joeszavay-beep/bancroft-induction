@@ -96,34 +96,7 @@ export async function exportToExcel(header, rules, rows) {
   // ── Row 7: Spacer ──
   ws.getRow(7).height = 8
 
-  // ── Algorithm panel (N column area) ──
-  ws.getCell('N1').value = 'SCHEDULING RULES'
-  ws.getCell('N1').font = { bold: true, size: 9, name: FONT, color: { argb: WHITE } }
-  ws.getCell('N1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }
-  ws.mergeCells('N1:P1')
-  ws.getCell('N2').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLUE } }
-  ws.mergeCells('N2:P2')
-
-  const algoLabels = [
-    ['Delivery buffer (weeks)', rules.deliveryWeeksBefore],
-    ['Order placed weekday', rules.orderPlacedWeekday],
-    ['Approval deadline weekday', rules.approvalWeekday],
-    ['Tech sub lead (days)', rules.techSubDaysBefore],
-    ['Tech sub weekday', rules.techSubWeekday],
-  ]
-  algoLabels.forEach((pair, i) => {
-    const r = i + 3
-    ws.mergeCells(r, 14, r, 15)
-    ws.getCell(r, 14).value = pair[0]
-    ws.getCell(r, 14).font = { size: 9, name: FONT, color: { argb: INK2 } }
-    ws.getCell(r, 14).alignment = { vertical: 'middle' }
-    ws.getCell(r, 14).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PAPER2 } }
-    ws.getCell(r, 16).value = pair[1]
-    ws.getCell(r, 16).font = { size: 10, name: FONT, color: { argb: INK }, bold: true }
-    ws.getCell(r, 16).alignment = { vertical: 'middle', horizontal: 'center' }
-    ws.getCell(r, 16).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: YELLOW_BG } }
-    ws.getCell(r, 16).border = { bottom: thinBorder(), right: thinBorder(), left: thinBorder(), top: thinBorder() }
-  })
+  // Columns N-P kept empty (no scheduling rules in export)
 
   // ── Row 8: Spacer ──
   ws.getRow(8).height = 6
