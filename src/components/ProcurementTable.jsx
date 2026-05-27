@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, Fragment } from 'react'
-import { Plus, ChevronDown, ChevronRight, MoreHorizontal, AlertCircle, GripVertical, Trash2, Copy } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, MoreHorizontal, AlertCircle, GripVertical, Trash2, Copy, FolderPlus, Pencil, X } from 'lucide-react'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -239,11 +239,12 @@ function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, deleteRow
 }
 
 // ── Main ──
-export default function ProcurementTable({ rows, setRows, rules }) {
+export default function ProcurementTable({ rows, setRows, rules, categories, setCategories }) {
   const [collapsed, setCollapsed] = useState({})
   const [contextMenu, setContextMenu] = useState(null)
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState(new Set())
+  const [editingCat, setEditingCat] = useState(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -255,23 +256,46 @@ export default function ProcurementTable({ rows, setRows, rules }) {
 
   const allIds = useMemo(() => rows.map(r => r.id), [rows])
 
+  // Build groups from the categories list (preserves order, includes empty sections)
   const grouped = useMemo(() => {
-    const catOrder = []
-    rows.forEach(r => { const c = r.category || 'General'; if (!catOrder.includes(c)) catOrder.push(c) })
-    return catOrder.map(cat => ({ category: cat, rows: rows.filter(r => (r.category || 'General') === cat) }))
-  }, [rows])
+    const cats = categories.length > 0 ? categories : ['General']
+    // Also include any categories from rows that aren't in the list
+    const extra = []
+    rows.forEach(r => { const c = r.category || 'General'; if (!cats.includes(c) && !extra.includes(c)) extra.push(c) })
+    return [...cats, ...extra].map(cat => ({ category: cat, rows: rows.filter(r => (r.category || 'General') === cat) }))
+  }, [rows, categories])
 
   function updateRow(id, field, value) {
     setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r))
   }
 
-  function addRow() {
+  function addRow(category) {
     const maxId = rows.length > 0 ? rows.reduce((m, r) => Math.max(m, r.id || 0), 0) : 0
     setRows(prev => [...prev, {
-      id: maxId + 1, category: 'General',
+      id: maxId + 1, category: category || 'General',
       description: '', supplier: '', firstLevel: '', leadTime: '', requiredOnSite: '',
       dateApproved: '', status: {}, comments: '',
     }])
+  }
+
+  function addSection() {
+    const existing = categories.length > 0 ? categories : ['General']
+    let name = 'New section'
+    let i = 2
+    while (existing.includes(name)) { name = `New section ${i}`; i++ }
+    setCategories([...existing, name])
+  }
+
+  function renameCategory(oldName, newName) {
+    if (!newName.trim() || newName === oldName) return
+    setCategories(prev => prev.map(c => c === oldName ? newName.trim() : c))
+    setRows(prev => prev.map(r => r.category === oldName ? { ...r, category: newName.trim() } : r))
+    setEditingCat(null)
+  }
+
+  function deleteCategory(cat) {
+    setCategories(prev => prev.filter(c => c !== cat))
+    setRows(prev => prev.filter(r => r.category !== cat))
   }
 
   function handleContextAction(id, action) {
@@ -347,16 +371,47 @@ export default function ProcurementTable({ rows, setRows, rules }) {
               <tbody>
                 {grouped.map(group => {
                   const isCollapsed = collapsed[group.category]
+                  const isEditing = editingCat === group.category
                   return (
                     <Fragment key={group.category}>
-                      <tr className="border-b cursor-pointer select-none"
-                        onClick={() => setCollapsed(p => ({ ...p, [group.category]: !p[group.category] }))}
-                        style={{ borderColor: 'var(--border-color)' }}>
-                        <td colSpan={100} className="px-3 py-2.5" style={{ background: 'var(--bg-main)' }}>
-                          <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--primary-color)' }}>
-                            {isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
-                            {group.category}
+                      <tr className="border-b select-none" style={{ borderColor: 'var(--border-color)' }}>
+                        <td colSpan={100} className="px-3 py-2" style={{ background: 'var(--bg-main)' }}>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => setCollapsed(p => ({ ...p, [group.category]: !p[group.category] }))}
+                              className="p-0.5" style={{ color: 'var(--primary-color)' }}>
+                              {isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+                            </button>
+                            {isEditing ? (
+                              <input autoFocus defaultValue={group.category}
+                                onBlur={e => renameCategory(group.category, e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') renameCategory(group.category, e.target.value); if (e.key === 'Escape') setEditingCat(null) }}
+                                className="text-sm font-semibold px-1.5 py-0.5 border outline-none"
+                                style={{ borderColor: 'var(--primary-color)', color: 'var(--primary-color)', background: 'var(--bg-card)' }}
+                              />
+                            ) : (
+                              <span className="text-sm font-semibold cursor-pointer" style={{ color: 'var(--primary-color)' }}
+                                onClick={() => setCollapsed(p => ({ ...p, [group.category]: !p[group.category] }))}>
+                                {group.category}
+                              </span>
+                            )}
                             <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>({group.rows.length})</span>
+                            <div className="flex-1" />
+                            {!isEditing && (
+                              <button onClick={() => setEditingCat(group.category)} title="Rename section"
+                                className="p-1 hover:bg-black/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
+                                <Pencil size={12} />
+                              </button>
+                            )}
+                            <button onClick={() => addRow(group.category)} title="Add row to this section"
+                              className="p-1 hover:bg-black/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
+                              <Plus size={13} />
+                            </button>
+                            {grouped.length > 1 && group.rows.length === 0 && (
+                              <button onClick={() => deleteCategory(group.category)} title="Remove empty section"
+                                className="p-1 hover:bg-red-50 transition-colors" style={{ color: 'var(--text-muted)' }}>
+                                <X size={13} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -376,9 +431,9 @@ export default function ProcurementTable({ rows, setRows, rules }) {
                     </Fragment>
                   )
                 })}
-                {rows.length === 0 && (
+                {grouped.length === 0 && (
                   <tr><td colSpan={100} className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-                    No items yet — click "Add row" to start
+                    No sections yet — click "Add section" to start
                   </td></tr>
                 )}
               </tbody>
@@ -387,11 +442,18 @@ export default function ProcurementTable({ rows, setRows, rules }) {
         </DndContext>
       </div>
 
-      <button onClick={addRow}
-        className="flex items-center gap-2 mt-3 px-4 py-2 border border-dashed text-sm transition-colors hover:bg-black/[0.02]"
-        style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
-        <Plus size={14} /> Add row
-      </button>
+      <div className="flex gap-2 mt-3">
+        <button onClick={addSection}
+          className="flex items-center gap-2 px-4 py-2 border border-dashed text-sm transition-colors hover:bg-black/[0.02]"
+          style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
+          <FolderPlus size={14} /> Add section
+        </button>
+        <button onClick={() => addRow(grouped[grouped.length - 1]?.category || 'General')}
+          className="flex items-center gap-2 px-4 py-2 border border-dashed text-sm transition-colors hover:bg-black/[0.02]"
+          style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
+          <Plus size={14} /> Add row
+        </button>
+      </div>
 
       {contextMenu && (
         <ContextMenu x={contextMenu.x} y={contextMenu.y}

@@ -122,6 +122,7 @@ export default function ProcurementScheduler() {
   const [header, setHeader] = useState({ project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' })
   const [rules, setRules] = useState({ ...DEFAULT_RULES })
   const [rows, setRows] = useState([])
+  const [categories, setCategories] = useState(['General'])
   const [rulesOpen, setRulesOpen] = useState(false)
   const [calendarOpen, setCalendarOpen] = useState(true)
   const [loaded, setLoaded] = useState(false)
@@ -134,7 +135,7 @@ export default function ProcurementScheduler() {
     ;(async () => {
       const { data } = await supabase
         .from('procurement_schedules')
-        .select('header, rules, rows')
+        .select('header, rules, rows, categories')
         .eq('company_id', cid)
         .eq('project_id', projectId)
         .maybeSingle()
@@ -143,10 +144,12 @@ export default function ProcurementScheduler() {
         setHeader(data.header || { project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' })
         setRules(data.rules || { ...DEFAULT_RULES })
         setRows((data.rows || []).map(r => ({ ...r, _leadWeeks: parseLeadTime(r.leadTime) })))
+        setCategories(data.categories || ['General'])
       } else {
         setHeader({ project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' })
         setRules({ ...DEFAULT_RULES })
         setRows([])
+        setCategories(['General'])
       }
       setLoaded(true)
     })()
@@ -167,12 +170,13 @@ export default function ProcurementScheduler() {
           header,
           rules,
           rows: cleanRows,
+          categories,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'company_id,project_id' })
       if (error) console.error('Save failed:', error.message)
     }, 1500)
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
-  }, [header, rules, rows, loaded, cid, projectId])
+  }, [header, rules, rows, categories, loaded, cid, projectId])
 
   const setRowsWrapped = useCallback(fn => {
     setRows(prev => {
@@ -267,7 +271,7 @@ export default function ProcurementScheduler() {
 
       {/* Tracker table */}
       <div className="rounded-xl border p-4" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <ProcurementTable rows={rows} setRows={setRowsWrapped} rules={rules} />
+        <ProcurementTable rows={rows} setRows={setRowsWrapped} rules={rules} categories={categories} setCategories={setCategories} />
       </div>
 
       <style>{`
