@@ -39,14 +39,19 @@ function StatusPills({ value = {}, onChange }) {
 // (PriorityPips removed — Level is now a free-text EditCell)
 
 // ── Editable cell ──
-function EditCell({ value, onCommit, type = 'text', placeholder = '\u2014', readOnly, italic, muted, title, className = '' }) {
+function EditCell({ value, onCommit, type = 'text', placeholder = '\u2014', readOnly, calculated, italic, muted, title, className = '' }) {
   const [editing, setEditing] = useState(false)
 
   if (readOnly) {
     return (
       <div title={title}
         className={`px-2 py-1.5 text-sm whitespace-nowrap overflow-hidden text-ellipsis ${className}`}
-        style={{ color: muted ? 'var(--text-muted)' : 'var(--text-primary)', fontStyle: italic ? 'italic' : 'normal' }}
+        style={{
+          color: calculated && value ? 'var(--primary-color)' : muted ? 'var(--text-muted)' : 'var(--text-primary)',
+          fontWeight: calculated && value ? 600 : 400,
+          fontStyle: italic ? 'italic' : 'normal',
+          background: calculated && value ? 'rgba(27,111,200,.04)' : 'transparent',
+        }}
         aria-readonly="true">
         {value || '\u2014'}
       </div>
@@ -207,13 +212,13 @@ function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, deleteRow
       <td style={bdr}><EditCell value={row.description} onCommit={v => updateRow(row.id, 'description', v)} /></td>
       <td style={bdr}><SupplierCell value={row.supplier} onCommit={v => updateRow(row.id, 'supplier', v)} suggestions={supplierSuggestions} /></td>
       <td className="text-center" style={bdr}><EditCell value={row.firstLevel != null ? String(row.firstLevel) : ''} onCommit={v => updateRow(row.id, 'firstLevel', v)} className="text-center" /></td>
-      <td style={bdr}><EditCell value={ms ? fmtDate(ms.techSubIssue) : ''} readOnly italic muted title="Auto-calculated" /></td>
-      <td style={bdr}><EditCell value={ms ? fmtDate(ms.approvalRequired) : ''} readOnly italic muted title="Auto-calculated" /></td>
+      <td style={bdr}><EditCell value={ms ? fmtDate(ms.techSubIssue) : ''} readOnly calculated title="Auto-calculated" /></td>
+      <td style={bdr}><EditCell value={ms ? fmtDate(ms.approvalRequired) : ''} readOnly calculated title="Auto-calculated" /></td>
       <td style={bdr}><EditCell value={row.dateApproved ? fmtDate(row.dateApproved) : ''} type="date" onCommit={v => updateRow(row.id, 'dateApproved', v)} /></td>
       <td className="text-center px-1" style={bdr}><StatusPills value={row.status || {}} onChange={v => updateRow(row.id, 'status', v)} /></td>
-      <td style={bdr}><EditCell value={ms ? fmtDate(ms.orderPlaced) : ''} readOnly italic muted title="Auto-calculated" /></td>
+      <td style={bdr}><EditCell value={ms ? fmtDate(ms.orderPlaced) : ''} readOnly calculated title="Auto-calculated" /></td>
       <td className="text-center" style={bdr}><EditCell value={row.leadTime || ''} onCommit={v => updateRow(row.id, 'leadTime', v)} placeholder="e.g. 12W" className="text-center" /></td>
-      <td style={bdr}><EditCell value={ms ? fmtDate(ms.delivery) : ''} readOnly italic muted title="Auto-calculated" /></td>
+      <td style={bdr}><EditCell value={ms ? fmtDate(ms.delivery) : ''} readOnly calculated title="Auto-calculated" /></td>
       <td style={bdr}><EditCell value={row.requiredOnSite ? fmtDateISO(row.requiredOnSite) : ''} type="date" onCommit={v => updateRow(row.id, 'requiredOnSite', v)} /></td>
       <td style={bdr}><EditCell value={row.comments || ''} onCommit={v => updateRow(row.id, 'comments', v)} /></td>
       <td className="px-1 text-center w-8">

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Download, Upload, FileSpreadsheet, Printer, CalendarRange } from 'lucide-react'
+import { Download, FileSpreadsheet, Printer, CalendarRange, Settings2 } from 'lucide-react'
 import ProcurementCalendar from '../components/ProcurementCalendar'
 import ProcurementTable from '../components/ProcurementTable'
 import {
@@ -7,44 +7,59 @@ import {
   parseLeadTime, fmtDate, fmtDateISO, computeMilestones,
 } from '../lib/procurementSchedule'
 
-// ── Algorithm panel ──
-function AlgorithmPanel({ rules, setRules }) {
+// ── Scheduling rules (collapsible) ──
+function AlgorithmPanel({ rules, setRules, open, setOpen }) {
   const fields = [
-    { key: 'deliveryWeeksBefore', label: 'Delivery: weeks before Required On Site', type: 'number', min: 0, max: 8 },
-    { key: 'orderPlacedWeekday', label: 'Order Placed: weekday', type: 'weekday' },
-    { key: 'approvalWeekday', label: 'Approval Required: weekday', type: 'weekday' },
-    { key: 'techSubDaysBefore', label: 'Tech Sub: calendar days before Approval', type: 'number', min: 0, max: 60 },
-    { key: 'techSubWeekday', label: 'Tech Sub: weekday', type: 'weekday' },
+    { key: 'deliveryWeeksBefore', label: 'Delivery buffer', desc: 'Weeks between delivery and the Required On Site date', type: 'number', min: 0, max: 8 },
+    { key: 'orderPlacedWeekday', label: 'Order placed day', desc: 'Orders are placed on this day of the week', type: 'weekday' },
+    { key: 'approvalWeekday', label: 'Approval deadline day', desc: 'Approval must be received by this day each week', type: 'weekday' },
+    { key: 'techSubDaysBefore', label: 'Tech submittal lead', desc: 'Calendar days the technical submittal needs before approval', type: 'number', min: 0, max: 60 },
+    { key: 'techSubWeekday', label: 'Tech submittal day', desc: 'Technical submittals are issued on this day', type: 'weekday' },
   ]
 
   return (
-    <div className="flex-1 min-w-[300px] p-5">
-      <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
-        Scheduling Rules
-      </h3>
-      <div className="space-y-2.5">
-        {fields.map(f => (
-          <div key={f.key} className="flex items-center gap-3">
-            <label className="flex-1 text-sm" style={{ color: 'var(--text-primary)' }}>{f.label}</label>
-            {f.type === 'weekday' ? (
-              <select value={rules[f.key]}
-                onChange={e => setRules(prev => ({ ...prev, [f.key]: parseInt(e.target.value) }))}
-                className="w-[120px] px-2 py-1.5 border text-sm"
-                style={{ borderColor: 'var(--border-color)', background: '#FFFBEB', color: 'var(--text-primary)' }}>
-                {WEEKDAY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            ) : (
-              <input type="number" value={rules[f.key]} min={f.min} max={f.max}
-                onChange={e => setRules(prev => ({ ...prev, [f.key]: parseInt(e.target.value) || 0 }))}
-                className="w-[72px] px-2 py-1.5 border text-sm text-center"
-                style={{ borderColor: 'var(--border-color)', background: '#FFFBEB', color: 'var(--text-primary)' }} />
-            )}
+    <div className="rounded-xl border mb-4" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+      <button onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-5 py-3 text-left transition-colors hover:bg-black/[0.01]">
+        <div className="flex items-center gap-2">
+          <Settings2 size={15} style={{ color: 'var(--text-muted)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Scheduling rules</span>
+          <span className="text-[11px] px-2 py-0.5 border" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-color)' }}>
+            {open ? 'Hide' : 'Show'}
+          </span>
+        </div>
+        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          These settings control how milestone dates are calculated
+        </span>
+      </button>
+
+      {open && (
+        <div className="px-5 pb-4 pt-1 border-t" style={{ borderColor: 'var(--border-color)' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-3 mt-3">
+            {fields.map(f => (
+              <div key={f.key} className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <label className="text-sm font-medium block" style={{ color: 'var(--text-primary)' }}>{f.label}</label>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{f.desc}</p>
+                </div>
+                {f.type === 'weekday' ? (
+                  <select value={rules[f.key]}
+                    onChange={e => setRules(prev => ({ ...prev, [f.key]: parseInt(e.target.value) }))}
+                    className="w-[110px] px-2 py-1.5 border text-sm shrink-0 mt-0.5"
+                    style={{ borderColor: 'var(--border-color)', background: '#FFFBEB', color: 'var(--text-primary)' }}>
+                    {WEEKDAY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                ) : (
+                  <input type="number" value={rules[f.key]} min={f.min} max={f.max}
+                    onChange={e => setRules(prev => ({ ...prev, [f.key]: parseInt(e.target.value) || 0 }))}
+                    className="w-[64px] px-2 py-1.5 border text-sm text-center shrink-0 mt-0.5"
+                    style={{ borderColor: 'var(--border-color)', background: '#FFFBEB', color: 'var(--text-primary)' }} />
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <p className="mt-4 text-xs italic" style={{ color: 'var(--text-muted)' }}>
-        Per item, enter Required On Site + Lead Time. Delivery, Order Placed, Approval Required and Tech Sub Issue dates auto-calculate.
-      </p>
+        </div>
+      )}
     </div>
   )
 }
@@ -92,15 +107,15 @@ function ProjectHeader({ header, setHeader }) {
 }
 
 // ── CSV export helper ──
-const CSV_HEADERS = ['ID', 'Description', 'Supplier', '1st Level', 'Tech Sub', 'Approval', 'Approved', 'Status', 'Order Placed', 'Lead Time', 'Delivery', 'On Site', 'Comments']
+const CSV_HEADERS = ['ID', 'Description', 'Supplier', 'Level', 'Tech Sub', 'Approval', 'Approved', 'Status', 'Order Placed', 'Lead Time', 'Delivery', 'On Site', 'Comments']
 
 // ── Main page ──
 export default function ProcurementScheduler() {
   const [header, setHeader] = useState({ project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' })
   const [rules, setRules] = useState({ ...DEFAULT_RULES })
   const [rows, setRows] = useState([])
+  const [rulesOpen, setRulesOpen] = useState(false)
 
-  // Keep _leadWeeks synced
   const setRowsWrapped = useCallback(fn => {
     setRows(prev => {
       const next = typeof fn === 'function' ? fn(prev) : fn
@@ -135,26 +150,11 @@ export default function ProcurementScheduler() {
     URL.revokeObjectURL(url)
   }
 
-  async function handleImport(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const { importFromExcel } = await import('../lib/procurementExport.js')
-    const result = await importFromExcel(file)
-    if (result) {
-      if (result.header) setHeader(prev => ({ ...prev, ...result.header }))
-      if (result.rules) setRules(prev => ({ ...prev, ...result.rules }))
-      if (result.rows) setRowsWrapped(result.rows)
-    }
-    e.target.value = ''
-  }
-
   return (
     <div className="max-w-[1400px] mx-auto">
-      {/* Region 1: Project Header */}
+      {/* Project header + toolbar */}
       <div className="rounded-xl border mb-4" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <ProjectHeader header={header} setHeader={setHeader} />
-
-        {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
           <button onClick={handleExportExcel}
             className="flex items-center gap-1.5 px-3 py-1.5 border text-xs font-medium transition-colors hover:bg-black/[0.02]"
@@ -166,11 +166,6 @@ export default function ProcurementScheduler() {
             style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
             <Download size={13} /> Export CSV
           </button>
-          <label className="flex items-center gap-1.5 px-3 py-1.5 border text-xs font-medium cursor-pointer transition-colors hover:bg-black/[0.02]"
-            style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
-            <Upload size={13} /> Import .xlsx
-            <input type="file" accept=".xlsx,.xls" onChange={handleImport} className="hidden" />
-          </label>
           <button onClick={() => window.print()}
             className="flex items-center gap-1.5 px-3 py-1.5 border text-xs font-medium transition-colors hover:bg-black/[0.02]"
             style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
@@ -179,26 +174,26 @@ export default function ProcurementScheduler() {
         </div>
       </div>
 
-      {/* Region 2: Algorithm Panel + Calendar */}
-      <div className="rounded-xl border mb-4 flex flex-wrap" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <AlgorithmPanel rules={rules} setRules={setRules} />
-        <div className="w-px self-stretch" style={{ background: 'var(--border-color)' }} />
-        <div className="flex-1 min-w-[340px] p-5">
-          <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
-            Date Calculator
-          </h3>
-          <ProcurementCalendar rules={rules} trackerRows={rows} />
-        </div>
+      {/* Scheduling rules (collapsible) */}
+      <AlgorithmPanel rules={rules} setRules={setRules} open={rulesOpen} setOpen={setRulesOpen} />
+
+      {/* Calendar */}
+      <div className="rounded-xl border mb-4 p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
+          Date calculator
+        </h3>
+        <ProcurementCalendar rules={rules} trackerRows={rows} />
       </div>
 
-      {/* Region 3: Tracker Table */}
+      {/* Tracker table */}
       <div className="rounded-xl border p-4" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <ProcurementTable rows={rows} setRows={setRowsWrapped} rules={rules} />
       </div>
 
       <style>{`
         @media print {
-          .max-w-\\[1400px\\] > div:nth-child(2) { display: none !important; }
+          .max-w-\\[1400px\\] > div:nth-child(2),
+          .max-w-\\[1400px\\] > div:nth-child(3) { display: none !important; }
           @page { size: A3 landscape; margin: 10mm; }
         }
       `}</style>
