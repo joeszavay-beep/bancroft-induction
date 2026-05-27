@@ -1,28 +1,23 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, Fragment } from 'react'
 import { Plus, ChevronDown, ChevronRight, MoreHorizontal, AlertCircle, GripVertical } from 'lucide-react'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  computeMilestones, parseLeadTime, fmtDate, fmtDateISO,
-  getRowFlags,
+  computeMilestones, parseLeadTime, fmtDate, fmtDateISO, getRowFlags,
 } from '../lib/procurementSchedule'
 
-// ── Status pills (A/B/C review states) ──
-const STATUS_STATES = [null, 'yes', 'no']
-const STATUS_LABELS = ['A', 'B', 'C']
-
+// ── Status pills ──
 function StatusPills({ value = {}, onChange }) {
   const vals = { a: value.a || null, b: value.b || null, c: value.c || null }
+  const states = [null, 'yes', 'no']
   function cycle(key) {
-    const cur = vals[key]
-    const idx = STATUS_STATES.indexOf(cur)
-    const next = STATUS_STATES[(idx + 1) % STATUS_STATES.length]
-    onChange({ ...vals, [key]: next })
+    const idx = states.indexOf(vals[key])
+    onChange({ ...vals, [key]: states[(idx + 1) % 3] })
   }
   return (
     <div className="flex gap-1 justify-center">
-      {STATUS_LABELS.map(label => {
+      {['A', 'B', 'C'].map(label => {
         const key = label.toLowerCase()
         const v = vals[key]
         return (
@@ -41,7 +36,7 @@ function StatusPills({ value = {}, onChange }) {
   )
 }
 
-// ── First Level (priority pips) ──
+// ── Priority pips ──
 function PriorityPips({ value, onChange }) {
   const n = Math.min(4, Math.max(0, value || 0))
   return (
@@ -54,21 +49,9 @@ function PriorityPips({ value, onChange }) {
   )
 }
 
-// ── Editable cell — uses local state to avoid re-render on every keystroke ──
+// ── Editable cell ──
 function EditCell({ value, onCommit, type = 'text', placeholder = '\u2014', readOnly, italic, muted, title, className = '' }) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState('')
-
-  function startEdit() {
-    setDraft(value || '')
-    setEditing(true)
-  }
-
-  function commit(val) {
-    setEditing(false)
-    const final = val !== undefined ? val : draft
-    if (final !== (value || '')) onCommit(final)
-  }
 
   if (readOnly) {
     return (
@@ -83,8 +66,8 @@ function EditCell({ value, onCommit, type = 'text', placeholder = '\u2014', read
 
   if (!editing) {
     return (
-      <div onClick={startEdit} tabIndex={0} onFocus={startEdit}
-        onKeyDown={e => e.key === 'Enter' && startEdit()}
+      <div onClick={() => setEditing(true)} tabIndex={0} onFocus={() => setEditing(true)}
+        onKeyDown={e => e.key === 'Enter' && setEditing(true)}
         className={`px-2 py-1.5 text-sm cursor-text whitespace-nowrap overflow-hidden text-ellipsis border border-transparent hover:border-[var(--border-color)] transition-colors ${className}`}
         style={{ color: value ? 'var(--text-primary)' : 'var(--text-muted)' }}>
         {value || placeholder}
@@ -98,10 +81,9 @@ function EditCell({ value, onCommit, type = 'text', placeholder = '\u2014', read
       type={type === 'date' ? 'date' : 'text'}
       defaultValue={value || ''}
       ref={el => { if (el) { el.focus(); if (type !== 'date') el.select() } }}
-      onChange={e => setDraft(e.target.value)}
-      onBlur={e => commit(e.target.value)}
+      onBlur={e => { setEditing(false); if (e.target.value !== (value || '')) onCommit(e.target.value) }}
       onKeyDown={e => {
-        if (e.key === 'Enter') commit(e.target.value)
+        if (e.key === 'Enter') { setEditing(false); if (e.target.value !== (value || '')) onCommit(e.target.value) }
         if (e.key === 'Escape') setEditing(false)
       }}
       className={`w-full px-2 py-1 text-sm border outline-none ${className}`}
@@ -150,23 +132,20 @@ function SupplierCell({ value, onCommit, suggestions }) {
   const [showSugg, setShowSugg] = useState(false)
   const filtered = suggestions.filter(s => s.toLowerCase().includes(draft.toLowerCase()) && s !== draft)
 
-  function startEdit() { setDraft(value || ''); setEditing(true) }
-
-  function commit(val) {
-    setEditing(false)
-    setShowSugg(false)
-    const final = val || draft
-    if (final !== (value || '')) onCommit(final)
-  }
-
   if (!editing) {
     return (
-      <div onClick={startEdit} tabIndex={0} onFocus={startEdit}
+      <div onClick={() => { setDraft(value || ''); setEditing(true) }} tabIndex={0}
+        onFocus={() => { setDraft(value || ''); setEditing(true) }}
         className="px-2 py-1.5 text-sm cursor-text whitespace-nowrap overflow-hidden text-ellipsis border border-transparent hover:border-[var(--border-color)] transition-colors"
         style={{ color: value ? 'var(--text-primary)' : 'var(--text-muted)' }}>
         {value || '\u2014'}
       </div>
     )
+  }
+
+  function commit(val) {
+    setEditing(false); setShowSugg(false)
+    if (val !== (value || '')) onCommit(val)
   }
 
   return (
@@ -196,36 +175,39 @@ function SupplierCell({ value, onCommit, suggestions }) {
 // ── Sortable row ──
 function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, setContextMenu, selectMode, selected, setSelected }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id })
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    background: ri % 2 === 1 ? 'var(--bg-main)' : 'var(--bg-card)',
-  }
 
   const lw = parseLeadTime(row.leadTime)
   const ms = lw && row.requiredOnSite ? computeMilestones(row.requiredOnSite, lw, rules) : null
   const flags = getRowFlags(row, ms)
 
+  const rowStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    background: ri % 2 === 1 ? 'var(--bg-main)' : 'var(--bg-card)',
+    borderColor: 'var(--border-color)',
+  }
+
+  const bdr = { borderRight: '1px solid var(--border-color)' }
+
   return (
-    <tr ref={setNodeRef} style={style}
+    <tr ref={setNodeRef} style={rowStyle}
       onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, rowId: row.id }) }}
-      className="border-b transition-colors" style={{ ...style, borderColor: 'var(--border-color)' }}>
-      {/* Drag handle */}
-      <td className="px-1 py-1.5 text-center w-8" style={{ borderRight: '1px solid var(--border-color)' }}>
-        <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-black/5 transition-colors"
+      className="border-b transition-colors">
+      <td className="px-1 py-1.5 text-center w-8" style={bdr}>
+        <button {...attributes} {...listeners}
+          className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-black/5 transition-colors"
           style={{ color: 'var(--text-muted)' }}>
           <GripVertical size={13} />
         </button>
       </td>
       {selectMode && (
-        <td className="px-1 py-1.5 text-center w-8" style={{ borderRight: '1px solid var(--border-color)' }}>
+        <td className="px-1 py-1.5 text-center w-8" style={bdr}>
           <input type="checkbox" checked={selected.has(row.id)}
             onChange={e => { const next = new Set(selected); e.target.checked ? next.add(row.id) : next.delete(row.id); setSelected(next) }} />
         </td>
       )}
-      {/* ID */}
-      <td className="text-center relative w-[50px]" style={{ borderRight: '1px solid var(--border-color)' }}>
+      <td className="text-center relative w-[50px]" style={bdr}>
         {flags.length > 0 && (
           <span title={flags.map(f => f.message).join('; ')} className="absolute left-1 top-1/2 -translate-y-1/2">
             <AlertCircle size={12} color="#D93E3E" />
@@ -233,55 +215,18 @@ function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, setContex
         )}
         <EditCell value={String(row.id)} onCommit={v => updateRow(row.id, 'id', parseInt(v) || row.id)} className="text-center" />
       </td>
-      {/* Description */}
-      <td style={{ borderRight: '1px solid var(--border-color)' }}>
-        <EditCell value={row.description} onCommit={v => updateRow(row.id, 'description', v)} />
-      </td>
-      {/* Supplier */}
-      <td style={{ borderRight: '1px solid var(--border-color)' }}>
-        <SupplierCell value={row.supplier} onCommit={v => updateRow(row.id, 'supplier', v)} suggestions={supplierSuggestions} />
-      </td>
-      {/* First Level */}
-      <td className="text-center" style={{ borderRight: '1px solid var(--border-color)' }}>
-        <PriorityPips value={row.firstLevel} onChange={v => updateRow(row.id, 'firstLevel', v)} />
-      </td>
-      {/* Tech Sub (calc) */}
-      <td style={{ borderRight: '1px solid var(--border-color)' }}>
-        <EditCell value={ms ? fmtDate(ms.techSubIssue) : ''} readOnly italic muted title="Auto-calculated" />
-      </td>
-      {/* Approval Req (calc) */}
-      <td style={{ borderRight: '1px solid var(--border-color)' }}>
-        <EditCell value={ms ? fmtDate(ms.approvalRequired) : ''} readOnly italic muted title="Auto-calculated" />
-      </td>
-      {/* Date Approved */}
-      <td style={{ borderRight: '1px solid var(--border-color)' }}>
-        <EditCell value={row.dateApproved ? fmtDate(row.dateApproved) : ''} type="date" onCommit={v => updateRow(row.id, 'dateApproved', v)} />
-      </td>
-      {/* Status (A/B/C) */}
-      <td className="text-center px-1" style={{ borderRight: '1px solid var(--border-color)' }}>
-        <StatusPills value={row.status || {}} onChange={v => updateRow(row.id, 'status', v)} />
-      </td>
-      {/* Order Placed (calc) */}
-      <td style={{ borderRight: '1px solid var(--border-color)' }}>
-        <EditCell value={ms ? fmtDate(ms.orderPlaced) : ''} readOnly italic muted title="Auto-calculated" />
-      </td>
-      {/* Lead Time */}
-      <td className="text-center" style={{ borderRight: '1px solid var(--border-color)' }}>
-        <EditCell value={row.leadTime || ''} onCommit={v => updateRow(row.id, 'leadTime', v)} placeholder="e.g. 12W" className="text-center" />
-      </td>
-      {/* Delivery Req (calc) */}
-      <td style={{ borderRight: '1px solid var(--border-color)' }}>
-        <EditCell value={ms ? fmtDate(ms.delivery) : ''} readOnly italic muted title="Auto-calculated" />
-      </td>
-      {/* Required On Site */}
-      <td style={{ borderRight: '1px solid var(--border-color)' }}>
-        <EditCell value={row.requiredOnSite ? fmtDateISO(row.requiredOnSite) : ''} type="date" onCommit={v => updateRow(row.id, 'requiredOnSite', v)} />
-      </td>
-      {/* Comments */}
-      <td style={{ borderRight: '1px solid var(--border-color)' }}>
-        <EditCell value={row.comments || ''} onCommit={v => updateRow(row.id, 'comments', v)} />
-      </td>
-      {/* Context menu btn */}
+      <td style={bdr}><EditCell value={row.description} onCommit={v => updateRow(row.id, 'description', v)} /></td>
+      <td style={bdr}><SupplierCell value={row.supplier} onCommit={v => updateRow(row.id, 'supplier', v)} suggestions={supplierSuggestions} /></td>
+      <td className="text-center" style={bdr}><PriorityPips value={row.firstLevel} onChange={v => updateRow(row.id, 'firstLevel', v)} /></td>
+      <td style={bdr}><EditCell value={ms ? fmtDate(ms.techSubIssue) : ''} readOnly italic muted title="Auto-calculated" /></td>
+      <td style={bdr}><EditCell value={ms ? fmtDate(ms.approvalRequired) : ''} readOnly italic muted title="Auto-calculated" /></td>
+      <td style={bdr}><EditCell value={row.dateApproved ? fmtDate(row.dateApproved) : ''} type="date" onCommit={v => updateRow(row.id, 'dateApproved', v)} /></td>
+      <td className="text-center px-1" style={bdr}><StatusPills value={row.status || {}} onChange={v => updateRow(row.id, 'status', v)} /></td>
+      <td style={bdr}><EditCell value={ms ? fmtDate(ms.orderPlaced) : ''} readOnly italic muted title="Auto-calculated" /></td>
+      <td className="text-center" style={bdr}><EditCell value={row.leadTime || ''} onCommit={v => updateRow(row.id, 'leadTime', v)} placeholder="e.g. 12W" className="text-center" /></td>
+      <td style={bdr}><EditCell value={ms ? fmtDate(ms.delivery) : ''} readOnly italic muted title="Auto-calculated" /></td>
+      <td style={bdr}><EditCell value={row.requiredOnSite ? fmtDateISO(row.requiredOnSite) : ''} type="date" onCommit={v => updateRow(row.id, 'requiredOnSite', v)} /></td>
+      <td style={bdr}><EditCell value={row.comments || ''} onCommit={v => updateRow(row.id, 'comments', v)} /></td>
       <td className="px-1 text-center w-8">
         <button onClick={e => setContextMenu({ x: e.clientX, y: e.clientY, rowId: row.id })}
           className="p-1 hover:bg-black/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
@@ -292,7 +237,7 @@ function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, setContex
   )
 }
 
-// ── Main component ──
+// ── Main ──
 export default function ProcurementTable({ rows, setRows, rules }) {
   const [collapsed, setCollapsed] = useState({})
   const [contextMenu, setContextMenu] = useState(null)
@@ -307,6 +252,8 @@ export default function ProcurementTable({ rows, setRows, rules }) {
   const supplierSuggestions = useMemo(() =>
     [...new Set(rows.map(r => r.supplier).filter(Boolean))].sort(), [rows])
 
+  const allIds = useMemo(() => rows.map(r => r.id), [rows])
+
   const grouped = useMemo(() => {
     const catOrder = []
     rows.forEach(r => { const c = r.category || 'General'; if (!catOrder.includes(c)) catOrder.push(c) })
@@ -317,10 +264,10 @@ export default function ProcurementTable({ rows, setRows, rules }) {
     setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r))
   }
 
-  function addRow(category) {
-    const maxId = rows.reduce((m, r) => Math.max(m, r.id || 0), 0)
+  function addRow() {
+    const maxId = rows.length > 0 ? rows.reduce((m, r) => Math.max(m, r.id || 0), 0) : 0
     setRows(prev => [...prev, {
-      id: maxId + 1, category: category || 'General',
+      id: maxId + 1, category: 'General',
       description: '', supplier: '', firstLevel: 1, leadTime: '', requiredOnSite: '',
       dateApproved: '', status: {}, comments: '',
     }])
@@ -333,18 +280,18 @@ export default function ProcurementTable({ rows, setRows, rules }) {
     const row = rows[idx]
     switch (action) {
       case 'insertAbove': case 'insertBelow': {
-        const newRow = { id: maxId + 1, category: row.category, description: '', supplier: '', firstLevel: 1, leadTime: '', requiredOnSite: '', dateApproved: '', status: {}, comments: '' }
-        const next = [...rows]; next.splice(action === 'insertAbove' ? idx : idx + 1, 0, newRow); setRows(next); break
+        const nr = { id: maxId + 1, category: row.category || 'General', description: '', supplier: '', firstLevel: 1, leadTime: '', requiredOnSite: '', dateApproved: '', status: {}, comments: '' }
+        const next = [...rows]; next.splice(action === 'insertAbove' ? idx : idx + 1, 0, nr); setRows(next); break
       }
       case 'duplicate': { const next = [...rows]; next.splice(idx + 1, 0, { ...row, id: maxId + 1 }); setRows(next); break }
       case 'delete': setRows(prev => prev.filter(r => r.id !== id)); break
       case 'copyExcel': {
-        const lw = parseLeadTime(row.leadTime); const ms = lw ? computeMilestones(row.requiredOnSite, lw, rules) : null
+        const lw = parseLeadTime(row.leadTime); const ms = lw && row.requiredOnSite ? computeMilestones(row.requiredOnSite, lw, rules) : null
         navigator.clipboard?.writeText([row.id, row.description, row.supplier, row.firstLevel, ms ? fmtDate(ms.techSubIssue) : '', ms ? fmtDate(ms.approvalRequired) : '', row.dateApproved || '', '', ms ? fmtDate(ms.orderPlaced) : '', row.leadTime, ms ? fmtDate(ms.delivery) : '', row.requiredOnSite ? fmtDate(row.requiredOnSite) : '', row.comments].join('\t'))
         break
       }
       case 'copyMd': {
-        const lw = parseLeadTime(row.leadTime); const ms = lw ? computeMilestones(row.requiredOnSite, lw, rules) : null
+        const lw = parseLeadTime(row.leadTime); const ms = lw && row.requiredOnSite ? computeMilestones(row.requiredOnSite, lw, rules) : null
         navigator.clipboard?.writeText('| ' + [row.id, row.description, row.supplier, row.firstLevel, ms ? fmtDate(ms.techSubIssue) : '', ms ? fmtDate(ms.approvalRequired) : '', row.dateApproved || '', '', ms ? fmtDate(ms.orderPlaced) : '', row.leadTime, ms ? fmtDate(ms.delivery) : '', row.requiredOnSite ? fmtDate(row.requiredOnSite) : '', row.comments].join(' | ') + ' |')
         break
       }
@@ -354,86 +301,86 @@ export default function ProcurementTable({ rows, setRows, rules }) {
   function handleDragEnd(event) {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    const oldIdx = rows.findIndex(r => r.id === active.id)
-    const newIdx = rows.findIndex(r => r.id === over.id)
-    setRows(arrayMove(rows, oldIdx, newIdx))
+    setRows(prev => {
+      const oldIdx = prev.findIndex(r => r.id === active.id)
+      const newIdx = prev.findIndex(r => r.id === over.id)
+      return arrayMove(prev, oldIdx, newIdx)
+    })
   }
 
   const thCls = "px-2 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap"
 
   return (
     <div>
-      {/* Toolbar */}
       <div className="flex justify-end gap-2 mb-3">
         <button onClick={() => setSelectMode(p => !p)}
           className="px-3 py-1.5 text-xs border transition-colors"
-          style={{
-            borderColor: 'var(--border-color)',
-            background: selectMode ? 'var(--primary-color)' : 'var(--bg-card)',
-            color: selectMode ? '#fff' : 'var(--text-muted)',
-          }}>
+          style={{ borderColor: 'var(--border-color)', background: selectMode ? 'var(--primary-color)' : 'var(--bg-card)', color: selectMode ? '#fff' : 'var(--text-muted)' }}>
           {selectMode ? 'Done' : 'Select'}
         </button>
       </div>
 
-      {/* Table */}
       <div className="border overflow-x-auto" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-            <thead>
-              <tr className="border-b" style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
-                <th className={`${thCls} w-8`} style={{ color: 'var(--text-muted)' }}></th>
-                {selectMode && <th className={`${thCls} w-8`} style={{ color: 'var(--text-muted)' }}></th>}
-                <th className={thCls} style={{ color: 'var(--text-muted)', width: 50 }}>ID</th>
-                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 200 }}>Description</th>
-                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 130 }}>Supplier</th>
-                <th className={`${thCls} text-center`} style={{ color: 'var(--text-muted)', width: 70 }}>Level</th>
-                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Tech Sub</th>
-                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Approval</th>
-                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Approved</th>
-                <th className={`${thCls} text-center`} style={{ color: 'var(--text-muted)', width: 90 }}>Status</th>
-                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Order</th>
-                <th className={`${thCls} text-center`} style={{ color: 'var(--text-muted)', width: 80 }}>Lead</th>
-                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Delivery</th>
-                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>On Site</th>
-                <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 160 }}>Comments</th>
-                <th className={`${thCls} w-8`}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {grouped.map(group => {
-                const isCollapsed = collapsed[group.category]
-                return [
-                  <tr key={`cat-${group.category}`} className="border-b cursor-pointer select-none"
-                    onClick={() => setCollapsed(p => ({ ...p, [group.category]: !p[group.category] }))}
-                    style={{ borderColor: 'var(--border-color)' }}>
-                    <td colSpan={100} className="px-3 py-2.5" style={{ background: 'var(--bg-main)' }}>
-                      <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--primary-color)' }}>
-                        {isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
-                        {group.category}
-                        <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>({group.rows.length})</span>
-                      </div>
-                    </td>
-                  </tr>,
-                  ...(!isCollapsed ? (
-                    <SortableContext key={`sc-${group.category}`} items={group.rows.map(r => r.id)} strategy={verticalListSortingStrategy}>
-                      {group.rows.map((row, ri) => (
+          <SortableContext items={allIds} strategy={verticalListSortingStrategy}>
+            <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr className="border-b" style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                  <th className={`${thCls} w-8`} style={{ color: 'var(--text-muted)' }}></th>
+                  {selectMode && <th className={`${thCls} w-8`} style={{ color: 'var(--text-muted)' }}></th>}
+                  <th className={thCls} style={{ color: 'var(--text-muted)', width: 50 }}>ID</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 200 }}>Description</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 130 }}>Supplier</th>
+                  <th className={`${thCls} text-center`} style={{ color: 'var(--text-muted)', width: 70 }}>Level</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Tech Sub</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Approval</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Approved</th>
+                  <th className={`${thCls} text-center`} style={{ color: 'var(--text-muted)', width: 90 }}>Status</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Order</th>
+                  <th className={`${thCls} text-center`} style={{ color: 'var(--text-muted)', width: 80 }}>Lead</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>Delivery</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 110 }}>On Site</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)', minWidth: 160 }}>Comments</th>
+                  <th className={`${thCls} w-8`}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {grouped.map(group => {
+                  const isCollapsed = collapsed[group.category]
+                  return (
+                    <Fragment key={group.category}>
+                      <tr className="border-b cursor-pointer select-none"
+                        onClick={() => setCollapsed(p => ({ ...p, [group.category]: !p[group.category] }))}
+                        style={{ borderColor: 'var(--border-color)' }}>
+                        <td colSpan={100} className="px-3 py-2.5" style={{ background: 'var(--bg-main)' }}>
+                          <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--primary-color)' }}>
+                            {isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+                            {group.category}
+                            <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>({group.rows.length})</span>
+                          </div>
+                        </td>
+                      </tr>
+                      {!isCollapsed && group.rows.map((row, ri) => (
                         <SortableRow key={row.id} row={row} ri={ri} rules={rules}
                           supplierSuggestions={supplierSuggestions} updateRow={updateRow}
                           setContextMenu={setContextMenu} selectMode={selectMode}
                           selected={selected} setSelected={setSelected} />
                       ))}
-                    </SortableContext>
-                  ) : []),
-                ]
-              }).flat()}
-            </tbody>
-          </table>
+                    </Fragment>
+                  )
+                })}
+                {rows.length === 0 && (
+                  <tr><td colSpan={100} className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+                    No items yet — click "Add row" to start
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </SortableContext>
         </DndContext>
       </div>
 
-      {/* Add row */}
-      <button onClick={() => addRow(grouped[grouped.length - 1]?.category || 'General')}
+      <button onClick={addRow}
         className="flex items-center gap-2 mt-3 px-4 py-2 border border-dashed text-sm transition-colors hover:bg-black/[0.02]"
         style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
         <Plus size={14} /> Add row
