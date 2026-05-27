@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, Fragment } from 'react'
-import { Plus, ChevronDown, ChevronRight, MoreHorizontal, AlertCircle, GripVertical, Trash2 } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, MoreHorizontal, AlertCircle, GripVertical, Trash2, Copy } from 'lucide-react'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -167,7 +167,7 @@ function SupplierCell({ value, onCommit, suggestions }) {
 }
 
 // ── Sortable row ──
-function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, deleteRow, setContextMenu, selectMode, selected, setSelected }) {
+function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, deleteRow, duplicateRow, setContextMenu, selectMode, selected, setSelected }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id })
 
   const lw = parseLeadTime(row.leadTime)
@@ -221,11 +221,17 @@ function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, deleteRow
       <td style={bdr}><EditCell value={ms ? fmtDate(ms.delivery) : ''} readOnly calculated title="Auto-calculated" /></td>
       <td style={bdr}><EditCell value={row.requiredOnSite ? fmtDateISO(row.requiredOnSite) : ''} type="date" onCommit={v => updateRow(row.id, 'requiredOnSite', v)} /></td>
       <td style={bdr}><EditCell value={row.comments || ''} onCommit={v => updateRow(row.id, 'comments', v)} /></td>
-      <td className="px-1 text-center w-8">
-        <button onClick={() => deleteRow(row.id)} title="Delete row"
-          className="p-1 hover:bg-red-50 transition-colors" style={{ color: 'var(--text-muted)' }}>
-          <Trash2 size={13} />
-        </button>
+      <td className="px-1 text-center" style={{ width: 52 }}>
+        <div className="flex items-center justify-center gap-0.5">
+          <button onClick={() => duplicateRow(row.id)} title="Duplicate row"
+            className="p-1 hover:bg-black/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
+            <Copy size={13} />
+          </button>
+          <button onClick={() => deleteRow(row.id)} title="Delete row"
+            className="p-1 hover:bg-red-50 transition-colors" style={{ color: 'var(--text-muted)' }}>
+            <Trash2 size={13} />
+          </button>
+        </div>
       </td>
     </tr>
   )
@@ -358,6 +364,12 @@ export default function ProcurementTable({ rows, setRows, rules }) {
                         <SortableRow key={row.id} row={row} ri={ri} rules={rules}
                           supplierSuggestions={supplierSuggestions} updateRow={updateRow}
                           deleteRow={id => setRows(prev => prev.filter(r => r.id !== id))}
+                          duplicateRow={id => {
+                            const src = rows.find(r => r.id === id); if (!src) return
+                            const maxId = rows.reduce((m, r) => Math.max(m, r.id || 0), 0)
+                            const idx = rows.indexOf(src)
+                            setRows(prev => { const next = [...prev]; next.splice(idx + 1, 0, { ...src, id: maxId + 1 }); return next })
+                          }}
                           setContextMenu={setContextMenu} selectMode={selectMode}
                           selected={selected} setSelected={setSelected} />
                       ))}
