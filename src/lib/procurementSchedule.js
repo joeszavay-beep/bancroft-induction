@@ -119,7 +119,7 @@ export const DEFAULT_RULES = {
   orderPlacedWeekday: 1,    // Mon
   approvalWeekday: 5,       // Fri
   techSubDaysBefore: 10,
-  techSubDaysType: 'calendar', // 'calendar' or 'working'
+  techSubDaysType: 'working', // 'calendar' or 'working'
   techSubWeekday: 1,        // Mon
 }
 
