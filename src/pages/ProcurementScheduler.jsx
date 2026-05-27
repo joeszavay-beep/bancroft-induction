@@ -17,7 +17,7 @@ function AlgorithmPanel({ rules, setRules, open, setOpen }) {
     { key: 'deliveryWeeksBefore', label: 'Delivery buffer', desc: 'Weeks between delivery and the Required On Site date', type: 'number', min: 0, max: 8 },
     { key: 'orderPlacedWeekday', label: 'Order placed day', desc: 'Orders are placed on this day of the week', type: 'weekday' },
     { key: 'approvalWeekday', label: 'Approval deadline day', desc: 'Approval must be received by this day each week', type: 'weekday' },
-    { key: 'techSubDaysBefore', label: 'Tech submittal lead time', desc: 'Calendar days needed between issuing the submittal and placing the order', type: 'number', min: 0, max: 60 },
+    { key: 'techSubDaysBefore', label: 'Tech submittal lead time', desc: 'Days needed between issuing the submittal and placing the order', type: 'techsub' },
     { key: 'techSubWeekday', label: 'Tech submittal day', desc: 'Technical submittals are issued on this day', type: 'weekday' },
   ]
 
@@ -53,6 +53,26 @@ function AlgorithmPanel({ rules, setRules, open, setOpen }) {
                     style={{ borderColor: 'var(--border-color)', background: '#FFFBEB', color: 'var(--text-primary)' }}>
                     {WEEKDAY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
+                ) : f.type === 'techsub' ? (
+                  <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                    <input type="number" value={rules.techSubDaysBefore} min={0} max={60}
+                      onChange={e => setRules(prev => ({ ...prev, techSubDaysBefore: parseInt(e.target.value) || 0 }))}
+                      className="w-[56px] px-2 py-1.5 border text-sm text-center"
+                      style={{ borderColor: 'var(--border-color)', background: '#FFFBEB', color: 'var(--text-primary)' }} />
+                    <div className="flex border overflow-hidden" style={{ borderColor: 'var(--border-color)' }}>
+                      {['calendar', 'working'].map(t => (
+                        <button key={t} onClick={() => setRules(prev => ({ ...prev, techSubDaysType: t }))}
+                          className="px-2 py-1.5 text-[11px] font-medium transition-colors"
+                          style={{
+                            background: rules.techSubDaysType === t ? 'var(--primary-color)' : '#FFFBEB',
+                            color: rules.techSubDaysType === t ? '#fff' : 'var(--text-muted)',
+                            borderRight: t === 'calendar' ? '1px solid var(--border-color)' : 'none',
+                          }}>
+                          {t === 'calendar' ? 'Calendar' : 'Working'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ) : (
                   <input type="number" value={rules[f.key]} min={f.min} max={f.max}
                     onChange={e => setRules(prev => ({ ...prev, [f.key]: parseInt(e.target.value) || 0 }))}

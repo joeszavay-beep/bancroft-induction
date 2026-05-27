@@ -71,6 +71,21 @@ export function isWorkingDay(date) {
 }
 
 /**
+ * Subtract N working days from a date (skips weekends + UK holidays).
+ */
+export function subtractWorkingDays(date, days) {
+  const d = dateOnly(date)
+  if (!d || !days) return d
+  let remaining = days
+  const result = new Date(d)
+  while (remaining > 0) {
+    result.setDate(result.getDate() - 1)
+    if (isWorkingDay(result)) remaining--
+  }
+  return result
+}
+
+/**
  * Count working days between two dates (exclusive of end).
  */
 export function countWorkingDays(start, end) {
@@ -104,6 +119,7 @@ export const DEFAULT_RULES = {
   orderPlacedWeekday: 1,    // Mon
   approvalWeekday: 5,       // Fri
   techSubDaysBefore: 10,
+  techSubDaysType: 'calendar', // 'calendar' or 'working'
   techSubWeekday: 1,        // Mon
 }
 
@@ -142,8 +158,10 @@ export function computeMilestones(onSite, leadWeeks, rules = DEFAULT_RULES) {
   // 3. Approval Required = same as order placed (approval needed before order)
   const approvalRequired = new Date(orderPlaced)
 
-  // 4. Tech Sub = approvalRequired - techSubDaysBefore
-  const techSubIssue = addDays(approvalRequired, -r.techSubDaysBefore)
+  // 4. Tech Sub = approvalRequired - techSubDaysBefore (calendar or working days)
+  const techSubIssue = r.techSubDaysType === 'working'
+    ? subtractWorkingDays(approvalRequired, r.techSubDaysBefore)
+    : addDays(approvalRequired, -r.techSubDaysBefore)
 
   return {
     delivery,
