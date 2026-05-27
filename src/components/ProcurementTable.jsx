@@ -39,8 +39,9 @@ function StatusPills({ value = {}, onChange }) {
 // (PriorityPips removed — Level is now a free-text EditCell)
 
 // ── Editable cell ──
-function EditCell({ value, onCommit, type = 'text', placeholder = '\u2014', readOnly, calculated, italic, muted, title, className = '' }) {
+function EditCell({ value, displayValue, onCommit, type = 'text', placeholder = '\u2014', readOnly, calculated, italic, muted, title, className = '' }) {
   const [editing, setEditing] = useState(false)
+  const shown = displayValue || value
 
   if (readOnly) {
     return (
@@ -53,7 +54,7 @@ function EditCell({ value, onCommit, type = 'text', placeholder = '\u2014', read
           background: calculated && value ? 'rgba(27,111,200,.04)' : 'transparent',
         }}
         aria-readonly="true">
-        {value || '\u2014'}
+        {shown || '\u2014'}
       </div>
     )
   }
@@ -63,8 +64,8 @@ function EditCell({ value, onCommit, type = 'text', placeholder = '\u2014', read
       <div onClick={() => setEditing(true)} tabIndex={0} onFocus={() => setEditing(true)}
         onKeyDown={e => e.key === 'Enter' && setEditing(true)}
         className={`px-2 py-1.5 text-sm cursor-text whitespace-nowrap overflow-hidden text-ellipsis border border-transparent hover:border-[var(--border-color)] transition-colors ${className}`}
-        style={{ color: value ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-        {value || placeholder}
+        style={{ color: shown ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+        {shown || placeholder}
       </div>
     )
   }
@@ -215,12 +216,12 @@ function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, deleteRow
       <td className="text-center" style={bdr}><EditCell value={row.firstLevel != null ? String(row.firstLevel) : ''} onCommit={v => updateRow(row.id, 'firstLevel', v)} className="text-center" /></td>
       <td style={bdr}><EditCell value={ms ? fmtDate(ms.techSubIssue) : ''} readOnly calculated title="Auto-calculated" /></td>
       <td style={bdr}><EditCell value={ms ? fmtDate(ms.approvalRequired) : ''} readOnly calculated title="Auto-calculated" /></td>
-      <td style={bdr}><EditCell value={row.dateApproved ? fmtDate(row.dateApproved) : ''} type="date" onCommit={v => updateRow(row.id, 'dateApproved', v)} /></td>
+      <td style={bdr}><EditCell value={row.dateApproved ? fmtDateISO(row.dateApproved) : ''} displayValue={row.dateApproved ? fmtDate(row.dateApproved) : ''} type="date" onCommit={v => updateRow(row.id, 'dateApproved', v)} /></td>
       <td className="text-center px-1" style={bdr}><StatusPills value={row.status || {}} onChange={v => updateRow(row.id, 'status', v)} /></td>
       <td style={bdr}><EditCell value={ms ? fmtDate(ms.orderPlaced) : ''} readOnly calculated title="Auto-calculated" /></td>
       <td className="text-center" style={bdr}><EditCell value={row.leadTime || ''} onCommit={v => updateRow(row.id, 'leadTime', v)} placeholder="e.g. 12W" className="text-center" /></td>
       <td style={bdr}><EditCell value={ms ? fmtDate(ms.delivery) : ''} readOnly calculated title="Auto-calculated" /></td>
-      <td style={bdr}><EditCell value={row.requiredOnSite ? fmtDateISO(row.requiredOnSite) : ''} type="date" onCommit={v => updateRow(row.id, 'requiredOnSite', v)} /></td>
+      <td style={bdr}><EditCell value={row.requiredOnSite ? fmtDateISO(row.requiredOnSite) : ''} displayValue={row.requiredOnSite ? fmtDate(row.requiredOnSite) : ''} type="date" onCommit={v => updateRow(row.id, 'requiredOnSite', v)} /></td>
       <td style={bdr}><EditCell value={row.comments || ''} onCommit={v => updateRow(row.id, 'comments', v)} /></td>
       <td className="px-1 text-center" style={{ width: 52 }}>
         <div className="flex items-center justify-center gap-0.5">
