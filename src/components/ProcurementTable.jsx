@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, Fragment } from 'react'
-import { Plus, ChevronDown, ChevronRight, MoreHorizontal, AlertCircle, GripVertical } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, MoreHorizontal, AlertCircle, GripVertical, Trash2 } from 'lucide-react'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -162,7 +162,7 @@ function SupplierCell({ value, onCommit, suggestions }) {
 }
 
 // ── Sortable row ──
-function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, setContextMenu, selectMode, selected, setSelected }) {
+function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, deleteRow, setContextMenu, selectMode, selected, setSelected }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id })
 
   const lw = parseLeadTime(row.leadTime)
@@ -217,9 +217,9 @@ function SortableRow({ row, ri, rules, supplierSuggestions, updateRow, setContex
       <td style={bdr}><EditCell value={row.requiredOnSite ? fmtDateISO(row.requiredOnSite) : ''} type="date" onCommit={v => updateRow(row.id, 'requiredOnSite', v)} /></td>
       <td style={bdr}><EditCell value={row.comments || ''} onCommit={v => updateRow(row.id, 'comments', v)} /></td>
       <td className="px-1 text-center w-8">
-        <button onClick={e => setContextMenu({ x: e.clientX, y: e.clientY, rowId: row.id })}
-          className="p-1 hover:bg-black/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
-          <MoreHorizontal size={14} />
+        <button onClick={() => deleteRow(row.id)} title="Delete row"
+          className="p-1 hover:bg-red-50 transition-colors" style={{ color: 'var(--text-muted)' }}>
+          <Trash2 size={13} />
         </button>
       </td>
     </tr>
@@ -352,6 +352,7 @@ export default function ProcurementTable({ rows, setRows, rules }) {
                       {!isCollapsed && group.rows.map((row, ri) => (
                         <SortableRow key={row.id} row={row} ri={ri} rules={rules}
                           supplierSuggestions={supplierSuggestions} updateRow={updateRow}
+                          deleteRow={id => setRows(prev => prev.filter(r => r.id !== id))}
                           setContextMenu={setContextMenu} selectMode={selectMode}
                           selected={selected} setSelected={setSelected} />
                       ))}
