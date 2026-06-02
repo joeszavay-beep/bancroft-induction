@@ -40,7 +40,7 @@ const NAV_SECTIONS = [
     title: 'Templates',
     items: [
       { label: 'Templates Hub', path: '/app/templates', icon: ClipboardList },
-      { label: 'Procurement Schedule', path: '/app/procurement-scheduler', icon: CalendarRange },
+      { label: 'Procurement', path: '/app/procurement-scheduler', icon: CalendarRange },
     ],
   },
   {
@@ -352,8 +352,8 @@ export default function SidebarLayout({ children }) {
                               : 'text-white/50 hover:text-white hover:bg-white/5'
                           }`}
                         >
-                          <item.icon size={14} />
-                          <span>{item.label}</span>
+                          <item.icon size={14} className="shrink-0" />
+                          <span className="whitespace-nowrap overflow-hidden text-ellipsis">{item.label}</span>
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleFavourite(item.path) }}
