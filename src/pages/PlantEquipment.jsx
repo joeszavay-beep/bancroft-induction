@@ -321,11 +321,11 @@ export default function PlantEquipment() {
                     <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>{item.hire_company || '\u2014'}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setShowQR(item)} title="View QR code — print and stick to equipment" className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><QrCode size={14} /></button>
-                        <button onClick={() => { setShowChecks(item); loadChecks(item.id) }} title="View pre-use check history" className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><Eye size={14} /></button>
-                        <button onClick={() => { setShowDefects(item); loadDefects(item.id) }} title={item.open_defects > 0 ? `${item.open_defects} open defect${item.open_defects > 1 ? 's' : ''} — view and resolve` : 'View defect history and report new defects'} className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: item.open_defects > 0 ? '#D93E3E' : 'var(--text-muted)' }}><Shield size={14} /></button>
-                        <button onClick={() => openEdit(item)} title="Edit equipment details" className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><RefreshCw size={14} /></button>
-                        <button onClick={() => handleDelete(item.id)} title="Delete equipment" className="p-1.5 hover:bg-red-50 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><Trash2 size={14} /></button>
+                        <Tip label="QR Code"><button onClick={() => setShowQR(item)} className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><QrCode size={14} /></button></Tip>
+                        <Tip label="Check History"><button onClick={() => { setShowChecks(item); loadChecks(item.id) }} className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><Eye size={14} /></button></Tip>
+                        <Tip label={item.open_defects > 0 ? `${item.open_defects} open defect${item.open_defects > 1 ? 's' : ''}` : 'Defects'}><button onClick={() => { setShowDefects(item); loadDefects(item.id) }} className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: item.open_defects > 0 ? '#D93E3E' : 'var(--text-muted)' }}><Shield size={14} /></button></Tip>
+                        <Tip label="Edit"><button onClick={() => openEdit(item)} className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><RefreshCw size={14} /></button></Tip>
+                        <Tip label="Delete"><button onClick={() => handleDelete(item.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><Trash2 size={14} /></button></Tip>
                       </div>
                     </td>
                   </tr>
@@ -520,6 +520,18 @@ function Field({ label, value, onChange, type = 'text', multiline, placeholder }
           className="w-full px-3 py-2 rounded-lg border text-sm"
           style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }} />
       )}
+    </div>
+  )
+}
+
+function Tip({ label, children }) {
+  return (
+    <div className="relative group">
+      {children}
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[11px] font-medium text-white whitespace-nowrap rounded pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{ background: '#0D1426', zIndex: 50 }}>
+        {label}
+      </div>
     </div>
   )
 }
