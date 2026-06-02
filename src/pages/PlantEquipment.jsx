@@ -35,7 +35,7 @@ export default function PlantEquipment() {
   const [selected, setSelected] = useState(new Set())
 
   // Form state
-  const [form, setForm] = useState({ description: '', type: 'MEWP - Scissor Lift', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 })
+  const [form, setForm] = useState({ description: '', type: '', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 })
   const [defectForm, setDefectForm] = useState({ description: '', severity: 'Major', reporterName: '' })
   const [resolveForm, setResolveForm] = useState({ notes: '' })
   const [saving, setSaving] = useState(false)
@@ -98,7 +98,7 @@ export default function PlantEquipment() {
       if (data.error) throw new Error(data.error)
       toast.success(editItem ? 'Updated' : 'Equipment added')
       setShowAdd(false); setEditItem(null)
-      setForm({ description: '', type: 'MEWP - Scissor Lift', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 })
+      setForm({ description: '', type: '', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 })
       loadItems(); loadDashboard()
     } catch (e) { toast.error(e.message) }
     setSaving(false)
@@ -217,7 +217,7 @@ export default function PlantEquipment() {
             style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
             <Printer size={15} /> Print Labels {selected.size > 0 && `(${selected.size})`}
           </button>
-          <button onClick={() => { setEditItem(null); setForm({ description: '', type: 'MEWP - Scissor Lift', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 }); setShowAdd(true) }}
+          <button onClick={() => { setEditItem(null); setForm({ description: '', type: '', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 }); setShowAdd(true) }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white transition-colors"
             style={{ background: 'var(--primary-color)' }}>
             <Plus size={15} /> Add Equipment
@@ -340,21 +340,7 @@ export default function PlantEquipment() {
       {showAdd && (
         <Modal title={editItem ? 'Edit Equipment' : 'Add Equipment'} onClose={() => { setShowAdd(false); setEditItem(null) }}>
           <div className="space-y-4">
-            <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--text-primary)' }}>Type *</label>
-              <select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
-                {(() => {
-                  const groups = []
-                  EQUIPMENT_TYPES.forEach(t => { if (!groups.includes(t.group)) groups.push(t.group) })
-                  return groups.map(g => (
-                    <optgroup key={g} label={g}>
-                      {EQUIPMENT_TYPES.filter(t => t.group === g).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </optgroup>
-                  ))
-                })()}
-              </select>
-            </div>
+            <TypeField value={form.type} onChange={v => setForm(p => ({ ...p, type: v }))} existingTypes={items.map(i => i.type)} />
             <Field label="Description *" value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} />
             <Field label="Serial Number" value={form.serialNumber} onChange={v => setForm(p => ({ ...p, serialNumber: v }))} />
             <Field label="Hire Company" value={form.hireCompany} onChange={v => setForm(p => ({ ...p, hireCompany: v }))} />
@@ -526,6 +512,45 @@ function Field({ label, value, onChange, type = 'text', multiline }) {
           className="w-full px-3 py-2 rounded-lg border text-sm"
           style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }} />
       )}
+    </div>
+  )
+}
+
+function TypeField({ value, onChange, existingTypes = [] }) {
+  const [focused, setFocused] = useState(false)
+  const [draft, setDraft] = useState(value || '')
+
+  const defaults = ['Scissor Lift', 'Boom Lift', 'Cherry Picker', 'Spider Lift', 'Scaffold Tower', 'Podium', 'Step Ladder', 'Extension Ladder', 'Hop-Up Platform', 'Trestle', 'Hoist', 'Chain Block', 'Sling', 'Shackle', 'Drill', 'Angle Grinder', 'Circular Saw', 'SDS Drill', 'Chop Saw', 'Peco Lift', 'Eco Lift', 'PAV', 'Site Box', 'Tool Chest', 'Transformer', 'Extension Lead', 'Festoon Lighting', 'Temp Distribution Board', 'Fire Extinguisher', 'First Aid Kit', 'Safety Harness', 'Lanyard', 'Generator', 'Compressor', 'Dehumidifier', 'Fan', 'Pump']
+  const all = [...new Set([...existingTypes.filter(Boolean), ...defaults])].sort()
+  const filtered = draft ? all.filter(s => s.toLowerCase().includes(draft.toLowerCase()) && s !== draft) : all
+
+  useEffect(() => { setDraft(value || '') }, [value])
+
+  return (
+    <div>
+      <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--text-primary)' }}>Type *</label>
+      <div className="relative">
+        <input type="text" value={draft}
+          onChange={e => { setDraft(e.target.value); onChange(e.target.value) }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setTimeout(() => setFocused(false), 150)}
+          placeholder="e.g. Scissor Lift, Podium, Site Box..."
+          className="w-full px-3 py-2 rounded-lg border text-sm"
+          style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }} />
+        {focused && filtered.length > 0 && (
+          <div className="absolute left-0 top-full w-full z-50 border shadow-lg max-h-[200px] overflow-auto mt-1 rounded-lg"
+            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            {filtered.slice(0, 15).map(s => (
+              <button key={s} type="button"
+                onMouseDown={() => { setDraft(s); onChange(s) }}
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-black/[0.03] transition-colors"
+                style={{ color: 'var(--text-primary)' }}>
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
