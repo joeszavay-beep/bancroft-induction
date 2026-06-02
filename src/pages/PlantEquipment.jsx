@@ -189,15 +189,6 @@ export default function PlantEquipment() {
     printEquipmentLabels(toPrint, company)
   }
 
-  if (!projectId) {
-    return (
-      <div className="max-w-6xl mx-auto px-4 py-16 text-center">
-        <Wrench size={40} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--text-muted)' }} />
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Select a project to manage equipment</p>
-      </div>
-    )
-  }
-
   const fmtDate = d => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '\u2014'
   const fmtTime = d => d ? new Date(d).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''
 
@@ -209,7 +200,7 @@ export default function PlantEquipment() {
           <div className="p-2 rounded-lg" style={{ background: 'var(--primary-color)', color: '#fff' }}><Wrench size={20} /></div>
           <div>
             <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Plant & Equipment</h1>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{projectName}</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{projectName || 'All Projects'}</p>
           </div>
         </div>
         <div className="flex gap-2">
