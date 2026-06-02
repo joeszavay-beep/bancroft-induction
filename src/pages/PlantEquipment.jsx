@@ -321,12 +321,11 @@ export default function PlantEquipment() {
                     <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>{item.hire_company || '\u2014'}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setShowQR(item)} title="View QR" className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><QrCode size={14} /></button>
-                        <button onClick={() => { setShowChecks(item); loadChecks(item.id) }} title="Check history" className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><Eye size={14} /></button>
-                        <button onClick={() => { setShowDefects(item); loadDefects(item.id) }} title="Defects" className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: item.open_defects > 0 ? '#D93E3E' : 'var(--text-muted)' }}><Shield size={14} /></button>
-                        <button onClick={() => setShowDefectReport(item)} title="Report defect" className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><AlertTriangle size={14} /></button>
-                        <button onClick={() => openEdit(item)} title="Edit" className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><RefreshCw size={14} /></button>
-                        <button onClick={() => handleDelete(item.id)} title="Delete" className="p-1.5 hover:bg-red-50 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><Trash2 size={14} /></button>
+                        <button onClick={() => setShowQR(item)} title="View QR code — print and stick to equipment" className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><QrCode size={14} /></button>
+                        <button onClick={() => { setShowChecks(item); loadChecks(item.id) }} title="View pre-use check history" className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><Eye size={14} /></button>
+                        <button onClick={() => { setShowDefects(item); loadDefects(item.id) }} title={item.open_defects > 0 ? `${item.open_defects} open defect${item.open_defects > 1 ? 's' : ''} — view and resolve` : 'View defect history and report new defects'} className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: item.open_defects > 0 ? '#D93E3E' : 'var(--text-muted)' }}><Shield size={14} /></button>
+                        <button onClick={() => openEdit(item)} title="Edit equipment details" className="p-1.5 hover:bg-black/5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><RefreshCw size={14} /></button>
+                        <button onClick={() => handleDelete(item.id)} title="Delete equipment" className="p-1.5 hover:bg-red-50 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>
