@@ -173,9 +173,10 @@ export default function PlantEquipment() {
   }
 
   function openEdit(item) {
+    const isOwned = !item.hire_company && !item.on_hire_date && !item.daily_hire_rate
     setForm({
       description: item.description, type: item.type, serialNumber: item.serial_number || '',
-      hireCompany: item.hire_company || '', onHireDate: item.on_hire_date || '',
+      owned: isOwned, hireCompany: item.hire_company || '', onHireDate: item.on_hire_date || '',
       offHireDate: item.off_hire_date || '', dailyHireRate: item.daily_hire_rate || '',
       inspectionIntervalDays: item.inspection_interval_days || 7,
     })
@@ -343,15 +344,23 @@ export default function PlantEquipment() {
             <TypeField value={form.type} onChange={v => setForm(p => ({ ...p, type: v }))} existingTypes={items.map(i => i.type)} />
             <Field label="Description *" value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} placeholder="e.g. Red podium - 1.2m platform height" />
             <Field label="Serial Number" value={form.serialNumber} onChange={v => setForm(p => ({ ...p, serialNumber: v }))} />
-            <Field label="Hire Company" value={form.hireCompany} onChange={v => setForm(p => ({ ...p, hireCompany: v }))} />
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="On-Hire Date" type="date" value={form.onHireDate} onChange={v => setForm(p => ({ ...p, onHireDate: v }))} />
-              <Field label="Off-Hire Date" type="date" value={form.offHireDate} onChange={v => setForm(p => ({ ...p, offHireDate: v }))} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Daily Hire Rate (£)" type="number" value={form.dailyHireRate} onChange={v => setForm(p => ({ ...p, dailyHireRate: v }))} />
-              <Field label="Inspection Interval (days)" type="number" value={form.inspectionIntervalDays} onChange={v => setForm(p => ({ ...p, inspectionIntervalDays: v }))} />
-            </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={form.owned || false}
+                onChange={e => setForm(p => ({ ...p, owned: e.target.checked, hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '' }))}
+                className="w-4 h-4" />
+              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Company owned (not hired)</span>
+            </label>
+            {!form.owned && (
+              <>
+                <Field label="Hire Company" value={form.hireCompany} onChange={v => setForm(p => ({ ...p, hireCompany: v }))} />
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="On-Hire Date" type="date" value={form.onHireDate} onChange={v => setForm(p => ({ ...p, onHireDate: v }))} />
+                  <Field label="Off-Hire Date" type="date" value={form.offHireDate} onChange={v => setForm(p => ({ ...p, offHireDate: v }))} />
+                </div>
+                <Field label="Daily Hire Rate (£)" type="number" value={form.dailyHireRate} onChange={v => setForm(p => ({ ...p, dailyHireRate: v }))} />
+              </>
+            )}
+            <Field label="Inspection Interval (days)" type="number" value={form.inspectionIntervalDays} onChange={v => setForm(p => ({ ...p, inspectionIntervalDays: v }))} />
             <button onClick={handleSave} disabled={saving}
               className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
               style={{ background: 'var(--primary-color)', opacity: saving ? 0.6 : 1 }}>
