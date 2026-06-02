@@ -89,14 +89,19 @@ import SubcontractorJobDetail from './pages/SubcontractorJobDetail'
 import SubcontractorDashboard from './pages/SubcontractorDashboard'
 import WorkerInvoiceReview from './pages/WorkerInvoiceReview'
 import OperativeGuard from './components/OperativeGuard'
-import { getSession } from './lib/storage'
+import { getSession, getLastRole } from './lib/storage'
 
-// On native: redirect to /app if PM session exists, /worker if operative session, otherwise /login
+// On native: redirect based on last active role, then fall back to session checks
 function NativeEntry() {
   const { isAuthenticated, isLoading } = useCompany()
   const hasPmSession = isAuthenticated || getSession('pm_auth') === 'true'
   const hasOpSession = !!getSession('operative_session')
+  const lastRole = getLastRole()
   if (isLoading) return <div className="min-h-dvh flex items-center justify-center" style={{ backgroundColor: '#1A2744' }}><div className="animate-spin w-8 h-8 border-2 border-white/30 border-t-white rounded-full" /></div>
+  // Respect the last role the user was in
+  if (lastRole === 'operative' && hasOpSession) return <Navigate to="/worker" replace />
+  if (lastRole === 'manager' && hasPmSession) return <Navigate to="/app" replace />
+  // Fallback: check what sessions exist
   if (hasPmSession) return <Navigate to="/app" replace />
   if (hasOpSession) return <Navigate to="/worker" replace />
   return <Navigate to="/login" replace />

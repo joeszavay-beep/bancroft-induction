@@ -4,7 +4,7 @@ import { useCompany } from '../lib/CompanyContext'
 import { supabase } from '../lib/supabase'
 import { Eye, EyeOff, ArrowLeft, Loader2, ChevronRight } from 'lucide-react'
 import LoadingButton from '../components/LoadingButton'
-import { setSession } from '../lib/storage'
+import { setSession, setLastRole } from '../lib/storage'
 
 export default function PMLogin() {
   const navigate = useNavigate()
@@ -130,6 +130,7 @@ export default function PMLogin() {
         company_name: op.companies?.name, company_logo: op.companies?.logo_url,
         primary_colour: op.companies?.primary_colour || '#1B6FC8',
       }))
+      setLastRole('operative')
       navigate('/worker')
     } catch {
       setError('Something went wrong. Please try again.')

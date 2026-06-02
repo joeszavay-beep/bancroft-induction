@@ -1,4 +1,4 @@
-import { getSession, setSession, removeSession } from './storage'
+import { getSession, setSession, removeSession, setLastRole } from './storage'
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import { cacheAuth, getCachedAuth, clearStore } from './offlineDb'
@@ -92,6 +92,7 @@ export function CompanyProvider({ children }) {
     // Store in sessionStorage for backward compatibility
     setSession('pm_auth', 'true')
     setSession('manager_data', JSON.stringify({ ...userData, project_ids: [], manager_id: null }))
+    setLastRole('manager')
   }
 
   function applyBranding(companyData) {

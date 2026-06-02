@@ -26,6 +26,14 @@ export function hasStoredSession() {
     localStorage.getItem('operative_session') || sessionStorage.getItem('operative_session'))
 }
 
+export function setLastRole(role) {
+  localStorage.setItem('last_role', role) // 'manager' or 'operative'
+}
+
+export function getLastRole() {
+  return localStorage.getItem('last_role') // 'manager' | 'operative' | null
+}
+
 /**
  * Read operative session with backward-compat shim.
  * Old shape: { project_id, project_name, ... }

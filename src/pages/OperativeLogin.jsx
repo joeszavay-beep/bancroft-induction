@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import LoadingButton from '../components/LoadingButton'
 import { HardHat, Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react'
-import { getSession, setSession, removeSession } from '../lib/storage'
+import { getSession, setSession, removeSession, setLastRole } from '../lib/storage'
 
 export default function OperativeLogin() {
   const navigate = useNavigate()
@@ -66,6 +66,7 @@ export default function OperativeLogin() {
         primary_colour: operative.companies?.primary_colour || '#1B6FC8',
       }
       setSession('operative_session', JSON.stringify(sessionData))
+      setLastRole('operative')
 
       const returnUrl = getSession('operative_return_url')
       if (returnUrl) {
