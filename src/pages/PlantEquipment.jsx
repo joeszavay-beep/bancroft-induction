@@ -341,7 +341,7 @@ export default function PlantEquipment() {
         <Modal title={editItem ? 'Edit Equipment' : 'Add Equipment'} onClose={() => { setShowAdd(false); setEditItem(null) }}>
           <div className="space-y-4">
             <TypeField value={form.type} onChange={v => setForm(p => ({ ...p, type: v }))} existingTypes={items.map(i => i.type)} />
-            <Field label="Description *" value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} />
+            <Field label="Description *" value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} placeholder="e.g. Red podium - 1.2m platform height" />
             <Field label="Serial Number" value={form.serialNumber} onChange={v => setForm(p => ({ ...p, serialNumber: v }))} />
             <Field label="Hire Company" value={form.hireCompany} onChange={v => setForm(p => ({ ...p, hireCompany: v }))} />
             <div className="grid grid-cols-2 gap-4">
@@ -499,16 +499,16 @@ function Modal({ title, onClose, children, wide }) {
   )
 }
 
-function Field({ label, value, onChange, type = 'text', multiline }) {
+function Field({ label, value, onChange, type = 'text', multiline, placeholder }) {
   return (
     <div>
       <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--text-primary)' }}>{label}</label>
       {multiline ? (
-        <textarea value={value} onChange={e => onChange(e.target.value)} rows={3}
+        <textarea value={value} onChange={e => onChange(e.target.value)} rows={3} placeholder={placeholder}
           className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
           style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }} />
       ) : (
-        <input type={type} value={value} onChange={e => onChange(e.target.value)}
+        <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
           className="w-full px-3 py-2 rounded-lg border text-sm"
           style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }} />
       )}
