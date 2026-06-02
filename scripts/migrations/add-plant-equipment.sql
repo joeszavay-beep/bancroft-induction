@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS equipment (
   company_id uuid NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   project_id uuid REFERENCES projects(id) ON DELETE SET NULL,
   description text NOT NULL,
-  type text NOT NULL CHECK (type IN ('MEWP','Scaffold Tower','Podium','Step Ladder','Power Tool','Fire Extinguisher','Temp Electrics','Other')),
+  type text NOT NULL,
   serial_number text,
   hire_company text,
   on_hire_date date,
@@ -112,12 +112,25 @@ CREATE POLICY "checklist_templates_delete" ON equipment_checklist_templates FOR 
 -- ============================================================
 
 INSERT INTO equipment_checklist_templates (company_id, equipment_type, items) VALUES
-  (NULL, 'MEWP', '["Outriggers deployed and locked","Guardrails secure and undamaged","Emergency lowering tested","Battery charge adequate","Ground conditions stable and level","Controls responsive and correct","Safety harness anchor points checked","No visible damage or leaks"]'),
+  (NULL, 'MEWP - Scissor Lift', '["Outriggers / stabilisers deployed and locked","Guardrails secure and undamaged","Emergency lowering tested","Battery charge adequate","Ground conditions stable and level","Controls responsive and correct","Safety harness anchor points checked","No visible damage, leaks, or corrosion","Horn / alarm functional","Wheels / tyres in good condition"]'),
+  (NULL, 'MEWP - Boom Lift', '["Outriggers / stabilisers deployed and locked","Guardrails secure and undamaged","Emergency lowering tested","Battery / fuel level adequate","Ground conditions stable and level","Controls responsive and correct","Safety harness anchor points checked","No visible damage, leaks, or corrosion","Horn / alarm functional","Boom sections move freely"]'),
+  (NULL, 'MEWP - Cherry Picker', '["Outriggers / stabilisers deployed and locked","Guardrails and basket secure","Emergency lowering tested","Fuel / battery level adequate","Ground conditions stable and level","Controls responsive and correct","Safety harness anchor points checked","No visible damage, leaks, or corrosion"]'),
+  (NULL, 'MEWP - Spider Lift', '["Outriggers deployed and locked","Guardrails and basket secure","Emergency lowering tested","Battery charge adequate","Ground conditions stable and level","Controls responsive and correct","Safety harness anchor points checked","No visible damage or leaks","Tracks / wheels in good condition"]'),
   (NULL, 'Scaffold Tower', '["Base plates or castors locked","All braces in place and secure","Platform boards secure with no gaps","Toe boards fitted","Guardrails at correct height","No visible damage or corrosion","Scaffold tag in date","Outriggers deployed if required"]'),
   (NULL, 'Podium', '["Platform locked in position","Wheels locked","Guardrails secure","No visible damage or cracks","Steps secure and non-slip"]'),
   (NULL, 'Step Ladder', '["Feet / rubber pads intact","No cracks, bends, or damage","Locking mechanism works","Rungs clean and non-slip","Correct height for task"]'),
-  (NULL, 'Power Tool', '["Cable and plug undamaged","Guard in place and secure","PAT test in date","Trigger / switch functional","Blade / bit in good condition"]'),
-  (NULL, 'Fire Extinguisher', '["Pin intact and sealed","Pressure gauge in green zone","No visible damage or corrosion","Service tag in date","Nozzle clear and undamaged"]'),
-  (NULL, 'Temp Electrics', '["RCD tested and functional","Cables undamaged and routed safely","All connections secure","Distribution board door closes and locks","No signs of overheating or burning","Labels legible and correct"]'),
+  (NULL, 'Extension Ladder', '["Feet / rubber pads intact","No cracks, bends, or damage","Rung locks engage properly","Rungs clean and non-slip","Rope / pulley in good condition","Secured at top or footed by second person"]'),
+  (NULL, 'Hop-Up Platform', '["Platform stable and level","No visible cracks or damage","Non-slip surface intact","Legs / feet secure"]'),
+  (NULL, 'Hoist', '["Wire rope / chain in good condition","Hook and safety catch functional","Brakes working correctly","LOLER examination in date","SWL clearly marked","No visible damage or corrosion"]'),
+  (NULL, 'Chain Block', '["Chain links undamaged","Hook and safety catch functional","Brakes hold load securely","LOLER examination in date","SWL clearly marked"]'),
+  (NULL, 'Sling', '["No cuts, abrasion, or damage to webbing","Stitching intact","Label legible with SWL","LOLER examination in date","No knots or twists"]'),
+  (NULL, 'Angle Grinder', '["Cable and plug undamaged","Guard in place and secure","Disc in good condition and correct type","Trigger / switch functional","PAT test in date","Handle secure"]'),
+  (NULL, 'Drill', '["Cable and plug undamaged","Chuck tightens securely","Trigger / switch functional","PAT test in date","Guard in place if applicable"]'),
+  (NULL, 'Temp Electrics', '["RCD tested and functional","Cables undamaged and routed safely","All connections secure","Distribution board door closes and locks","No signs of overheating or burning","Labels legible and correct","Earth bonding intact"]'),
+  (NULL, 'Extension Lead', '["Cable undamaged along full length","Plug and socket undamaged","PAT test in date","No signs of overheating","Fully unwound when in use"]'),
+  (NULL, 'Fire Extinguisher', '["Pin intact and sealed","Pressure gauge in green zone","No visible damage or corrosion","Service tag in date","Nozzle clear and undamaged","Correct type for area"]'),
+  (NULL, 'Harness', '["Webbing undamaged — no cuts, fraying, or burns","Buckles and D-rings undamaged","Stitching intact","Label legible with inspection date","Thorough examination in date"]'),
+  (NULL, 'Lanyard', '["Webbing / rope undamaged","Karabiners lock correctly","Shock absorber pack undamaged","Label legible with inspection date","Thorough examination in date"]'),
+  (NULL, 'Generator', '["Fuel level adequate","Oil level checked","Exhaust clear and ventilated","Earth bonding intact","Output sockets functional","No visible damage or leaks"]'),
   (NULL, 'Other', '["General visual inspection passed","No visible damage","Safe to use"]')
 ON CONFLICT (company_id, equipment_type) DO NOTHING;

@@ -35,7 +35,7 @@ export default function PlantEquipment() {
   const [selected, setSelected] = useState(new Set())
 
   // Form state
-  const [form, setForm] = useState({ description: '', type: 'MEWP', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 })
+  const [form, setForm] = useState({ description: '', type: 'MEWP - Scissor Lift', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 })
   const [defectForm, setDefectForm] = useState({ description: '', severity: 'Major', reporterName: '' })
   const [resolveForm, setResolveForm] = useState({ notes: '' })
   const [saving, setSaving] = useState(false)
@@ -98,7 +98,7 @@ export default function PlantEquipment() {
       if (data.error) throw new Error(data.error)
       toast.success(editItem ? 'Updated' : 'Equipment added')
       setShowAdd(false); setEditItem(null)
-      setForm({ description: '', type: 'MEWP', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 })
+      setForm({ description: '', type: 'MEWP - Scissor Lift', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 })
       loadItems(); loadDashboard()
     } catch (e) { toast.error(e.message) }
     setSaving(false)
@@ -217,7 +217,7 @@ export default function PlantEquipment() {
             style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
             <Printer size={15} /> Print Labels {selected.size > 0 && `(${selected.size})`}
           </button>
-          <button onClick={() => { setEditItem(null); setForm({ description: '', type: 'MEWP', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 }); setShowAdd(true) }}
+          <button onClick={() => { setEditItem(null); setForm({ description: '', type: 'MEWP - Scissor Lift', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 }); setShowAdd(true) }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white transition-colors"
             style={{ background: 'var(--primary-color)' }}>
             <Plus size={15} /> Add Equipment
@@ -340,14 +340,22 @@ export default function PlantEquipment() {
       {showAdd && (
         <Modal title={editItem ? 'Edit Equipment' : 'Add Equipment'} onClose={() => { setShowAdd(false); setEditItem(null) }}>
           <div className="space-y-4">
-            <Field label="Description *" value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} />
             <div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--text-primary)' }}>Type *</label>
               <select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
-                {EQUIPMENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                {(() => {
+                  const groups = []
+                  EQUIPMENT_TYPES.forEach(t => { if (!groups.includes(t.group)) groups.push(t.group) })
+                  return groups.map(g => (
+                    <optgroup key={g} label={g}>
+                      {EQUIPMENT_TYPES.filter(t => t.group === g).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </optgroup>
+                  ))
+                })()}
               </select>
             </div>
+            <Field label="Description *" value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} />
             <Field label="Serial Number" value={form.serialNumber} onChange={v => setForm(p => ({ ...p, serialNumber: v }))} />
             <Field label="Hire Company" value={form.hireCompany} onChange={v => setForm(p => ({ ...p, hireCompany: v }))} />
             <div className="grid grid-cols-2 gap-4">
