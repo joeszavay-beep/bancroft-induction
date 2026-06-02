@@ -47,6 +47,7 @@ import PermitToWork from './pages/PermitToWork'
 import HSObservations from './pages/HSObservations'
 import AftercarePage from './pages/AftercarePage'
 import SiteSignIn from './pages/SiteSignIn'
+import EquipmentCheck from './pages/EquipmentCheck'
 import Chat from './pages/Chat'
 import SiteAttendance from './pages/SiteAttendance'
 import BIMModels from './pages/BIMModels'
@@ -57,6 +58,7 @@ import ProgrammeCalculator from './pages/ProgrammeCalculator'
 import TemplatesHub from './pages/TemplatesHub'
 import ProcurementTracker from './pages/ProcurementTracker'
 import ProcurementScheduler from './pages/ProcurementScheduler'
+import PlantEquipment from './pages/PlantEquipment'
 import LabourRequests from './pages/LabourRequests'
 import LabourRequestForm from './pages/LabourRequestForm'
 import LabourRequestDetail from './pages/LabourRequestDetail'
@@ -144,6 +146,7 @@ function AppLayout() {
         <Route path="/templates" element={<TemplatesHub />} />
         <Route path="/procurement" element={<ProcurementTracker />} />
         <Route path="/procurement-scheduler" element={<ProcurementScheduler />} />
+        <Route path="/plant-equipment" element={<PlantEquipment />} />
         <Route path="/snags" element={<PMDashboard key="snags" initialTab="snags" />} />
         <Route path="/drawings" element={<PMDashboard key="drawings" initialTab="snags" />} />
         <Route path="/toolbox" element={<PMDashboard key="toolbox" initialTab="toolbox" />} />
@@ -204,6 +207,7 @@ export default function App() {
       <Route path="/snag-reply/:token" element={<SnagReply />} />
       <Route path="/aftercare/:projectId" element={<AftercarePage />} />
       <Route path="/site/:projectId" element={<SiteSignIn />} />
+      <Route path="/equipment-check/:equipmentId" element={<EquipmentCheck />} />
       <Route path="/worker-login" element={<OperativeLogin />} />
       <Route path="/try" element={<SandboxEntry />} />
       <Route path="/worker/holidays" element={<HolidayRequests />} />
