@@ -25,6 +25,7 @@ export default function SiteSignIn() {
   const [authLoading, setAuthLoading] = useState(false)
   const [signInNote, setSignInNote] = useState('')
   const [signOutNote, setSignOutNote] = useState('')
+  const [error, setError] = useState(null)
   const [rememberMe, setRememberMe] = useState(true)
 
   // Load project + check existing session
@@ -214,52 +215,71 @@ export default function SiteSignIn() {
   const handleRecord = async (type) => {
     if (!operative || recording) return
     setRecording(true)
+    setError(null)
 
-    const now = new Date()
-    const flag = checkTimingFlag(type, now)
+    try {
+      const now = new Date()
+      const flag = checkTimingFlag(type, now)
 
-    // Geofence check
-    let offSiteDistance = null
-    if (project?.geofence_enabled && project?.site_latitude && geoPosition) {
-      const dist = haversineDistance(project.site_latitude, project.site_longitude, geoPosition.latitude, geoPosition.longitude)
-      const radius = project.geofence_radius || 200
-      if (dist > radius) offSiteDistance = Math.round(dist)
-    }
+      // Geofence check
+      let offSiteDistance = null
+      if (project?.geofence_enabled && project?.site_latitude && geoPosition) {
+        const dist = haversineDistance(project.site_latitude, project.site_longitude, geoPosition.latitude, geoPosition.longitude)
+        const radius = project.geofence_radius || 200
+        if (dist > radius) offSiteDistance = Math.round(dist)
+      }
 
-    // Build notes: timing flag + off-site flag + optional user note
-    const parts = []
-    if (flag) parts.push(flag.charAt(0).toUpperCase() + flag.slice(1))
-    if (offSiteDistance) parts.push(`Off-site (${offSiteDistance}m)`)
-    const action = type === 'sign_in' ? 'arrived' : 'left'
-    let notes = parts.length ? `${parts.join(' · ')} — ${action} at ${formatTime(now)}` : null
-    const userNote = type === 'sign_in' ? signInNote.trim() : signOutNote.trim()
-    if (userNote) {
-      notes = notes ? `${notes} | ${userNote}` : userNote
-    }
+      // Build notes: timing flag + off-site flag + optional user note
+      const parts = []
+      if (flag) parts.push(flag.charAt(0).toUpperCase() + flag.slice(1))
+      if (offSiteDistance) parts.push(`Off-site (${offSiteDistance}m)`)
+      const action = type === 'sign_in' ? 'arrived' : 'left'
+      let notes = parts.length ? `${parts.join(' · ')} — ${action} at ${formatTime(now)}` : null
+      const userNote = type === 'sign_in' ? signInNote.trim() : signOutNote.trim()
+      if (userNote) {
+        notes = notes ? `${notes} | ${userNote}` : userNote
+      }
 
-    // Atomic sign-in/out via RPC (prevents duplicate consecutive same-type events)
-    const { data: result } = await supabase.rpc('record_attendance', {
-      p_company_id: project?.company_id || project?.companies?.id || null,
-      p_project_id: projectId,
-      p_operative_id: operative.id,
-      p_operative_name: operative.name,
-      p_type: type,
-      p_method: 'qr',
-      p_notes: notes,
-      p_latitude: geoPosition?.latitude || null,
-      p_longitude: geoPosition?.longitude || null,
-    })
+      // Atomic sign-in/out via RPC (prevents duplicate consecutive same-type events)
+      const { data: result, error } = await supabase.rpc('record_attendance', {
+        p_company_id: project?.company_id || project?.companies?.id || null,
+        p_project_id: projectId,
+        p_operative_id: operative.id,
+        p_operative_name: operative.name,
+        p_type: type,
+        p_method: 'qr',
+        p_notes: notes,
+        p_latitude: geoPosition?.latitude || null,
+        p_longitude: geoPosition?.longitude || null,
+      })
 
-    if (result?.duplicate) {
-      // Already in this state — refresh UI to show correct button
+      if (error) {
+        console.error('Attendance RPC error:', error)
+        setError(`Failed to ${type === 'sign_in' ? 'sign in' : 'sign out'}. Please try again.`)
+        await loadOperativeAndAttendance(operative.id, projectId)
+        return
+      }
+
+      if (result?.duplicate) {
+        // Already in this state — refresh UI to show correct button
+        await loadOperativeAndAttendance(operative.id, projectId)
+      } else if (result?.success) {
+        setAttendance((prev) => [{ type, operative_id: operative.id, recorded_at: now.toISOString(), id: result.id }, ...prev])
+        setSuccess({ type, name: operative.name, time: formatTime(now), flag, offSiteDistance })
+        if (type === 'sign_in') setSignInNote('')
+        if (type === 'sign_out') setSignOutNote('')
+      } else {
+        // Unexpected response — refresh from DB to sync the UI
+        console.error('Unexpected RPC response:', result)
+        await loadOperativeAndAttendance(operative.id, projectId)
+      }
+    } catch (err) {
+      console.error('Attendance error:', err)
+      setError('Something went wrong. Please try again.')
       await loadOperativeAndAttendance(operative.id, projectId)
-    } else if (result?.success) {
-      setAttendance((prev) => [{ type, operative_id: operative.id, recorded_at: now.toISOString(), id: result.id }, ...prev])
-      setSuccess({ type, name: operative.name, time: formatTime(now), flag, offSiteDistance })
-      if (type === 'sign_in') setSignInNote('')
-      if (type === 'sign_out') setSignOutNote('')
+    } finally {
+      setRecording(false)
     }
-    setRecording(false)
   }
 
   // Derive on-site status for this operative
@@ -403,6 +423,16 @@ export default function SiteSignIn() {
           {!operative.role && <div style={{ height: 32 }} />}
 
           <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Error banner */}
+            {error && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}
+                onClick={() => setError(null)}>
+                <AlertTriangle size={18} color="#DC2626" style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: 14, color: '#991b1b', fontWeight: 600, flex: 1 }}>{error}</span>
+                <span style={{ fontSize: 12, color: '#DC2626', cursor: 'pointer', fontWeight: 600 }}>Dismiss</span>
+              </div>
+            )}
+
             {/* GPS denied — first attempt, try again may re-prompt */}
             {geoStatus === 'denied' && (
               <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
