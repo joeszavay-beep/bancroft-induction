@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { LogIn, LogOut, MapPin, Clock, CheckCircle2, Shield, Mail, Lock, Eye, EyeOff, HardHat, Check, AlertTriangle } from 'lucide-react'
 import { getSession, setSession, removeSession } from '../lib/storage'
-import { startOfDayUK, formatTime } from '../lib/dates'
+import { formatTime } from '../lib/dates'
 
 export default function SiteSignIn() {
   const { projectId } = useParams()
@@ -101,15 +101,13 @@ export default function SiteSignIn() {
   async function loadOperativeAndAttendance(operativeId, projId) {
     const [opRes, attRes] = await Promise.all([
       supabase.from('operatives').select('id, name, role, photo_url, company_id').eq('id', operativeId).single(),
-      supabase.from('site_attendance').select('*').eq('project_id', projId)
-        .eq('operative_id', operativeId)
-        .gte('recorded_at', startOfDayUK())
-        .order('recorded_at', { ascending: false }),
+      supabase.rpc('get_operative_attendance', { p_operative_id: operativeId, p_project_id: projId }),
     ])
 
     if (opRes.data) setOperative(opRes.data)
-    // Only update attendance if DB returned records — don't wipe optimistic state with empty results
-    if (attRes.data && attRes.data.length > 0) setAttendance(attRes.data)
+    // RPC returns JSON array — update attendance if we got records
+    const records = Array.isArray(attRes.data) ? attRes.data : []
+    if (records.length > 0) setAttendance(records)
   }
 
   async function handleLogin(e) {
