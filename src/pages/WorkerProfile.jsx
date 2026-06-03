@@ -261,12 +261,13 @@ export default function WorkerProfile() {
           <div className="px-5 py-3 border-b border-[#E2E6EA] bg-[#F5F6F8]">
             <p className="text-xs font-semibold text-[#6B7A99] flex items-center gap-1.5"><Clock size={12} /> Working Hours</p>
           </div>
-          <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-x-4">
             <InlineEditField label="Start Time" value={operative.start_time} fieldKey="start_time" type="time" editable={canEdit} onSave={handleFieldSave} />
             <InlineEditField label="End Time" value={operative.end_time} fieldKey="end_time" type="time" editable={canEdit} onSave={handleFieldSave} />
+            <InlineEditField label="Holiday Allowance (days)" value={operative.annual_allowance_days != null ? String(operative.annual_allowance_days) : ''} fieldKey="annual_allowance_days" type="text" editable={canEdit} onSave={(key, val) => handleFieldSave(key, val === '' ? null : parseInt(val, 10))} />
           </div>
           <div className="px-5 pb-4">
-            <p className="text-[11px] text-[#B0B8C9]">Leave blank to use the project default times. Custom hours override late/early/overtime flags for this operative.</p>
+            <p className="text-[11px] text-[#B0B8C9]">Leave blank to use defaults. Custom hours override late/early/overtime flags. Holiday allowance defaults to 28 days — set to 0 for self-employed.</p>
           </div>
         </div>
 

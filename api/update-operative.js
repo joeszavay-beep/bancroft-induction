@@ -6,6 +6,7 @@ const EDITABLE_FIELDS = [
   'next_of_kin', 'next_of_kin_phone',
   'card_number', 'card_type', 'card_expiry',
   'start_time', 'end_time',
+  'annual_allowance_days',
 ]
 
 function validateDOB(v) {
