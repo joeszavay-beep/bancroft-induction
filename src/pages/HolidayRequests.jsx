@@ -188,7 +188,7 @@ export default function HolidayRequests() {
         body: JSON.stringify({
           requestId,
           action: 'reassign',
-          approverId: reassignApprover,
+          newApproverId: reassignApprover,
           operativeSessionId: op.id,
         }),
       })

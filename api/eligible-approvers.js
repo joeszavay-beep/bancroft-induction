@@ -91,15 +91,16 @@ export default async function handler(req, res) {
   }
 
   const approvers = []
-  const seen = new Set()
+  const seenEmails = new Set()
 
+  // Add project-based managers
   for (const mgr of managers) {
-    if (mgr.email?.toLowerCase() === opEmail) continue // exclude self
+    if (mgr.email?.toLowerCase() === opEmail) continue
+    if (seenEmails.has(mgr.email?.toLowerCase())) continue
     const mgrProjects = mgr.project_ids || []
     const shared = mgrProjects.filter(pid => projectIds.includes(pid))
     if (shared.length === 0) continue
-    if (seen.has(mgr.id)) continue
-    seen.add(mgr.id)
+    seenEmails.add(mgr.email.toLowerCase())
 
     approvers.push({
       id: mgr.id,
@@ -109,44 +110,24 @@ export default async function handler(req, res) {
     })
   }
 
-  // If no project-based approvers found, fall back to admins from managers table
-  if (approvers.length === 0) {
-    for (const mgr of managers) {
-      if (mgr.email?.toLowerCase() === opEmail) continue
-      if (seen.has(mgr.id)) continue
-      const { data: prof } = await supabase.from('profiles').select('role').eq('email', mgr.email).limit(1)
-      if (prof?.[0]?.role === 'admin' || prof?.[0]?.role === 'super_admin') {
-        seen.add(mgr.id)
-        approvers.push({
-          id: mgr.id,
-          name: mgr.name,
-          email: mgr.email,
-          shared_projects: [{ id: null, name: 'Admin' }],
-        })
-      }
-    }
-  }
-
-  // Final fallback: check profiles table for admins not in managers table
-  // (company owners created during signup may only exist in profiles)
-  if (approvers.length === 0) {
-    const { data: adminProfiles } = await supabase
-      .from('profiles')
-      .select('id, name, email, role')
-      .eq('company_id', op.company_id)
-      .in('role', ['admin', 'super_admin'])
-    for (const prof of (adminProfiles || [])) {
-      if (prof.email?.toLowerCase() === opEmail) continue
-      const seenEmail = [...approvers].some(a => a.email?.toLowerCase() === prof.email?.toLowerCase())
-      if (seenEmail) continue
-      approvers.push({
-        id: prof.id,
-        name: prof.name,
-        email: prof.email,
-        shared_projects: [{ id: null, name: 'Admin' }],
-        is_profile: true,
-      })
-    }
+  // Always include admins — from profiles table (company owners, admins)
+  // These should always be available as approvers regardless of project overlap
+  const { data: adminProfiles } = await supabase
+    .from('profiles')
+    .select('id, name, email, role')
+    .eq('company_id', op.company_id)
+    .in('role', ['admin', 'super_admin'])
+  for (const prof of (adminProfiles || [])) {
+    if (prof.email?.toLowerCase() === opEmail) continue
+    if (seenEmails.has(prof.email?.toLowerCase())) continue
+    seenEmails.add(prof.email.toLowerCase())
+    approvers.push({
+      id: prof.id,
+      name: prof.name,
+      email: prof.email,
+      shared_projects: [{ id: null, name: 'Admin' }],
+      is_profile: true,
+    })
   }
 
   return res.json({ approvers })
