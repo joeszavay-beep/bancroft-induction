@@ -116,7 +116,8 @@ export default async function handler(req, res) {
     } else if (key === 'ni_number' && trimmed) {
       update[key] = trimmed.replace(/\s/g, '').toUpperCase()
     } else {
-      update[key] = trimmed || null
+      // Preserve 0 as a valid value (e.g. holiday allowance = 0 for self-employed)
+      update[key] = (trimmed === '' || trimmed === undefined) ? null : trimmed
     }
   }
 
