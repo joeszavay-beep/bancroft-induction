@@ -629,7 +629,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh })
                                       setDownloading(d.id)
                                       try {
                                         await generateSignOffSheet({ projectName: p.name, documentTitle: d.title, signatures: allDocSigs, branding: companyBranding })
-                                      } catch { toast.error('Failed to generate sign-off sheet') }
+                                      } catch (err) { console.error('Sign-off sheet error:', err); toast.error('Failed to generate sign-off sheet') }
                                       setDownloading(null)
                                     }} className="p-1 transition-colors" style={{ color: 'var(--primary-color)' }} title="Download sign-off sheet">
                                       {downloading === d.id ? <div className="w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--primary-color)' }} /> : <Download size={14} />}

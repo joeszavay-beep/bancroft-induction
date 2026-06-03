@@ -196,15 +196,28 @@ function buildSheetHtml({ projectName, documentTitle, signatures, branding, logo
 export async function generateSignOffSheet({ projectName, documentTitle, signatures, branding }) {
   ensureFonts()
 
+  if (!signatures || signatures.length === 0) {
+    throw new Error('No signatures to generate sign-off sheet')
+  }
+
   // Pre-load images via Supabase SDK (avoids CORS)
-  const [logoDataUrl, ...sigDataUrls] = await Promise.all([
-    branding?.logoUrl ? (branding.logoDataUrl || loadLogoImage(branding.logoUrl)) : Promise.resolve(null),
-    ...signatures.map(sig =>
-      sig.signature_url && !sig.invalidated
-        ? fetchSignatureAsDataUrl(sig.signature_url).catch(() => null)
-        : Promise.resolve(null)
-    ),
-  ])
+  let logoDataUrl = null
+  let sigDataUrls = []
+  try {
+    const results = await Promise.all([
+      branding?.logoUrl ? (branding.logoDataUrl || loadLogoImage(branding.logoUrl).catch(() => null)) : Promise.resolve(null),
+      ...signatures.map(sig =>
+        sig.signature_url && !sig.invalidated
+          ? fetchSignatureAsDataUrl(sig.signature_url).catch(() => null)
+          : Promise.resolve(null)
+      ),
+    ])
+    logoDataUrl = results[0]
+    sigDataUrls = results.slice(1)
+  } catch (err) {
+    console.error('Sign-off: image loading failed, continuing without images:', err)
+    sigDataUrls = signatures.map(() => null)
+  }
 
   // Inject styles
   let style = document.getElementById('so-pdf-css')
@@ -221,47 +234,55 @@ export async function generateSignOffSheet({ projectName, documentTitle, signatu
   wrapper.innerHTML = buildSheetHtml({ projectName, documentTitle, signatures, branding, logoDataUrl, sigDataUrls })
   document.body.appendChild(wrapper)
 
-  // Wait for fonts to be ready
-  await document.fonts.ready
-  await new Promise(r => setTimeout(r, 350))
+  try {
+    // Wait for fonts to be ready
+    await document.fonts.ready
+    await new Promise(r => setTimeout(r, 350))
 
-  // Render to canvas
-  const sheet = wrapper.querySelector('.so-sheet')
-  const canvas = await html2canvas(sheet, {
-    scale: 2,
-    useCORS: true,
-    logging: false,
-    backgroundColor: '#ffffff',
-  })
+    // Render to canvas
+    const sheet = wrapper.querySelector('.so-sheet')
+    if (!sheet) throw new Error('Failed to build sign-off sheet HTML')
 
-  // Build PDF (A4: 210 x 297 mm)
-  const pdf = new jsPDF('p', 'mm', 'a4')
-  const pw = 210, ph = 297
-  const imgW = pw
-  const imgH = (canvas.height * imgW) / canvas.width
+    const canvas = await html2canvas(sheet, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+    })
 
-  if (imgH <= ph) {
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, imgW, imgH)
-  } else {
-    const pxPerPage = (ph / imgW) * canvas.width
-    let yOff = 0, page = 0
-    while (yOff < canvas.height) {
-      if (page > 0) pdf.addPage()
-      const sliceH = Math.min(pxPerPage, canvas.height - yOff)
-      const pc = document.createElement('canvas')
-      pc.width = canvas.width
-      pc.height = sliceH
-      pc.getContext('2d').drawImage(canvas, 0, yOff, canvas.width, sliceH, 0, 0, canvas.width, sliceH)
-      pdf.addImage(pc.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, imgW, (sliceH * imgW) / canvas.width)
-      yOff += pxPerPage
-      page++
+    if (!canvas || canvas.width === 0 || canvas.height === 0) {
+      throw new Error('html2canvas produced an empty canvas')
     }
+
+    // Build PDF (A4: 210 x 297 mm)
+    const pdf = new jsPDF('p', 'mm', 'a4')
+    const pw = 210, ph = 297
+    const imgW = pw
+    const imgH = (canvas.height * imgW) / canvas.width
+
+    if (imgH <= ph) {
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, imgW, imgH)
+    } else {
+      const pxPerPage = (ph / imgW) * canvas.width
+      let yOff = 0, page = 0
+      while (yOff < canvas.height) {
+        if (page > 0) pdf.addPage()
+        const sliceH = Math.min(pxPerPage, canvas.height - yOff)
+        const pc = document.createElement('canvas')
+        pc.width = canvas.width
+        pc.height = sliceH
+        pc.getContext('2d').drawImage(canvas, 0, yOff, canvas.width, sliceH, 0, 0, canvas.width, sliceH)
+        pdf.addImage(pc.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, imgW, (sliceH * imgW) / canvas.width)
+        yOff += pxPerPage
+        page++
+      }
+    }
+
+    // Save
+    const fileName = `Sign-Off - ${documentTitle} - ${new Date().toISOString().slice(0, 10)}.pdf`.replace(/[^a-zA-Z0-9 \-_.]/g, '')
+    pdf.save(fileName)
+  } finally {
+    // Always cleanup the DOM element
+    if (wrapper.parentNode) document.body.removeChild(wrapper)
   }
-
-  // Cleanup
-  document.body.removeChild(wrapper)
-
-  // Save
-  const fileName = `Sign-Off - ${documentTitle} - ${new Date().toISOString().slice(0, 10)}.pdf`.replace(/[^a-zA-Z0-9 \-_.]/g, '')
-  pdf.save(fileName)
 }
