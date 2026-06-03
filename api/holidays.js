@@ -170,20 +170,18 @@ export default async function handler(req, res) {
     const meta = user.user_metadata || {}
     let isAdmin = ['admin', 'super_admin'].includes(meta.role)
 
+    // Resolve company_id — JWT metadata may not have it (e.g. admins created via create-company-admin)
+    let companyId = meta.company_id
+    const { data: profRow } = await supabase.from('profiles').select('id, role, company_id').eq('email', user.email).limit(1)
+    if (!companyId && profRow?.[0]?.company_id) companyId = profRow[0].company_id
+    const profileId = profRow?.[0]?.id
+
     // Check profiles table for actual role (JWT metadata may be stale)
-    const companyId = meta.company_id
-    if (!isAdmin && companyId) {
-      const { data: prof } = await supabase.from('profiles').select('role').eq('email', user.email).eq('company_id', companyId).limit(1)
-      if (prof?.[0] && ['admin', 'super_admin'].includes(prof[0].role)) isAdmin = true
-    }
+    if (!isAdmin && profRow?.[0] && ['admin', 'super_admin'].includes(profRow[0].role)) isAdmin = true
 
     // Get manager's ID from managers table
     const { data: mgrRow } = await supabase.from('managers').select('id').eq('email', user.email).eq('company_id', companyId).limit(1)
     const managerId = mgrRow?.[0]?.id
-
-    // Also get profiles ID — approver_id may reference either table
-    const { data: profRow } = await supabase.from('profiles').select('id').eq('email', user.email).eq('company_id', companyId).limit(1)
-    const profileId = profRow?.[0]?.id
 
     let q = supabase.from('holiday_requests').select('*, operatives(id, name, photo_url, role)').eq('company_id', companyId).order('start_date')
     if (!isAdmin && (managerId || profileId)) {
@@ -229,17 +227,14 @@ export default async function handler(req, res) {
     }
 
     let isAdmin = callerRole === 'admin' || callerRole === 'super_admin'
-    // Check profiles table for actual role (JWT metadata may be stale)
+    // Check profiles table for actual role and IDs (JWT metadata may be stale/incomplete)
     let callerManagerId = null
     let callerProfileId = null
     if (user) {
-      const callerCompany = user.user_metadata?.company_id
-      if (!isAdmin && callerCompany) {
-        const { data: prof } = await supabase.from('profiles').select('id, role').eq('email', user.email).eq('company_id', callerCompany).limit(1)
-        if (prof?.[0]) {
-          callerProfileId = prof[0].id
-          if (['admin', 'super_admin'].includes(prof[0].role)) isAdmin = true
-        }
+      const { data: prof } = await supabase.from('profiles').select('id, role').eq('email', user.email).limit(1)
+      if (prof?.[0]) {
+        callerProfileId = prof[0].id
+        if (['admin', 'super_admin'].includes(prof[0].role)) isAdmin = true
       }
       const { data: mgrRow } = await supabase.from('managers').select('id').eq('email', user.email).eq('is_active', true).limit(1)
       callerManagerId = mgrRow?.[0]?.id
