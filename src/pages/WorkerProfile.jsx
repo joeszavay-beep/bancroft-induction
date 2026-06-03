@@ -256,6 +256,20 @@ export default function WorkerProfile() {
           </div>
         </div>
 
+        {/* Working Hours */}
+        <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm">
+          <div className="px-5 py-3 border-b border-[#E2E6EA] bg-[#F5F6F8]">
+            <p className="text-xs font-semibold text-[#6B7A99] flex items-center gap-1.5"><Clock size={12} /> Working Hours</p>
+          </div>
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+            <InlineEditField label="Start Time" value={operative.start_time} fieldKey="start_time" type="time" editable={canEdit} onSave={handleFieldSave} />
+            <InlineEditField label="End Time" value={operative.end_time} fieldKey="end_time" type="time" editable={canEdit} onSave={handleFieldSave} />
+          </div>
+          <div className="px-5 pb-4">
+            <p className="text-[11px] text-[#B0B8C9]">Leave blank to use the project default times. Custom hours override late/early/overtime flags for this operative.</p>
+          </div>
+        </div>
+
         {/* Projects — unchanged */}
         <div className="bg-white border border-[#E2E6EA] rounded-lg shadow-sm">
           <div className="px-5 py-3 border-b border-[#E2E6EA] bg-[#F5F6F8]">

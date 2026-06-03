@@ -32,6 +32,7 @@ export default function InlineEditField({
   function formatDisplay(v) {
     if (!v) return '—'
     if (type === 'phone') return displayPhone(v)
+    if (type === 'time') return v
     if (type === 'date' && v.includes('-')) {
       try { return new Date(v).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) } catch { return v }
     }
@@ -133,6 +134,17 @@ export default function InlineEditField({
               <AddressLookup value={localValue} onChange={setLocalValue} placeholder="Start typing a postcode..." />
             ) : type === 'date' ? (
               <DateOfBirthPicker value={localValue} onChange={setLocalValue} />
+            ) : type === 'time' ? (
+              <input
+                ref={inputRef}
+                type="time"
+                value={localValue}
+                onChange={e => { setLocalValue(e.target.value); setError(null) }}
+                onKeyDown={handleKeyDown}
+                disabled={saving}
+                className="w-full px-3 py-2 border border-[#E2E6EA] rounded-md text-sm focus:outline-none focus:border-[#1B6FC8]"
+                style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-card)' }}
+              />
             ) : type === 'dropdown' ? (
               <select value={localValue} onChange={e => setLocalValue(e.target.value)}
                 className="w-full px-3 py-2 border border-[#E2E6EA] rounded-md text-sm focus:outline-none focus:border-[#1B6FC8]"

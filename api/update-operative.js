@@ -5,6 +5,7 @@ const EDITABLE_FIELDS = [
   'date_of_birth', 'ni_number', 'address', 'mobile',
   'next_of_kin', 'next_of_kin_phone',
   'card_number', 'card_type', 'card_expiry',
+  'start_time', 'end_time',
 ]
 
 function validateDOB(v) {

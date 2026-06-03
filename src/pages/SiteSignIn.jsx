@@ -100,7 +100,7 @@ export default function SiteSignIn() {
 
   async function loadOperativeAndAttendance(operativeId, projId) {
     const [opRes, attRes] = await Promise.all([
-      supabase.from('operatives').select('id, name, role, photo_url, company_id').eq('id', operativeId).single(),
+      supabase.from('operatives').select('id, name, role, photo_url, company_id, start_time, end_time').eq('id', operativeId).single(),
       supabase.rpc('get_operative_attendance', { p_operative_id: operativeId, p_project_id: projId }),
     ])
 
@@ -189,8 +189,8 @@ export default function SiteSignIn() {
   }
 
   function checkTimingFlag(type, now) {
-    const startTime = project?.start_time || '07:30'
-    const endTime = project?.end_time || '17:00'
+    const startTime = operative?.start_time || project?.start_time || '07:30'
+    const endTime = operative?.end_time || project?.end_time || '17:00'
     const grace = 10
     const nowMins = now.getHours() * 60 + now.getMinutes()
     const [sh, sm] = startTime.split(':').map(Number)
@@ -352,9 +352,9 @@ export default function SiteSignIn() {
             borderRadius: 10, padding: '10px 18px', textAlign: 'center',
           }}>
             <p style={{ color: '#fff', fontSize: 14, margin: 0, fontWeight: 600 }}>
-              {success.flag === 'late' && `⚠ Late arrival — start time is ${project?.start_time || '07:30'}`}
-              {success.flag === 'early' && (isSignIn ? 'Early arrival' : `⚠ Early departure — end time is ${project?.end_time || '17:00'}`)}
-              {success.flag === 'overtime' && `Overtime — end time is ${project?.end_time || '17:00'}`}
+              {success.flag === 'late' && `⚠ Late arrival — start time is ${operative?.start_time || project?.start_time || '07:30'}`}
+              {success.flag === 'early' && (isSignIn ? 'Early arrival' : `⚠ Early departure — end time is ${operative?.end_time || project?.end_time || '17:00'}`)}
+              {success.flag === 'overtime' && `Overtime — end time is ${operative?.end_time || project?.end_time || '17:00'}`}
             </p>
           </div>
         )}
