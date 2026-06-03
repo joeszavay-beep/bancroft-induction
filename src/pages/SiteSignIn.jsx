@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { LogIn, LogOut, MapPin, Clock, CheckCircle2, Shield, Mail, Lock, Eye, EyeOff, HardHat, Check } from 'lucide-react'
+import { LogIn, LogOut, MapPin, Clock, CheckCircle2, Shield, Mail, Lock, Eye, EyeOff, HardHat, Check, AlertTriangle } from 'lucide-react'
 import { getSession, setSession, removeSession } from '../lib/storage'
 import { startOfDayUK, formatTime } from '../lib/dates'
 
@@ -15,6 +15,7 @@ export default function SiteSignIn() {
   const [recording, setRecording] = useState(false)
   const [success, setSuccess] = useState(null)
   const [geoPosition, setGeoPosition] = useState(null)
+  const [geoStatus, setGeoStatus] = useState('pending') // 'pending' | 'granted' | 'denied'
 
   // Login form state
   const [email, setEmail] = useState('')
@@ -56,14 +57,25 @@ export default function SiteSignIn() {
     init()
   }, [projectId])
 
-  // Capture GPS
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setGeoPosition({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-        () => {}
-      )
+  // Capture GPS — required for QR sign-in
+  function requestLocation() {
+    if (!navigator.geolocation) {
+      setGeoStatus('denied')
+      return
     }
+    setGeoStatus('pending')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGeoPosition({ latitude: pos.coords.latitude, longitude: pos.coords.longitude })
+        setGeoStatus('granted')
+      },
+      () => setGeoStatus('denied'),
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
+
+  useEffect(() => {
+    requestLocation()
   }, [])
 
   // Auto-dismiss success and reload attendance so button flips
@@ -379,7 +391,36 @@ export default function SiteSignIn() {
           {!operative.role && <div style={{ height: 32 }} />}
 
           <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {isOnSite ? (
+            {/* GPS denied — block sign-in/out */}
+            {geoStatus === 'denied' && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
+                <AlertTriangle size={28} color="#DC2626" style={{ marginBottom: 8 }} />
+                <p style={{ fontSize: 15, fontWeight: 700, color: '#991b1b', margin: '0 0 6px' }}>Location Required</p>
+                <p style={{ fontSize: 13, color: '#7f1d1d', margin: '0 0 14px', lineHeight: 1.5 }}>
+                  You must enable location services to sign in. Open your browser settings and allow location access for this site, then tap below.
+                </p>
+                <button onClick={requestLocation}
+                  style={{
+                    padding: '10px 24px', background: '#DC2626', color: '#fff', border: 'none',
+                    borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  }}>
+                  <MapPin size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                  Try Again
+                </button>
+              </div>
+            )}
+
+            {/* GPS pending — show waiting state */}
+            {geoStatus === 'pending' && (
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
+                <MapPin size={24} color="#2563eb" style={{ marginBottom: 8 }} />
+                <p style={{ fontSize: 14, fontWeight: 600, color: '#1e40af', margin: 0 }}>Waiting for location access...</p>
+                <p style={{ fontSize: 12, color: '#3b82f6', margin: '4px 0 0' }}>Tap "Allow" when prompted by your browser</p>
+              </div>
+            )}
+
+            {/* GPS granted — show normal sign-in/out */}
+            {geoStatus === 'granted' && isOnSite && (
               <>
                 <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#2EA043', boxShadow: '0 0 0 3px rgba(46,160,67,0.2)' }} />
@@ -408,7 +449,8 @@ export default function SiteSignIn() {
                   <LogOut size={22} /> SIGN OUT
                 </button>
               </>
-            ) : (
+            )}
+            {geoStatus === 'granted' && !isOnSite && (
               <>
                 {lastRecord?.type === 'sign_out' && (
                   <div style={{ background: '#f5f5f5', border: '1px solid #e2e8f0', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
