@@ -9,7 +9,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import {
   Users, Clock, LogIn, LogOut, Search, Download, Printer, Shield,
   MapPin, Calendar, AlertTriangle, QrCode, ChevronDown,
-  ChevronRight, X, Check, UserX
+  ChevronRight, X, Check, UserX, SunMedium
 } from 'lucide-react'
 
 
@@ -157,16 +157,27 @@ export default function SiteAttendance() {
     return days
   }
 
+  const [registerHolidays, setRegisterHolidays] = useState([])
+
   async function loadRegister() {
     setLoadingRegister(true)
     const days = getRegisterWeekDates(registerOffset)
     const from = days[0].toISOString()
+    const fromDate = days[0].toISOString().split('T')[0]
+    const toDate = days[6].toISOString().split('T')[0]
     const to = new Date(days[6].getTime() + 86400000 - 1).toISOString()
     let q = supabase.from('site_attendance').select('*').eq('company_id', cid)
       .gte('recorded_at', from).lte('recorded_at', to).order('recorded_at')
     if (projectId) q = q.eq('project_id', projectId)
-    const { data } = await q
-    setRegisterRecords(data || [])
+
+    // Also fetch approved holidays overlapping this week
+    const holQ = supabase.from('holiday_requests').select('operative_id, start_date, end_date, working_days')
+      .eq('company_id', cid).eq('status', 'approved')
+      .lte('start_date', toDate).gte('end_date', fromDate)
+
+    const [attResult, holResult] = await Promise.all([q, holQ])
+    setRegisterRecords(attResult.data || [])
+    setRegisterHolidays(holResult.data || [])
     setLoadingRegister(false)
   }
 
@@ -174,18 +185,33 @@ export default function SiteAttendance() {
     if (registerOpen && cid) loadRegister()
   }, [registerOpen, registerOffset, projectId])
 
+  // Helper: check if a date falls within any approved holiday for an operative
+  function isOnHoliday(opId, dayStr) {
+    return registerHolidays.some(h =>
+      h.operative_id === opId && dayStr >= h.start_date && dayStr <= h.end_date
+    )
+  }
+
   const registerWeek = useMemo(() => {
     const days = getRegisterWeekDates(registerOffset)
-    // Group records by operative
+    // Group attendance records by operative
     const byOp = {}
     for (const rec of registerRecords) {
       if (!byOp[rec.operative_id]) byOp[rec.operative_id] = { name: rec.operative_name || 'Unknown', records: [] }
       byOp[rec.operative_id].records.push(rec)
     }
+    // Also add operatives who have holidays this week but no attendance
+    for (const hol of registerHolidays) {
+      if (!byOp[hol.operative_id]) {
+        const op = operatives.find(o => o.id === hol.operative_id)
+        byOp[hol.operative_id] = { name: op?.name || 'Unknown', records: [] }
+      }
+    }
     // Build grid rows
     return Object.entries(byOp).map(([opId, { name, records }]) => {
       const dayCells = days.map(day => {
         const dayStr = day.toISOString().split('T')[0]
+        const holiday = isOnHoliday(opId, dayStr)
         const dayRecs = records.filter(r => r.recorded_at?.startsWith(dayStr)).sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at))
         const firstIn = dayRecs.find(r => r.type === 'sign_in')
         const lastOut = [...dayRecs].reverse().find(r => r.type === 'sign_out')
@@ -200,12 +226,12 @@ export default function SiteAttendance() {
             if (lastOutRec?.method === 'auto') autoSignOut = true
           }
         }
-        return { dayStr, firstIn: firstIn?.recorded_at, lastOut: lastOut?.recorded_at, hours, autoSignOut, operative_id: opId }
+        return { dayStr, firstIn: firstIn?.recorded_at, lastOut: lastOut?.recorded_at, hours, autoSignOut, operative_id: opId, holiday }
       })
       const totalHours = dayCells.reduce((sum, c) => sum + (c.hours || 0), 0)
       return { opId, name, dayCells, totalHours }
     }).sort((a, b) => a.name.localeCompare(b.name))
-  }, [registerRecords, registerOffset])
+  }, [registerRecords, registerOffset, registerHolidays, operatives])
 
   useEffect(() => {
     if (cid) { loadData(); loadHistoryAuto() } // eslint-disable-line react-hooks/set-state-in-effect
@@ -812,6 +838,11 @@ export default function SiteAttendance() {
                                 >
                                   Add sign-out
                                 </button>
+                              </div>
+                            ) : cell.holiday ? (
+                              <div className="flex flex-col items-center gap-0.5">
+                                <SunMedium size={13} className="text-amber-500" />
+                                <span className="text-[10px] font-semibold text-amber-600">Holiday</span>
                               </div>
                             ) : (
                               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
