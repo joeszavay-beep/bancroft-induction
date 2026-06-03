@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { LogIn, LogOut, MapPin, Clock, CheckCircle2, Shield, Mail, Lock, Eye, EyeOff, HardHat, Check, AlertTriangle } from 'lucide-react'
@@ -15,7 +15,7 @@ export default function SiteSignIn() {
   const [recording, setRecording] = useState(false)
   const [success, setSuccess] = useState(null)
   const [geoPosition, setGeoPosition] = useState(null)
-  const [geoStatus, setGeoStatus] = useState('pending') // 'pending' | 'granted' | 'denied'
+  const [geoStatus, setGeoStatus] = useState('pending') // 'pending' | 'granted' | 'denied' | 'blocked'
 
   // Login form state
   const [email, setEmail] = useState('')
@@ -58,9 +58,12 @@ export default function SiteSignIn() {
   }, [projectId])
 
   // Capture GPS — required for QR sign-in
+  const geoRetryCount = useRef(0)
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+
   function requestLocation() {
     if (!navigator.geolocation) {
-      setGeoStatus('denied')
+      setGeoStatus('blocked')
       return
     }
     setGeoStatus('pending')
@@ -68,8 +71,17 @@ export default function SiteSignIn() {
       (pos) => {
         setGeoPosition({ latitude: pos.coords.latitude, longitude: pos.coords.longitude })
         setGeoStatus('granted')
+        geoRetryCount.current = 0
       },
-      () => setGeoStatus('denied'),
+      (err) => {
+        geoRetryCount.current += 1
+        // PERMISSION_DENIED = 1 — browser has permanently blocked it
+        if (err.code === 1 && geoRetryCount.current > 1) {
+          setGeoStatus('blocked')
+        } else {
+          setGeoStatus('denied')
+        }
+      },
       { enableHighAccuracy: true, timeout: 10000 }
     )
   }
@@ -391,14 +403,50 @@ export default function SiteSignIn() {
           {!operative.role && <div style={{ height: 32 }} />}
 
           <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* GPS denied — block sign-in/out */}
+            {/* GPS denied — first attempt, try again may re-prompt */}
             {geoStatus === 'denied' && (
               <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
                 <AlertTriangle size={28} color="#DC2626" style={{ marginBottom: 8 }} />
                 <p style={{ fontSize: 15, fontWeight: 700, color: '#991b1b', margin: '0 0 6px' }}>Location Required</p>
                 <p style={{ fontSize: 13, color: '#7f1d1d', margin: '0 0 14px', lineHeight: 1.5 }}>
-                  You must enable location services to sign in. Open your browser settings and allow location access for this site, then tap below.
+                  You must allow location access to sign in on site. Tap below to try again.
                 </p>
+                <button onClick={requestLocation}
+                  style={{
+                    padding: '10px 24px', background: '#DC2626', color: '#fff', border: 'none',
+                    borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  }}>
+                  <MapPin size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                  Allow Location
+                </button>
+              </div>
+            )}
+
+            {/* GPS permanently blocked — show device-specific instructions */}
+            {geoStatus === 'blocked' && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '20px', textAlign: 'center' }}>
+                <AlertTriangle size={28} color="#DC2626" style={{ marginBottom: 8 }} />
+                <p style={{ fontSize: 15, fontWeight: 700, color: '#991b1b', margin: '0 0 6px' }}>Location Blocked</p>
+                <p style={{ fontSize: 13, color: '#7f1d1d', margin: '0 0 12px', lineHeight: 1.5 }}>
+                  Your browser has blocked location access. You need to enable it in your settings to sign in.
+                </p>
+                <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '14px', textAlign: 'left', marginBottom: 14 }}>
+                  {isIOS ? (
+                    <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: '#1e293b', lineHeight: 1.8 }}>
+                      <li>Tap <strong>aA</strong> in the address bar (or the lock icon)</li>
+                      <li>Tap <strong>Website Settings</strong></li>
+                      <li>Set <strong>Location</strong> to <strong>Allow</strong></li>
+                      <li>Come back here and tap <strong>Try Again</strong></li>
+                    </ol>
+                  ) : (
+                    <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: '#1e293b', lineHeight: 1.8 }}>
+                      <li>Tap the <strong>lock icon</strong> in the address bar</li>
+                      <li>Tap <strong>Permissions</strong> (or <strong>Site settings</strong>)</li>
+                      <li>Set <strong>Location</strong> to <strong>Allow</strong></li>
+                      <li>Come back here and tap <strong>Try Again</strong></li>
+                    </ol>
+                  )}
+                </div>
                 <button onClick={requestLocation}
                   style={{
                     padding: '10px 24px', background: '#DC2626', color: '#fff', border: 'none',
