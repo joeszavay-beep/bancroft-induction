@@ -675,6 +675,13 @@ export default function SiteAttendance() {
                         {r.notes?.includes('Overtime') && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600">OT</span>}
                         {r.notes?.includes('Off-site') && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-50 text-orange-600">OFF-SITE</span>}
                         {r.method === 'auto' && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500">AUTO</span>}
+                        {(r.latitude && r.longitude) && (
+                          <a href={`https://www.google.com/maps?q=${r.latitude},${r.longitude}`} target="_blank" rel="noopener noreferrer"
+                            title="View location on map"
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors cursor-pointer">
+                            <MapPin size={10} className="mr-0.5" /> GPS
+                          </a>
+                        )}
                       </div>
                       {r.notes?.includes('|') && (
                         <p className="text-[10px] mt-1 italic" style={{ color: 'var(--text-muted)' }}>
@@ -950,10 +957,14 @@ export default function SiteAttendance() {
                         </td>
                         <td className="py-2 px-3 hidden md:table-cell" style={{ color: 'var(--text-muted)' }}>{r.duration ? formatDuration(r.duration) : '--'}</td>
                         <td className="py-2 px-3 hidden lg:table-cell text-xs" style={{ color: 'var(--text-muted)' }}>{r.ip_address || '--'}</td>
-                        <td className="py-2 px-3 hidden lg:table-cell text-xs" style={{ color: 'var(--text-muted)' }}>
+                        <td className="py-2 px-3 hidden lg:table-cell text-xs">
                           {(r.latitude && r.longitude) ? (
-                            <span className="flex items-center gap-1"><MapPin size={11} />{Number(r.latitude).toFixed(4)}, {Number(r.longitude).toFixed(4)}</span>
-                          ) : '--'}
+                            <a href={`https://www.google.com/maps?q=${r.latitude},${r.longitude}`} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-blue-500 hover:text-blue-700 hover:underline transition-colors"
+                              title="View location on map">
+                              <MapPin size={11} />{Number(r.latitude).toFixed(4)}, {Number(r.longitude).toFixed(4)}
+                            </a>
+                          ) : <span style={{ color: 'var(--text-muted)' }}>--</span>}
                         </td>
                       </tr>
                     ))}
