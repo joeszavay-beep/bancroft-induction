@@ -168,14 +168,29 @@ export default async function handler(req, res) {
     }
 
     const meta = user.user_metadata || {}
-    const isAdmin = ['admin', 'super_admin'].includes(meta.role)
+    let isAdmin = ['admin', 'super_admin'].includes(meta.role)
+
+    // Check profiles table for actual role (JWT metadata may be stale)
+    const companyId = meta.company_id
+    if (!isAdmin && companyId) {
+      const { data: prof } = await supabase.from('profiles').select('role').eq('email', user.email).eq('company_id', companyId).limit(1)
+      if (prof?.[0] && ['admin', 'super_admin'].includes(prof[0].role)) isAdmin = true
+    }
 
     // Get manager's ID from managers table
-    const { data: mgrRow } = await supabase.from('managers').select('id').eq('email', user.email).eq('company_id', meta.company_id).limit(1)
+    const { data: mgrRow } = await supabase.from('managers').select('id').eq('email', user.email).eq('company_id', companyId).limit(1)
     const managerId = mgrRow?.[0]?.id
 
-    let q = supabase.from('holiday_requests').select('*, operatives(id, name, photo_url, role)').eq('company_id', meta.company_id).order('start_date')
-    if (!isAdmin && managerId) q = q.eq('approver_id', managerId)
+    // Also get profiles ID — approver_id may reference either table
+    const { data: profRow } = await supabase.from('profiles').select('id').eq('email', user.email).eq('company_id', companyId).limit(1)
+    const profileId = profRow?.[0]?.id
+
+    let q = supabase.from('holiday_requests').select('*, operatives(id, name, photo_url, role)').eq('company_id', companyId).order('start_date')
+    if (!isAdmin && (managerId || profileId)) {
+      // Show requests assigned to this person via either managers or profiles ID
+      const ids = [managerId, profileId].filter(Boolean)
+      q = q.in('approver_id', ids)
+    }
     if (status) q = q.eq('status', status)
     if (from_date) q = q.gte('start_date', from_date)
     if (to_date) q = q.lte('end_date', to_date)
@@ -213,14 +228,23 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Authentication required' })
     }
 
-    const isAdmin = callerRole === 'admin' || callerRole === 'super_admin'
-    // Approver ID may be from the managers table, not the auth user ID
+    let isAdmin = callerRole === 'admin' || callerRole === 'super_admin'
+    // Check profiles table for actual role (JWT metadata may be stale)
     let callerManagerId = null
+    let callerProfileId = null
     if (user) {
+      const callerCompany = user.user_metadata?.company_id
+      if (!isAdmin && callerCompany) {
+        const { data: prof } = await supabase.from('profiles').select('id, role').eq('email', user.email).eq('company_id', callerCompany).limit(1)
+        if (prof?.[0]) {
+          callerProfileId = prof[0].id
+          if (['admin', 'super_admin'].includes(prof[0].role)) isAdmin = true
+        }
+      }
       const { data: mgrRow } = await supabase.from('managers').select('id').eq('email', user.email).eq('is_active', true).limit(1)
       callerManagerId = mgrRow?.[0]?.id
     }
-    const isAssignedApprover = callerId === request.approver_id || callerManagerId === request.approver_id
+    const isAssignedApprover = callerId === request.approver_id || callerManagerId === request.approver_id || callerProfileId === request.approver_id
     const isOperativeOwner = operativeSessionId === request.operative_id
 
     // Permission checks per action
