@@ -62,14 +62,11 @@ export default function HolidayApprovals() {
   const [loadingCal, setLoadingCal] = useState(false)
 
   async function fetchPending() {
-    if (!managerId || !managerCompanyId) return
+    if (!managerCompanyId) return
     setLoading(true)
     try {
-      const params = new URLSearchParams({
-        status: 'pending',
-        managerId,
-        managerCompanyId,
-      })
+      const params = new URLSearchParams({ status: 'pending' })
+      if (managerId) params.set('managerId', managerId)
       const res = await authFetch(`/api/holidays?${params.toString()}`)
       const data = await res.json()
       if (data.error) {
@@ -87,13 +84,11 @@ export default function HolidayApprovals() {
   }
 
   async function fetchAll() {
-    if (!managerId || !managerCompanyId) return
+    if (!managerCompanyId) return
     setLoading(true)
     try {
-      const params = new URLSearchParams({
-        managerId,
-        managerCompanyId,
-      })
+      const params = new URLSearchParams({})
+      if (managerId) params.set('managerId', managerId)
       const res = await authFetch(`/api/holidays?${params.toString()}`)
       const data = await res.json()
       if (data.error) {
