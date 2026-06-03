@@ -194,7 +194,6 @@ function buildSheetHtml({ projectName, documentTitle, signatures, branding, logo
 
 // ── Main export ──
 export async function generateSignOffSheet({ projectName, documentTitle, signatures, branding }) {
-  console.log('[sign-off] START', { projectName, documentTitle, sigCount: signatures?.length, hasBranding: !!branding })
   ensureFonts()
 
   if (!signatures || signatures.length === 0) {
@@ -205,7 +204,7 @@ export async function generateSignOffSheet({ projectName, documentTitle, signatu
   let logoDataUrl = null
   let sigDataUrls = []
   try {
-    console.log('[sign-off] loading images...')
+
     const results = await Promise.all([
       branding?.logoUrl ? (branding.logoDataUrl || loadLogoImage(branding.logoUrl).catch(() => null)) : Promise.resolve(null),
       ...signatures.map(sig =>
@@ -216,7 +215,7 @@ export async function generateSignOffSheet({ projectName, documentTitle, signatu
     ])
     logoDataUrl = results[0]
     sigDataUrls = results.slice(1)
-    console.log('[sign-off] images loaded', { hasLogo: !!logoDataUrl, sigImages: sigDataUrls.filter(Boolean).length })
+
   } catch (err) {
     console.error('[sign-off] image loading failed, continuing without images:', err)
     sigDataUrls = signatures.map(() => null)
@@ -239,15 +238,15 @@ export async function generateSignOffSheet({ projectName, documentTitle, signatu
 
   try {
     // Wait for fonts to be ready
-    console.log('[sign-off] waiting for fonts...')
+
     await document.fonts.ready
     await new Promise(r => setTimeout(r, 350))
-    console.log('[sign-off] fonts ready')
+
 
     // Render to canvas
     const sheet = wrapper.querySelector('.so-sheet')
     if (!sheet) throw new Error('Failed to build sign-off sheet HTML')
-    console.log('[sign-off] rendering html2canvas...', { width: sheet.offsetWidth, height: sheet.offsetHeight })
+
 
     const canvas = await html2canvas(sheet, {
       scale: 2,
@@ -255,14 +254,14 @@ export async function generateSignOffSheet({ projectName, documentTitle, signatu
       logging: false,
       backgroundColor: '#ffffff',
     })
-    console.log('[sign-off] canvas rendered', { w: canvas.width, h: canvas.height })
+
 
     if (!canvas || canvas.width === 0 || canvas.height === 0) {
       throw new Error('html2canvas produced an empty canvas')
     }
 
     // Build PDF (A4: 210 x 297 mm)
-    console.log('[sign-off] building PDF...')
+
     const pdf = new jsPDF('p', 'mm', 'a4')
     const pw = 210, ph = 297
     const imgW = pw
@@ -287,10 +286,10 @@ export async function generateSignOffSheet({ projectName, documentTitle, signatu
     }
 
     // Save
-    console.log('[sign-off] saving PDF...')
+
     const fileName = `Sign-Off - ${documentTitle} - ${new Date().toISOString().slice(0, 10)}.pdf`.replace(/[^a-zA-Z0-9 \-_.]/g, '')
     pdf.save(fileName)
-    console.log('[sign-off] DONE')
+
   } finally {
     // Always cleanup the DOM element
     if (wrapper.parentNode) document.body.removeChild(wrapper)

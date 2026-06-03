@@ -100,7 +100,7 @@ export default function PMDashboard({ initialTab }) {
   return (
     <div>
       {tab === 'home' && <HomeTab projects={projects} operatives={operatives} documents={documents} signatures={signatures} onNavigate={setTab} />}
-      {tab === 'projects' && <ProjectsTab projects={projects} documents={documents} operatives={operatives} signatures={signatures} onRefresh={loadData} />}
+      {tab === 'projects' && <ProjectsTab projects={projects} documents={documents} operatives={operatives} signatures={signatures} onRefresh={loadData} companyBranding={companyBranding} />}
       {tab === 'team' && <TeamTab operatives={operatives} projects={projects} onRefresh={loadData} />}
       {tab === 'snags' && <SnagsTab projects={projects} navigate={navigate} />}
       {tab === 'toolbox' && <ToolboxTab projects={projects} navigate={navigate} />}
@@ -259,7 +259,7 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
 }
 
 /* ==================== PROJECTS TAB ==================== */
-function ProjectsTab({ projects, documents, operatives, signatures, onRefresh }) {
+function ProjectsTab({ projects, documents, operatives, signatures, onRefresh, companyBranding }) {
   const cid = JSON.parse(getSession('manager_data') || '{}').company_id
   const [showAdd, setShowAdd] = useState(false)
   const [showUpload, setShowUpload] = useState(null) // project id
