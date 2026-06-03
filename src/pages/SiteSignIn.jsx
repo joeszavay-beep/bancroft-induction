@@ -91,13 +91,10 @@ export default function SiteSignIn() {
     requestLocation()
   }, [])
 
-  // Auto-dismiss success and reload attendance so button flips
+  // Auto-dismiss success screen — optimistic attendance update is already correct
   useEffect(() => {
     if (!success) return
-    const timer = setTimeout(() => {
-      setSuccess(null)
-      if (operative) loadOperativeAndAttendance(operative.id, projectId)
-    }, 4000)
+    const timer = setTimeout(() => setSuccess(null), 4000)
     return () => clearTimeout(timer)
   }, [success])
 
@@ -111,7 +108,8 @@ export default function SiteSignIn() {
     ])
 
     if (opRes.data) setOperative(opRes.data)
-    if (attRes.data) setAttendance(attRes.data)
+    // Only update attendance if DB returned records — don't wipe optimistic state with empty results
+    if (attRes.data && attRes.data.length > 0) setAttendance(attRes.data)
   }
 
   async function handleLogin(e) {
@@ -261,8 +259,12 @@ export default function SiteSignIn() {
       }
 
       if (result?.duplicate) {
-        // Already in this state — refresh UI to show correct button
-        await loadOperativeAndAttendance(operative.id, projectId)
+        // Already in this state — set attendance directly so button shows correctly
+        // (DB read may return empty due to RLS, so don't rely on reload)
+        setAttendance((prev) => {
+          if (prev.length > 0 && prev[0].type === type) return prev
+          return [{ type, operative_id: operative.id, recorded_at: new Date().toISOString(), id: 'dup' }, ...prev]
+        })
       } else if (result?.success) {
         setAttendance((prev) => [{ type, operative_id: operative.id, recorded_at: now.toISOString(), id: result.id }, ...prev])
         setSuccess({ type, name: operative.name, time: formatTime(now), flag, offSiteDistance })
