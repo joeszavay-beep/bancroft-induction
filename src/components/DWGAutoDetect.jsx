@@ -4,7 +4,8 @@ import { getSession } from '../lib/storage'
 import toast from 'react-hot-toast'
 import Modal from './Modal'
 import LoadingButton from './LoadingButton'
-import { Upload, Layers, Crosshair, Eye, Check, RotateCcw } from 'lucide-react'
+import { Upload, Layers, Crosshair, Eye, Check, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 
 export default function DWGAutoDetect({ open, onClose, drawing, companyId, onComplete }) {
   const [step, setStep] = useState('upload')
@@ -22,6 +23,7 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
   const [p2Dwg, setP2Dwg] = useState(null)
   const imgRef = useRef(null)
   const dwgMapRef = useRef(null)
+  const mouseDownPos = useRef(null)
 
   // Preview
   const [mappedPoints, setMappedPoints] = useState([])
@@ -133,8 +135,18 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
   }
 
   // ── Calibration: click handlers ──
-  function handlePdfClick(e) {
-    if (!imgRef.current) return
+  function handlePdfPointerDown(e) {
+    mouseDownPos.current = { x: e.clientX, y: e.clientY }
+  }
+
+  function handlePdfPointerUp(e) {
+    if (!mouseDownPos.current || !imgRef.current) return
+    // Ignore drags — only process clicks (< 5px movement)
+    const dx = Math.abs(e.clientX - mouseDownPos.current.x)
+    const dy = Math.abs(e.clientY - mouseDownPos.current.y)
+    mouseDownPos.current = null
+    if (dx > 5 || dy > 5) return
+
     const rect = imgRef.current.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
@@ -375,10 +387,24 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
         {step === 'cal_p1_pdf' && (
           <div className="space-y-3">
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-xs text-red-700"><Crosshair size={12} className="inline mr-1" /><strong>Point 1:</strong> Click a recognisable point on the PDF drawing (e.g. a grid intersection like A/1).</p>
+              <p className="text-xs text-red-700"><Crosshair size={12} className="inline mr-1" /><strong>Point 1:</strong> Pinch/scroll to zoom in, then click a recognisable point (e.g. a grid intersection like A/1).</p>
             </div>
-            <div className="relative border border-slate-200 rounded-lg overflow-hidden">
-              <img ref={imgRef} src={drawing.image_url} alt="Drawing" className="w-full cursor-crosshair" onClick={handlePdfClick} />
+            <div className="relative border border-slate-200 rounded-lg overflow-hidden" style={{ height: 400 }}>
+              <TransformWrapper initialScale={1} minScale={0.5} maxScale={8} centerOnInit limitToBounds={false} wheel={{ step: 0.08 }} doubleClick={{ disabled: true }}>
+                {({ zoomIn, zoomOut }) => (
+                  <>
+                    <div className="absolute top-2 right-2 z-10 flex gap-1">
+                      <button onClick={() => zoomIn()} className="w-8 h-8 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600"><ZoomIn size={14} /></button>
+                      <button onClick={() => zoomOut()} className="w-8 h-8 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600"><ZoomOut size={14} /></button>
+                    </div>
+                    <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
+                      <div className="relative" onPointerDown={handlePdfPointerDown} onPointerUp={handlePdfPointerUp}>
+                        <img ref={imgRef} src={drawing.image_url} alt="Drawing" className="w-full cursor-crosshair" draggable={false} />
+                      </div>
+                    </TransformComponent>
+                  </>
+                )}
+              </TransformWrapper>
             </div>
             <button onClick={() => setStep('layers')} className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600">Back</button>
           </div>
@@ -399,16 +425,30 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
         {step === 'cal_p2_pdf' && (
           <div className="space-y-3">
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-              <p className="text-xs text-purple-700"><Crosshair size={12} className="inline mr-1" /><strong>Point 2:</strong> Click a second point on the PDF, far from Point 1 (e.g. opposite corner grid).</p>
+              <p className="text-xs text-purple-700"><Crosshair size={12} className="inline mr-1" /><strong>Point 2:</strong> Pinch/scroll to zoom, then click a second point far from Point 1.</p>
             </div>
-            <div className="relative border border-slate-200 rounded-lg overflow-hidden">
-              <img ref={imgRef} src={drawing.image_url} alt="Drawing" className="w-full cursor-crosshair" onClick={handlePdfClick} />
-              {p1Draw && (
-                <div className="absolute w-4 h-4 bg-red-500 border-2 border-white rounded-full -translate-x-1/2 -translate-y-1/2 z-10 shadow pointer-events-none"
-                  style={{ left: `${p1Draw.x}%`, top: `${p1Draw.y}%` }}>
-                  <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] bg-red-500 text-white px-1 rounded whitespace-nowrap">P1</span>
-                </div>
-              )}
+            <div className="relative border border-slate-200 rounded-lg overflow-hidden" style={{ height: 400 }}>
+              <TransformWrapper initialScale={1} minScale={0.5} maxScale={8} centerOnInit limitToBounds={false} wheel={{ step: 0.08 }} doubleClick={{ disabled: true }}>
+                {({ zoomIn, zoomOut }) => (
+                  <>
+                    <div className="absolute top-2 right-2 z-10 flex gap-1">
+                      <button onClick={() => zoomIn()} className="w-8 h-8 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600"><ZoomIn size={14} /></button>
+                      <button onClick={() => zoomOut()} className="w-8 h-8 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600"><ZoomOut size={14} /></button>
+                    </div>
+                    <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
+                      <div className="relative" onPointerDown={handlePdfPointerDown} onPointerUp={handlePdfPointerUp}>
+                        <img ref={imgRef} src={drawing.image_url} alt="Drawing" className="w-full cursor-crosshair" draggable={false} />
+                        {p1Draw && (
+                          <div className="absolute w-4 h-4 bg-red-500 border-2 border-white rounded-full -translate-x-1/2 -translate-y-1/2 z-10 shadow pointer-events-none"
+                            style={{ left: `${p1Draw.x}%`, top: `${p1Draw.y}%` }}>
+                            <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] bg-red-500 text-white px-1 rounded whitespace-nowrap">P1</span>
+                          </div>
+                        )}
+                      </div>
+                    </TransformComponent>
+                  </>
+                )}
+              </TransformWrapper>
             </div>
             <button onClick={() => { setP1Dwg(null); setStep('cal_p1_dwg') }} className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600">Back</button>
           </div>
