@@ -229,6 +229,7 @@ export default function SiteSignIn() {
       const parts = []
       if (flag) parts.push(flag.charAt(0).toUpperCase() + flag.slice(1))
       if (offSiteDistance) parts.push(`Off-site (${offSiteDistance}m)`)
+      if (!geoPosition) parts.push('Location off')
       const action = type === 'sign_in' ? 'arrived' : 'left'
       let notes = parts.length ? `${parts.join(' · ')} — ${action} at ${formatTime(now)}` : null
       const userNote = type === 'sign_in' ? signInNote.trim() : signOutNote.trim()
@@ -285,6 +286,8 @@ export default function SiteSignIn() {
   // Derive on-site status for this operative
   const isOnSite = attendance.length > 0 && attendance[0].type === 'sign_in'
   const lastRecord = attendance[0] || null
+  // Location captured successfully? Sign-in is still allowed without it.
+  const hasLocation = geoStatus === 'granted' && !!geoPosition
 
   const primaryColour = project?.companies?.primary_colour || '#1A2744'
 
@@ -373,6 +376,11 @@ export default function SiteSignIn() {
             <MapPin size={14} /> Location recorded
           </div>
         )}
+        {!geoPosition && (
+          <div style={{ animation: 'fadeInUp 0.5s ease-out 0.5s forwards', opacity: 0, marginTop: 16, display: 'flex', alignItems: 'center', gap: 4, color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
+            <MapPin size={14} /> Location off
+          </div>
+        )}
         {isSignIn && (
           <div style={{ animation: 'fadeInUp 0.5s ease-out 0.7s forwards', opacity: 0, marginTop: 24, background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '12px 20px', maxWidth: 320, textAlign: 'center' }}>
             <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, margin: 0, fontWeight: 500 }}>
@@ -419,8 +427,14 @@ export default function SiteSignIn() {
           )}
 
           <h2 style={{ margin: '0 0 4px', fontSize: 24, color: '#1e293b', fontWeight: 700 }}>{operative.name}</h2>
-          {operative.role && <p style={{ margin: '0 0 32px', color: '#64748b', fontSize: 15 }}>{operative.role}</p>}
-          {!operative.role && <div style={{ height: 32 }} />}
+          {operative.role && <p style={{ margin: '0 0 8px', color: '#64748b', fontSize: 15 }}>{operative.role}</p>}
+          {!hasLocation && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#fef3c7', border: '1px solid #fde68a', color: '#92400e', borderRadius: 999, padding: '4px 12px', fontSize: 12, fontWeight: 600, marginBottom: 24 }}>
+              <MapPin size={12} /> Location off
+            </div>
+          )}
+          {hasLocation && !operative.role && <div style={{ height: 32 }} />}
+          {hasLocation && operative.role && <div style={{ height: 24 }} />}
 
           <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Error banner */}
@@ -433,53 +447,45 @@ export default function SiteSignIn() {
               </div>
             )}
 
-            {/* GPS denied — first attempt, try again may re-prompt */}
-            {geoStatus === 'denied' && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
-                <AlertTriangle size={28} color="#DC2626" style={{ marginBottom: 8 }} />
-                <p style={{ fontSize: 15, fontWeight: 700, color: '#991b1b', margin: '0 0 6px' }}>Location Required</p>
-                <p style={{ fontSize: 13, color: '#7f1d1d', margin: '0 0 14px', lineHeight: 1.5 }}>
-                  You must allow location access to sign in on site. Tap below to try again.
-                </p>
-                <button onClick={requestLocation}
-                  style={{
-                    padding: '10px 24px', background: '#DC2626', color: '#fff', border: 'none',
-                    borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                  }}>
-                  <MapPin size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-                  Allow Location
-                </button>
+            {/* Still resolving location — informational only, sign-in still works */}
+            {geoStatus === 'pending' && (
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
+                <MapPin size={24} color="#2563eb" style={{ marginBottom: 8 }} />
+                <p style={{ fontSize: 14, fontWeight: 600, color: '#1e40af', margin: 0 }}>Getting your location…</p>
+                <p style={{ fontSize: 12, color: '#3b82f6', margin: '4px 0 0' }}>Tap "Allow" if your browser asks — or sign in below.</p>
               </div>
             )}
 
-            {/* GPS permanently blocked — show device-specific instructions */}
-            {geoStatus === 'blocked' && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '20px', textAlign: 'center' }}>
-                <AlertTriangle size={28} color="#DC2626" style={{ marginBottom: 8 }} />
-                <p style={{ fontSize: 15, fontWeight: 700, color: '#991b1b', margin: '0 0 6px' }}>Location Blocked</p>
-                <p style={{ fontSize: 13, color: '#7f1d1d', margin: '0 0 12px', lineHeight: 1.5 }}>
-                  Your browser has blocked location access. You need to enable it in your settings to sign in.
+            {/* Location unavailable — sign-in still allowed, record is flagged "Location off" */}
+            {(geoStatus === 'denied' || geoStatus === 'blocked') && (
+              <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
+                <AlertTriangle size={28} color="#d97706" style={{ marginBottom: 8 }} />
+                <p style={{ fontSize: 15, fontWeight: 700, color: '#92400e', margin: '0 0 6px' }}>Location off</p>
+                <p style={{ fontSize: 13, color: '#b45309', margin: '0 0 14px', lineHeight: 1.5 }}>
+                  We couldn't get your location, but you can still sign in below. Your record will be marked <strong>Location off</strong>. To record your location, enable it and tap Try Again.
                 </p>
-                <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '14px', textAlign: 'left', marginBottom: 14 }}>
-                  {isIOS ? (
-                    <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: '#1e293b', lineHeight: 1.8 }}>
-                      <li>Tap <strong>aA</strong> in the address bar (or the lock icon)</li>
-                      <li>Tap <strong>Website Settings</strong></li>
-                      <li>Set <strong>Location</strong> to <strong>Allow</strong></li>
-                      <li>Come back here and tap <strong>Try Again</strong></li>
-                    </ol>
-                  ) : (
-                    <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: '#1e293b', lineHeight: 1.8 }}>
-                      <li>Tap the <strong>lock icon</strong> in the address bar</li>
-                      <li>Tap <strong>Permissions</strong> (or <strong>Site settings</strong>)</li>
-                      <li>Set <strong>Location</strong> to <strong>Allow</strong></li>
-                      <li>Come back here and tap <strong>Try Again</strong></li>
-                    </ol>
-                  )}
-                </div>
+                {geoStatus === 'blocked' && (
+                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '14px', textAlign: 'left', marginBottom: 14 }}>
+                    {isIOS ? (
+                      <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: '#1e293b', lineHeight: 1.8 }}>
+                        <li>Tap <strong>aA</strong> in the address bar (or the lock icon)</li>
+                        <li>Tap <strong>Website Settings</strong></li>
+                        <li>Set <strong>Location</strong> to <strong>Allow</strong></li>
+                        <li>Come back here and tap <strong>Try Again</strong></li>
+                      </ol>
+                    ) : (
+                      <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: '#1e293b', lineHeight: 1.8 }}>
+                        <li>Tap the <strong>lock icon</strong> in the address bar</li>
+                        <li>Tap <strong>Permissions</strong> (or <strong>Site settings</strong>)</li>
+                        <li>Set <strong>Location</strong> to <strong>Allow</strong></li>
+                        <li>Come back here and tap <strong>Try Again</strong></li>
+                      </ol>
+                    )}
+                  </div>
+                )}
                 <button onClick={requestLocation}
                   style={{
-                    padding: '10px 24px', background: '#DC2626', color: '#fff', border: 'none',
+                    padding: '10px 24px', background: '#d97706', color: '#fff', border: 'none',
                     borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer',
                   }}>
                   <MapPin size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
@@ -488,17 +494,8 @@ export default function SiteSignIn() {
               </div>
             )}
 
-            {/* GPS pending — show waiting state */}
-            {geoStatus === 'pending' && (
-              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
-                <MapPin size={24} color="#2563eb" style={{ marginBottom: 8 }} />
-                <p style={{ fontSize: 14, fontWeight: 600, color: '#1e40af', margin: 0 }}>Waiting for location access...</p>
-                <p style={{ fontSize: 12, color: '#3b82f6', margin: '4px 0 0' }}>Tap "Allow" when prompted by your browser</p>
-              </div>
-            )}
-
-            {/* GPS granted — show normal sign-in/out */}
-            {geoStatus === 'granted' && isOnSite && (
+            {/* Sign-out (already on site) — available regardless of location status */}
+            {isOnSite && (
               <>
                 <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#2EA043', boxShadow: '0 0 0 3px rgba(46,160,67,0.2)' }} />
@@ -528,7 +525,7 @@ export default function SiteSignIn() {
                 </button>
               </>
             )}
-            {geoStatus === 'granted' && !isOnSite && (
+            {!isOnSite && (
               <>
                 {lastRecord?.type === 'sign_out' && (
                   <div style={{ background: '#f5f5f5', border: '1px solid #e2e8f0', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
