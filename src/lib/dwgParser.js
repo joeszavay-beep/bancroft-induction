@@ -1,7 +1,19 @@
-// DWG parser — lazy-loads @mlightcad/libredwg-web WASM
-// Same pattern as ifcParser.js — only loaded when user triggers DWG auto-detect
+// DWG parser — loads libredwg WASM at runtime from /wasm/
+// No npm import = zero bundle impact. Only loaded when user clicks DWG Auto-Place.
 
-let libredwgInstance = null
+let libPromise = null
+
+async function getLib() {
+  if (libPromise) return libPromise
+  libPromise = (async () => {
+    // Dynamic import from public directory (served as static asset, not bundled)
+    const mod = await import(/* @vite-ignore */ '/wasm/libredwg-wrapper.js')
+    const LibreDwg = mod.LibreDwg
+    const instance = await LibreDwg.create('/wasm/')
+    return { instance, Dwg_File_Type: mod.Dwg_File_Type }
+  })()
+  return libPromise
+}
 
 /**
  * Parse a DWG file and extract INSERT entities (block references = fixtures) by layer.
@@ -12,20 +24,15 @@ let libredwgInstance = null
 export async function parseDWG(buffer, onProgress = () => {}) {
   onProgress(0)
 
-  // Lazy-load WASM
-  if (!libredwgInstance) {
-    const { LibreDwg } = await import('@mlightcad/libredwg-web')
-    libredwgInstance = await LibreDwg.create()
-  }
+  const { instance, Dwg_File_Type } = await getLib()
   onProgress(20)
 
   // Parse DWG
-  const { Dwg_File_Type } = await import('@mlightcad/libredwg-web')
   const data = new Uint8Array(buffer)
-  const dwg = libredwgInstance.dwg_read_data(data, Dwg_File_Type.DWG)
+  const dwg = instance.dwg_read_data(data, Dwg_File_Type.DWG)
   onProgress(40)
 
-  const db = libredwgInstance.convert(dwg)
+  const db = instance.convert(dwg)
   onProgress(60)
 
   // Extract INSERT entities grouped by layer
@@ -69,7 +76,7 @@ export async function parseDWG(buffer, onProgress = () => {}) {
   }
 
   // Free memory
-  libredwgInstance.dwg_free(dwg)
+  instance.dwg_free(dwg)
   onProgress(100)
 
   return { layers, insertsByLayer, allInserts, bounds }

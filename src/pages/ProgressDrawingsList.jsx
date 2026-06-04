@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
 import LoadingButton from '../components/LoadingButton'
 import { Upload, Trash2, ChevronRight, Layers, BarChart3, Download, Edit3, Plus, Crosshair } from 'lucide-react'
-import DWGAutoDetect from '../components/DWGAutoDetect'
+const DWGAutoDetect = lazy(() => import('../components/DWGAutoDetect'))
 import { generateProgressPDF } from '../lib/generateProgressPDF'
 import { buildBranding } from '../lib/reportTemplate'
 import { getSession } from '../lib/storage'
@@ -468,18 +468,22 @@ export default function ProgressDrawingsList() {
         </form>
       </Modal>
 
-      {/* DWG Auto-Detect Modal */}
-      <DWGAutoDetect
-        open={!!dwgDetectDrawing}
-        onClose={() => setDwgDetectDrawing(null)}
-        drawing={dwgDetectDrawing}
-        companyId={cid}
-        onComplete={(count) => {
-          setDwgDetectDrawing(null)
-          loadDrawings()
-          if (dwgDetectDrawing) navigate(`/progress/${dwgDetectDrawing.id}`)
-        }}
-      />
+      {/* DWG Auto-Detect Modal (lazy-loaded — WASM is ~6MB, only load when needed) */}
+      {dwgDetectDrawing && (
+        <Suspense fallback={null}>
+          <DWGAutoDetect
+            open={!!dwgDetectDrawing}
+            onClose={() => setDwgDetectDrawing(null)}
+            drawing={dwgDetectDrawing}
+            companyId={cid}
+            onComplete={(count) => {
+              setDwgDetectDrawing(null)
+              loadDrawings()
+              if (dwgDetectDrawing) navigate(`/progress/${dwgDetectDrawing.id}`)
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }

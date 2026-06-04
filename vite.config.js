@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   optimizeDeps: {
-    exclude: ['web-ifc', '@mlightcad/libredwg-web'], // WASM modules — don't pre-bundle
+    exclude: ['web-ifc'], // WASM module — don't pre-bundle
   },
   plugins: [
     react(),
