@@ -6,7 +6,8 @@ import { useProject } from '../lib/ProjectContext'
 import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
 import LoadingButton from '../components/LoadingButton'
-import { Upload, Trash2, ChevronRight, Layers, BarChart3, Download, Edit3, Plus } from 'lucide-react'
+import { Upload, Trash2, ChevronRight, Layers, BarChart3, Download, Edit3, Plus, Crosshair } from 'lucide-react'
+import DWGAutoDetect from '../components/DWGAutoDetect'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
 import { buildBranding } from '../lib/reportTemplate'
 import { getSession } from '../lib/storage'
@@ -30,6 +31,7 @@ export default function ProgressDrawingsList() {
   const [showNewRevision, setShowNewRevision] = useState(null) // drawing getting new revision
   const [saving, setSaving] = useState(false)
   const [filterTrade, setFilterTrade] = useState('all')
+  const [dwgDetectDrawing, setDwgDetectDrawing] = useState(null)
   const [filterLevel, setFilterLevel] = useState('all')
 
   // Edit form
@@ -325,6 +327,9 @@ export default function ProgressDrawingsList() {
                     <button onClick={(e) => { e.stopPropagation(); openNewRevision(d) }} className="p-1.5 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors" title="Upload new revision">
                       <Plus size={14} />
                     </button>
+                    <button onClick={(e) => { e.stopPropagation(); setDwgDetectDrawing(d) }} className="p-1.5 text-[#6B7A99] hover:text-[#2EA043] transition-colors" title="DWG Auto-Place">
+                      <Crosshair size={14} />
+                    </button>
                     <button onClick={(e) => { e.stopPropagation(); exportDrawing(d) }} disabled={exportingId === d.id}
                       className="p-1.5 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors" title="Download PDF">
                       {exportingId === d.id ? <div className="w-3.5 h-3.5 border-2 border-[#1B6FC8] border-t-transparent rounded-full animate-spin" /> : <Download size={13} />}
@@ -462,6 +467,19 @@ export default function ProgressDrawingsList() {
           </LoadingButton>
         </form>
       </Modal>
+
+      {/* DWG Auto-Detect Modal */}
+      <DWGAutoDetect
+        open={!!dwgDetectDrawing}
+        onClose={() => setDwgDetectDrawing(null)}
+        drawing={dwgDetectDrawing}
+        companyId={cid}
+        onComplete={(count) => {
+          setDwgDetectDrawing(null)
+          loadDrawings()
+          if (dwgDetectDrawing) navigate(`/progress/${dwgDetectDrawing.id}`)
+        }}
+      />
     </div>
   )
 }
