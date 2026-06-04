@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/storage'
 import toast from 'react-hot-toast'
@@ -7,31 +7,52 @@ import LoadingButton from './LoadingButton'
 import { Upload, Layers, Crosshair, Eye, Check, RotateCcw } from 'lucide-react'
 
 export default function DWGAutoDetect({ open, onClose, drawing, companyId, onComplete }) {
-  const [step, setStep] = useState('upload') // upload | parsing | layers | cal_p1_draw | cal_p1_coords | cal_p2_draw | cal_p2_coords | preview | inserting | done
+  const [step, setStep] = useState('upload')
   const [progress, setProgress] = useState(0)
   const [progressLabel, setProgressLabel] = useState('')
 
   // DWG data
-  const [dwgData, setDwgData] = useState(null) // { layers, insertsByLayer, bounds }
+  const [dwgData, setDwgData] = useState(null)
   const [selectedLayers, setSelectedLayers] = useState([])
 
-  // Calibration
-  const [p1Draw, setP1Draw] = useState(null) // { x, y } percentage
-  const [p1DwgX, setP1DwgX] = useState('')
-  const [p1DwgY, setP1DwgY] = useState('')
+  // Calibration — click on PDF then click same point on DWG dot map
+  const [p1Draw, setP1Draw] = useState(null)  // { x, y } percentage on PDF image
+  const [p1Dwg, setP1Dwg] = useState(null)    // { x, y } real DWG coordinates
   const [p2Draw, setP2Draw] = useState(null)
-  const [p2DwgX, setP2DwgX] = useState('')
-  const [p2DwgY, setP2DwgY] = useState('')
+  const [p2Dwg, setP2Dwg] = useState(null)
   const imgRef = useRef(null)
+  const dwgMapRef = useRef(null)
 
   // Preview
   const [mappedPoints, setMappedPoints] = useState([])
-
-  // Insert
   const [insertCount, setInsertCount] = useState(0)
 
   const fileRef = useRef(null)
   const mgr = JSON.parse(getSession('manager_data') || '{}')
+
+  // Compute DWG bounds for selected layers (with padding)
+  const dwgBounds = useMemo(() => {
+    if (!dwgData || selectedLayers.length === 0) return null
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const name of selectedLayers) {
+      for (const ins of (dwgData.insertsByLayer[name] || [])) {
+        if (ins.x < minX) minX = ins.x
+        if (ins.y < minY) minY = ins.y
+        if (ins.x > maxX) maxX = ins.x
+        if (ins.y > maxY) maxY = ins.y
+      }
+    }
+    if (minX === Infinity) return null
+    const padX = (maxX - minX) * 0.05 || 100
+    const padY = (maxY - minY) * 0.05 || 100
+    return { minX: minX - padX, minY: minY - padY, maxX: maxX + padX, maxY: maxY + padY }
+  }, [dwgData, selectedLayers])
+
+  // All inserts for selected layers (for rendering the dot map)
+  const selectedInserts = useMemo(() => {
+    if (!dwgData) return []
+    return selectedLayers.flatMap(name => dwgData.insertsByLayer[name] || [])
+  }, [dwgData, selectedLayers])
 
   function reset() {
     setStep('upload')
@@ -40,8 +61,7 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
     setDwgData(null)
     setSelectedLayers([])
     setP1Draw(null); setP2Draw(null)
-    setP1DwgX(''); setP1DwgY('')
-    setP2DwgX(''); setP2DwgY('')
+    setP1Dwg(null); setP2Dwg(null)
     setMappedPoints([])
     setInsertCount(0)
     if (fileRef.current) fileRef.current.value = ''
@@ -93,7 +113,6 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
 
       setDwgData(result)
       setProgress(100)
-      setProgressLabel('Done')
       setStep('layers')
     } catch (err) {
       console.error('DWG parse error:', err)
@@ -113,42 +132,70 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
     return selectedLayers.reduce((sum, name) => sum + (dwgData?.insertsByLayer[name]?.length || 0), 0)
   }
 
-  // ── Step 3-4: Calibration ──
-  function handleImageClick(e) {
+  // ── Calibration: click handlers ──
+  function handlePdfClick(e) {
     if (!imgRef.current) return
     const rect = imgRef.current.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
     const point = { x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100 }
 
-    if (step === 'cal_p1_draw') {
+    if (step === 'cal_p1_pdf') {
       setP1Draw(point)
-      setStep('cal_p1_coords')
-    } else if (step === 'cal_p2_draw') {
+      setStep('cal_p1_dwg')
+    } else if (step === 'cal_p2_pdf') {
       setP2Draw(point)
-      setStep('cal_p2_coords')
+      setStep('cal_p2_dwg')
     }
   }
 
-  // ── Step 5: Preview ──
-  async function generatePreview() {
+  function handleDwgMapClick(e) {
+    if (!dwgMapRef.current || !dwgBounds) return
+    const rect = dwgMapRef.current.getBoundingClientRect()
+    const pctX = (e.clientX - rect.left) / rect.width
+    const pctY = (e.clientY - rect.top) / rect.height
+    // Convert from SVG percentage to DWG coordinates
+    // Note: SVG Y is flipped (top=maxY, bottom=minY) because DWG Y goes up but screen Y goes down
+    const dwgX = dwgBounds.minX + pctX * (dwgBounds.maxX - dwgBounds.minX)
+    const dwgY = dwgBounds.maxY - pctY * (dwgBounds.maxY - dwgBounds.minY)
+    const point = { x: Math.round(dwgX * 100) / 100, y: Math.round(dwgY * 100) / 100 }
+
+    if (step === 'cal_p1_dwg') {
+      setP1Dwg(point)
+      setStep('cal_p2_pdf')
+    } else if (step === 'cal_p2_dwg') {
+      setP2Dwg(point)
+      generatePreview(point)
+    }
+  }
+
+  // Convert DWG coord to SVG percentage for rendering on the dot map
+  function dwgToSvgPct(dwgX, dwgY) {
+    if (!dwgBounds) return { x: 0, y: 0 }
+    const x = ((dwgX - dwgBounds.minX) / (dwgBounds.maxX - dwgBounds.minX)) * 100
+    const y = ((dwgBounds.maxY - dwgY) / (dwgBounds.maxY - dwgBounds.minY)) * 100 // flip Y
+    return { x, y }
+  }
+
+  // ── Preview ──
+  async function generatePreview(p2DwgPoint) {
+    const p2 = p2DwgPoint || p2Dwg
     const { dwgToDrawingPercent } = await import('../lib/dwgParser')
 
     const calibration = {
-      point1_dwg_x: parseFloat(p1DwgX),
-      point1_dwg_y: parseFloat(p1DwgY),
+      point1_dwg_x: p1Dwg.x,
+      point1_dwg_y: p1Dwg.y,
       point1_draw_x: p1Draw.x,
       point1_draw_y: p1Draw.y,
-      point2_dwg_x: parseFloat(p2DwgX),
-      point2_dwg_y: parseFloat(p2DwgY),
+      point2_dwg_x: p2.x,
+      point2_dwg_y: p2.y,
       point2_draw_x: p2Draw.x,
       point2_draw_y: p2Draw.y,
     }
 
     const points = []
     for (const layerName of selectedLayers) {
-      const inserts = dwgData.insertsByLayer[layerName] || []
-      for (const ins of inserts) {
+      for (const ins of (dwgData.insertsByLayer[layerName] || [])) {
         const mapped = dwgToDrawingPercent({ x: ins.x, y: ins.y }, calibration)
         if (mapped) {
           points.push({ ...mapped, layer: ins.layer, blockName: ins.blockName })
@@ -160,13 +207,12 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
     setStep('preview')
   }
 
-  // ── Step 6: Batch Insert ──
+  // ── Batch Insert ──
   async function batchInsert() {
     setStep('inserting')
     setProgress(0)
     setProgressLabel('Preparing items...')
 
-    // Get current max item_number
     const { data: existing } = await supabase.from('progress_items')
       .select('item_number')
       .eq('drawing_id', drawing.id)
@@ -202,13 +248,12 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
       setProgressLabel(`Inserting items... ${inserted} / ${mappedPoints.length}`)
     }
 
-    // Save calibration to drawing
     const calibration = {
       layers_selected: selectedLayers,
       point1_draw_x: p1Draw.x, point1_draw_y: p1Draw.y,
-      point1_dwg_x: parseFloat(p1DwgX), point1_dwg_y: parseFloat(p1DwgY),
+      point1_dwg_x: p1Dwg.x, point1_dwg_y: p1Dwg.y,
       point2_draw_x: p2Draw.x, point2_draw_y: p2Draw.y,
-      point2_dwg_x: parseFloat(p2DwgX), point2_dwg_y: parseFloat(p2DwgY),
+      point2_dwg_x: p2Dwg.x, point2_dwg_y: p2Dwg.y,
       entity_count: mappedPoints.length,
       items_created: inserted,
       calibrated_at: now,
@@ -221,8 +266,33 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
     toast.success(`${inserted} items auto-placed`)
   }
 
-  // ── Render ──
-  const isCalStep = step.startsWith('cal_p1_draw') || step.startsWith('cal_p2_draw')
+  // ── DWG Dot Map SVG ──
+  function DwgDotMap({ onClick, label, markerPoint, markerColor }) {
+    return (
+      <div className="relative border border-slate-200 rounded-lg overflow-hidden bg-slate-900 cursor-crosshair" ref={dwgMapRef} onClick={onClick}>
+        <svg viewBox="0 0 100 100" className="w-full" style={{ aspectRatio: dwgBounds ? `${dwgBounds.maxX - dwgBounds.minX} / ${dwgBounds.maxY - dwgBounds.minY}` : '1' }} preserveAspectRatio="xMidYMid meet">
+          {/* Grid dots for all selected inserts */}
+          {selectedInserts.map((ins, i) => {
+            const { x, y } = dwgToSvgPct(ins.x, ins.y)
+            return <circle key={i} cx={x} cy={y} r="0.4" fill="#4ade80" opacity="0.6" />
+          })}
+          {/* P1 marker if placed */}
+          {p1Dwg && (() => {
+            const { x, y } = dwgToSvgPct(p1Dwg.x, p1Dwg.y)
+            return <circle cx={x} cy={y} r="1.5" fill="#ef4444" stroke="white" strokeWidth="0.4" />
+          })()}
+          {/* Current marker */}
+          {markerPoint && (() => {
+            const { x, y } = dwgToSvgPct(markerPoint.x, markerPoint.y)
+            return <circle cx={x} cy={y} r="1.5" fill={markerColor || '#a855f7'} stroke="white" strokeWidth="0.4" />
+          })()}
+        </svg>
+        <div className="absolute bottom-2 left-2 text-[10px] text-slate-400 bg-slate-800/80 px-2 py-1 rounded">
+          {label} — click the same point here
+        </div>
+      </div>
+    )
+  }
 
   return (
     <Modal open={open} onClose={handleClose} title="DWG Auto-Detect" wide>
@@ -232,7 +302,7 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
         {step === 'upload' && (
           <div className="space-y-3">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-xs text-blue-700">Upload the DWG file that matches this drawing. Fixture blocks (INSERT entities) will be detected and auto-placed as progress dots.</p>
+              <p className="text-xs text-blue-700">Upload the DWG file that matches this drawing. Fixture blocks will be detected and auto-placed as progress dots.</p>
             </div>
             <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-8 cursor-pointer hover:border-blue-400 transition-colors">
               <Upload size={28} className="text-slate-400 mb-2" />
@@ -258,20 +328,14 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
         {step === 'layers' && dwgData && (
           <div className="space-y-3">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-xs text-blue-700">Select the layer(s) that contain the fixtures you want to track. Typically named with "Lighting", "Fire", "Power" etc.</p>
+              <p className="text-xs text-blue-700">Select the layer(s) that contain the fixtures you want to track.</p>
             </div>
             <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
               {dwgData.layers.map(layer => (
                 <label key={layer.name} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selectedLayers.includes(layer.name)}
-                    onChange={() => toggleLayer(layer.name)}
-                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{layer.name}</p>
-                  </div>
+                  <input type="checkbox" checked={selectedLayers.includes(layer.name)} onChange={() => toggleLayer(layer.name)}
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                  <p className="text-sm font-medium text-slate-900 truncate flex-1">{layer.name}</p>
                   <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
                     {layer.insertCount} fixture{layer.insertCount !== 1 ? 's' : ''}
                   </span>
@@ -279,67 +343,50 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
               ))}
             </div>
             {selectedLayers.length > 0 && (
-              <p className="text-xs font-medium text-blue-600">{totalSelected()} fixtures selected across {selectedLayers.length} layer{selectedLayers.length !== 1 ? 's' : ''}</p>
+              <p className="text-xs font-medium text-blue-600">{totalSelected()} fixtures selected</p>
             )}
             <div className="flex gap-2">
               <button onClick={() => setStep('upload')} className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600">Back</button>
-              <button onClick={() => setStep('cal_p1_draw')} disabled={selectedLayers.length === 0}
+              <button onClick={() => setStep('cal_p1_pdf')} disabled={selectedLayers.length === 0}
                 className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg disabled:opacity-40">
-                <Layers size={14} className="inline mr-1.5" />Next — Calibrate
+                Next — Calibrate
               </button>
             </div>
           </div>
         )}
 
-        {/* ── Calibration: Point 1 Draw ── */}
-        {step === 'cal_p1_draw' && (
+        {/* ── Calibration P1: Click on PDF ── */}
+        {step === 'cal_p1_pdf' && (
           <div className="space-y-3">
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-xs text-red-700"><Crosshair size={12} className="inline mr-1" />Click a recognisable point on the drawing (e.g. a grid intersection like "A/1"). This is Point 1.</p>
+              <p className="text-xs text-red-700"><Crosshair size={12} className="inline mr-1" /><strong>Point 1:</strong> Click a recognisable point on the PDF drawing (e.g. a grid intersection like A/1).</p>
             </div>
             <div className="relative border border-slate-200 rounded-lg overflow-hidden">
-              <img ref={imgRef} src={drawing.image_url} alt="Drawing" className="w-full cursor-crosshair" onClick={handleImageClick} />
+              <img ref={imgRef} src={drawing.image_url} alt="Drawing" className="w-full cursor-crosshair" onClick={handlePdfClick} />
             </div>
             <button onClick={() => setStep('layers')} className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600">Back</button>
           </div>
         )}
 
-        {/* ── Calibration: Point 1 Coords ── */}
-        {step === 'cal_p1_coords' && (
+        {/* ── Calibration P1: Click same point on DWG map ── */}
+        {step === 'cal_p1_dwg' && dwgBounds && (
           <div className="space-y-3">
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-xs text-red-700">Point 1 placed at ({p1Draw?.x?.toFixed(1)}%, {p1Draw?.y?.toFixed(1)}%). Now enter the matching DWG coordinates for this point.</p>
+              <p className="text-xs text-red-700"><Crosshair size={12} className="inline mr-1" /><strong>Point 1:</strong> Now click the <strong>same point</strong> on the DWG fixture map below. The green dots are your fixtures.</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] font-semibold uppercase text-slate-500">DWG X</label>
-                <input type="number" step="any" value={p1DwgX} onChange={e => setP1DwgX(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" placeholder="e.g. 15000" />
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold uppercase text-slate-500">DWG Y</label>
-                <input type="number" step="any" value={p1DwgY} onChange={e => setP1DwgY(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" placeholder="e.g. 8000" />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => { setP1Draw(null); setStep('cal_p1_draw') }} className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600">Re-pick</button>
-              <button onClick={() => setStep('cal_p2_draw')} disabled={!p1DwgX || !p1DwgY}
-                className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg disabled:opacity-40">
-                Next — Point 2
-              </button>
-            </div>
+            <DwgDotMap onClick={handleDwgMapClick} label="Point 1" />
+            <button onClick={() => { setP1Draw(null); setStep('cal_p1_pdf') }} className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600">Back</button>
           </div>
         )}
 
-        {/* ── Calibration: Point 2 Draw ── */}
-        {step === 'cal_p2_draw' && (
+        {/* ── Calibration P2: Click on PDF ── */}
+        {step === 'cal_p2_pdf' && (
           <div className="space-y-3">
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-              <p className="text-xs text-purple-700"><Crosshair size={12} className="inline mr-1" />Click a second reference point, ideally far from Point 1 (e.g. opposite corner grid intersection). This is Point 2.</p>
+              <p className="text-xs text-purple-700"><Crosshair size={12} className="inline mr-1" /><strong>Point 2:</strong> Click a second point on the PDF, far from Point 1 (e.g. opposite corner grid).</p>
             </div>
             <div className="relative border border-slate-200 rounded-lg overflow-hidden">
-              <img ref={imgRef} src={drawing.image_url} alt="Drawing" className="w-full cursor-crosshair" onClick={handleImageClick} />
+              <img ref={imgRef} src={drawing.image_url} alt="Drawing" className="w-full cursor-crosshair" onClick={handlePdfClick} />
               {p1Draw && (
                 <div className="absolute w-4 h-4 bg-red-500 border-2 border-white rounded-full -translate-x-1/2 -translate-y-1/2 z-10 shadow pointer-events-none"
                   style={{ left: `${p1Draw.x}%`, top: `${p1Draw.y}%` }}>
@@ -347,35 +394,18 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
                 </div>
               )}
             </div>
-            <button onClick={() => setStep('cal_p1_coords')} className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600">Back</button>
+            <button onClick={() => { setP1Dwg(null); setStep('cal_p1_dwg') }} className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600">Back</button>
           </div>
         )}
 
-        {/* ── Calibration: Point 2 Coords ── */}
-        {step === 'cal_p2_coords' && (
+        {/* ── Calibration P2: Click same point on DWG map ── */}
+        {step === 'cal_p2_dwg' && dwgBounds && (
           <div className="space-y-3">
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-              <p className="text-xs text-purple-700">Point 2 placed at ({p2Draw?.x?.toFixed(1)}%, {p2Draw?.y?.toFixed(1)}%). Enter the matching DWG coordinates.</p>
+              <p className="text-xs text-purple-700"><Crosshair size={12} className="inline mr-1" /><strong>Point 2:</strong> Click the <strong>same point</strong> on the DWG fixture map. P1 is shown in red.</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] font-semibold uppercase text-slate-500">DWG X</label>
-                <input type="number" step="any" value={p2DwgX} onChange={e => setP2DwgX(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" placeholder="e.g. 45000" />
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold uppercase text-slate-500">DWG Y</label>
-                <input type="number" step="any" value={p2DwgY} onChange={e => setP2DwgY(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" placeholder="e.g. 22000" />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => { setP2Draw(null); setStep('cal_p2_draw') }} className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600">Re-pick</button>
-              <button onClick={generatePreview} disabled={!p2DwgX || !p2DwgY}
-                className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg disabled:opacity-40">
-                <Eye size={14} className="inline mr-1.5" />Preview
-              </button>
-            </div>
+            <DwgDotMap onClick={handleDwgMapClick} label="Point 2" />
+            <button onClick={() => { setP2Draw(null); setStep('cal_p2_pdf') }} className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600">Back</button>
           </div>
         )}
 
@@ -383,7 +413,7 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
         {step === 'preview' && (
           <div className="space-y-3">
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <p className="text-xs text-green-700"><Check size={12} className="inline mr-1" />{mappedPoints.length} fixtures mapped. Check the dots look correct on the drawing, then confirm to insert.</p>
+              <p className="text-xs text-green-700"><Check size={12} className="inline mr-1" />{mappedPoints.length} fixtures mapped. Check they look correct, then confirm.</p>
             </div>
             <div className="relative border border-slate-200 rounded-lg overflow-hidden">
               <img src={drawing.image_url} alt="Drawing" className="w-full" />
@@ -391,18 +421,10 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
                 <div key={i} className="absolute w-2 h-2 bg-red-500 rounded-full -translate-x-1/2 -translate-y-1/2 opacity-80 pointer-events-none"
                   style={{ left: `${pt.x}%`, top: `${pt.y}%` }} />
               ))}
-              {/* Calibration markers */}
-              {p1Draw && (
-                <div className="absolute w-3 h-3 bg-red-600 border-2 border-white rounded-full -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none"
-                  style={{ left: `${p1Draw.x}%`, top: `${p1Draw.y}%` }} />
-              )}
-              {p2Draw && (
-                <div className="absolute w-3 h-3 bg-purple-600 border-2 border-white rounded-full -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none"
-                  style={{ left: `${p2Draw.x}%`, top: `${p2Draw.y}%` }} />
-              )}
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setStep('cal_p1_draw')} className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600 flex items-center gap-1.5">
+              <button onClick={() => { setP1Draw(null); setP1Dwg(null); setP2Draw(null); setP2Dwg(null); setStep('cal_p1_pdf') }}
+                className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600 flex items-center gap-1.5">
                 <RotateCcw size={13} /> Re-calibrate
               </button>
               <LoadingButton onClick={batchInsert} className="flex-1 bg-green-600 text-white text-sm">
