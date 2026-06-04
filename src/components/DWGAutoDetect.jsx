@@ -161,32 +161,36 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
     }
   }
 
+  // Convert DWG coord to percentage for rendering (Y flipped: DWG Y-up → screen Y-down)
+  function dwgToPct(dwgX, dwgY) {
+    if (!dwgBounds) return { x: 0, y: 0 }
+    const x = ((dwgX - dwgBounds.minX) / (dwgBounds.maxX - dwgBounds.minX)) * 100
+    const y = ((dwgBounds.maxY - dwgY) / (dwgBounds.maxY - dwgBounds.minY)) * 100
+    return { x, y }
+  }
+
   function handleDwgMapClick(e) {
     if (!dwgMapRef.current || !dwgBounds) return
-    // Use the SVG element for precise coordinates (avoids letterbox offset)
-    const svg = dwgMapRef.current.querySelector('svg')
-    if (!svg) return
-    const rect = svg.getBoundingClientRect()
+    const rect = dwgMapRef.current.getBoundingClientRect()
     const pctX = (e.clientX - rect.left) / rect.width
     const pctY = (e.clientY - rect.top) / rect.height
-    // Convert from SVG percentage to DWG coordinates
-    const rawDwgX = dwgBounds.minX + pctX * (dwgBounds.maxX - dwgBounds.minX)
-    const rawDwgY = dwgBounds.maxY - pctY * (dwgBounds.maxY - dwgBounds.minY) // Y flipped
 
-    // Snap to nearest fixture for precision
+    // Snap to nearest fixture using SCREEN distance (not DWG distance)
+    // This ensures the visually closest dot is selected
     let nearest = null, nearestDist = Infinity
     for (const ins of selectedInserts) {
-      const dx = ins.x - rawDwgX
-      const dy = ins.y - rawDwgY
+      const dot = dwgToPct(ins.x, ins.y)
+      const dx = dot.x / 100 - pctX
+      const dy = dot.y / 100 - pctY
       const dist = dx * dx + dy * dy
       if (dist < nearestDist) {
         nearestDist = dist
         nearest = ins
       }
     }
-    const point = nearest
-      ? { x: nearest.x, y: nearest.y }
-      : { x: Math.round(rawDwgX * 100) / 100, y: Math.round(rawDwgY * 100) / 100 }
+
+    if (!nearest) return
+    const point = { x: nearest.x, y: nearest.y }
 
     if (step === 'cal_p1_dwg') {
       setP1Dwg(point)
@@ -195,14 +199,6 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
       setP2Dwg(point)
       generatePreview(point)
     }
-  }
-
-  // Convert DWG coord to SVG percentage for rendering on the dot map
-  function dwgToSvgPct(dwgX, dwgY) {
-    if (!dwgBounds) return { x: 0, y: 0 }
-    const x = ((dwgX - dwgBounds.minX) / (dwgBounds.maxX - dwgBounds.minX)) * 100
-    const y = ((dwgBounds.maxY - dwgY) / (dwgBounds.maxY - dwgBounds.minY)) * 100 // flip Y
-    return { x, y }
   }
 
   // ── Preview ──
@@ -294,29 +290,33 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
     toast.success(`${inserted} items auto-placed`)
   }
 
-  // ── DWG Dot Map SVG ──
-  function DwgDotMap({ onClick, label, markerPoint, markerColor }) {
+  // ── DWG Dot Map (div-based, same approach as PDF markers) ──
+  function DwgDotMap({ onClick, label }) {
+    const aspectRatio = dwgBounds ? (dwgBounds.maxX - dwgBounds.minX) / (dwgBounds.maxY - dwgBounds.minY) : 1
     return (
-      <div className="relative border border-slate-200 rounded-lg overflow-hidden bg-slate-900 cursor-crosshair" ref={dwgMapRef} onClick={onClick}>
-        <svg viewBox="0 0 100 100" className="w-full" style={{ aspectRatio: dwgBounds ? `${dwgBounds.maxX - dwgBounds.minX} / ${dwgBounds.maxY - dwgBounds.minY}` : '1' }} preserveAspectRatio="xMidYMid meet">
-          {/* Grid dots for all selected inserts */}
-          {selectedInserts.map((ins, i) => {
-            const { x, y } = dwgToSvgPct(ins.x, ins.y)
-            return <circle key={i} cx={x} cy={y} r="0.6" fill="#4ade80" opacity="0.7" />
-          })}
-          {/* P1 marker if placed */}
-          {p1Dwg && (() => {
-            const { x, y } = dwgToSvgPct(p1Dwg.x, p1Dwg.y)
-            return <circle cx={x} cy={y} r="1.5" fill="#ef4444" stroke="white" strokeWidth="0.4" />
-          })()}
-          {/* Current marker */}
-          {markerPoint && (() => {
-            const { x, y } = dwgToSvgPct(markerPoint.x, markerPoint.y)
-            return <circle cx={x} cy={y} r="1.5" fill={markerColor || '#a855f7'} stroke="white" strokeWidth="0.4" />
-          })()}
-        </svg>
+      <div className="relative border border-slate-200 rounded-lg overflow-hidden bg-slate-900 cursor-crosshair"
+        ref={dwgMapRef} onClick={onClick}
+        style={{ aspectRatio, width: '100%' }}>
+        {/* Fixture dots */}
+        {selectedInserts.map((ins, i) => {
+          const { x, y } = dwgToPct(ins.x, ins.y)
+          return (
+            <div key={i} className="absolute w-1.5 h-1.5 rounded-full -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+              style={{ left: `${x}%`, top: `${y}%`, backgroundColor: '#4ade80', opacity: 0.7 }} />
+          )
+        })}
+        {/* P1 marker */}
+        {p1Dwg && (() => {
+          const { x, y } = dwgToPct(p1Dwg.x, p1Dwg.y)
+          return (
+            <div className="absolute w-4 h-4 bg-red-500 border-2 border-white rounded-full -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none"
+              style={{ left: `${x}%`, top: `${y}%` }}>
+              <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] bg-red-500 text-white px-1 rounded whitespace-nowrap">P1</span>
+            </div>
+          )
+        })()}
         <div className="absolute bottom-2 left-2 text-[10px] text-slate-400 bg-slate-800/80 px-2 py-1 rounded">
-          {label} — click the same point here
+          {label} — click the same fixture here
         </div>
       </div>
     )
