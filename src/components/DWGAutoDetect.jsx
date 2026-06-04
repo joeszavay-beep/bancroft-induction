@@ -151,14 +151,30 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
 
   function handleDwgMapClick(e) {
     if (!dwgMapRef.current || !dwgBounds) return
-    const rect = dwgMapRef.current.getBoundingClientRect()
+    // Use the SVG element for precise coordinates (avoids letterbox offset)
+    const svg = dwgMapRef.current.querySelector('svg')
+    if (!svg) return
+    const rect = svg.getBoundingClientRect()
     const pctX = (e.clientX - rect.left) / rect.width
     const pctY = (e.clientY - rect.top) / rect.height
     // Convert from SVG percentage to DWG coordinates
-    // Note: SVG Y is flipped (top=maxY, bottom=minY) because DWG Y goes up but screen Y goes down
-    const dwgX = dwgBounds.minX + pctX * (dwgBounds.maxX - dwgBounds.minX)
-    const dwgY = dwgBounds.maxY - pctY * (dwgBounds.maxY - dwgBounds.minY)
-    const point = { x: Math.round(dwgX * 100) / 100, y: Math.round(dwgY * 100) / 100 }
+    const rawDwgX = dwgBounds.minX + pctX * (dwgBounds.maxX - dwgBounds.minX)
+    const rawDwgY = dwgBounds.maxY - pctY * (dwgBounds.maxY - dwgBounds.minY) // Y flipped
+
+    // Snap to nearest fixture for precision
+    let nearest = null, nearestDist = Infinity
+    for (const ins of selectedInserts) {
+      const dx = ins.x - rawDwgX
+      const dy = ins.y - rawDwgY
+      const dist = dx * dx + dy * dy
+      if (dist < nearestDist) {
+        nearestDist = dist
+        nearest = ins
+      }
+    }
+    const point = nearest
+      ? { x: nearest.x, y: nearest.y }
+      : { x: Math.round(rawDwgX * 100) / 100, y: Math.round(rawDwgY * 100) / 100 }
 
     if (step === 'cal_p1_dwg') {
       setP1Dwg(point)
@@ -274,7 +290,7 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
           {/* Grid dots for all selected inserts */}
           {selectedInserts.map((ins, i) => {
             const { x, y } = dwgToSvgPct(ins.x, ins.y)
-            return <circle key={i} cx={x} cy={y} r="0.4" fill="#4ade80" opacity="0.6" />
+            return <circle key={i} cx={x} cy={y} r="0.6" fill="#4ade80" opacity="0.7" />
           })}
           {/* P1 marker if placed */}
           {p1Dwg && (() => {
@@ -418,7 +434,7 @@ export default function DWGAutoDetect({ open, onClose, drawing, companyId, onCom
             <div className="relative border border-slate-200 rounded-lg overflow-hidden">
               <img src={drawing.image_url} alt="Drawing" className="w-full" />
               {mappedPoints.map((pt, i) => (
-                <div key={i} className="absolute w-2 h-2 bg-red-500 rounded-full -translate-x-1/2 -translate-y-1/2 opacity-80 pointer-events-none"
+                <div key={i} className="absolute w-1.5 h-1.5 bg-red-500 rounded-full -translate-x-1/2 -translate-y-1/2 opacity-80 pointer-events-none"
                   style={{ left: `${pt.x}%`, top: `${pt.y}%` }} />
               ))}
             </div>
