@@ -43,7 +43,10 @@ export default function ProgressViewer() {
   const [history, setHistory] = useState([])
   const [undoStack, setUndoStack] = useState([]) // array of item ids that were placed
   const [redoStack, setRedoStack] = useState([]) // array of items that were undone
-  const [cursorPos, setCursorPos] = useState(null) // { x, y } for custom dot cursor
+  const cursorRef = useRef(null) // custom cursor element — positioned via ref to avoid per-move re-renders
+  const cursorRaf = useRef(null) // throttle cursor writes to one per animation frame
+  const cursorXY = useRef({ x: 0, y: 0 }) // latest pointer position
+  const [pastePos, setPastePos] = useState(null) // cursor pos for the paste-mode ghost preview (only updated while pasting)
   const mouseDownPos = useRef(null) // track click vs drag
   const skipNextReload = useRef(false) // skip realtime reload after own insert
   const containerRef = useRef(null)
@@ -55,6 +58,24 @@ export default function ProgressViewer() {
   const [project, setProject] = useState(null)
   const [isLive, setIsLive] = useState(false)
   const [fitScale, setFitScale] = useState(0.1)
+
+  // Move the custom cursor by writing transform straight to the DOM — no React re-render per mouse move,
+  // so the markers on the sheet stay put and the cursor tracks the pointer 1:1.
+  const moveCursor = (e) => {
+    cursorXY.current = { x: e.clientX, y: e.clientY }
+    if (cursorRaf.current) return
+    cursorRaf.current = requestAnimationFrame(() => {
+      cursorRaf.current = null
+      const el = cursorRef.current
+      if (!el) return
+      el.style.transform = `translate3d(${cursorXY.current.x}px, ${cursorXY.current.y}px, 0)`
+      el.style.opacity = '1'
+      // Only re-render for the paste ghost preview when actually in paste mode (throttled to once per frame)
+      if (clipboard) setPastePos({ x: cursorXY.current.x, y: cursorXY.current.y })
+    })
+  }
+  const hideCursor = () => { if (cursorRef.current) cursorRef.current.style.opacity = '0'; setPastePos(null) }
+  useEffect(() => () => { if (cursorRaf.current) cancelAnimationFrame(cursorRaf.current) }, [])
 
   // Track locally deleted IDs in sessionStorage so they survive navigation
   const deletedKey = `deleted_progress_${drawingId}`
@@ -757,54 +778,41 @@ export default function ProgressViewer() {
 
       {/* Drawing viewer — takes all remaining space */}
       <div ref={containerRef} className="flex-1 min-h-0 bg-slate-200 relative"
-        onMouseMove={(isMarking || isAnnotationMode) ? (e) => setCursorPos({ x: e.clientX, y: e.clientY }) : undefined}
-        onMouseLeave={() => setCursorPos(null)}>
+        onMouseMove={(isMarking || isAnnotationMode) ? moveCursor : undefined}
+        onMouseLeave={hideCursor}>
 
-        {/* Custom cursor */}
-        {cursorPos && isAnnotationMode && (
-          <div className="fixed pointer-events-none z-50" style={{ left: cursorPos.x, top: cursorPos.y, transform: 'translate(-50%, -50%)' }}>
-            {drawMode === 'circle' ? (
-              <div style={{ width: Math.max(10, dotSize * 2), height: Math.max(10, dotSize * 2), border: `2px solid ${annotationColour}`, backgroundColor: `${annotationColour}15`, borderRadius: '50%', boxShadow: '0 0 4px rgba(0,0,0,0.2)' }} />
-            ) : (
-              <div style={{ fontSize: 16, color: annotationColour, fontWeight: 700, textShadow: '0 0 4px rgba(255,255,255,0.9)' }}>{drawMode === 'text' ? 'T' : '💬'}</div>
-            )}
-          </div>
-        )}
-        {isMarking && cursorPos && activeColour && (
-          drawMode === 'dot' ? (
-            /* Dot cursor — coloured circle matching size */
-            <div className="fixed pointer-events-none z-50" style={{
-              left: cursorPos.x, top: cursorPos.y,
-              width: Math.max(6, dotSize), height: Math.max(6, dotSize),
-              backgroundColor: STATUS_COLORS[activeColour],
-              borderRadius: '50%',
-              opacity: 0.7,
-              transform: 'translate(-50%, -50%)',
-              border: '1px solid rgba(255,255,255,0.5)',
-              boxShadow: '0 0 4px rgba(0,0,0,0.3)',
-            }} />
-          ) : drawMode === 'circle' ? (
-            /* Circle cursor — ring matching size */
-            <div className="fixed pointer-events-none z-50" style={{
-              left: cursorPos.x, top: cursorPos.y,
-              width: Math.max(10, dotSize * 2), height: Math.max(10, dotSize * 2),
-              border: `2px solid ${STATUS_COLORS[activeColour]}`,
-              backgroundColor: `${STATUS_COLORS[activeColour]}15`,
-              borderRadius: '50%',
-              transform: 'translate(-50%, -50%)',
-              boxShadow: '0 0 4px rgba(0,0,0,0.2)',
-            }} />
-          ) : (drawMode === 'line' || drawMode === 'polyline') ? (
-            /* Crosshair cursor — coloured to match selection */
-            <div className="fixed pointer-events-none z-50" style={{ left: cursorPos.x, top: cursorPos.y, transform: 'translate(-50%, -50%)' }}>
-              {/* Horizontal line */}
-              <div style={{ position: 'absolute', left: -12, top: -1, width: 24, height: 2, backgroundColor: STATUS_COLORS[activeColour], borderRadius: 1, boxShadow: '0 0 2px rgba(0,0,0,0.4)' }} />
-              {/* Vertical line */}
-              <div style={{ position: 'absolute', left: -1, top: -12, width: 2, height: 24, backgroundColor: STATUS_COLORS[activeColour], borderRadius: 1, boxShadow: '0 0 2px rgba(0,0,0,0.4)' }} />
-              {/* Centre dot */}
-              <div style={{ position: 'absolute', left: -3, top: -3, width: 6, height: 6, borderRadius: '50%', backgroundColor: STATUS_COLORS[activeColour], border: '1px solid rgba(255,255,255,0.7)' }} />
+        {/* Custom cursor — positioned via ref (moveCursor) so moving the mouse never re-renders the markers.
+            Appearance changes only when the tool/colour/size changes (rare); position is written straight to the DOM. */}
+        {(isMarking || isAnnotationMode) && (
+          <div
+            ref={(el) => { cursorRef.current = el; if (el && !el.style.transform) { el.style.transform = 'translate3d(-9999px, -9999px, 0)'; el.style.opacity = '0' } }}
+            className="fixed top-0 left-0 pointer-events-none z-50" style={{ willChange: 'transform' }}>
+            <div style={{ transform: 'translate(-50%, -50%)' }}>
+              {isAnnotationMode && (
+                drawMode === 'circle' ? (
+                  <div style={{ width: Math.max(10, dotSize * 2), height: Math.max(10, dotSize * 2), border: `2px solid ${annotationColour}`, backgroundColor: `${annotationColour}15`, borderRadius: '50%', boxShadow: '0 0 4px rgba(0,0,0,0.2)' }} />
+                ) : (
+                  <div style={{ fontSize: 16, color: annotationColour, fontWeight: 700, textShadow: '0 0 4px rgba(255,255,255,0.9)' }}>{drawMode === 'text' ? 'T' : '💬'}</div>
+                )
+              )}
+              {isMarking && activeColour && (
+                drawMode === 'dot' ? (
+                  /* Dot cursor — coloured circle matching size */
+                  <div style={{ width: Math.max(6, dotSize), height: Math.max(6, dotSize), backgroundColor: STATUS_COLORS[activeColour], borderRadius: '50%', opacity: 0.7, border: '1px solid rgba(255,255,255,0.5)', boxShadow: '0 0 4px rgba(0,0,0,0.3)' }} />
+                ) : drawMode === 'circle' ? (
+                  /* Circle cursor — ring matching size */
+                  <div style={{ width: Math.max(10, dotSize * 2), height: Math.max(10, dotSize * 2), border: `2px solid ${STATUS_COLORS[activeColour]}`, backgroundColor: `${STATUS_COLORS[activeColour]}15`, borderRadius: '50%', boxShadow: '0 0 4px rgba(0,0,0,0.2)' }} />
+                ) : (drawMode === 'line' || drawMode === 'polyline') ? (
+                  /* Crosshair cursor — coloured to match selection */
+                  <div style={{ position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: -12, top: -1, width: 24, height: 2, backgroundColor: STATUS_COLORS[activeColour], borderRadius: 1, boxShadow: '0 0 2px rgba(0,0,0,0.4)' }} />
+                    <div style={{ position: 'absolute', left: -1, top: -12, width: 2, height: 24, backgroundColor: STATUS_COLORS[activeColour], borderRadius: 1, boxShadow: '0 0 2px rgba(0,0,0,0.4)' }} />
+                    <div style={{ position: 'absolute', left: -3, top: -3, width: 6, height: 6, borderRadius: '50%', backgroundColor: STATUS_COLORS[activeColour], border: '1px solid rgba(255,255,255,0.7)' }} />
+                  </div>
+                ) : null
+              )}
             </div>
-          ) : null
+          </div>
         )}
         <TransformWrapper
           ref={transformRef}
@@ -831,7 +839,7 @@ export default function ProgressViewer() {
               <TransformComponent
                 wrapperStyle={{ width: '100%', height: '100%' }}
               >
-                <div className="relative inline-block" style={{ cursor: isMarking || isAnnotationMode ? 'none' : 'grab' }}
+                <div className="relative inline-block" style={{ cursor: isMarking || isAnnotationMode ? 'crosshair' : 'grab' }}
                   onPointerDown={(e) => { mouseDownPos.current = { x: e.clientX, y: e.clientY, time: Date.now() } }}
                   onPointerUp={(e) => {
                     if (!mouseDownPos.current) return
@@ -1007,10 +1015,10 @@ export default function ProgressViewer() {
                   )}
 
                   {/* Paste preview — full-size ghost at cursor position on drawing */}
-                  {clipboard && cursorPos && imageRef.current && (() => {
+                  {clipboard && pastePos && imageRef.current && (() => {
                     const rect = imageRef.current.getBoundingClientRect()
-                    const cx = ((cursorPos.x - rect.left) / rect.width) * 100
-                    const cy = ((cursorPos.y - rect.top) / rect.height) * 100
+                    const cx = ((pastePos.x - rect.left) / rect.width) * 100
+                    const cy = ((pastePos.y - rect.top) / rect.height) * 100
                     const color = STATUS_COLORS[clipboard.status] || '#B0B8C9'
                     const rScale = imageRef.current.clientWidth / (imageRef.current.naturalWidth || 1200)
 
