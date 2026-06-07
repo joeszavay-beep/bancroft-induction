@@ -7,7 +7,7 @@ import { offlineInsert, offlineDelete } from '../lib/syncQueue'
 import { toastOffline } from '../lib/offlineToast'
 import toast from 'react-hot-toast'
 import PrefetchButton from '../components/PrefetchButton'
-import { ArrowLeft, ZoomIn, ZoomOut, Maximize2, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check, Circle, Type, MessageSquareText } from 'lucide-react'
+import { ArrowLeft, ZoomIn, ZoomOut, Maximize2, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check, Circle, Type, MessageSquareText, MousePointerClick } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
 import { buildBranding } from '../lib/reportTemplate'
 import { useCompany } from '../lib/CompanyContext'
@@ -52,6 +52,8 @@ export default function ProgressViewer() {
   const containerRef = useRef(null)
   const transformRef = useRef(null)
   const [photoLightbox, setPhotoLightbox] = useState(null) // url for enlarged photo
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
   const [exporting, setExporting] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [exportPageSize, setExportPageSize] = useState('a1')
@@ -452,6 +454,55 @@ export default function ProgressViewer() {
     loadItems()
   }
 
+  async function batchUpdateStatus(newStatus) {
+    if (selectedIds.size === 0) return
+    const ids = [...selectedIds]
+    const now = new Date().toISOString()
+
+    // Update all in one query
+    const { error } = await supabase.from('progress_items').update({
+      status: newStatus, updated_at: now, updated_by: mgr.name,
+    }).in('id', ids)
+
+    if (error) {
+      toast.error('Failed to update items')
+      return
+    }
+
+    // Insert history records in batch
+    const historyRows = ids.map(id => {
+      const item = items.find(i => i.id === id)
+      return {
+        item_id: id, company_id: cid, drawing_id: drawingId,
+        previous_status: item?.status || 'red', new_status: newStatus,
+        changed_by: mgr.id, changed_by_name: mgr.name,
+      }
+    }).filter(h => h.previous_status !== newStatus)
+
+    if (historyRows.length > 0) {
+      await supabase.from('progress_item_history').insert(historyRows).catch(() => {})
+    }
+
+    toast.success(`${ids.length} items → ${STATUS_LABELS[newStatus]}`)
+    setSelectedIds(new Set())
+    setSelectMode(false)
+    loadItems()
+  }
+
+  function toggleSelectId(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function selectAllByStatus(status) {
+    const ids = progressItems.filter(i => i.status === status).map(i => i.id)
+    setSelectedIds(new Set(ids))
+  }
+
   async function deleteItem(item) {
     if (!confirm(`Delete item #${item.item_number}?`)) return
     // Remove from UI immediately (optimistic)
@@ -631,6 +682,10 @@ export default function ProgressViewer() {
             <Redo2 size={16} />
           </button>
           <PrefetchButton drawingId={drawingId} projectId={drawing?.project_id} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors" />
+          <button onClick={() => { setSelectMode(m => !m); setSelectedIds(new Set()); setActiveColour(null) }}
+            className={`p-2 rounded-lg transition-colors ${selectMode ? 'bg-blue-500 text-white' : 'hover:bg-white/10 text-white'}`} title="Select mode">
+            <MousePointerClick size={16} />
+          </button>
           <button onClick={() => setShowExportDialog(true)} disabled={exporting} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors" title="Export PDF">
             {exporting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download size={16} />}
           </button>
@@ -861,7 +916,11 @@ export default function ProgressViewer() {
                   {/* Items: dots, lines, polylines, photos */}
                   {imageLoaded && items.map(item => {
                     const color = STATUS_COLORS[item.status] || '#B0B8C9'
-                    const clickHandler = (e) => { e.stopPropagation(); if (!isMarking) { setSelectedItem(item); loadItemHistory(item.id) } }
+                    const clickHandler = (e) => {
+                      e.stopPropagation()
+                      if (selectMode) { toggleSelectId(item.id); return }
+                      if (!isMarking) { setSelectedItem(item); loadItemHistory(item.id) }
+                    }
                     // Scale sizes relative to image — sizes were authored at ~1200px wide
                     const imgEl = imageRef.current
                     const renderScale = imgEl ? imgEl.clientWidth / (imgEl.naturalWidth || 1200) : 1
@@ -973,12 +1032,17 @@ export default function ProgressViewer() {
                     }
 
                     // Default: dot
+                    const isSelected = selectMode && selectedIds.has(item.id)
                     return (
                       <button key={item.id} onClick={clickHandler}
                         className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-150"
-                        style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: isMarking ? 'none' : 'auto' }}>
+                        style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: (isMarking && !selectMode) ? 'none' : 'auto' }}>
                         <div className="rounded-full"
-                          style={{ width: `${itemSize}px`, height: `${itemSize}px`, backgroundColor: `${color}70` }} />
+                          style={{
+                            width: `${itemSize}px`, height: `${itemSize}px`, backgroundColor: `${color}70`,
+                            outline: isSelected ? '3px solid #3b82f6' : 'none',
+                            outlineOffset: '2px',
+                          }} />
                       </button>
                     )
                   })}
@@ -1122,6 +1186,48 @@ export default function ProgressViewer() {
             <button onClick={() => setPendingText(null)} className="px-4 py-2.5 text-sm text-[#6B7A99] hover:bg-[#F5F6F8] rounded-lg border border-[#E2E6EA]">
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Multi-select action bar */}
+      {selectMode && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_12px_rgba(0,0,0,0.1)] px-4 py-3 safe-area-bottom">
+          <div className="max-w-lg mx-auto">
+            {/* Quick select buttons */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase">Select all:</span>
+              {Object.entries(STATUS_COLORS).map(([status, color]) => {
+                const count = progressItems.filter(i => i.status === status).length
+                return (
+                  <button key={status} onClick={() => selectAllByStatus(status)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-colors hover:opacity-80"
+                    style={{ borderColor: color, color }}>
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                    {STATUS_LABELS[status]} ({count})
+                  </button>
+                )
+              })}
+              {selectedIds.size > 0 && (
+                <button onClick={() => setSelectedIds(new Set())} className="text-[11px] text-slate-400 underline ml-auto">Clear</button>
+              )}
+            </div>
+            {/* Change selected to... */}
+            {selectedIds.size > 0 ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold text-slate-900">{selectedIds.size} selected</span>
+                <span className="text-xs text-slate-400">Change to:</span>
+                {Object.entries(STATUS_COLORS).map(([status, color]) => (
+                  <button key={status} onClick={() => batchUpdateStatus(status)}
+                    className="flex-1 py-2.5 rounded-lg text-white text-sm font-bold transition-colors hover:opacity-90"
+                    style={{ backgroundColor: color }}>
+                    {STATUS_LABELS[status]}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 text-center">Tap dots to select them, or use the quick select buttons above</p>
+            )}
           </div>
         </div>
       )}
