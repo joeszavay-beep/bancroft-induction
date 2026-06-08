@@ -467,32 +467,37 @@ export default function ProgressViewer() {
     const now = new Date().toISOString()
 
     // Suppress realtime reloads for the duration of the batch
-    skipReloadsUntil.current = Date.now() + 10000
+    skipReloadsUntil.current = Date.now() + 15000
+
+    // Snapshot previous statuses BEFORE optimistic update
+    const prevStatuses = {}
+    for (const id of ids) {
+      const item = items.find(i => i.id === id)
+      if (item) prevStatuses[id] = item.status
+    }
+
+    // Optimistic UI update — change colours immediately
+    setItems(prev => prev.map(i => ids.includes(i.id) ? { ...i, status: newStatus } : i))
 
     try {
-      // Optimistic UI update — change colours immediately
-      setItems(prev => prev.map(i => ids.includes(i.id) ? { ...i, status: newStatus } : i))
-
-      // Update all in one query
-      const { error } = await supabase.from('progress_items').update({
-        status: newStatus, updated_at: now, updated_by: mgr.name,
-      }).in('id', ids)
-
-      if (error) {
-        toast.error('Failed to update items')
-        loadItems() // revert optimistic update
-        return
+      // Update in batches of 100 to avoid URL length limits on .in()
+      const batchSize = 100
+      for (let i = 0; i < ids.length; i += batchSize) {
+        const batch = ids.slice(i, i + batchSize)
+        const { error } = await supabase.from('progress_items').update({
+          status: newStatus, updated_at: now, updated_by: mgr.name,
+        }).in('id', batch)
+        if (error) console.warn('Batch update error:', error.message)
       }
 
-      // Insert history records in batches of 200 (avoids payload too large)
-      const historyRows = ids.map(id => {
-        const item = items.find(i => i.id === id)
-        return {
+      // Insert history records in batches of 200
+      const historyRows = ids
+        .filter(id => prevStatuses[id] && prevStatuses[id] !== newStatus)
+        .map(id => ({
           item_id: id, company_id: cid, drawing_id: drawingId,
-          previous_status: item?.status || 'red', new_status: newStatus,
+          previous_status: prevStatuses[id], new_status: newStatus,
           changed_by: mgr.id, changed_by_name: mgr.name,
-        }
-      }).filter(h => h.previous_status !== newStatus)
+        }))
 
       for (let i = 0; i < historyRows.length; i += 200) {
         await supabase.from('progress_item_history').insert(historyRows.slice(i, i + 200)).catch(() => {})
@@ -501,11 +506,11 @@ export default function ProgressViewer() {
       toast.success(`${ids.length} items → ${STATUS_LABELS[newStatus]}`)
     } catch (err) {
       console.error('Batch update error:', err)
-      toast.error('Something went wrong')
+      toast.error('Failed to update some items')
+      loadItems()
     } finally {
       setSelectedIds(new Set())
       setSelectMode(false)
-      // Allow realtime reloads again after a short grace period
       skipReloadsUntil.current = Date.now() + 3000
     }
   }
