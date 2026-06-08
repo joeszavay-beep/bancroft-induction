@@ -101,7 +101,7 @@ export default function PlantEquipment() {
     })()
   }, [projectId, cid])
 
-  // Load map pins when floor changes
+  // Load map pins when floor changes or map view opens
   useEffect(() => {
     if (!selectedMapFloor || !projectId || viewMode !== 'map') return
     ;(async () => {
@@ -110,8 +110,9 @@ export default function PlantEquipment() {
         const params = new URLSearchParams({ action: 'equipment-map', projectId, floor: selectedMapFloor })
         const res = await authFetch(`/api/plant-equipment?${params}`)
         const data = await res.json()
+        console.log('[equipment-map]', { floor: selectedMapFloor, pins: data.pins?.length, error: data.error, raw: data })
         setMapPins(data.pins || [])
-      } catch { setMapPins([]) }
+      } catch (err) { console.error('[equipment-map] fetch error:', err); setMapPins([]) }
       setLoadingMap(false)
     })()
   }, [selectedMapFloor, projectId, viewMode])
