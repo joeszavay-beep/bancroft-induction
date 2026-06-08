@@ -7,7 +7,7 @@ import { offlineInsert, offlineDelete } from '../lib/syncQueue'
 import { toastOffline } from '../lib/offlineToast'
 import toast from 'react-hot-toast'
 import PrefetchButton from '../components/PrefetchButton'
-import { ArrowLeft, ZoomIn, ZoomOut, Maximize2, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check, Circle, Type, MessageSquareText, MousePointerClick } from 'lucide-react'
+import { ArrowLeft, ZoomIn, ZoomOut, Maximize2, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check, Circle, Type, MessageSquareText, MousePointerClick, ChevronUp, ChevronDown } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
 import { buildBranding } from '../lib/reportTemplate'
 import { useCompany } from '../lib/CompanyContext'
@@ -32,6 +32,64 @@ class ProgressErrorBoundary extends Component {
     }
     return this.props.children
   }
+}
+
+function SelectPill({ selectedIds, setSelectedIds, progressItems, selectAllByStatus, batchUpdateStatus }) {
+  const [expanded, setExpanded] = useState(false)
+  const count = selectedIds.size
+  return (
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40" style={{ pointerEvents: 'auto' }}>
+      {!expanded ? (
+        // Collapsed pill — just shows count, tap to expand
+        <button onClick={() => setExpanded(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-full shadow-lg text-sm font-bold text-slate-900 hover:shadow-xl transition-shadow">
+          <MousePointerClick size={14} className="text-blue-500" />
+          {count > 0 ? `${count} selected` : 'Select dots'}
+          <ChevronUp size={14} className="text-slate-400" />
+        </button>
+      ) : (
+        // Expanded panel
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 w-[340px] max-w-[90vw]">
+          {/* Close / collapse */}
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-bold text-slate-900">{count > 0 ? `${count} selected` : 'Select mode'}</span>
+            <button onClick={() => setExpanded(false)} className="p-1 text-slate-400 hover:text-slate-600"><ChevronDown size={16} /></button>
+          </div>
+          {/* Quick select buttons */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {Object.entries(STATUS_COLORS).map(([status, color]) => {
+              const c = progressItems.filter(i => i.status === status).length
+              return (
+                <button key={status} onClick={() => selectAllByStatus(status)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold hover:opacity-80"
+                  style={{ borderColor: color, color }}>
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                  All {STATUS_LABELS[status]} ({c})
+                </button>
+              )
+            })}
+            {count > 0 && (
+              <button onClick={() => setSelectedIds(new Set())} className="text-[11px] text-slate-400 underline px-2">Clear</button>
+            )}
+          </div>
+          {/* Change colour */}
+          {count > 0 ? (
+            <div className="flex gap-2">
+              {Object.entries(STATUS_COLORS).map(([status, color]) => (
+                <button key={status} onClick={() => { batchUpdateStatus(status); setExpanded(false) }}
+                  className="flex-1 py-2 rounded-lg text-white text-xs font-bold hover:opacity-90"
+                  style={{ backgroundColor: color }}>
+                  {STATUS_LABELS[status]}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 text-center">Tap dots to select, or use quick select above</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 const STATUS_COLORS = { green: '#2EA043', yellow: '#D29922', red: '#DA3633' }
@@ -1252,46 +1310,15 @@ function ProgressViewer() {
         </div>
       )}
 
-      {/* Multi-select action bar */}
+      {/* Multi-select floating pill */}
       {selectMode && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_12px_rgba(0,0,0,0.1)] px-4 py-3 safe-area-bottom">
-          <div className="max-w-lg mx-auto">
-            {/* Quick select buttons */}
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase">Select all:</span>
-              {Object.entries(STATUS_COLORS).map(([status, color]) => {
-                const count = progressItems.filter(i => i.status === status).length
-                return (
-                  <button key={status} onClick={() => selectAllByStatus(status)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-colors hover:opacity-80"
-                    style={{ borderColor: color, color }}>
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-                    {STATUS_LABELS[status]} ({count})
-                  </button>
-                )
-              })}
-              {selectedIds.size > 0 && (
-                <button onClick={() => setSelectedIds(new Set())} className="text-[11px] text-slate-400 underline ml-auto">Clear</button>
-              )}
-            </div>
-            {/* Change selected to... */}
-            {selectedIds.size > 0 ? (
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-bold text-slate-900">{selectedIds.size} selected</span>
-                <span className="text-xs text-slate-400">Change to:</span>
-                {Object.entries(STATUS_COLORS).map(([status, color]) => (
-                  <button key={status} onClick={() => batchUpdateStatus(status)}
-                    className="flex-1 py-2.5 rounded-lg text-white text-sm font-bold transition-colors hover:opacity-90"
-                    style={{ backgroundColor: color }}>
-                    {STATUS_LABELS[status]}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 text-center">Tap dots to select them, or use the quick select buttons above</p>
-            )}
-          </div>
-        </div>
+        <SelectPill
+          selectedIds={selectedIds}
+          setSelectedIds={setSelectedIds}
+          progressItems={progressItems}
+          selectAllByStatus={selectAllByStatus}
+          batchUpdateStatus={batchUpdateStatus}
+        />
       )}
 
       {/* Item detail panel */}
