@@ -91,7 +91,7 @@ export default function EquipmentCheck() {
       const checklist = checklistItems.map((item, i) => ({ item, passed: checkResults[i] === true }))
       const allPassed = checklist.every(c => c.passed)
 
-      const res = await authFetch('/api/plant-equipment?action=check', {
+      const res = await fetch('/api/plant-equipment?action=check', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           equipmentId: equipment.id,

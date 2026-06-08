@@ -45,6 +45,32 @@ export default async function handler(req, res) {
     return res.json({ items: data?.items || [] })
   }
 
+  // ── Equipment check — public (operatives may not have auth JWT) ──
+  if (req.method === 'POST' && action === 'check') {
+    const b = req.body
+    if (!b.equipmentId || !b.operativeName) return res.status(400).json({ error: 'Missing required fields' })
+    const { data: eq } = await supabase.from('equipment').select('id, status, company_id, project_id').eq('id', b.equipmentId).single()
+    if (!eq) return res.status(404).json({ error: 'Equipment not found' })
+    if (eq.status === 'Defective') return res.status(400).json({ error: 'Equipment is defective — cannot check in' })
+    if (eq.status === 'Off-Hire') return res.status(400).json({ error: 'Equipment is off-hire' })
+    const { data, error } = await supabase.from('equipment_checks').insert({
+      equipment_id: b.equipmentId,
+      company_id: eq.company_id,
+      project_id: eq.project_id,
+      operative_id: b.operativeId || null,
+      operative_name: b.operativeName,
+      checklist: b.checklist || [],
+      all_passed: b.allPassed !== false,
+      floor: b.floor || null,
+      location: b.location || null,
+      pin_x: b.pinX ?? null,
+      pin_y: b.pinY ?? null,
+      notes: b.notes || null,
+    }).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    return res.json({ success: true, check: data })
+  }
+
   // ── Auth required for all other actions ──
   const { user, error: authErr } = await verifyAuth(req)
   if (!user) return res.status(401).json({ error: authErr || 'Unauthorized' })
@@ -256,35 +282,6 @@ export default async function handler(req, res) {
 
       if (error) return res.status(500).json({ error: error.message })
       return res.json({ success: true, item: data })
-    }
-
-    if (action === 'check') {
-      const b = req.body
-      if (!b.equipmentId || !b.operativeName) return res.status(400).json({ error: 'Missing required fields' })
-
-      // Verify equipment exists and is in service
-      const { data: eq } = await supabase.from('equipment').select('id, status, company_id, project_id').eq('id', b.equipmentId).single()
-      if (!eq) return res.status(404).json({ error: 'Equipment not found' })
-      if (eq.status === 'Defective') return res.status(400).json({ error: 'Equipment is defective — cannot check in' })
-      if (eq.status === 'Off-Hire') return res.status(400).json({ error: 'Equipment is off-hire' })
-
-      const { data, error } = await supabase.from('equipment_checks').insert({
-        equipment_id: b.equipmentId,
-        company_id: eq.company_id,
-        project_id: eq.project_id,
-        operative_id: b.operativeId || null,
-        operative_name: b.operativeName,
-        checklist: b.checklist || [],
-        all_passed: b.allPassed !== false,
-        floor: b.floor || null,
-        location: b.location || null,
-        pin_x: b.pinX ?? null,
-        pin_y: b.pinY ?? null,
-        notes: b.notes || null,
-      }).select().single()
-
-      if (error) return res.status(500).json({ error: error.message })
-      return res.json({ success: true, check: data })
     }
 
     if (action === 'defect') {
