@@ -286,6 +286,63 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh, c
   const [docTitle, setDocTitle] = useState('')
   const [expandedProject, setExpandedProject] = useState(null)
 
+  // Floor levels state
+  const [floorsByProject, setFloorsByProject] = useState({})
+  const [floorPlanToggles, setFloorPlanToggles] = useState({})
+  const [newFloorName, setNewFloorName] = useState({})
+  const [floorUploading, setFloorUploading] = useState(null)
+  const [floorSaving, setFloorSaving] = useState(false)
+
+  async function loadFloors(projectId) {
+    const { data } = await supabase.from('project_floors').select('*').eq('project_id', projectId).order('sort_order')
+    setFloorsByProject(prev => ({ ...prev, [projectId]: data || [] }))
+  }
+
+  async function addFloor(projectId) {
+    const name = (newFloorName[projectId] || '').trim()
+    if (!name) return
+    setFloorSaving(true)
+    const floors = floorsByProject[projectId] || []
+    const { error } = await supabase.from('project_floors').insert({
+      project_id: projectId, company_id: cid, name, sort_order: floors.length,
+    })
+    setFloorSaving(false)
+    if (error) { toast.error(error.message.includes('unique') ? 'Floor name already exists' : 'Failed to add floor'); return }
+    setNewFloorName(prev => ({ ...prev, [projectId]: '' }))
+    toast.success(`${name} added`)
+    loadFloors(projectId)
+  }
+
+  async function deleteFloor(floorId, projectId) {
+    if (!confirm('Delete this floor level?')) return
+    await supabase.from('project_floors').delete().eq('id', floorId)
+    toast.success('Floor deleted')
+    loadFloors(projectId)
+  }
+
+  async function uploadFloorPlan(floor, projectId, file) {
+    if (!file) return
+    setFloorUploading(floor.id)
+    try {
+      let blob = file
+      if (file.type === 'application/pdf') {
+        const { pdfToImage } = await import('../lib/pdfToImage')
+        blob = await pdfToImage(file)
+      }
+      const path = `${cid}/${floor.id}.png`
+      const { error: upErr } = await supabase.storage.from('floor-plans').upload(path, blob, { upsert: true, contentType: 'image/png' })
+      if (upErr) throw upErr
+      const { data: urlData } = supabase.storage.from('floor-plans').getPublicUrl(path)
+      await supabase.from('project_floors').update({ image_url: urlData.publicUrl }).eq('id', floor.id)
+      toast.success('Floor plan uploaded')
+      loadFloors(projectId)
+    } catch (err) {
+      console.error('Floor plan upload error:', err)
+      toast.error('Failed to upload floor plan')
+    }
+    setFloorUploading(null)
+  }
+
   async function addProject(e) {
     e.preventDefault()
     if (!name.trim()) return
@@ -553,7 +610,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh, c
             return (
               <div key={p.id} className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
                 {/* Project header */}
-                <button onClick={() => setExpandedProject(expanded ? null : p.id)} className="w-full text-left p-5">
+                <button onClick={() => { const next = expanded ? null : p.id; setExpandedProject(next); if (next && !floorsByProject[next]) loadFloors(next) }} className="w-full text-left p-5">
                   <div className="flex items-start justify-between mb-3">
                     <div className="min-w-0">
                       <h3 className="text-base font-bold truncate" style={{ color: 'var(--text-primary)' }}>{p.name}</h3>
@@ -719,6 +776,71 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh, c
                         {!gfEnabled && p.site_latitude && (
                           <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Geofence is off — location is saved but not enforced. Toggle on above to activate.</p>
                         )}
+                      </div>
+                    </div>
+                      )
+                    })()}
+
+                    {/* Floor Levels */}
+                    {(() => {
+                      const fpEnabled = p.id in floorPlanToggles ? floorPlanToggles[p.id] : !!p.floor_plans_enabled
+                      const floors = floorsByProject[p.id] || []
+                      return (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                          Floor Levels
+                          <span className="text-[10px] font-semibold normal-case tracking-normal" style={{ color: fpEnabled ? '#2EA043' : 'var(--text-muted)' }}>
+                            Floor Plans {fpEnabled ? 'On' : 'Off'}
+                          </span>
+                        </h4>
+                        <button onClick={async () => {
+                          const next = !fpEnabled
+                          setFloorPlanToggles(prev => ({ ...prev, [p.id]: next }))
+                          const { error } = await supabase.from('projects').update({ floor_plans_enabled: next }).eq('id', p.id)
+                          if (error) { setFloorPlanToggles(prev => ({ ...prev, [p.id]: !next })); toast.error('Failed to update'); return }
+                          toast.success(next ? 'Floor plans enabled' : 'Floor plans disabled')
+                          onRefresh()
+                        }} className="relative w-10 h-[22px] rounded-full transition-colors" style={{ backgroundColor: fpEnabled ? '#2EA043' : 'var(--border-color)' }}>
+                          <div className="absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-all" style={{ left: fpEnabled ? 20 : 2 }} />
+                        </button>
+                      </div>
+                      <div className="rounded-lg p-3 space-y-2" style={{ backgroundColor: 'var(--bg-main)' }}>
+                        {floors.length === 0 && (
+                          <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>No floors defined. Add floors so operatives can select them during equipment check-in.</p>
+                        )}
+                        {floors.map(fl => (
+                          <div key={fl.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md" style={{ backgroundColor: 'var(--bg-card)' }}>
+                            <span className="text-sm font-medium flex-1" style={{ color: 'var(--text-primary)' }}>{fl.name}</span>
+                            {fl.image_url ? (
+                              <img src={fl.image_url} alt="" className="w-8 h-8 rounded object-cover border" style={{ borderColor: 'var(--border-color)' }} />
+                            ) : (
+                              <label className="text-[10px] font-medium px-2 py-1 rounded cursor-pointer hover:opacity-80" style={{ color: 'var(--primary-color)', backgroundColor: 'var(--bg-main)' }}>
+                                {floorUploading === fl.id ? '...' : 'Upload Plan'}
+                                <input type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden"
+                                  onChange={e => { if (e.target.files[0]) uploadFloorPlan(fl, p.id, e.target.files[0]) }} />
+                              </label>
+                            )}
+                            {fl.image_url && (
+                              <label className="text-[10px] cursor-pointer hover:opacity-80" style={{ color: 'var(--text-muted)' }}>
+                                Replace
+                                <input type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden"
+                                  onChange={e => { if (e.target.files[0]) uploadFloorPlan(fl, p.id, e.target.files[0]) }} />
+                              </label>
+                            )}
+                            <button onClick={() => deleteFloor(fl.id, p.id)} className="p-1 text-[#DA3633] hover:opacity-70"><Trash2 size={12} /></button>
+                          </div>
+                        ))}
+                        <div className="flex items-center gap-2 mt-1">
+                          <input type="text" value={newFloorName[p.id] || ''} onChange={e => setNewFloorName(prev => ({ ...prev, [p.id]: e.target.value }))}
+                            onKeyDown={e => { if (e.key === 'Enter') addFloor(p.id) }}
+                            placeholder="e.g. Level 10" className="flex-1 px-2.5 py-1.5 rounded border text-xs"
+                            style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }} />
+                          <button onClick={() => addFloor(p.id)} disabled={floorSaving || !(newFloorName[p.id] || '').trim()}
+                            className="px-3 py-1.5 rounded text-xs font-semibold text-white disabled:opacity-40" style={{ backgroundColor: 'var(--primary-color)' }}>
+                            Add
+                          </button>
+                        </div>
                       </div>
                     </div>
                       )

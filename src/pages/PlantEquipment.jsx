@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Wrench, Plus, Search, ChevronDown, AlertTriangle, CheckCircle2, Clock, XCircle, QrCode, Printer, Eye, Shield, RefreshCw, Trash2, X, Camera } from 'lucide-react'
+import { Wrench, Plus, Search, ChevronDown, AlertTriangle, CheckCircle2, Clock, XCircle, QrCode, Printer, Eye, Shield, RefreshCw, Trash2, X, Camera, Map, List } from 'lucide-react'
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { QRCodeSVG } from 'qrcode.react'
 import toast from 'react-hot-toast'
+import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
 import { useProject } from '../lib/ProjectContext'
 import { authFetch } from '../lib/authFetch'
@@ -33,6 +35,15 @@ export default function PlantEquipment() {
   const [showDefectReport, setShowDefectReport] = useState(null)
   const [showResolve, setShowResolve] = useState(null)
   const [selected, setSelected] = useState(new Set())
+
+  // Map view state
+  const [viewMode, setViewMode] = useState('table')
+  const [projectFloors, setProjectFloors] = useState([])
+  const [floorPlansEnabled, setFloorPlansEnabled] = useState(false)
+  const [selectedMapFloor, setSelectedMapFloor] = useState('')
+  const [mapPins, setMapPins] = useState([])
+  const [selectedPin, setSelectedPin] = useState(null)
+  const [loadingMap, setLoadingMap] = useState(false)
 
   // Form state
   const [form, setForm] = useState({ description: '', type: '', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 })
@@ -72,6 +83,38 @@ export default function PlantEquipment() {
   }, [cid, projectId])
 
   useEffect(() => { loadItems(); loadDashboard() }, [loadItems, loadDashboard])
+
+  // Load project floors for map view
+  useEffect(() => {
+    if (!projectId || !cid) return
+    ;(async () => {
+      const [floorsRes, projRes] = await Promise.all([
+        supabase.from('project_floors').select('*').eq('project_id', projectId).order('sort_order'),
+        supabase.from('projects').select('floor_plans_enabled').eq('id', projectId).single(),
+      ])
+      setProjectFloors(floorsRes.data || [])
+      const enabled = projRes.data?.floor_plans_enabled || false
+      setFloorPlansEnabled(enabled)
+      // Auto-select first floor with an image
+      const firstWithImage = (floorsRes.data || []).find(f => f.image_url)
+      if (firstWithImage) setSelectedMapFloor(firstWithImage.name)
+    })()
+  }, [projectId, cid])
+
+  // Load map pins when floor changes
+  useEffect(() => {
+    if (!selectedMapFloor || !projectId || viewMode !== 'map') return
+    ;(async () => {
+      setLoadingMap(true)
+      try {
+        const params = new URLSearchParams({ action: 'equipment-map', projectId, floor: selectedMapFloor })
+        const res = await authFetch(`/api/plant-equipment?${params}`)
+        const data = await res.json()
+        setMapPins(data.pins || [])
+      } catch { setMapPins([]) }
+      setLoadingMap(false)
+    })()
+  }, [selectedMapFloor, projectId, viewMode])
 
   // ── CRUD ──
   async function handleSave() {
@@ -204,6 +247,18 @@ export default function PlantEquipment() {
           </div>
         </div>
         <div className="flex gap-2">
+          {floorPlansEnabled && projectId && (
+            <div className="flex rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-color)' }}>
+              <button onClick={() => setViewMode('table')} className="flex items-center gap-1 px-3 py-2 text-xs font-medium transition-colors"
+                style={{ backgroundColor: viewMode === 'table' ? 'var(--primary-color)' : 'transparent', color: viewMode === 'table' ? '#fff' : 'var(--text-muted)' }}>
+                <List size={14} /> Table
+              </button>
+              <button onClick={() => setViewMode('map')} className="flex items-center gap-1 px-3 py-2 text-xs font-medium transition-colors"
+                style={{ backgroundColor: viewMode === 'map' ? 'var(--primary-color)' : 'transparent', color: viewMode === 'map' ? '#fff' : 'var(--text-muted)' }}>
+                <Map size={14} /> Map
+              </button>
+            </div>
+          )}
           <button onClick={handlePrintLabels}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors hover:bg-black/[0.02]"
             style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
@@ -237,7 +292,7 @@ export default function PlantEquipment() {
       </div>
 
       {/* Filters */}
-      <div className="rounded-xl border p-4 flex flex-wrap items-center gap-3" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+      {viewMode === 'table' && <div className="rounded-xl border p-4 flex flex-wrap items-center gap-3" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <div className="relative flex-1 min-w-[180px]">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search equipment..."
@@ -262,10 +317,10 @@ export default function PlantEquipment() {
           </select>
           <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
         </div>
-      </div>
+      </div>}
 
       {/* Table */}
-      <div className="rounded-xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+      {viewMode === 'table' && <div className="rounded-xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -308,6 +363,7 @@ export default function PlantEquipment() {
                     </td>
                     <td className="px-3 py-2.5 text-xs" style={{ color: item.latest_check ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                       {item.latest_check ? `${fmtDate(item.latest_check.checked_at)} by ${item.latest_check.operative_name}` : 'Never'}
+                      {item.latest_check?.floor && <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-muted)' }}>{item.latest_check.floor}</span>}
                     </td>
                     <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>{item.hire_company || '\u2014'}</td>
                     <td className="px-3 py-2.5">
@@ -325,7 +381,88 @@ export default function PlantEquipment() {
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
+
+      {/* ═══ Equipment Map View ═══ */}
+      {viewMode === 'map' && floorPlansEnabled && (
+        <div className="rounded-xl border p-4 space-y-3" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>Floor:</label>
+            <select value={selectedMapFloor} onChange={e => { setSelectedMapFloor(e.target.value); setSelectedPin(null) }}
+              className="px-3 py-1.5 rounded-lg border text-sm"
+              style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
+              {projectFloors.filter(f => f.image_url).map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
+            </select>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{mapPins.length} item{mapPins.length !== 1 ? 's' : ''} on this floor</span>
+          </div>
+
+          {(() => {
+            const floorObj = projectFloors.find(f => f.name === selectedMapFloor)
+            if (!floorObj?.image_url) return <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>No floor plan uploaded for this floor.</p>
+            return (
+              <div className="relative rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-color)', height: 500 }}>
+                {loadingMap && (
+                  <div className="absolute inset-0 z-20 bg-white/60 flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--primary-color)' }} />
+                  </div>
+                )}
+                <TransformWrapper initialScale={1} minScale={0.3} maxScale={8} centerOnInit limitToBounds={false} wheel={{ step: 0.08 }} doubleClick={{ disabled: true }}>
+                  <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
+                    <div className="relative inline-block">
+                      <img src={floorObj.image_url} alt={floorObj.name} className="max-w-none select-none" draggable={false} />
+                      {mapPins.map(pin => (
+                        <button key={pin.equipment_id || pin.id} onClick={(e) => { e.stopPropagation(); setSelectedPin(selectedPin?.equipment_id === pin.equipment_id ? null : pin) }}
+                          className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-150"
+                          style={{ left: `${pin.pin_x}%`, top: `${pin.pin_y}%` }}>
+                          <div className="rounded-full border-2 border-white shadow-md"
+                            style={{ width: 14, height: 14, backgroundColor: STATUS_COLORS[pin.status] || '#7C828F' }} />
+                        </button>
+                      ))}
+                    </div>
+                  </TransformComponent>
+                </TransformWrapper>
+
+                {/* Pin popup */}
+                {selectedPin && (
+                  <div className="absolute top-3 left-3 z-30 bg-white rounded-xl shadow-lg border p-3 max-w-[260px]"
+                    style={{ borderColor: 'var(--border-color)' }}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{selectedPin.description}</p>
+                        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{selectedPin.type}</p>
+                      </div>
+                      <button onClick={() => setSelectedPin(null)} className="p-0.5 shrink-0" style={{ color: 'var(--text-muted)' }}><X size={14} /></button>
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[selectedPin.status] || '#7C828F' }} />
+                        <span className="text-xs font-medium" style={{ color: STATUS_COLORS[selectedPin.status] }}>{selectedPin.status}</span>
+                      </div>
+                      {selectedPin.operative_name && (
+                        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                          Checked by <strong>{selectedPin.operative_name}</strong>
+                        </p>
+                      )}
+                      {selectedPin.checked_at && (
+                        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                          {new Date(selectedPin.checked_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
+                      {selectedPin.serial_number && (
+                        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>SN: {selectedPin.serial_number}</p>
+                      )}
+                    </div>
+                    <button onClick={() => { setShowChecks(selectedPin); loadChecks(selectedPin.equipment_id || selectedPin.id) }}
+                      className="mt-2 text-[11px] font-medium underline" style={{ color: 'var(--primary-color)' }}>
+                      View check history
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+        </div>
+      )}
 
       {/* ═══ Add/Edit Modal ═══ */}
       {showAdd && (

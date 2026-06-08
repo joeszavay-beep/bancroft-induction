@@ -83,7 +83,7 @@ export default async function handler(req, res) {
       if (ids.length > 0) {
         const { data: checks } = await supabase
           .from('equipment_checks')
-          .select('equipment_id, checked_at, all_passed, operative_name')
+          .select('equipment_id, checked_at, all_passed, operative_name, floor')
           .in('equipment_id', ids)
           .order('checked_at', { ascending: false })
         if (checks) {
@@ -192,6 +192,41 @@ export default async function handler(req, res) {
       return res.json({ total, onSite, defective, checkedToday, overdue })
     }
 
+    // Equipment map — latest pin location per equipment on a given floor
+    if (action === 'equipment-map') {
+      const projectId = req.query.projectId
+      const floorName = req.query.floor
+      if (!projectId) return res.status(400).json({ error: 'Missing projectId' })
+
+      let q = supabase.from('equipment').select('id, description, type, serial_number, status')
+        .eq('company_id', callerCompanyId).eq('project_id', projectId)
+      const { data: items } = await q
+      if (!items?.length) return res.json({ pins: [] })
+
+      const ids = items.map(e => e.id)
+      const { data: checks } = await supabase.from('equipment_checks')
+        .select('equipment_id, floor, pin_x, pin_y, operative_name, checked_at')
+        .in('equipment_id', ids)
+        .not('pin_x', 'is', null)
+        .order('checked_at', { ascending: false })
+
+      // Latest check per equipment
+      const latest = {}
+      for (const c of (checks || [])) {
+        if (!latest[c.equipment_id]) latest[c.equipment_id] = c
+      }
+
+      // Filter to requested floor and merge with equipment data
+      const pins = Object.values(latest)
+        .filter(c => !floorName || c.floor === floorName)
+        .map(c => {
+          const eq = items.find(i => i.id === c.equipment_id)
+          return { ...eq, ...c }
+        })
+
+      return res.json({ pins })
+    }
+
     return res.status(400).json({ error: 'Unknown GET action' })
   }
 
@@ -243,6 +278,8 @@ export default async function handler(req, res) {
         all_passed: b.allPassed !== false,
         floor: b.floor || null,
         location: b.location || null,
+        pin_x: b.pinX ?? null,
+        pin_y: b.pinY ?? null,
         notes: b.notes || null,
       }).select().single()
 

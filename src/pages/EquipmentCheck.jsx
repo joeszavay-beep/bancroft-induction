@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { authFetch } from '../lib/authFetch'
@@ -21,6 +21,12 @@ export default function EquipmentCheck() {
   const [floor, setFloor] = useState('')
   const [location, setLocation] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [projectFloors, setProjectFloors] = useState([])
+  const [floorPlansEnabled, setFloorPlansEnabled] = useState(false)
+  const [pinX, setPinX] = useState(null)
+  const [pinY, setPinY] = useState(null)
+  const pinImgRef = useRef(null)
+  const pinMouseDown = useRef(null)
 
   // Defect
   const [defectDesc, setDefectDesc] = useState('')
@@ -37,6 +43,16 @@ export default function EquipmentCheck() {
 
       if (!data) { setPhase('not-found'); setLoading(false); return }
       setEquipment(data)
+
+      // Load project floors (for structured floor selection)
+      if (data.project_id) {
+        const [floorsRes, projRes] = await Promise.all([
+          supabase.from('project_floors').select('*').eq('project_id', data.project_id).order('sort_order'),
+          supabase.from('projects').select('floor_plans_enabled').eq('id', data.project_id).single(),
+        ])
+        setProjectFloors(floorsRes.data || [])
+        setFloorPlansEnabled(projRes.data?.floor_plans_enabled || false)
+      }
 
       if (data.status === 'Defective') { setPhase('lockout'); setLoading(false); return }
       if (data.status === 'Off-Hire' || data.status === 'Off-Site') { setPhase('unavailable'); setLoading(false); return }
@@ -85,6 +101,8 @@ export default function EquipmentCheck() {
           allPassed,
           floor: floor || null,
           location: location || null,
+          pinX: pinX ?? null,
+          pinY: pinY ?? null,
         }),
       })
       const data = await res.json()
@@ -247,10 +265,52 @@ export default function EquipmentCheck() {
             <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Location</h3>
             <div>
               <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Level / Floor</label>
-              <input type="text" value={floor} onChange={e => setFloor(e.target.value)} placeholder="e.g. Level 3"
-                className="w-full px-3 py-2.5 rounded-lg border text-sm"
-                style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }} />
+              {projectFloors.length > 0 ? (
+                <select value={floor} onChange={e => { setFloor(e.target.value); setPinX(null); setPinY(null) }}
+                  className="w-full px-3 py-2.5 rounded-lg border text-sm"
+                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
+                  <option value="">Select floor...</option>
+                  {projectFloors.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
+                </select>
+              ) : (
+                <input type="text" value={floor} onChange={e => setFloor(e.target.value)} placeholder="e.g. Level 3"
+                  className="w-full px-3 py-2.5 rounded-lg border text-sm"
+                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }} />
+              )}
             </div>
+
+            {/* Floor plan pin drop */}
+            {(() => {
+              const selectedFloor = projectFloors.find(f => f.name === floor)
+              if (!floorPlansEnabled || !selectedFloor?.image_url) return null
+              return (
+                <div>
+                  <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                    Tap the plan to mark where this equipment is {pinX !== null && <button onClick={() => { setPinX(null); setPinY(null) }} className="text-red-500 underline ml-2">Clear pin</button>}
+                  </label>
+                  <div className="relative rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-color)', maxHeight: 300 }}>
+                    <img ref={pinImgRef} src={selectedFloor.image_url} alt={selectedFloor.name}
+                      className="w-full cursor-crosshair" draggable={false}
+                      onPointerDown={e => { pinMouseDown.current = { x: e.clientX, y: e.clientY } }}
+                      onPointerUp={e => {
+                        if (!pinMouseDown.current || !pinImgRef.current) return
+                        const dx = Math.abs(e.clientX - pinMouseDown.current.x)
+                        const dy = Math.abs(e.clientY - pinMouseDown.current.y)
+                        pinMouseDown.current = null
+                        if (dx > 5 || dy > 5) return
+                        const rect = pinImgRef.current.getBoundingClientRect()
+                        setPinX(Math.round(((e.clientX - rect.left) / rect.width) * 10000) / 100)
+                        setPinY(Math.round(((e.clientY - rect.top) / rect.height) * 10000) / 100)
+                      }} />
+                    {pinX !== null && pinY !== null && (
+                      <div className="absolute w-4 h-4 bg-blue-500 border-2 border-white rounded-full -translate-x-1/2 -translate-y-1/2 z-10 shadow-lg pointer-events-none"
+                        style={{ left: `${pinX}%`, top: `${pinY}%` }} />
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+
             <div>
               <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Location (optional)</label>
               <input type="text" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Zone B corridor"
