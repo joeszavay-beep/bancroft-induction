@@ -406,7 +406,14 @@ export default function PlantEquipment() {
                     <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--primary-color)' }} />
                   </div>
                 )}
-                <TransformWrapper initialScale={1} minScale={0.3} maxScale={8} centerOnInit limitToBounds={false} wheel={{ step: 0.08 }} doubleClick={{ disabled: true }}>
+                <TransformWrapper initialScale={0.15} minScale={0.05} maxScale={8} centerOnInit limitToBounds={false} wheel={{ step: 0.08 }} doubleClick={{ disabled: true }}>
+                  {({ zoomIn, zoomOut, resetTransform }) => (
+                  <>
+                    <div className="absolute top-2 right-2 z-20 flex gap-1">
+                      <button onClick={() => zoomIn()} className="w-8 h-8 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 text-xs font-bold">+</button>
+                      <button onClick={() => zoomOut()} className="w-8 h-8 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 text-xs font-bold">-</button>
+                      <button onClick={() => resetTransform()} className="w-8 h-8 bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 text-[10px] font-medium">Fit</button>
+                    </div>
                   <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
                     <div className="relative inline-block">
                       <img src={floorObj.image_url} alt={floorObj.name} className="max-w-none select-none" draggable={false} />
@@ -420,6 +427,8 @@ export default function PlantEquipment() {
                       ))}
                     </div>
                   </TransformComponent>
+                  </>
+                  )}
                 </TransformWrapper>
 
                 {/* Pin popup */}
