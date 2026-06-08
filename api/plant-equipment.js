@@ -81,7 +81,12 @@ export default async function handler(req, res) {
   // ── Auth required for all other actions ──
   const { user, error: authErr } = await verifyAuth(req)
   if (!user) return res.status(401).json({ error: authErr || 'Unauthorized' })
-  const callerCompanyId = user.user_metadata?.company_id
+  // Resolve company_id — JWT metadata may not have it (e.g. admins created via create-company-admin)
+  let callerCompanyId = user.user_metadata?.company_id
+  if (!callerCompanyId) {
+    const { data: prof } = await supabase.from('profiles').select('company_id').eq('email', user.email).limit(1)
+    if (prof?.[0]?.company_id) callerCompanyId = prof[0].company_id
+  }
   const callerRole = user.user_metadata?.role
 
   async function verifyProjectAccess(projectId) {
