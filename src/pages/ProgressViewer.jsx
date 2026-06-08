@@ -7,7 +7,7 @@ import { offlineInsert, offlineDelete } from '../lib/syncQueue'
 import { toastOffline } from '../lib/offlineToast'
 import toast from 'react-hot-toast'
 import PrefetchButton from '../components/PrefetchButton'
-import { ArrowLeft, ZoomIn, ZoomOut, Maximize2, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check, Circle, Type, MessageSquareText, MousePointerClick, ChevronUp, ChevronDown } from 'lucide-react'
+import { ArrowLeft, ZoomIn, ZoomOut, Maximize2, X, Clock, Trash2, Undo2, Redo2, Download, Copy, Clipboard, Check, Circle, Type, MessageSquareText, MousePointerClick } from 'lucide-react'
 import { generateProgressPDF } from '../lib/generateProgressPDF'
 import { buildBranding } from '../lib/reportTemplate'
 import { useCompany } from '../lib/CompanyContext'
@@ -32,64 +32,6 @@ class ProgressErrorBoundary extends Component {
     }
     return this.props.children
   }
-}
-
-function SelectPill({ selectedIds, setSelectedIds, progressItems, selectAllByStatus, batchUpdateStatus }) {
-  const [expanded, setExpanded] = useState(false)
-  const count = selectedIds.size
-  return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40" style={{ pointerEvents: 'auto' }}>
-      {!expanded ? (
-        // Collapsed pill — just shows count, tap to expand
-        <button onClick={() => setExpanded(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-full shadow-lg text-sm font-bold text-slate-900 hover:shadow-xl transition-shadow">
-          <MousePointerClick size={14} className="text-blue-500" />
-          {count > 0 ? `${count} selected` : 'Select dots'}
-          <ChevronUp size={14} className="text-slate-400" />
-        </button>
-      ) : (
-        // Expanded panel
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 w-[340px] max-w-[90vw]">
-          {/* Close / collapse */}
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-bold text-slate-900">{count > 0 ? `${count} selected` : 'Select mode'}</span>
-            <button onClick={() => setExpanded(false)} className="p-1 text-slate-400 hover:text-slate-600"><ChevronDown size={16} /></button>
-          </div>
-          {/* Quick select buttons */}
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {Object.entries(STATUS_COLORS).map(([status, color]) => {
-              const c = progressItems.filter(i => i.status === status).length
-              return (
-                <button key={status} onClick={() => selectAllByStatus(status)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold hover:opacity-80"
-                  style={{ borderColor: color, color }}>
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-                  All {STATUS_LABELS[status]} ({c})
-                </button>
-              )
-            })}
-            {count > 0 && (
-              <button onClick={() => setSelectedIds(new Set())} className="text-[11px] text-slate-400 underline px-2">Clear</button>
-            )}
-          </div>
-          {/* Change colour */}
-          {count > 0 ? (
-            <div className="flex gap-2">
-              {Object.entries(STATUS_COLORS).map(([status, color]) => (
-                <button key={status} onClick={() => { batchUpdateStatus(status); setExpanded(false) }}
-                  className="flex-1 py-2 rounded-lg text-white text-xs font-bold hover:opacity-90"
-                  style={{ backgroundColor: color }}>
-                  {STATUS_LABELS[status]}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-slate-400 text-center">Tap dots to select, or use quick select above</p>
-          )}
-        </div>
-      )}
-    </div>
-  )
 }
 
 const STATUS_COLORS = { green: '#2EA043', yellow: '#D29922', red: '#DA3633' }
@@ -137,7 +79,8 @@ function ProgressViewer() {
   const transformRef = useRef(null)
   const [photoLightbox, setPhotoLightbox] = useState(null) // url for enlarged photo
   const [selectMode, setSelectMode] = useState(false)
-  const [selectedIds, setSelectedIds] = useState(new Set())
+  const selectedIdsRef = useRef(new Set())
+  const [selectCount, setSelectCount] = useState(0) // only this triggers re-render for the action bar
   const [exporting, setExporting] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [exportPageSize, setExportPageSize] = useState('a1')
@@ -545,8 +488,8 @@ function ProgressViewer() {
   }
 
   async function batchUpdateStatus(newStatus) {
-    if (selectedIds.size === 0) return
-    const ids = [...selectedIds]
+    if (selectedIdsRef.current.size === 0) return
+    const ids = [...selectedIdsRef.current]
     const now = new Date().toISOString()
 
     // Suppress realtime reloads for the duration of the batch
@@ -600,24 +543,49 @@ function ProgressViewer() {
       console.error('Batch update error:', err)
       toast.error('Update failed — please try again')
     } finally {
-      setSelectedIds(new Set())
+      clearSelection()
       setSelectMode(false)
       skipReloadsUntil.current = Date.now() + 3000
     }
   }
 
   function toggleSelectId(id) {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    const set = selectedIdsRef.current
+    if (set.has(id)) {
+      set.delete(id)
+      // Remove visual ring via DOM
+      const el = document.getElementById(`dot-${id}`)
+      if (el) el.style.outline = 'none'
+    } else {
+      set.add(id)
+      const el = document.getElementById(`dot-${id}`)
+      if (el) el.style.outline = '3px solid #3b82f6'
+    }
+    setSelectCount(set.size)
   }
 
   function selectAllByStatus(status) {
+    // Clear existing
+    selectedIdsRef.current.forEach(id => {
+      const el = document.getElementById(`dot-${id}`)
+      if (el) el.style.outline = 'none'
+    })
     const ids = progressItems.filter(i => i.status === status).map(i => i.id)
-    setSelectedIds(new Set(ids))
+    selectedIdsRef.current = new Set(ids)
+    ids.forEach(id => {
+      const el = document.getElementById(`dot-${id}`)
+      if (el) el.style.outline = '3px solid #3b82f6'
+    })
+    setSelectCount(ids.length)
+  }
+
+  function clearSelection() {
+    selectedIdsRef.current.forEach(id => {
+      const el = document.getElementById(`dot-${id}`)
+      if (el) el.style.outline = 'none'
+    })
+    selectedIdsRef.current = new Set()
+    setSelectCount(0)
   }
 
   async function deleteItem(item) {
@@ -801,7 +769,7 @@ function ProgressViewer() {
             <Redo2 size={16} />
           </button>
           <PrefetchButton drawingId={drawingId} projectId={drawing?.project_id} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors" />
-          <button onClick={() => { setSelectMode(m => !m); setSelectedIds(new Set()); setActiveColour(null) }}
+          <button onClick={() => { setSelectMode(m => { if (m) clearSelection(); return !m }); setActiveColour(null) }}
             className={`p-2 rounded-lg transition-colors ${selectMode ? 'bg-blue-500 text-white' : 'hover:bg-white/10 text-white'}`} title="Select mode">
             <MousePointerClick size={16} />
           </button>
@@ -1152,15 +1120,13 @@ function ProgressViewer() {
                     }
 
                     // Default: dot
-                    const isSelected = selectMode && selectedIds.has(item.id)
                     return (
-                      <button key={item.id} onClick={clickHandler}
+                      <button key={item.id} id={`dot-${item.id}`} onClick={clickHandler}
                         className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-150"
                         style={{ left: `${item.pin_x}%`, top: `${item.pin_y}%`, pointerEvents: (isMarking && !selectMode) ? 'none' : 'auto' }}>
                         <div className="rounded-full"
                           style={{
                             width: `${itemSize}px`, height: `${itemSize}px`, backgroundColor: `${color}70`,
-                            outline: isSelected ? '3px solid #3b82f6' : 'none',
                             outlineOffset: '2px',
                           }} />
                       </button>
@@ -1310,15 +1276,44 @@ function ProgressViewer() {
         </div>
       )}
 
-      {/* Multi-select floating pill */}
+      {/* Multi-select action bar */}
       {selectMode && (
-        <SelectPill
-          selectedIds={selectedIds}
-          setSelectedIds={setSelectedIds}
-          progressItems={progressItems}
-          selectAllByStatus={selectAllByStatus}
-          batchUpdateStatus={batchUpdateStatus}
-        />
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_12px_rgba(0,0,0,0.1)] px-4 py-3 safe-area-bottom">
+          <div className="max-w-lg mx-auto">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase">Select all:</span>
+              {Object.entries(STATUS_COLORS).map(([status, color]) => {
+                const count = progressItems.filter(i => i.status === status).length
+                return (
+                  <button key={status} onClick={() => selectAllByStatus(status)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-colors hover:opacity-80"
+                    style={{ borderColor: color, color }}>
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                    {STATUS_LABELS[status]} ({count})
+                  </button>
+                )
+              })}
+              {selectCount > 0 && (
+                <button onClick={() => clearSelection()} className="text-[11px] text-slate-400 underline ml-auto">Clear</button>
+              )}
+            </div>
+            {selectCount > 0 ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold text-slate-900">{selectCount} selected</span>
+                <span className="text-xs text-slate-400">Change to:</span>
+                {Object.entries(STATUS_COLORS).map(([status, color]) => (
+                  <button key={status} onClick={() => batchUpdateStatus(status)}
+                    className="flex-1 py-2.5 rounded-lg text-white text-sm font-bold transition-colors hover:opacity-90"
+                    style={{ backgroundColor: color }}>
+                    {STATUS_LABELS[status]}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 text-center">Tap dots to select them, or use the quick select buttons above</p>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Item detail panel */}
