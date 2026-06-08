@@ -45,10 +45,17 @@ export default async function handler(req, res) {
     return res.json({ items: data?.items || [] })
   }
 
-  // ── Equipment check — public (operatives may not have auth JWT) ──
+  // ── Equipment check — auth token OR operative session ──
   if (req.method === 'POST' && action === 'check') {
     const b = req.body
     if (!b.equipmentId || !b.operativeName) return res.status(400).json({ error: 'Missing required fields' })
+
+    // Auth: either a valid JWT or operative session matching operative ID
+    const { user } = await verifyAuth(req)
+    if (!user && (!b.operativeSessionId || b.operativeSessionId !== b.operativeId)) {
+      return res.status(401).json({ error: 'Authentication required' })
+    }
+
     const { data: eq } = await supabase.from('equipment').select('id, status, company_id, project_id').eq('id', b.equipmentId).single()
     if (!eq) return res.status(404).json({ error: 'Equipment not found' })
     if (eq.status === 'Defective') return res.status(400).json({ error: 'Equipment is defective — cannot check in' })

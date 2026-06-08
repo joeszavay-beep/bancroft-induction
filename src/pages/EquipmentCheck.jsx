@@ -96,6 +96,7 @@ export default function EquipmentCheck() {
         body: JSON.stringify({
           equipmentId: equipment.id,
           operativeId: operative.id,
+          operativeSessionId: operative.id,
           operativeName: operative.name,
           checklist,
           allPassed,
