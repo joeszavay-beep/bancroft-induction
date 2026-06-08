@@ -14,7 +14,7 @@ import {
   ArrowLeft, Users, Clock, FileText, Eye, Plus, X, Loader2,
   ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Download,
   Edit2, Save, RefreshCw, PoundSterling, Calendar, Briefcase,
-  Paperclip, Image, Trash2, Receipt, Ban, Hammer, FolderOpen, Calculator, TrendingUp, Bell
+  Paperclip, Image, Trash2, Receipt, Ban, Hammer, FolderOpen, Calculator, TrendingUp, Bell, Wrench
 } from 'lucide-react'
 
 const TABS = [
@@ -24,6 +24,7 @@ const TABS = [
   { key: 'applications', label: 'Applications', icon: Receipt },
   { key: 'contras', label: 'Contras', icon: Ban },
   { key: 'dayworks', label: 'Dayworks', icon: Hammer },
+  { key: 'plant-costs', label: 'Plant Costs', icon: Wrench },
   { key: 'documents', label: 'Documents', icon: FolderOpen },
   { key: 'invoices', label: 'Invoices', icon: FileText },
   { key: 'final-account', label: 'Final Account', icon: Calculator },
@@ -63,6 +64,7 @@ export default function SubcontractorJobDetail() {
   const [job, setJob] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
+  const [plantEquipment, setPlantEquipment] = useState([])
 
   // Overview data
   const [variations, setVariations] = useState([])
@@ -162,6 +164,13 @@ export default function SubcontractorJobDetail() {
       setContras(contraRes.data || [])
       setDayworks(dayworkRes.data || [])
       setJobDocs(docRes.data || [])
+
+      // Load plant equipment for the job's project
+      if (jobRes.data?.project_id) {
+        const { data: eqData } = await supabase.from('equipment').select('*')
+          .eq('company_id', cid).eq('project_id', jobRes.data.project_id)
+        setPlantEquipment(eqData || [])
+      }
 
       // Load spend data
       const { data: entries } = await supabase.from('timesheet_entries')
@@ -982,6 +991,10 @@ export default function SubcontractorJobDetail() {
           handleAddDaywork={handleAddDaywork} savingDaywork={savingDaywork}
           handleUpdateDayworkStatus={handleUpdateDayworkStatus}
         />
+      )}
+
+      {activeTab === 'plant-costs' && (
+        <PlantCostsTab equipment={plantEquipment} />
       )}
 
       {activeTab === 'documents' && (
@@ -2676,6 +2689,130 @@ function FinalAccountTab({ job, variations, contras, applications, handleUpdateF
           </div>
         </div>
       </Card>
+    </div>
+  )
+}
+
+/* ==================== PLANT COSTS TAB ==================== */
+function PlantCostsTab({ equipment }) {
+  const onHire = equipment.filter(i => i.hire_company && i.status !== 'Off-Hire')
+  const PERIOD_LABELS = { daily: '/day', weekly: '/wk', monthly: '/mo', yearly: '/yr' }
+
+  function getDailyRate(item) {
+    const rate = parseFloat(item.hire_rate || item.daily_hire_rate || 0)
+    if (!rate) return 0
+    const period = item.hire_rate_period || 'daily'
+    if (period === 'weekly') return rate / 5
+    if (period === 'monthly') return rate / 21.67
+    if (period === 'yearly') return rate / 260
+    return rate
+  }
+
+  function getWeeklyRate(item) {
+    const rate = parseFloat(item.hire_rate || item.daily_hire_rate || 0)
+    if (!rate) return 0
+    const period = item.hire_rate_period || 'daily'
+    if (period === 'daily') return rate * 5
+    if (period === 'monthly') return rate / 4.33
+    if (period === 'yearly') return rate / 52
+    return rate
+  }
+
+  function getDaysOnHire(item) {
+    if (!item.on_hire_date) return 0
+    const start = new Date(item.on_hire_date)
+    const end = item.off_hire_date ? new Date(item.off_hire_date) : new Date()
+    return Math.max(0, Math.floor((end - start) / (1000 * 60 * 60 * 24)))
+  }
+
+  const weeklyTotal = onHire.reduce((s, i) => s + getWeeklyRate(i), 0)
+  const totalSpend = onHire.reduce((s, i) => s + getDailyRate(i) * getDaysOnHire(i), 0)
+
+  if (equipment.length === 0) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-xl p-8 text-center">
+        <Wrench size={32} className="text-slate-300 mx-auto mb-3" />
+        <p className="text-sm text-slate-500">No equipment registered on this project.</p>
+        <p className="text-xs text-slate-400 mt-1">Add equipment in Plant & Equipment to track costs here.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-slate-900">{onHire.length}</p>
+          <p className="text-xs text-slate-500">Items on hire</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-blue-600">£{Math.round(weeklyTotal).toLocaleString()}</p>
+          <p className="text-xs text-slate-500">Weekly cost</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-slate-900">£{Math.round(totalSpend).toLocaleString()}</p>
+          <p className="text-xs text-slate-500">Total spend to date</p>
+        </div>
+      </div>
+
+      {/* Equipment table */}
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Equipment</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Type</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Hire Co.</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Status</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Rate</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">On hire</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Days</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Est. cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {equipment.map(item => {
+              const rate = parseFloat(item.hire_rate || item.daily_hire_rate || 0)
+              const period = item.hire_rate_period || 'daily'
+              const days = getDaysOnHire(item)
+              const cost = Math.round(getDailyRate(item) * days)
+              const isOnHire = item.hire_company && item.status !== 'Off-Hire'
+              return (
+                <tr key={item.id} className="border-b border-slate-100 last:border-0">
+                  <td className="px-4 py-2.5 font-medium text-slate-900">{item.description}</td>
+                  <td className="px-4 py-2.5 text-slate-500">{item.type}</td>
+                  <td className="px-4 py-2.5 text-slate-500">{item.hire_company || '—'}</td>
+                  <td className="px-4 py-2.5">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded"
+                      style={{ color: item.status === 'In Service' ? '#2C9C5E' : item.status === 'Off-Hire' ? '#7C828F' : '#D29922',
+                               backgroundColor: item.status === 'In Service' ? '#2C9C5E18' : item.status === 'Off-Hire' ? '#7C828F18' : '#D2992218' }}>
+                      {item.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-slate-700">{rate ? `£${rate}${PERIOD_LABELS[period] || ''}` : '—'}</td>
+                  <td className="px-4 py-2.5 text-right text-xs text-slate-500">{item.on_hire_date ? new Date(item.on_hire_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</td>
+                  <td className="px-4 py-2.5 text-right text-slate-500">{isOnHire ? days : '—'}</td>
+                  <td className="px-4 py-2.5 text-right font-semibold text-slate-900">{isOnHire && rate ? `£${cost.toLocaleString()}` : '—'}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+          {onHire.length > 0 && (
+            <tfoot>
+              <tr className="border-t-2 border-slate-200 bg-slate-50">
+                <td colSpan={6} className="px-4 py-2.5 text-right text-xs font-bold text-slate-500 uppercase">Total</td>
+                <td className="px-4 py-2.5 text-right text-xs font-bold text-slate-700">
+                  £{Math.round(weeklyTotal).toLocaleString()}/wk
+                </td>
+                <td className="px-4 py-2.5 text-right font-bold text-slate-900">
+                  £{Math.round(totalSpend).toLocaleString()}
+                </td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
     </div>
   )
 }
