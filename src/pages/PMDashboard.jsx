@@ -12,7 +12,7 @@ import {
   Home, FolderOpen, Users, Globe, LogOut, Plus, Trash2, Upload,
   FileText, UserPlus, ChevronRight, CheckCircle2, Clock, AlertCircle, Download,
   RefreshCw, Mail, Settings, Bell, ShieldCheck, FileWarning, ClipboardList, ArrowLeft,
-  MessageSquare, MapPin, Navigation, X as XIcon
+  MessageSquare, MapPin, Navigation, X as XIcon, Wrench
 } from 'lucide-react'
 import { lazy, Suspense } from 'react'
 const MapPicker = lazy(() => import('../components/MapPicker'))
@@ -113,6 +113,49 @@ export default function PMDashboard({ initialTab }) {
 
 /* ==================== HOME TAB ==================== */
 function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
+  const { projectId } = useProject()
+  const [plantCosts, setPlantCosts] = useState(null)
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const params = new URLSearchParams({ action: 'items' })
+        if (projectId) params.set('projectId', projectId)
+        const res = await authFetch(`/api/plant-equipment?${params}`)
+        const data = await res.json()
+        const items = data.items || data || []
+        const onHire = items.filter(i => i.hire_company && i.status !== 'Off-Hire')
+        // Normalise all rates to weekly
+        let weeklyTotal = 0
+        for (const item of onHire) {
+          const rate = parseFloat(item.hire_rate || item.daily_hire_rate || 0)
+          if (!rate) continue
+          const period = item.hire_rate_period || 'daily'
+          if (period === 'daily') weeklyTotal += rate * 5
+          else if (period === 'weekly') weeklyTotal += rate
+          else if (period === 'monthly') weeklyTotal += rate / 4.33
+          else if (period === 'yearly') weeklyTotal += rate / 52
+        }
+        // Total spend: sum days on hire × daily rate equivalent
+        let totalSpend = 0
+        for (const item of onHire) {
+          const rate = parseFloat(item.hire_rate || item.daily_hire_rate || 0)
+          if (!rate || !item.on_hire_date) continue
+          const period = item.hire_rate_period || 'daily'
+          let dailyRate = rate
+          if (period === 'weekly') dailyRate = rate / 5
+          else if (period === 'monthly') dailyRate = rate / 21.67
+          else if (period === 'yearly') dailyRate = rate / 260
+          const start = new Date(item.on_hire_date)
+          const end = item.off_hire_date ? new Date(item.off_hire_date) : new Date()
+          const days = Math.max(0, Math.floor((end - start) / (1000 * 60 * 60 * 24)))
+          totalSpend += dailyRate * days
+        }
+        setPlantCosts({ onHireCount: onHire.length, weeklyTotal: Math.round(weeklyTotal), totalSpend: Math.round(totalSpend), items: onHire })
+      } catch { /* ignore */ }
+    })()
+  }, [projectId])
+
   const stats = [
     { label: 'Projects', value: projects.length, icon: FolderOpen, color: 'text-blue-500', tab: 'projects' },
     { label: 'Operatives', value: operatives.length, icon: Users, color: 'text-blue-400', tab: 'team' },
@@ -252,6 +295,68 @@ function HomeTab({ projects, operatives, documents, signatures, onNavigate }) {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* Plant Costs */}
+      {plantCosts && plantCosts.onHireCount > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Wrench size={16} className="text-blue-500" />
+            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Plant Hire Costs</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="bg-white border border-slate-200 rounded-xl p-3 text-center">
+              <p className="text-xl font-bold text-slate-900">{plantCosts.onHireCount}</p>
+              <p className="text-[10px] text-slate-500">Items on hire</p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-3 text-center">
+              <p className="text-xl font-bold text-blue-600">£{plantCosts.weeklyTotal.toLocaleString()}</p>
+              <p className="text-[10px] text-slate-500">per week</p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-3 text-center">
+              <p className="text-xl font-bold text-slate-900">£{plantCosts.totalSpend.toLocaleString()}</p>
+              <p className="text-[10px] text-slate-500">Total spend to date</p>
+            </div>
+          </div>
+          {plantCosts.items.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="px-3 py-2 text-left text-slate-500 font-medium">Equipment</th>
+                    <th className="px-3 py-2 text-left text-slate-500 font-medium">Hire Co.</th>
+                    <th className="px-3 py-2 text-right text-slate-500 font-medium">Rate</th>
+                    <th className="px-3 py-2 text-right text-slate-500 font-medium">Days on hire</th>
+                    <th className="px-3 py-2 text-right text-slate-500 font-medium">Est. cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plantCosts.items.map(item => {
+                    const rate = parseFloat(item.hire_rate || item.daily_hire_rate || 0)
+                    const period = item.hire_rate_period || 'daily'
+                    const periodLabel = { daily: '/day', weekly: '/wk', monthly: '/mo', yearly: '/yr' }[period] || ''
+                    let dailyRate = rate
+                    if (period === 'weekly') dailyRate = rate / 5
+                    else if (period === 'monthly') dailyRate = rate / 21.67
+                    else if (period === 'yearly') dailyRate = rate / 260
+                    const start = item.on_hire_date ? new Date(item.on_hire_date) : null
+                    const days = start ? Math.max(0, Math.floor((new Date() - start) / (1000 * 60 * 60 * 24))) : 0
+                    const cost = Math.round(dailyRate * days)
+                    return (
+                      <tr key={item.id} className="border-b border-slate-50 last:border-0">
+                        <td className="px-3 py-2 font-medium text-slate-900">{item.description}</td>
+                        <td className="px-3 py-2 text-slate-500">{item.hire_company || '—'}</td>
+                        <td className="px-3 py-2 text-right text-slate-700">{rate ? `£${rate}${periodLabel}` : '—'}</td>
+                        <td className="px-3 py-2 text-right text-slate-500">{days}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-slate-900">£{cost.toLocaleString()}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
