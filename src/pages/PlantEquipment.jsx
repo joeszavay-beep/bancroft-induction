@@ -13,6 +13,25 @@ import { printEquipmentLabels } from '../lib/equipmentLabels'
 
 const STATUS_COLORS = { 'In Service': '#2C9C5E', 'Defective': '#D93E3E', 'Off-Site': '#D29922', 'Off-Hire': '#7C828F' }
 
+function idleDays(checkedAt) {
+  if (!checkedAt) return null
+  return Math.floor((Date.now() - new Date(checkedAt).getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function idleLabel(days) {
+  if (days === null) return 'Never'
+  if (days === 0) return 'Today'
+  if (days === 1) return '1 day ago'
+  return `${days} days ago`
+}
+
+function idleColor(days) {
+  if (days === null) return 'var(--text-muted)'
+  if (days < 7) return '#2C9C5E'
+  if (days < 14) return '#D29922'
+  return '#D93E3E'
+}
+
 export default function PlantEquipment() {
   const { user, company } = useCompany()
   const { projectId, projectName } = useProject()
@@ -274,13 +293,14 @@ export default function PlantEquipment() {
       </div>
 
       {/* Dashboard cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
         {[
           { label: 'Total', value: dashboard.total, icon: Wrench, color: 'var(--primary-color)' },
           { label: 'In Service', value: dashboard.onSite, icon: CheckCircle2, color: '#2C9C5E' },
           { label: 'Checked Today', value: dashboard.checkedToday, icon: Clock, color: 'var(--primary-color)' },
           { label: 'Overdue', value: dashboard.overdue, icon: AlertTriangle, color: '#D29922' },
           { label: 'Defective', value: dashboard.defective, icon: XCircle, color: '#D93E3E' },
+          { label: 'Idle 14+ days', value: items.filter(i => i.status === 'In Service' && idleDays(i.latest_check?.checked_at) >= 14).length, icon: Clock, color: '#D93E3E' },
         ].map(c => (
           <div key={c.label} className="rounded-xl border p-4" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
             <div className="flex items-center justify-between mb-2">
@@ -332,13 +352,14 @@ export default function PlantEquipment() {
                 <th className="px-3 py-2.5 text-left">Serial</th>
                 <th className="px-3 py-2.5 text-left">Status</th>
                 <th className="px-3 py-2.5 text-left">Last Checked</th>
+                <th className="px-3 py-2.5 text-left">Last Used</th>
                 <th className="px-3 py-2.5 text-left">Hire Co.</th>
                 <th className="px-3 py-2.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-12 text-center" style={{ color: 'var(--text-muted)' }}>
+                <tr><td colSpan={9} className="px-4 py-12 text-center" style={{ color: 'var(--text-muted)' }}>
                   {loading ? 'Loading...' : 'No equipment registered — click "Add Equipment" to start'}
                 </td></tr>
               )}
@@ -366,6 +387,15 @@ export default function PlantEquipment() {
                       {item.latest_check ? `${fmtDate(item.latest_check.checked_at)} by ${item.latest_check.operative_name}` : 'Never'}
                       {item.latest_check?.floor && <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-muted)' }}>{item.latest_check.floor}</span>}
                     </td>
+                    {(() => {
+                      const days = idleDays(item.latest_check?.checked_at)
+                      return (
+                        <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: idleColor(days) }}>
+                          {idleLabel(days)}
+                          {days !== null && days >= 14 && <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-bold">IDLE</span>}
+                        </td>
+                      )
+                    })()}
                     <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>{item.hire_company || '\u2014'}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-end gap-1">
