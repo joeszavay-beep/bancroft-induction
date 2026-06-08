@@ -505,34 +505,42 @@ function ProgressViewer() {
     setItems(prev => prev.map(i => ids.includes(i.id) ? { ...i, status: newStatus } : i))
 
     try {
-      // Update in batches of 100 to avoid URL length limits on .in()
-      const batchSize = 100
+      // Update in batches of 50 to stay well within URL limits
+      const batchSize = 50
+      let failCount = 0
       for (let i = 0; i < ids.length; i += batchSize) {
         const batch = ids.slice(i, i + batchSize)
-        const { error } = await supabase.from('progress_items').update({
-          status: newStatus, updated_at: now, updated_by: mgr.name,
-        }).in('id', batch)
-        if (error) console.warn('Batch update error:', error.message)
+        try {
+          const { error } = await supabase.from('progress_items').update({
+            status: newStatus, updated_at: now, updated_by: mgr.name,
+          }).in('id', batch)
+          if (error) { console.warn('Batch update error:', error.message); failCount++ }
+        } catch (e) { console.warn('Batch request error:', e); failCount++ }
       }
 
-      // Insert history records in batches of 200
+      // Insert history records in batches of 100
       const historyRows = ids
         .filter(id => prevStatuses[id] && prevStatuses[id] !== newStatus)
         .map(id => ({
           item_id: id, company_id: cid, drawing_id: drawingId,
           previous_status: prevStatuses[id], new_status: newStatus,
-          changed_by: mgr.id, changed_by_name: mgr.name,
+          changed_by: mgr.id || null, changed_by_name: mgr.name || 'Unknown',
         }))
 
-      for (let i = 0; i < historyRows.length; i += 200) {
-        await supabase.from('progress_item_history').insert(historyRows.slice(i, i + 200)).catch(() => {})
+      for (let i = 0; i < historyRows.length; i += 100) {
+        try {
+          await supabase.from('progress_item_history').insert(historyRows.slice(i, i + 100))
+        } catch { /* history is non-critical */ }
       }
 
-      toast.success(`${ids.length} items → ${STATUS_LABELS[newStatus]}`)
+      if (failCount > 0) {
+        toast.error(`${failCount} batch(es) failed — some items may not have updated`)
+      } else {
+        toast.success(`${ids.length} items → ${STATUS_LABELS[newStatus]}`)
+      }
     } catch (err) {
       console.error('Batch update error:', err)
-      toast.error('Failed to update some items')
-      loadItems()
+      toast.error('Update failed — please try again')
     } finally {
       setSelectedIds(new Set())
       setSelectMode(false)
