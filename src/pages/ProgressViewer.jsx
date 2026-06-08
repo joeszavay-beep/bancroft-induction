@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, Component } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { supabase } from '../lib/supabase'
@@ -13,10 +13,35 @@ import { buildBranding } from '../lib/reportTemplate'
 import { useCompany } from '../lib/CompanyContext'
 import { getSession } from '../lib/storage'
 
+class ProgressErrorBoundary extends Component {
+  state = { hasError: false, error: null }
+  static getDerivedStateFromError(error) { return { hasError: true, error } }
+  componentDidCatch(err) { console.error('ProgressViewer crash:', err) }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', padding: 32, textAlign: 'center' }}>
+          <p style={{ fontSize: 18, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>Something went wrong</p>
+          <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>The drawing viewer encountered an error.</p>
+          <button onClick={() => window.location.reload()} style={{ padding: '10px 24px', background: '#1B6FC8', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+            Reload Page
+          </button>
+          <pre style={{ marginTop: 16, fontSize: 10, color: '#94a3b8', maxWidth: 400, overflow: 'auto' }}>{this.state.error?.message}</pre>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 const STATUS_COLORS = { green: '#2EA043', yellow: '#D29922', red: '#DA3633' }
 const STATUS_LABELS = { green: 'Installed', yellow: 'Available', red: 'Blocked' }
 
-export default function ProgressViewer() {
+export default function ProgressViewerWrapper() {
+  return <ProgressErrorBoundary><ProgressViewer /></ProgressErrorBoundary>
+}
+
+function ProgressViewer() {
   const { drawingId } = useParams()
   const navigate = useNavigate()
   const { company } = useCompany()
@@ -931,7 +956,7 @@ export default function ProgressViewer() {
                     const dt = Date.now() - mouseDownPos.current.time
                     mouseDownPos.current = null
                     // Click = moved less than 5px and held less than 500ms
-                    if (dx < 5 && dy < 5 && dt < 500 && (isMarking || isAnnotationMode)) {
+                    if (dx < 5 && dy < 5 && dt < 500 && !selectMode && (isMarking || isAnnotationMode)) {
                       e.stopPropagation()
                       handleDrawingTap(e)
                     }
@@ -943,6 +968,7 @@ export default function ProgressViewer() {
 
                   {/* Items: dots, lines, polylines, photos */}
                   {imageLoaded && items.map(item => {
+                    if (!item || !item.id) return null
                     const color = STATUS_COLORS[item.status] || '#B0B8C9'
                     const clickHandler = (e) => {
                       e.stopPropagation()
