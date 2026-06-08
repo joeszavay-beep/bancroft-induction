@@ -422,8 +422,8 @@ export default function PlantEquipment() {
                           className="absolute -translate-x-1/2 -translate-y-1/2 z-10 hover:scale-125 transition-transform"
                           style={{ left: `${pin.pin_x}%`, top: `${pin.pin_y}%` }}>
                           <div className="relative">
-                            <div className="rounded-full border-3 border-white shadow-lg"
-                              style={{ width: 28, height: 28, backgroundColor: STATUS_COLORS[pin.status] || '#7C828F' }} />
+                            <div className="rounded-full border-4 border-white shadow-lg"
+                              style={{ width: 65, height: 65, backgroundColor: STATUS_COLORS[pin.status] || '#7C828F' }} />
                             <div className="absolute inset-0 rounded-full animate-ping opacity-30"
                               style={{ backgroundColor: STATUS_COLORS[pin.status] || '#7C828F' }} />
                           </div>
