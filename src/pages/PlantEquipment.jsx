@@ -46,7 +46,7 @@ export default function PlantEquipment() {
   const [loadingMap, setLoadingMap] = useState(false)
 
   // Form state
-  const [form, setForm] = useState({ description: '', type: '', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 })
+  const [form, setForm] = useState({ description: '', type: '', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', hireRate: '', hireRatePeriod: 'weekly', inspectionIntervalDays: 7 })
   const [defectForm, setDefectForm] = useState({ description: '', severity: 'Major', reporterName: '' })
   const [resolveForm, setResolveForm] = useState({ notes: '' })
   const [saving, setSaving] = useState(false)
@@ -131,7 +131,8 @@ export default function PlantEquipment() {
         hireCompany: form.hireCompany,
         onHireDate: form.onHireDate || null,
         offHireDate: form.offHireDate || null,
-        dailyHireRate: form.dailyHireRate ? parseFloat(form.dailyHireRate) : null,
+        hireRate: form.hireRate ? parseFloat(form.hireRate) : null,
+        hireRatePeriod: form.hireRatePeriod || 'weekly',
         inspectionIntervalDays: parseInt(form.inspectionIntervalDays) || 7,
       }
       const res = await authFetch(`/api/plant-equipment?action=item`, {
@@ -141,7 +142,7 @@ export default function PlantEquipment() {
       if (data.error) throw new Error(data.error)
       toast.success(editItem ? 'Updated' : 'Equipment added')
       setShowAdd(false); setEditItem(null)
-      setForm({ description: '', type: '', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 })
+      setForm({ description: '', type: '', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', hireRate: '', hireRatePeriod: 'weekly', inspectionIntervalDays: 7 })
       loadItems(); loadDashboard()
     } catch (e) { toast.error(e.message) }
     setSaving(false)
@@ -216,11 +217,11 @@ export default function PlantEquipment() {
   }
 
   function openEdit(item) {
-    const isOwned = !item.hire_company && !item.on_hire_date && !item.daily_hire_rate
+    const isOwned = !item.hire_company && !item.on_hire_date && !item.daily_hire_rate && !item.hire_rate
     setForm({
       description: item.description, type: item.type, serialNumber: item.serial_number || '',
       owned: isOwned, hireCompany: item.hire_company || '', onHireDate: item.on_hire_date || '',
-      offHireDate: item.off_hire_date || '', dailyHireRate: item.daily_hire_rate || '',
+      offHireDate: item.off_hire_date || '', hireRate: item.hire_rate || item.daily_hire_rate || '', hireRatePeriod: item.hire_rate_period || 'weekly',
       inspectionIntervalDays: item.inspection_interval_days || 7,
     })
     setEditItem(item); setShowAdd(true)
@@ -264,7 +265,7 @@ export default function PlantEquipment() {
             style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
             <Printer size={15} /> Print Labels {selected.size > 0 && `(${selected.size})`}
           </button>
-          <button onClick={() => { setEditItem(null); setForm({ description: '', type: '', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '', inspectionIntervalDays: 7 }); setShowAdd(true) }}
+          <button onClick={() => { setEditItem(null); setForm({ description: '', type: '', serialNumber: '', hireCompany: '', onHireDate: '', offHireDate: '', hireRate: '', hireRatePeriod: 'weekly', inspectionIntervalDays: 7 }); setShowAdd(true) }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white transition-colors"
             style={{ background: 'var(--primary-color)' }}>
             <Plus size={15} /> Add Equipment
@@ -486,7 +487,7 @@ export default function PlantEquipment() {
             <Field label="Serial Number" value={form.serialNumber} onChange={v => setForm(p => ({ ...p, serialNumber: v }))} />
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input type="checkbox" checked={form.owned || false}
-                onChange={e => setForm(p => ({ ...p, owned: e.target.checked, hireCompany: '', onHireDate: '', offHireDate: '', dailyHireRate: '' }))}
+                onChange={e => setForm(p => ({ ...p, owned: e.target.checked, hireCompany: '', onHireDate: '', offHireDate: '', hireRate: '', hireRatePeriod: 'weekly' }))}
                 className="w-4 h-4" />
               <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Company owned (not hired)</span>
             </label>
@@ -497,7 +498,25 @@ export default function PlantEquipment() {
                   <Field label="On-Hire Date" type="date" value={form.onHireDate} onChange={v => setForm(p => ({ ...p, onHireDate: v }))} />
                   <Field label="Off-Hire Date" type="date" value={form.offHireDate} onChange={v => setForm(p => ({ ...p, offHireDate: v }))} />
                 </div>
-                <Field label="Daily Hire Rate (£)" type="number" value={form.dailyHireRate} onChange={v => setForm(p => ({ ...p, dailyHireRate: v }))} />
+                <div>
+                  <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Hire Rate</p>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: 'var(--text-muted)' }}>£</span>
+                      <input type="number" min="0" step="0.01" value={form.hireRate} onChange={e => setForm(p => ({ ...p, hireRate: e.target.value }))}
+                        placeholder="0.00" className="w-full pl-7 pr-3 py-2 rounded-lg border text-sm"
+                        style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }} />
+                    </div>
+                    <select value={form.hireRatePeriod} onChange={e => setForm(p => ({ ...p, hireRatePeriod: e.target.value }))}
+                      className="px-3 py-2 rounded-lg border text-sm"
+                      style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
+                      <option value="daily">per day</option>
+                      <option value="weekly">per week</option>
+                      <option value="monthly">per month</option>
+                      <option value="yearly">per year</option>
+                    </select>
+                  </div>
+                </div>
               </>
             )}
             <Field label="Inspection Interval (days)" type="number" value={form.inspectionIntervalDays} onChange={v => setForm(p => ({ ...p, inspectionIntervalDays: v }))} />

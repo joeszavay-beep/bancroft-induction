@@ -287,7 +287,9 @@ export default async function handler(req, res) {
         hire_company: b.hireCompany?.trim() || null,
         on_hire_date: b.onHireDate || null,
         off_hire_date: b.offHireDate || null,
-        daily_hire_rate: b.dailyHireRate || null,
+        daily_hire_rate: b.hireRate || b.dailyHireRate || null,
+        hire_rate: b.hireRate || b.dailyHireRate || null,
+        hire_rate_period: b.hireRatePeriod || 'weekly',
         inspection_interval_days: b.inspectionIntervalDays || 7,
         created_by_user_id: user.id,
       }).select().single()
@@ -353,7 +355,7 @@ export default async function handler(req, res) {
       if (!await verifyEquipmentAccess(b.id)) return res.status(403).json({ error: 'Not authorised' })
 
       const updates = { updated_at: new Date().toISOString() }
-      const fields = ['description', 'type', 'serial_number', 'hire_company', 'on_hire_date', 'off_hire_date', 'daily_hire_rate', 'status', 'project_id', 'inspection_interval_days']
+      const fields = ['description', 'type', 'serial_number', 'hire_company', 'on_hire_date', 'off_hire_date', 'daily_hire_rate', 'hire_rate', 'hire_rate_period', 'status', 'project_id', 'inspection_interval_days']
       for (const f of fields) {
         if (b[f] !== undefined) updates[f] = b[f] === '' ? null : b[f]
       }
