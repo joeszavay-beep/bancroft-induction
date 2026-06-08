@@ -423,7 +423,7 @@ export default function PlantEquipment() {
                           style={{ left: `${pin.pin_x}%`, top: `${pin.pin_y}%` }}>
                           <div className="relative">
                             <div className="rounded-full border-4 border-white shadow-lg"
-                              style={{ width: 65, height: 65, backgroundColor: STATUS_COLORS[pin.status] || '#7C828F' }} />
+                              style={{ width: 100, height: 100, backgroundColor: STATUS_COLORS[pin.status] || '#7C828F' }} />
                             <div className="absolute inset-0 rounded-full animate-ping opacity-30"
                               style={{ backgroundColor: STATUS_COLORS[pin.status] || '#7C828F' }} />
                           </div>
