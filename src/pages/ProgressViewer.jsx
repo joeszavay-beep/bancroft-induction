@@ -48,7 +48,8 @@ export default function ProgressViewer() {
   const cursorXY = useRef({ x: 0, y: 0 }) // latest pointer position
   const [pastePos, setPastePos] = useState(null) // cursor pos for the paste-mode ghost preview (only updated while pasting)
   const mouseDownPos = useRef(null) // track click vs drag
-  const skipNextReload = useRef(false) // skip realtime reload after own insert
+  const skipReloadsUntil = useRef(0) // timestamp — ignore realtime reloads until this time
+  const reloadTimer = useRef(null) // debounce realtime reloads
   const containerRef = useRef(null)
   const transformRef = useRef(null)
   const [photoLightbox, setPhotoLightbox] = useState(null) // url for enlarged photo
@@ -132,9 +133,15 @@ export default function ProgressViewer() {
     const channel = supabase
       .channel(`progress-${drawingId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'progress_items', filter: `drawing_id=eq.${drawingId}` },
-        () => { if (skipNextReload.current) { skipNextReload.current = false } else { loadItems() } }
+        () => {
+          // Skip reloads during our own batch operations
+          if (Date.now() < skipReloadsUntil.current) return
+          // Debounce: only reload once after a burst of changes (e.g. batch update)
+          clearTimeout(reloadTimer.current)
+          reloadTimer.current = setTimeout(() => loadItems(), 500)
+        }
       ).subscribe((status) => { setIsLive(status === 'SUBSCRIBED') })
-    return () => { supabase.removeChannel(channel) }
+    return () => { supabase.removeChannel(channel); clearTimeout(reloadTimer.current) }
   }, [drawingId])
 
   // Place item on tap
@@ -212,7 +219,7 @@ export default function ProgressViewer() {
     const midX = polyPoints.reduce((s, p) => s + p.x, 0) / polyPoints.length
     const midY = polyPoints.reduce((s, p) => s + p.y, 0) / polyPoints.length
     const polyData = JSON.stringify({ points: polyPoints, width: dotSize })
-    skipNextReload.current = true
+    skipReloadsUntil.current = Date.now() + 2000
 
     const { data, offline } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
@@ -267,7 +274,7 @@ export default function ProgressViewer() {
   async function pasteItem(x, y) {
     if (!clipboard) return
     const nextNum = items.length > 0 ? Math.max(...items.map(i => i.item_number)) + 1 : 1
-    skipNextReload.current = true
+    skipReloadsUntil.current = Date.now() + 2000
 
     let newItem = null
 
@@ -339,7 +346,7 @@ export default function ProgressViewer() {
       created_by: mgr.name, drawing_id: drawingId,
     }
     setItems(prev => [...prev, tempItem])
-    skipNextReload.current = true
+    skipReloadsUntil.current = Date.now() + 2000
 
     const { data, offline } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
@@ -370,7 +377,7 @@ export default function ProgressViewer() {
     const tempId = `temp-${crypto.randomUUID()}`
     const tempItem = { id: tempId, item_number: nextNum, pin_x: x, pin_y: y, status: 'green', label: 'circle', notes: circleNotes, created_by: mgr.name, drawing_id: drawingId }
     setItems(prev => [...prev, tempItem])
-    skipNextReload.current = true
+    skipReloadsUntil.current = Date.now() + 2000
 
     const { data } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
@@ -397,7 +404,7 @@ export default function ProgressViewer() {
     const tempId = `temp-${crypto.randomUUID()}`
     const tempItem = { id: tempId, item_number: nextNum, pin_x: x, pin_y: y, status: 'green', label, notes: textNotes, created_by: mgr.name, drawing_id: drawingId }
     setItems(prev => [...prev, tempItem])
-    skipNextReload.current = true
+    skipReloadsUntil.current = Date.now() + 2000
 
     const { data } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
@@ -421,7 +428,7 @@ export default function ProgressViewer() {
     const midX = (x1 + x2) / 2
     const midY = (y1 + y2) / 2
     const lineData = JSON.stringify({ x1, y1, x2, y2, width: dotSize })
-    skipNextReload.current = true
+    skipReloadsUntil.current = Date.now() + 2000
 
     const { data, offline } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
@@ -459,34 +466,48 @@ export default function ProgressViewer() {
     const ids = [...selectedIds]
     const now = new Date().toISOString()
 
-    // Update all in one query
-    const { error } = await supabase.from('progress_items').update({
-      status: newStatus, updated_at: now, updated_by: mgr.name,
-    }).in('id', ids)
+    // Suppress realtime reloads for the duration of the batch
+    skipReloadsUntil.current = Date.now() + 10000
 
-    if (error) {
-      toast.error('Failed to update items')
-      return
-    }
+    try {
+      // Optimistic UI update — change colours immediately
+      setItems(prev => prev.map(i => ids.includes(i.id) ? { ...i, status: newStatus } : i))
 
-    // Insert history records in batch
-    const historyRows = ids.map(id => {
-      const item = items.find(i => i.id === id)
-      return {
-        item_id: id, company_id: cid, drawing_id: drawingId,
-        previous_status: item?.status || 'red', new_status: newStatus,
-        changed_by: mgr.id, changed_by_name: mgr.name,
+      // Update all in one query
+      const { error } = await supabase.from('progress_items').update({
+        status: newStatus, updated_at: now, updated_by: mgr.name,
+      }).in('id', ids)
+
+      if (error) {
+        toast.error('Failed to update items')
+        loadItems() // revert optimistic update
+        return
       }
-    }).filter(h => h.previous_status !== newStatus)
 
-    if (historyRows.length > 0) {
-      await supabase.from('progress_item_history').insert(historyRows).catch(() => {})
+      // Insert history records in batches of 200 (avoids payload too large)
+      const historyRows = ids.map(id => {
+        const item = items.find(i => i.id === id)
+        return {
+          item_id: id, company_id: cid, drawing_id: drawingId,
+          previous_status: item?.status || 'red', new_status: newStatus,
+          changed_by: mgr.id, changed_by_name: mgr.name,
+        }
+      }).filter(h => h.previous_status !== newStatus)
+
+      for (let i = 0; i < historyRows.length; i += 200) {
+        await supabase.from('progress_item_history').insert(historyRows.slice(i, i + 200)).catch(() => {})
+      }
+
+      toast.success(`${ids.length} items → ${STATUS_LABELS[newStatus]}`)
+    } catch (err) {
+      console.error('Batch update error:', err)
+      toast.error('Something went wrong')
+    } finally {
+      setSelectedIds(new Set())
+      setSelectMode(false)
+      // Allow realtime reloads again after a short grace period
+      skipReloadsUntil.current = Date.now() + 3000
     }
-
-    toast.success(`${ids.length} items → ${STATUS_LABELS[newStatus]}`)
-    setSelectedIds(new Set())
-    setSelectMode(false)
-    loadItems()
   }
 
   function toggleSelectId(id) {
@@ -508,7 +529,7 @@ export default function ProgressViewer() {
     // Remove from UI immediately (optimistic)
     setItems(prev => prev.filter(i => i.id !== item.id))
     setSelectedItem(null)
-    skipNextReload.current = true
+    skipReloadsUntil.current = Date.now() + 2000
     trackDeletedId(item.id)
     toast.success('Item deleted')
     // Delete from DB in background
@@ -528,7 +549,7 @@ export default function ProgressViewer() {
     setRedoStack(prev => [...prev, item])
     setUndoStack(prev => prev.slice(0, -1))
     setItems(prev => prev.filter(i => i.id !== lastId))
-    skipNextReload.current = true
+    skipReloadsUntil.current = Date.now() + 2000
     trackDeletedId(lastId)
 
     // Delete from DB in background
@@ -548,7 +569,7 @@ export default function ProgressViewer() {
     const tempItem = { ...item, id: tempId, item_number: nextNum }
     setItems(prev => [...prev, tempItem])
     setRedoStack(prev => prev.slice(0, -1))
-    skipNextReload.current = true
+    skipReloadsUntil.current = Date.now() + 2000
 
     const { data } = await offlineInsert('progress_items', {
       company_id: cid, drawing_id: drawingId, item_number: nextNum,
@@ -586,8 +607,10 @@ export default function ProgressViewer() {
   }
 
   async function loadItemHistory(itemId) {
-    const { data } = await supabase.from('progress_item_history').select('*').eq('item_id', itemId).order('changed_at', { ascending: false })
-    setHistory(data || [])
+    try {
+      const { data } = await supabase.from('progress_item_history').select('*').eq('item_id', itemId).order('changed_at', { ascending: false })
+      setHistory(data || [])
+    } catch { setHistory([]) }
   }
 
   function handleFitToScreen() {
@@ -1233,7 +1256,7 @@ export default function ProgressViewer() {
       )}
 
       {/* Item detail panel */}
-      {selectedItem && (
+      {selectedItem && selectedItem.status && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelectedItem(null)}>
           <div className="bg-white w-full sm:max-w-md max-h-[70vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-2xl pb-6" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-white border-b border-[#E2E6EA] px-4 py-3 flex items-center justify-between z-10">
