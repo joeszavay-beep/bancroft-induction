@@ -110,9 +110,8 @@ export default function PlantEquipment() {
         const params = new URLSearchParams({ action: 'equipment-map', projectId, floor: selectedMapFloor })
         const res = await authFetch(`/api/plant-equipment?${params}`)
         const data = await res.json()
-        console.log('[equipment-map]', { floor: selectedMapFloor, pins: data.pins?.length, error: data.error, raw: data })
         setMapPins(data.pins || [])
-      } catch (err) { console.error('[equipment-map] fetch error:', err); setMapPins([]) }
+      } catch { setMapPins([]) }
       setLoadingMap(false)
     })()
   }, [selectedMapFloor, projectId, viewMode])
@@ -420,10 +419,14 @@ export default function PlantEquipment() {
                       <img src={floorObj.image_url} alt={floorObj.name} className="max-w-none select-none" draggable={false} />
                       {mapPins.map(pin => (
                         <button key={pin.equipment_id || pin.id} onClick={(e) => { e.stopPropagation(); setSelectedPin(selectedPin?.equipment_id === pin.equipment_id ? null : pin) }}
-                          className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform hover:scale-150"
+                          className="absolute -translate-x-1/2 -translate-y-1/2 z-10 hover:scale-125 transition-transform"
                           style={{ left: `${pin.pin_x}%`, top: `${pin.pin_y}%` }}>
-                          <div className="rounded-full border-2 border-white shadow-md"
-                            style={{ width: 14, height: 14, backgroundColor: STATUS_COLORS[pin.status] || '#7C828F' }} />
+                          <div className="relative">
+                            <div className="rounded-full border-3 border-white shadow-lg"
+                              style={{ width: 28, height: 28, backgroundColor: STATUS_COLORS[pin.status] || '#7C828F' }} />
+                            <div className="absolute inset-0 rounded-full animate-ping opacity-30"
+                              style={{ backgroundColor: STATUS_COLORS[pin.status] || '#7C828F' }} />
+                          </div>
                         </button>
                       ))}
                     </div>
