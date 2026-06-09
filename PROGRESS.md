@@ -78,12 +78,15 @@ must self-clean with a unique per-run marker.
 - ✅ `e2e/helpers/db.js` — anon-key client signed in as the test user (RLS-honest
   re-fetch), `getIds()` runtime id resolution, `fetchRow`/`deleteRows`/`runMarker`.
 
-## In progress
+## Status: COMPLETE
 
-- 🔄 Workflow specs. Done: plant, auth, snag, attendance, toolbox, rams, induction.
-  Next up: hs-report, pdf-export.
+All 9 workflow specs written and run. `npm run test:e2e` runs the suite.
+15 tests green; 3 intentionally red (KNOWN-RED), each a real app bug documented
+in AUDIT.md (§1.7 session expiry, §2.1 plant edit, §2.24 toolbox sign). Per the
+user's instruction these are left red — do NOT change app code to make them green
+without telling the user.
 
-### Suite status (last full run): 11 passed, 3 KNOWN-RED (all documented bugs)
+### Suite status (last full run): 15 passed, 3 KNOWN-RED (all documented bugs)
 - KNOWN-RED: plant edit (§2.1), auth session-expiry (§1.7), toolbox sign (§2.24).
   These are real app bugs left red on purpose — do NOT fix app code without telling user.
 
@@ -128,8 +131,11 @@ must self-clean with a unique per-run marker.
    - [x] `snag.spec.js` — raise (pin on seeded drawing) / edit / close, each
          DB-re-fetched. All GREEN. (seed-e2e.js now also provisions an "E2E
          Drawing" with an uploaded image fixture: e2e/fixtures/drawing.png.)
-   - [ ] `hs-report.spec.js` — generate weekly H&S report → assert report/output persisted.
-   - [ ] `pdf-export.spec.js` — PDF exports produce a non-empty PDF (download assertion).
+   - [x] `hs-report.spec.js` — Generate PDF; captures the download and asserts a
+         valid non-empty PDF (%PDF header). GREEN. (HS report has no DB row — it's
+         a generated PDF, so persistence = a real PDF is produced.)
+   - [x] `pdf-export.spec.js` — snag drawing export (generateSnagPDF); captures the
+         download and asserts a valid non-empty PDF. GREEN.
 5. Run full suite; fix every failure; commit each fix referencing the spec.
 6. Add an `npm run test:e2e` script to package.json.
 
