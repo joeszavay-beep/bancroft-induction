@@ -9,32 +9,33 @@ so any session can resume from it alone.
 
 ---
 
-## ⚠️ ACTIVE BLOCKER (resolve first)
+## ⚠️ ACTIVE BLOCKER — ONE STEP (do this first)
 
-Provisioning the **dedicated isolated test account** (user's chosen approach) is blocked:
+**Decision made:** dedicated isolated test account, provisioned via a **service-role key
+used Node-side only** (never `VITE_`-prefixed, never imported by the app or browser-context
+test code).
 
-- `.env` contains only the Supabase **anon key** — no `SUPABASE_SERVICE_ROLE_KEY`.
-- Production RLS **blocks client-side INSERT into `profiles`** (verified: anon-key insert
-  returns "new row violates row-level security policy"; no auto-create trigger fires —
-  the user row has no profile). Without a `profiles` row, the app can't resolve the
-  account's company/role, so the account can't drive the app.
-- `scripts/seed-e2e.js` therefore got as far as creating the auth user
-  (`e2e@coresite.io`, uid `33919449-ae41-49f7-b461-75455e718a73`) and an **orphaned
-  company** (`fa3af603-f539-492d-9841-bb49f720987f`) before failing on the profile insert.
+**The single remaining step:** add the key to the gitignored `.env`:
 
-**Decision needed (asked to user):** provide a `SUPABASE_SERVICE_ROLE_KEY` in `.env` so
-the seed script can provision profile/managers/project cleanly and tests can set
-up/tear down isolated data — OR fall back to the existing `demo@coresite.io` account.
+```
+SUPABASE_SERVICE_ROLE_KEY=<service_role key from Supabase → Project Settings → API>
+```
 
-**When unblocked:**
-- If service-role key provided → add `SUPABASE_SERVICE_ROLE_KEY=...` to `.env`, then
-  update `scripts/seed-e2e.js` to use a service-role client for the profile/managers/
-  project inserts (bypasses RLS), and clean up the orphaned company above. Re-run
-  `node scripts/seed-e2e.js`.
-- If falling back to demo → set `E2E_EMAIL=demo@coresite.io` / `E2E_PASSWORD=Demo2026!`
-  in `.env`. NOTE: normal UI login does NOT trigger sandbox no-op mode (that needs the
-  `sandbox_mode` sessionStorage flag set by SandboxEntry), so writes WILL persist to the
-  demo company. Tests must self-clean with a unique marker per run.
+Then run `node scripts/seed-e2e.js` — it should print `=== E2E account ready ===` with a
+`company_id` and `project_id`. The seed script is **already written to use the admin client**
+for the RLS-blocked inserts and to auto-clean orphaned E2E companies, so no code change is
+needed once the key lands.
+
+Background (why this was needed): production RLS blocks anon-key INSERT into `profiles`
+(verified), and no auto-create trigger fires, so the anon key alone cannot provision a
+usable account. Earlier failed run left auth user `e2e@coresite.io`
+(uid `33919449-ae41-49f7-b461-75455e718a73`) + an orphaned company
+(`fa3af603-f539-492d-9841-bb49f720987f`); `seed-e2e.js` now deletes such orphans on re-run.
+
+Fallback if the key can't be provided: set `E2E_EMAIL=demo@coresite.io` /
+`E2E_PASSWORD=Demo2026!` in `.env` (the demo account already has a working profile). Normal
+UI login does NOT trigger sandbox no-op mode, so writes persist to the demo company — tests
+must self-clean with a unique per-run marker.
 
 ---
 
@@ -48,11 +49,14 @@ up/tear down isolated data — OR fall back to the existing `demo@coresite.io` a
 - ✅ `.gitignore`: ignores `test-results/`, `playwright-report/`, `e2e/.auth/` (auth state
   holds a live token), playwright caches.
 - ✅ `.env`: added `E2E_EMAIL` / `E2E_PASSWORD` (gitignored).
-- ✅ `scripts/seed-e2e.js`: idempotent provisioner (currently blocked — see above).
+- ✅ `scripts/seed-e2e.js`: idempotent provisioner using a Node-only **admin (service-role)
+  client** for the RLS-blocked profile/managers/project inserts + orphan cleanup. Ready to
+  run the moment the key is in `.env`.
 
 ## In progress
 
-- 🔄 Provisioning the dedicated test account (blocked — awaiting service-role key decision).
+- 🔄 Provisioning the dedicated test account — **awaiting `SUPABASE_SERVICE_ROLE_KEY` in
+  `.env`**, then `node scripts/seed-e2e.js`. Everything below depends on this.
 
 ## Next (in order)
 
@@ -83,8 +87,17 @@ up/tear down isolated data — OR fall back to the existing `demo@coresite.io` a
 - App: Vite + React 19 SPA, Supabase backend (single LIVE project — no staging DB).
 - Supabase URL/anon key live in `.env` (gitignored). Demo account: `demo@coresite.io` /
   `Demo2026!`.
-- Login UI: PM/manager login is `/pm-login` (component `src/pages/PMLogin.jsx`); operative
-  login `src/pages/OperativeLogin.jsx`. App shell lives under `/app`.
+- Login UI: route is **`/login`** (`/pm-login` redirects there). Component `PMLogin.jsx`.
+  It is a **multi-step flow**, NOT a single form:
+    1. `/login` shows an email input (`input[type=email]`, autofocus) — enter email, submit.
+    2. App detects the account → shows manager/worker choice buttons (PMLogin.jsx:221 manager,
+       :233 worker). Click the **manager** button.
+    3. Password step: `input[type=password]` (PMLogin.jsx:283) + submit `LoadingButton`.
+    4. On success manager → `navigate('/app')` (PMLogin.jsx:86); worker → `/worker` (:134).
+  `auth.setup.js` must drive all steps (or assert and adapt — verify live, the exact email-
+  detection branch may differ for a brand-new account). App shell is under `/app`; worker
+  app under `/worker`. Worker login route: `/worker-login` (`OperativeLogin.jsx`).
+  Auth = `supabase.auth.signInWithPassword` (PMLogin.jsx:102).
 - Re-fetch verification = the whole point; prefer a direct Supabase query in
   `e2e/helpers/db.js` over trusting the UI (UI may show optimistic/stale state — see AUDIT.md).
 - Relevant audit findings the tests should catch if regressions reappear: §2.1 (plant edit
