@@ -8,6 +8,7 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 const API_DIR = path.dirname(fileURLToPath(import.meta.url)) + '/api'
+const handlerCache = new Map()
 
 /**
  * Dev-only Vite plugin: executes /api/*.js functions in-process with a
@@ -31,8 +32,12 @@ export function apiPlugin() {
           const file = path.join(API_DIR, `${name}.js`)
           if (!name || name.startsWith('_') || !fs.existsSync(file)) return next()
 
-          // Cache-bust the import so handler edits are picked up on each request.
-          const mod = await import(`${file}?t=${Date.now()}`)
+          // Import the handler once and cache it. (Re-importing per request —
+          // which also re-imports @supabase/supabase-js each time — is slow and
+          // made API-backed tests flaky under load. Restart the dev server to
+          // pick up handler edits.)
+          if (!handlerCache.has(file)) handlerCache.set(file, import(file))
+          const mod = await handlerCache.get(file)
           const handler = mod.default
           if (typeof handler !== 'function') return next()
 

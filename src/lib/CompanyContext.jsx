@@ -42,8 +42,10 @@ export function CompanyProvider({ children }) {
       console.error('Session check failed:', err)
     }
 
-    // 3. Try IndexedDB offline cache
-    if (!restored) {
+    // 3. Try IndexedDB offline cache — ONLY when actually offline. Online, an
+    // absent/expired Supabase session must mean "not authenticated" so the route
+    // guards send the user to login rather than run with no token (AUDIT §1.7).
+    if (!restored && !navigator.onLine) {
       try {
         const cachedUser = await getCachedAuth('user')
         if (cachedUser) {
@@ -60,8 +62,9 @@ export function CompanyProvider({ children }) {
       } catch { /* ignore */ }
     }
 
-    // 4. Try stored session in localStorage (mobile persistent login)
-    if (!restored) {
+    // 4. Try stored session in localStorage (mobile persistent login) — offline only,
+    // for the same reason as step 3.
+    if (!restored && !navigator.onLine) {
       const stored = getSession('manager_data')
       if (stored) {
         try {

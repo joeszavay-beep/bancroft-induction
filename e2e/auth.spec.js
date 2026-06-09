@@ -62,18 +62,16 @@ test('logged-out user is redirected from /app to /login', async ({ page }) => {
   await expect(page).toHaveURL(/\/login/, { timeout: 15_000 })
 })
 
-test('stale pm_auth flag without a live session forces re-login [KNOWN-RED: AUDIT §1.7]', async ({ page }) => {
-  // Simulate the real-world expiry case: the Supabase session is gone (token
-  // expired / refresh failed) but the app's own pm_auth flag is still in
-  // storage. The route guards trust that flag, so the user is let into /app
-  // with no usable token and every request 401s, instead of being sent to login.
+test('stale pm_auth flag without a live session forces re-login', async ({ page }) => {
+  // Real-world expiry case: the Supabase session is gone (token expired / refresh
+  // failed) but the app's own pm_auth flag is still in storage. After the AUDIT
+  // §1.7 fix the guards no longer trust that flag while online, so the user is
+  // sent to /login instead of into /app with no usable token.
   await page.addInitScript(() => {
     localStorage.setItem('pm_auth', 'true')
     sessionStorage.setItem('pm_auth', 'true')
   })
   await page.goto('/app/plant-equipment')
 
-  // Correct behaviour: a dead session should bounce the user to /login.
-  // Today it does not (AUDIT §1.7) — this assertion is expected to fail.
   await expect(page).toHaveURL(/\/login/, { timeout: 15_000 })
 })
