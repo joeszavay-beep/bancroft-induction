@@ -77,7 +77,7 @@ test.describe.serial('Plant & Equipment — create & edit', () => {
     }).toPass({ timeout: 10_000 })
   })
 
-  test('edit persists changed fields to the DB [KNOWN-RED: AUDIT §2.1]', async ({ page }) => {
+  test('edit persists changed fields to the DB', async ({ page }) => {
     await gotoPlant(page)
     await page.getByPlaceholder('Search equipment...').fill(marker)
     const row = page.locator('tr', { hasText: marker })
@@ -94,8 +94,7 @@ test.describe.serial('Plant & Equipment — create & edit', () => {
     await page.getByRole('button', { name: 'Update' }).click()
     await expect(page.getByRole('heading', { name: 'Edit Equipment' })).toBeHidden()
 
-    // Re-fetch: the edited fields must actually be in the DB. FAILS today — the
-    // PATCH drops these fields (AUDIT.md §2.1). Left red on purpose.
+    // Re-fetch: the edited fields must actually be in the DB (AUDIT §2.1 fix).
     await expect(async () => {
       const updated = await fetchRow('equipment', { company_id: ids.companyId, description: marker })
       expect(updated, 'equipment row should still exist after edit').not.toBeNull()
