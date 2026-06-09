@@ -9,6 +9,18 @@ so any session can resume from it alone.
 
 ---
 
+## ✅ UNBLOCKED (2026-06-09)
+
+Service-role key added to `.env` (Node-only). `node scripts/seed-e2e.js` succeeded:
+- email `e2e@coresite.io`, user_id `33919449-ae41-49f7-b461-75455e718a73`
+- company_id `d2533a5c-9eb0-45aa-a068-e143db4531a1` ("E2E Test Co")
+- project_id `0d02e514-ad3f-4301-ba63-6650f48d09f7` ("E2E Site")
+Note: the `.env` anon key had been corrupted by manual edits — restored from the
+known-good value hardcoded in scripts/seed-demo.js. If "Invalid API key" ever
+reappears, diff `.env` against that script first.
+
+<details><summary>Old blocker notes (resolved)</summary>
+
 ## ⚠️ ACTIVE BLOCKER — ONE STEP (do this first)
 
 **Decision made:** dedicated isolated test account, provisioned via a **service-role key
@@ -37,6 +49,8 @@ Fallback if the key can't be provided: set `E2E_EMAIL=demo@coresite.io` /
 UI login does NOT trigger sandbox no-op mode, so writes persist to the demo company — tests
 must self-clean with a unique per-run marker.
 
+</details>
+
 ---
 
 ## Done
@@ -53,20 +67,21 @@ must self-clean with a unique per-run marker.
   client** for the RLS-blocked profile/managers/project inserts + orphan cleanup. Ready to
   run the moment the key is in `.env`.
 
+- ✅ Account provisioned (see above). `e2e/auth.setup.js` passes — logs in through the
+  real multi-step UI and saves `e2e/.auth/admin.json`. Includes a fill-then-verify
+  `toPass()` guard: on cold Vite starts a fill can land before React mounts and the
+  controlled input clobbers it (this WILL bite any new spec that types into a form
+  straight after `goto` — reuse the same pattern or land on a loaded page first).
+- ✅ `e2e/helpers/db.js` — anon-key client signed in as the test user (RLS-honest
+  re-fetch), `getIds()` runtime id resolution, `fetchRow`/`deleteRows`/`runMarker`.
+
 ## In progress
 
-- 🔄 Provisioning the dedicated test account — **awaiting `SUPABASE_SERVICE_ROLE_KEY` in
-  `.env`**, then `node scripts/seed-e2e.js`. Everything below depends on this.
+- 🔄 First workflow spec: `e2e/plant.spec.js` (create/edit/delete, re-fetch each step).
 
 ## Next (in order)
 
-1. Unblock account provisioning (see blocker). Verify `node scripts/seed-e2e.js` prints
-   `=== E2E account ready ===` with company_id + project_id.
-2. `e2e/auth.setup.js` — UI login as test account, save `e2e/.auth/admin.json`.
-3. `e2e/helpers/db.js` — node Supabase client (signs in as test account) for re-fetch
-   verification + per-test cleanup helpers; `e2e/helpers/ids.js` to resolve company/project
-   IDs at runtime (don't hardcode).
-4. Workflow test files (one per increment, commit each). Each: do the action in the UI,
+1. Workflow test files (one per increment, commit each). Each: do the action in the UI,
    then **re-fetch from Supabase** and assert the row exists/changed/was deleted:
    - [ ] `auth.spec.js` — login success, bad-password failure, **session expiry** (clear/age
          the token, assert app forces re-login rather than firing tokenless requests).
