@@ -157,15 +157,47 @@ async function ensureDrawing(companyId, projectId) {
   return drawing.id
 }
 
+async function ensureOperative(companyId, projectId) {
+  const wEmail = (process.env.E2E_WORKER_EMAIL || 'e2e-worker@coresite.io').toLowerCase()
+  const wPass = process.env.E2E_WORKER_PASSWORD || 'E2eWorker2026!'
+
+  // Pre-confirmed auth user so the worker can log in via email+password.
+  const created = await admin.auth.admin.createUser({
+    email: wEmail, password: wPass, email_confirm: true,
+    user_metadata: { name: 'E2E Worker', role: 'operative' },
+  })
+  if (created.error && !/already.+(registered|exists)/i.test(created.error.message)) {
+    console.error('worker createUser failed:', created.error.message); process.exit(1)
+  }
+
+  let { data: op } = await admin.from('operatives').select('id').eq('email', wEmail).maybeSingle()
+  if (!op) {
+    const ins = await admin.from('operatives').insert({
+      name: 'E2E Worker', email: wEmail, company_id: companyId,
+      date_of_birth: '1990-01-01', role: 'Operative',
+    }).select().single()
+    if (ins.error) { console.error('operative insert failed:', ins.error.message); process.exit(1) }
+    op = ins.data
+  }
+  // Link to project (idempotent).
+  const { data: link } = await admin.from('operative_projects')
+    .select('operative_id').eq('operative_id', op.id).eq('project_id', projectId).maybeSingle()
+  if (!link) await admin.from('operative_projects').insert({ operative_id: op.id, project_id: projectId })
+  console.log(`✓ Operative ready (${op.id})`)
+  return op.id
+}
+
 const user = await signInOrSignUp()
 const companyId = await ensureCompany(user)
 const projectId = await ensureProject(companyId)
 const drawingId = await ensureDrawing(companyId, projectId)
+const operativeId = await ensureOperative(companyId, projectId)
 
 console.log('\n=== E2E account ready ===')
-console.log(`email:      ${EMAIL}`)
-console.log(`user_id:    ${user.id}`)
-console.log(`company_id: ${companyId}`)
-console.log(`project_id: ${projectId}`)
-console.log(`drawing_id: ${drawingId}`)
+console.log(`email:        ${EMAIL}`)
+console.log(`user_id:      ${user.id}`)
+console.log(`company_id:   ${companyId}`)
+console.log(`project_id:   ${projectId}`)
+console.log(`drawing_id:   ${drawingId}`)
+console.log(`operative_id: ${operativeId}`)
 process.exit(0)

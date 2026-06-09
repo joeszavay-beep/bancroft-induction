@@ -80,8 +80,8 @@ must self-clean with a unique per-run marker.
 
 ## In progress
 
-- 🔄 Workflow specs. Done: plant, auth, snag. Next up: induction, rams-signoff,
-  toolbox-talk, attendance, hs-report, pdf-export.
+- 🔄 Workflow specs. Done: plant, auth, snag, attendance. Next up: toolbox-talk,
+  rams-signoff, induction, hs-report, pdf-export.
 
 ## Next (in order)
 
@@ -94,7 +94,10 @@ must self-clean with a unique per-run marker.
    - [ ] `induction.spec.js` — complete an induction → operative/induction row persisted.
    - [ ] `rams-signoff.spec.js` — sign off RAMS → signature row persisted.
    - [ ] `toolbox-talk.spec.js` — create a toolbox talk, sign it → talk + signature rows.
-   - [ ] `attendance.spec.js` — QR attendance sign-in → site_attendance row persisted.
+   - [x] `attendance.spec.js` — worker logs in at /site/:projectId and taps SIGN IN;
+         re-fetches the latest site_attendance row (type=sign_in). GREEN.
+         (seed-e2e.js now provisions an operative: E2E_WORKER_EMAIL/PASSWORD in .env,
+         operatives row + auth user + project link.)
    - [x] `plant.spec.js` — create / edit / delete, each DB-re-fetched. **create + delete
          GREEN; edit is KNOWN-RED** — reproduces AUDIT.md §2.1 live (PATCH drops
          camelCase fields). Left red on purpose; do NOT fix app code without telling user.
