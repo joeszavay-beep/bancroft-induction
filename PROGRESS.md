@@ -80,15 +80,17 @@ must self-clean with a unique per-run marker.
 
 ## In progress
 
-- 🔄 Workflow specs. Next up: `snag.spec.js` (raise/edit/close), then induction,
-  rams-signoff, toolbox-talk, attendance, hs-report, pdf-export, auth/session-expiry.
+- 🔄 Workflow specs. Done: plant, auth. Next up: `snag.spec.js` (raise/edit/close),
+  then induction, rams-signoff, toolbox-talk, attendance, hs-report, pdf-export.
 
 ## Next (in order)
 
 1. Workflow test files (one per increment, commit each). Each: do the action in the UI,
    then **re-fetch from Supabase** and assert the row exists/changed/was deleted:
-   - [ ] `auth.spec.js` — login success, bad-password failure, **session expiry** (clear/age
-         the token, assert app forces re-login rather than firing tokenless requests).
+   - [x] `auth.spec.js` — login success (DB session token verified), bad-password
+         rejection, logged-out→/login redirect: all GREEN. Session-expiry test
+         (stale pm_auth flag, no live session) is **KNOWN-RED** — reproduces
+         AUDIT §1.7 (app admits a dead session instead of forcing re-login).
    - [ ] `induction.spec.js` — complete an induction → operative/induction row persisted.
    - [ ] `rams-signoff.spec.js` — sign off RAMS → signature row persisted.
    - [ ] `toolbox-talk.spec.js` — create a toolbox talk, sign it → talk + signature rows.
