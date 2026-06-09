@@ -80,8 +80,8 @@ must self-clean with a unique per-run marker.
 
 ## In progress
 
-- 🔄 Workflow specs. Done: plant, auth, snag, attendance, toolbox, rams. Next up:
-  induction, hs-report, pdf-export.
+- 🔄 Workflow specs. Done: plant, auth, snag, attendance, toolbox, rams, induction.
+  Next up: hs-report, pdf-export.
 
 ### Suite status (last full run): 11 passed, 3 KNOWN-RED (all documented bugs)
 - KNOWN-RED: plant edit (§2.1), auth session-expiry (§1.7), toolbox sign (§2.24).
@@ -107,7 +107,10 @@ must self-clean with a unique per-run marker.
          rejection, logged-out→/login redirect: all GREEN. Session-expiry test
          (stale pm_auth flag, no live session) is **KNOWN-RED** — reproduces
          AUDIT §1.7 (app admits a dead session instead of forcing re-login).
-   - [ ] `induction.spec.js` — complete an induction → operative/induction row persisted.
+   - [x] `induction.spec.js` — operative signs all project docs via the documents
+         hub → "induction complete" shown; DB verifies every project doc has a
+         valid signature. GREEN. (induction = all required docs signed; derived,
+         no separate table.)
    - [x] `rams.spec.js` — operative signs a RAMS document (DOB + signature canvas);
          re-fetches the signatures row. GREEN. (seed provisions an 'E2E RAMS'
          document with null file_url so the read-gate is skipped.)
