@@ -39,7 +39,14 @@ export async function getIds() {
   if (prErr) throw new Error(`project lookup failed: ${prErr.message}`)
   const { data: drawing } = await db
     .from('drawings').select('id').eq('project_id', project.id).eq('name', 'E2E Drawing').maybeSingle()
-  _ids = { userId: user.id, companyId: profile.company_id, projectId: project.id, drawingId: drawing?.id || null }
+  const { data: doc } = await db
+    .from('documents').select('id').eq('project_id', project.id).eq('title', 'E2E RAMS').maybeSingle()
+  const { data: op } = await db
+    .from('operatives').select('id').eq('email', (process.env.E2E_WORKER_EMAIL || 'e2e-worker@coresite.io').toLowerCase()).maybeSingle()
+  _ids = {
+    userId: user.id, companyId: profile.company_id, projectId: project.id,
+    drawingId: drawing?.id || null, documentId: doc?.id || null, operativeId: op?.id || null,
+  }
   return _ids
 }
 

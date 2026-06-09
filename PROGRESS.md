@@ -80,8 +80,8 @@ must self-clean with a unique per-run marker.
 
 ## In progress
 
-- 🔄 Workflow specs. Done: plant, auth, snag, attendance, toolbox. Next up:
-  rams-signoff, induction, hs-report, pdf-export.
+- 🔄 Workflow specs. Done: plant, auth, snag, attendance, toolbox, rams. Next up:
+  induction, hs-report, pdf-export.
 
 ### Suite status (last full run): 11 passed, 3 KNOWN-RED (all documented bugs)
 - KNOWN-RED: plant edit (§2.1), auth session-expiry (§1.7), toolbox sign (§2.24).
@@ -108,7 +108,9 @@ must self-clean with a unique per-run marker.
          (stale pm_auth flag, no live session) is **KNOWN-RED** — reproduces
          AUDIT §1.7 (app admits a dead session instead of forcing re-login).
    - [ ] `induction.spec.js` — complete an induction → operative/induction row persisted.
-   - [ ] `rams-signoff.spec.js` — sign off RAMS → signature row persisted.
+   - [x] `rams.spec.js` — operative signs a RAMS document (DOB + signature canvas);
+         re-fetches the signatures row. GREEN. (seed provisions an 'E2E RAMS'
+         document with null file_url so the read-gate is skipped.)
    - [x] `toolbox.spec.js` — PM create persists (GREEN); operative sign is
          **KNOWN-RED** (AUDIT §2.24: ToolboxSign queries non-existent
          operatives.project_id → operatives never load → "All operatives have

@@ -190,6 +190,19 @@ async function ensureOperative(companyId, projectId) {
   return op.id
 }
 
+async function ensureDocument(companyId, projectId) {
+  const { data: existing } = await admin.from('documents')
+    .select('id').eq('project_id', projectId).eq('title', 'E2E RAMS').maybeSingle()
+  if (existing) { console.log(`✓ Document exists: (${existing.id})`); return existing.id }
+  // file_url null → SignDocument lets the operative sign immediately (no "read" gate).
+  const { data: doc, error } = await admin.from('documents').insert({
+    project_id: projectId, company_id: companyId, title: 'E2E RAMS', file_url: null, file_name: null,
+  }).select().single()
+  if (error) { console.error('document insert failed:', error.message); process.exit(1) }
+  console.log(`✓ Created document (${doc.id})`)
+  return doc.id
+}
+
 const user = await signInOrSignUp()
 const companyId = await ensureCompany(user)
 // Put company_id in the auth user's metadata so the app's setupFromAuth writes a
@@ -202,6 +215,7 @@ const projectId = await ensureProject(companyId)
 await admin.from('managers').update({ project_ids: [projectId] }).eq('email', EMAIL)
 const drawingId = await ensureDrawing(companyId, projectId)
 const operativeId = await ensureOperative(companyId, projectId)
+const documentId = await ensureDocument(companyId, projectId)
 
 console.log('\n=== E2E account ready ===')
 console.log(`email:        ${EMAIL}`)
@@ -210,4 +224,5 @@ console.log(`company_id:   ${companyId}`)
 console.log(`project_id:   ${projectId}`)
 console.log(`drawing_id:   ${drawingId}`)
 console.log(`operative_id: ${operativeId}`)
+console.log(`document_id:  ${documentId}`)
 process.exit(0)
