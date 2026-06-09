@@ -72,12 +72,16 @@ must self-clean with a unique per-run marker.
   `toPass()` guard: on cold Vite starts a fill can land before React mounts and the
   controlled input clobbers it (this WILL bite any new spec that types into a form
   straight after `goto` — reuse the same pattern or land on a loaded page first).
+- ✅ `vite-api-plugin.js`: dev-only Vite middleware that executes `/api/*` serverless
+  functions in-process (Vite alone serves them as static source). REQUIRED for any
+  authFetch('/api/...') flow under `npm run dev`. Runs the real handler code.
 - ✅ `e2e/helpers/db.js` — anon-key client signed in as the test user (RLS-honest
   re-fetch), `getIds()` runtime id resolution, `fetchRow`/`deleteRows`/`runMarker`.
 
 ## In progress
 
-- 🔄 First workflow spec: `e2e/plant.spec.js` (create/edit/delete, re-fetch each step).
+- 🔄 Workflow specs. Next up: `snag.spec.js` (raise/edit/close), then induction,
+  rams-signoff, toolbox-talk, attendance, hs-report, pdf-export, auth/session-expiry.
 
 ## Next (in order)
 
@@ -89,8 +93,9 @@ must self-clean with a unique per-run marker.
    - [ ] `rams-signoff.spec.js` — sign off RAMS → signature row persisted.
    - [ ] `toolbox-talk.spec.js` — create a toolbox talk, sign it → talk + signature rows.
    - [ ] `attendance.spec.js` — QR attendance sign-in → site_attendance row persisted.
-   - [ ] `plant.spec.js` — create / **edit** / delete plant → re-fetch each step.
-         (Edit MUST assert changed fields persist — directly covers AUDIT.md §2.1.)
+   - [x] `plant.spec.js` — create / edit / delete, each DB-re-fetched. **create + delete
+         GREEN; edit is KNOWN-RED** — reproduces AUDIT.md §2.1 live (PATCH drops
+         camelCase fields). Left red on purpose; do NOT fix app code without telling user.
    - [ ] `snag.spec.js` — raise / edit / close a snag → re-fetch each step.
    - [ ] `hs-report.spec.js` — generate weekly H&S report → assert report/output persisted.
    - [ ] `pdf-export.spec.js` — PDF exports produce a non-empty PDF (download assertion).
