@@ -14,6 +14,9 @@
  */
 import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 dotenv.config()
 
 const URL = process.env.VITE_SUPABASE_URL
@@ -130,13 +133,39 @@ async function ensureProject(companyId) {
   return project.id
 }
 
+async function ensureDrawing(companyId, projectId) {
+  const { data: existing } = await admin.from('drawings')
+    .select('id, file_url').eq('project_id', projectId).eq('name', 'E2E Drawing').maybeSingle()
+  if (existing?.file_url) { console.log(`✓ Drawing exists: (${existing.id})`); return existing.id }
+
+  // Upload the fixture image to the drawings bucket (service-role bypasses storage RLS).
+  const png = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '../e2e/fixtures/drawing.png'))
+  const filePath = `${projectId}/e2e-drawing.png`
+  const up = await admin.storage.from('drawings').upload(filePath, png, { contentType: 'image/png', upsert: true })
+  if (up.error) { console.error('drawing upload failed:', up.error.message); process.exit(1) }
+  const { data: urlData } = admin.storage.from('drawings').getPublicUrl(filePath)
+
+  const { data: drawing, error } = await admin.from('drawings').insert({
+    project_id: projectId,
+    company_id: companyId,
+    name: 'E2E Drawing',
+    file_url: urlData.publicUrl,
+    uploaded_by: 'E2E Admin',
+  }).select().single()
+  if (error) { console.error('drawing insert failed:', error.message); process.exit(1) }
+  console.log(`✓ Created drawing (${drawing.id})`)
+  return drawing.id
+}
+
 const user = await signInOrSignUp()
 const companyId = await ensureCompany(user)
 const projectId = await ensureProject(companyId)
+const drawingId = await ensureDrawing(companyId, projectId)
 
 console.log('\n=== E2E account ready ===')
 console.log(`email:      ${EMAIL}`)
 console.log(`user_id:    ${user.id}`)
 console.log(`company_id: ${companyId}`)
 console.log(`project_id: ${projectId}`)
+console.log(`drawing_id: ${drawingId}`)
 process.exit(0)

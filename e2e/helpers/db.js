@@ -37,7 +37,9 @@ export async function getIds() {
   const { data: project, error: prErr } = await db
     .from('projects').select('id').eq('company_id', profile.company_id).eq('name', 'E2E Site').single()
   if (prErr) throw new Error(`project lookup failed: ${prErr.message}`)
-  _ids = { userId: user.id, companyId: profile.company_id, projectId: project.id }
+  const { data: drawing } = await db
+    .from('drawings').select('id').eq('project_id', project.id).eq('name', 'E2E Drawing').maybeSingle()
+  _ids = { userId: user.id, companyId: profile.company_id, projectId: project.id, drawingId: drawing?.id || null }
   return _ids
 }
 

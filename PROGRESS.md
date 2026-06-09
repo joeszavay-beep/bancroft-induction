@@ -80,8 +80,8 @@ must self-clean with a unique per-run marker.
 
 ## In progress
 
-- 🔄 Workflow specs. Done: plant, auth. Next up: `snag.spec.js` (raise/edit/close),
-  then induction, rams-signoff, toolbox-talk, attendance, hs-report, pdf-export.
+- 🔄 Workflow specs. Done: plant, auth, snag. Next up: induction, rams-signoff,
+  toolbox-talk, attendance, hs-report, pdf-export.
 
 ## Next (in order)
 
@@ -98,7 +98,9 @@ must self-clean with a unique per-run marker.
    - [x] `plant.spec.js` — create / edit / delete, each DB-re-fetched. **create + delete
          GREEN; edit is KNOWN-RED** — reproduces AUDIT.md §2.1 live (PATCH drops
          camelCase fields). Left red on purpose; do NOT fix app code without telling user.
-   - [ ] `snag.spec.js` — raise / edit / close a snag → re-fetch each step.
+   - [x] `snag.spec.js` — raise (pin on seeded drawing) / edit / close, each
+         DB-re-fetched. All GREEN. (seed-e2e.js now also provisions an "E2E
+         Drawing" with an uploaded image fixture: e2e/fixtures/drawing.png.)
    - [ ] `hs-report.spec.js` — generate weekly H&S report → assert report/output persisted.
    - [ ] `pdf-export.spec.js` — PDF exports produce a non-empty PDF (download assertion).
 5. Run full suite; fix every failure; commit each fix referencing the spec.
