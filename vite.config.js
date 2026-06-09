@@ -2,12 +2,14 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { apiPlugin } from './vite-api-plugin.js'
 
 export default defineConfig({
   optimizeDeps: {
     exclude: ['web-ifc'], // WASM module — don't pre-bundle
   },
   plugins: [
+    apiPlugin(), // dev-only: runs /api/* serverless functions in-process
     react(),
     tailwindcss(),
     VitePWA({
