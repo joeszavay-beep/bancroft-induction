@@ -43,5 +43,16 @@ setup('authenticate as E2E admin', async ({ page }) => {
   // Step 3: landed in the app shell.
   await page.waitForURL('**/app', { timeout: 20_000 })
 
+  // On web the app keeps pm_auth / manager_data in sessionStorage, which
+  // Playwright's storageState does NOT persist. Copy them into localStorage
+  // (the app's getSession reads localStorage first) so reused auth state keeps
+  // the manager context (company_id, project_ids) that many pages depend on.
+  await page.evaluate(() => {
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i)
+      if (localStorage.getItem(k) == null) localStorage.setItem(k, sessionStorage.getItem(k))
+    }
+  })
+
   await page.context().storageState({ path: AUTH_FILE })
 })

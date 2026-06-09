@@ -174,10 +174,13 @@ async function ensureOperative(companyId, projectId) {
   if (!op) {
     const ins = await admin.from('operatives').insert({
       name: 'E2E Worker', email: wEmail, company_id: companyId,
-      date_of_birth: '1990-01-01', role: 'Operative',
+      date_of_birth: '1990-01-01', role: 'Operative', project_id: projectId,
     }).select().single()
     if (ins.error) { console.error('operative insert failed:', ins.error.message); process.exit(1) }
     op = ins.data
+  } else {
+    // Ensure project_id is set (ToolboxSign/induction filter operatives by it).
+    await admin.from('operatives').update({ project_id: projectId }).eq('id', op.id)
   }
   // Link to project (idempotent).
   const { data: link } = await admin.from('operative_projects')
@@ -189,7 +192,14 @@ async function ensureOperative(companyId, projectId) {
 
 const user = await signInOrSignUp()
 const companyId = await ensureCompany(user)
+// Put company_id in the auth user's metadata so the app's setupFromAuth writes a
+// complete manager_data (company_id) immediately on login — many pages need it.
+await admin.auth.admin.updateUserById(user.id, {
+  user_metadata: { name: 'E2E Admin', role: 'admin', company_id: companyId },
+})
 const projectId = await ensureProject(companyId)
+// Give the manager access to the project (empty project_ids = no access in the UI).
+await admin.from('managers').update({ project_ids: [projectId] }).eq('email', EMAIL)
 const drawingId = await ensureDrawing(companyId, projectId)
 const operativeId = await ensureOperative(companyId, projectId)
 

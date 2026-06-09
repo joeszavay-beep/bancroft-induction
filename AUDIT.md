@@ -218,6 +218,12 @@ A second silent-save path worth checking with affected users: **1.6** — anyone
 - **Files:** `src/pages/Onboarding.jsx:89`; `src/pages/SiteSignIn.jsx:136-139`; `src/components/IncidentForm.jsx:131-140` (activity feed); `src/pages/ProgrammeCalculator.jsx:413-424` (reorder PATCH — `res.ok` never inspected); `src/pages/AddNewWorker.jsx:111-116`, `:147`
 - **Fix:** Check `error`/`res.ok`; at minimum log and refetch.
 
+### 2.24 [HIGH] Toolbox talk signing is broken — queries a non-existent `operatives.project_id` column
+- **File:** `src/pages/ToolboxSign.jsx:33`
+- **Issue:** The sign page loads the operatives who may sign with `supabase.from('operatives').select('*').eq('project_id', t.project_id)`. The `operatives` table has **no `project_id` column** (verified against the live DB: `column operatives.project_id does not exist`); operatives are linked to projects through the `operative_projects` junction, as `SiteSignIn.jsx:129` correctly does. The PostgREST query therefore errors, `setOperatives([])` runs, and `availableOps` is always empty — so the page renders "All operatives have signed" and the signature canvas never appears. **No operative can sign any toolbox talk.** (PM creation of talks works fine; only signing is broken.)
+- **Fix:** Load signees via the junction, e.g. `from('operatives').select('*, operative_projects!inner(project_id)').eq('operative_projects.project_id', t.project_id)` (mirror `SiteSignIn.jsx:129`), or query `operative_projects` for the project and join operatives.
+- **CONFIRMED BY E2E (2026-06-09):** `e2e/toolbox.spec.js` — create persists (green); the sign test `[KNOWN-RED]` navigates to `/toolbox/:id` as a seeded operative on the project and finds "All operatives have signed" with no canvas. Left **red** until fixed.
+
 ---
 
 ## 3. FORMS

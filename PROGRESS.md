@@ -80,8 +80,24 @@ must self-clean with a unique per-run marker.
 
 ## In progress
 
-- 🔄 Workflow specs. Done: plant, auth, snag, attendance. Next up: toolbox-talk,
+- 🔄 Workflow specs. Done: plant, auth, snag, attendance, toolbox. Next up:
   rams-signoff, induction, hs-report, pdf-export.
+
+### Suite status (last full run): 11 passed, 3 KNOWN-RED (all documented bugs)
+- KNOWN-RED: plant edit (§2.1), auth session-expiry (§1.7), toolbox sign (§2.24).
+  These are real app bugs left red on purpose — do NOT fix app code without telling user.
+
+### Important test-infra notes for whoever resumes
+- Playwright storageState persists localStorage but NOT sessionStorage. On web the
+  app stores pm_auth/manager_data in sessionStorage, so auth.setup.js copies all
+  sessionStorage→localStorage before saving state (getSession reads localStorage
+  first). Without this, manager_data is null on reused contexts and project-scoped
+  pages break.
+- seed-e2e.js sets the admin auth user's user_metadata.company_id and managers.project_ids
+  so setupFromAuth writes a complete manager_data on login.
+- operatives has NO project_id column (use operative_projects junction). The seeded
+  operative is linked via operative_projects; the operatives.project_id update in
+  seed-e2e.js is a harmless no-op kept only for older schemas.
 
 ## Next (in order)
 
@@ -93,7 +109,10 @@ must self-clean with a unique per-run marker.
          AUDIT §1.7 (app admits a dead session instead of forcing re-login).
    - [ ] `induction.spec.js` — complete an induction → operative/induction row persisted.
    - [ ] `rams-signoff.spec.js` — sign off RAMS → signature row persisted.
-   - [ ] `toolbox-talk.spec.js` — create a toolbox talk, sign it → talk + signature rows.
+   - [x] `toolbox.spec.js` — PM create persists (GREEN); operative sign is
+         **KNOWN-RED** (AUDIT §2.24: ToolboxSign queries non-existent
+         operatives.project_id → operatives never load → "All operatives have
+         signed" → nobody can sign).
    - [x] `attendance.spec.js` — worker logs in at /site/:projectId and taps SIGN IN;
          re-fetches the latest site_attendance row (type=sign_in). GREEN.
          (seed-e2e.js now provisions an operative: E2E_WORKER_EMAIL/PASSWORD in .env,
