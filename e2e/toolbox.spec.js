@@ -51,7 +51,7 @@ test.describe.serial('Toolbox talks', () => {
     }).toPass({ timeout: 10_000 })
   })
 
-  test('operative sign persists a toolbox_signature [KNOWN-RED: ToolboxSign operatives.project_id]', async ({ page }) => {
+  test('operative sign persists a toolbox_signature', async ({ page }) => {
     if (!talkId) {
       const row = await fetchRow('toolbox_talks', { company_id: ids.companyId, title: marker })
       talkId = row?.id
@@ -65,11 +65,8 @@ test.describe.serial('Toolbox talks', () => {
     )
     await page.goto(`/toolbox/${talkId}`)
 
-    // EXPECTED TO FAIL (AUDIT §2.24): ToolboxSign.jsx loads signees with
-    // operatives.eq('project_id', ...) but operatives has no project_id column
-    // (operatives↔projects is the operative_projects junction). The query errors,
-    // the operatives list is empty, and the page shows "All operatives have
-    // signed" — so the signing canvas never renders and no one can sign.
+    // Operatives load via the operative_projects junction (AUDIT §2.24 fix), so
+    // the signing UI must render rather than "All operatives have signed".
     await expect(page.getByText('All operatives have signed')).toBeHidden({ timeout: 5_000 })
 
     // Draw on the signature canvas to enable the submit button.

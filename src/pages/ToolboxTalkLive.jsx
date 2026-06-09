@@ -30,7 +30,7 @@ export default function ToolboxTalkLive() {
     const [p, s, o] = await Promise.all([
       supabase.from('projects').select('*').eq('id', t.project_id).single(),
       supabase.from('toolbox_signatures').select('*').eq('talk_id', talkId).order('signed_at'),
-      supabase.from('operatives').select('*').eq('project_id', t.project_id).order('name'),
+      supabase.from('operatives').select('*, operative_projects!inner(project_id)').eq('operative_projects.project_id', t.project_id).order('name'),
     ])
     setProject(p.data)
     setSignatures(s.data || [])
