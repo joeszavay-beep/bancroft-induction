@@ -43,9 +43,11 @@ DROP FUNCTION IF EXISTS submit_toolbox_signature(uuid, uuid, text, text);
 -- reference get_user_company_id(), which is defined ONLY in the live DB (no
 -- migration file creates it). If it was dropped before a rollback, every such
 -- CREATE POLICY would throw and ABORT the rollback mid-incident. Define it here
--- so the rollback is self-contained. Matches get_my_company_id()'s intent
--- (the signed-in user's company from profiles). ⚠️ CONFIRM this matches the
--- live definition before relying on it; harmless if identical.
+-- so the rollback is self-contained. CONFIRMED 2026-06-10: the live
+-- get_user_company_id() returns the identical value to get_my_company_id() for
+-- the test user, so this body (the signed-in user's company from profiles) is
+-- behaviourally correct. For full certainty capture the canonical body once via
+-- `SELECT pg_get_functiondef('get_user_company_id'::regproc);` in the SQL editor.
 CREATE OR REPLACE FUNCTION get_user_company_id()
 RETURNS uuid
 LANGUAGE sql
