@@ -81,8 +81,32 @@ must self-clean with a unique per-run marker.
 ## Status: COMPLETE — all bugs fixed, suite fully green
 
 All 9 workflow specs written. `npm run test:e2e` runs the suite.
-**21/21 passing** (was 18/18; +2 auth tests for the §1.7 refinement, +1 induction
-test for the PMDashboard.jsx:710 sign-off %).
+**22/22 passing** (was 18/18; +2 auth tests for the §1.7 refinement, +1 induction
+test for the PMDashboard.jsx:710 sign-off %, +1 sandbox-leak test §1.6).
+
+### Branches
+- `e2e-tests` → **PR #1** (https://github.com/joeszavay-beep/bancroft-induction/pull/1):
+  the E2E suite + the 3 caught bugs (§2.24/§1.7/§2.1) + §1.7 refinement. Awaiting merge.
+- `audit-fixes-2` (off e2e-tests, **not pushed**): the 2026-06-10 audit-fix batch below
+  + the verified RLS findings + RLS-REMEDIATION-PLAN.md.
+
+### 2026-06-10 session — audit-fixes-2 batch
+- **RLS exposure CONFIRMED LIVE** (owner-authorized read-only probe): production runs the
+  permissive policy set — the public anon key reads across ALL tenants (operatives 57/4 cos,
+  signatures 172/3, projects 13/5, attendance 500/3, +13 tables) and lists documents/
+  floor-plans buckets. §5.1/5.2/5.9 confirmed; §5.3 (anon write/delete) confirmed read-only
+  via the captured live snapshot in rls-lockdown-rollback.sql. §5.4 already gone
+  (managers.password column absent). Full remediation runbook: **RLS-REMEDIATION-PLAN.md**
+  (analysis only — NO prod change until owner approves; deploy4 breaks every public page
+  today because the client calls ZERO of the public RPCs). AUDIT.md §5 updated.
+- **§1.2** authFetch: refresh when token absent OR within 30s of expiry (was: only when
+  absent). §1.1 single-flight NOT added — supabase-js v2.101 serialises refreshes via its
+  navigator lock + refreshingDeferred (documented in AUDIT §1.1 RE-ASSESSED).
+- **§1.4** demo authFetch returns 403 (was 200) so res.ok gating sees the block.
+- **§1.5** demo supabase proxy fake chain now covers the full builder surface (no more
+  "x is not a function" mid-demo); success-shaped result kept on purpose.
+- **§1.6** (the real "edits don't save" leak): setupFromAuth clears sandbox_mode for any
+  non-demo session; clearState clears it on logout. Keyed off DEMO_EMAIL. New E2E test.
 
 ### 2026-06-10 session
 - **§1.7 REFINED** (see AUDIT.md §1.7 "REFINED"): `checkSession` now distinguishes
