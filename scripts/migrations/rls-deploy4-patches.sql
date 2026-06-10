@@ -32,7 +32,10 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT agency_id FROM agency_users WHERE user_id = auth.uid()
+  -- agency_users is keyed by EMAIL in the app — it NEVER populates user_id
+  -- (Signup.jsx / AgencyRegister.jsx insert {agency_id,email,name,role}; all
+  -- reads filter by email). Match the client's lowercased-email writes.
+  SELECT agency_id FROM agency_users WHERE lower(email) = lower(auth.jwt() ->> 'email')
 $$;
 GRANT EXECUTE ON FUNCTION get_my_agency_ids() TO authenticated;
 
@@ -94,10 +97,10 @@ DROP POLICY IF EXISTS "au_select" ON agency_users;
 DROP POLICY IF EXISTS "au_insert" ON agency_users;
 DROP POLICY IF EXISTS "au_update" ON agency_users;
 CREATE POLICY "au_select" ON agency_users FOR SELECT USING (
-  user_id = auth.uid() OR agency_id IN (SELECT get_my_agency_ids())
+  lower(email) = lower(auth.jwt() ->> 'email') OR agency_id IN (SELECT get_my_agency_ids())
 );
 CREATE POLICY "au_insert" ON agency_users FOR INSERT WITH CHECK (
-  user_id = auth.uid() OR agency_id IN (SELECT get_my_agency_ids())
+  lower(email) = lower(auth.jwt() ->> 'email') OR agency_id IN (SELECT get_my_agency_ids())
 );
 CREATE POLICY "au_update" ON agency_users FOR UPDATE USING (
   agency_id IN (SELECT get_my_agency_ids())
@@ -121,14 +124,18 @@ CREATE POLICY "ac_delete" ON agency_connections FOR DELETE USING (
   company_id = get_my_company_id() OR agency_id IN (SELECT get_my_agency_ids())
 );
 
--- document_audit_log (document_id → documents): scope via the document's company.
+-- document_audit_log (document_id → document_hub): scope via the document's company.
+-- NB document_id references document_hub (the DocumentHub table), NOT the legacy
+-- documents table — confirmed by tracing a live row. Neither audit table has its
+-- own company_id (the client's DocumentHub.jsx:224 .eq('company_id') filter on
+-- document_signoffs is a separate pre-existing bug — see AUDIT §2.x follow-up).
 DROP POLICY IF EXISTS "dal_select" ON document_audit_log;
 DROP POLICY IF EXISTS "dal_insert" ON document_audit_log;
 CREATE POLICY "dal_select" ON document_audit_log FOR SELECT USING (
-  document_id IN (SELECT id FROM documents WHERE company_id = get_my_company_id())
+  document_id IN (SELECT id FROM document_hub WHERE company_id = get_my_company_id())
 );
 CREATE POLICY "dal_insert" ON document_audit_log FOR INSERT WITH CHECK (
-  document_id IN (SELECT id FROM documents WHERE company_id = get_my_company_id())
+  document_id IN (SELECT id FROM document_hub WHERE company_id = get_my_company_id())
 );
 
 -- document_signoffs (document_id, operative_id): the document's company, or the
@@ -138,19 +145,19 @@ DROP POLICY IF EXISTS "ds_insert" ON document_signoffs;
 DROP POLICY IF EXISTS "ds_update" ON document_signoffs;
 DROP POLICY IF EXISTS "ds_delete" ON document_signoffs;
 CREATE POLICY "ds_select" ON document_signoffs FOR SELECT USING (
-  document_id IN (SELECT id FROM documents WHERE company_id = get_my_company_id())
+  document_id IN (SELECT id FROM document_hub WHERE company_id = get_my_company_id())
   OR operative_id = get_my_operative_id()
 );
 CREATE POLICY "ds_insert" ON document_signoffs FOR INSERT WITH CHECK (
-  document_id IN (SELECT id FROM documents WHERE company_id = get_my_company_id())
+  document_id IN (SELECT id FROM document_hub WHERE company_id = get_my_company_id())
   OR operative_id = get_my_operative_id()
 );
 CREATE POLICY "ds_update" ON document_signoffs FOR UPDATE USING (
-  document_id IN (SELECT id FROM documents WHERE company_id = get_my_company_id())
+  document_id IN (SELECT id FROM document_hub WHERE company_id = get_my_company_id())
   OR operative_id = get_my_operative_id()
 );
 CREATE POLICY "ds_delete" ON document_signoffs FOR DELETE USING (
-  document_id IN (SELECT id FROM documents WHERE company_id = get_my_company_id())
+  document_id IN (SELECT id FROM document_hub WHERE company_id = get_my_company_id())
 );
 
 -- holiday_audit_log (holiday_request_id → holiday_requests): scope via the request's company.
