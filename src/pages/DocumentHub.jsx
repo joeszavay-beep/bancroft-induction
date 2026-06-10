@@ -216,18 +216,26 @@ export default function DocumentHub() {
   const loadData = useCallback(async () => {
     if (!cid) return
     setLoading(true)
-    const [docRes, packRes, projRes, opRes, sigRes] = await Promise.all([
+    const [docRes, packRes, projRes, opRes] = await Promise.all([
       supabase.from('document_hub').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
       supabase.from('document_packs').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
       supabase.from('projects').select('id, name').eq('company_id', cid).order('name'),
       supabase.from('operatives').select('id, name, role').eq('company_id', cid).order('name'),
-      supabase.from('document_signoffs').select('*').eq('company_id', cid),
     ])
-    setDocuments(docRes.data || [])
+    const docs = docRes.data || []
+    setDocuments(docs)
     setPacks(packRes.data || [])
     setProjects(projRes.data || [])
     setOperatives(opRes.data || [])
-    setSignoffs(sigRes.data || [])
+    // document_signoffs has NO company_id column — scope by the company's
+    // document_hub ids instead (the old .eq('company_id', cid) silently errored).
+    const docIds = docs.map(d => d.id)
+    if (docIds.length) {
+      const { data: sigs } = await supabase.from('document_signoffs').select('*').in('document_id', docIds)
+      setSignoffs(sigs || [])
+    } else {
+      setSignoffs([])
+    }
     setLoading(false)
   }, [cid])
 
@@ -236,11 +244,13 @@ export default function DocumentHub() {
   // ── Audit log helper ──
   function logAudit(action, documentId, details) {
     if (!cid) return
+    // document_audit_log columns are (document_id, action, actor_name, actor_id,
+    // details) — it has NO company_id and NO performed_by; the old payload wrote
+    // two non-existent columns so every audit insert silently errored.
     supabase.from('document_audit_log').insert({
-      company_id: cid,
       document_id: documentId,
       action,
-      performed_by: managerName,
+      actor_name: managerName,
       details: details || null,
     }).then(() => {})
   }
