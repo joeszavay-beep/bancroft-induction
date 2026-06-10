@@ -66,9 +66,16 @@ CREATE POLICY "co_update" ON site_attendance FOR UPDATE
 -- =====================================================================
 
 -- agencies: marketplace entity, no company_id.
--- SELECT stays discoverable (company_name/contact — marketplace listing). ⚠️ FLAG:
---   confirm agencies should remain publicly discoverable to all authenticated
---   users; if not, scope SELECT to connected companies + own agency users.
+-- SELECT is no longer blanket-readable (that exposed insurance docs, VAT/reg
+-- numbers, addresses to every authenticated user). It is now scoped to the
+-- agency's own users + companies already connected to that agency. Marketplace
+-- DISCOVERY of unconnected agencies goes through search_agencies() (deploy3b),
+-- which returns only the minimal connect-flow fields.
+DROP POLICY IF EXISTS "agency_select" ON agencies;
+CREATE POLICY "agency_select" ON agencies FOR SELECT USING (
+  id IN (SELECT get_my_agency_ids())
+  OR id IN (SELECT agency_id FROM agency_connections WHERE company_id = get_my_company_id())
+);
 -- Writes restricted to the agency's own users (insert stays open for registration,
 -- where the agency_users row doesn't exist yet).
 DROP POLICY IF EXISTS "agency_update" ON agencies;

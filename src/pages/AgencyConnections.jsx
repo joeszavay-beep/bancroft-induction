@@ -80,12 +80,9 @@ export default function AgencyConnections() {
     if (!term || term.length < 2) { setSearchResults([]); return }
     setSearching(true)
     try {
-      const { data, error } = await supabase
-        .from('agencies')
-        .select('id, company_name, primary_contact_name, primary_contact_email')
-        .eq('status', 'active')
-        .ilike('company_name', `%${term}%`)
-        .limit(20)
+      // Discovery via RPC (minimal fields only) so the agencies table itself can
+      // be locked down to own/connected rows under the RLS lockdown.
+      const { data, error } = await supabase.rpc('search_agencies', { p_term: term })
       if (error) throw error
 
       // Exclude already-connected agencies
