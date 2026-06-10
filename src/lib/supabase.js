@@ -34,16 +34,27 @@ const handler = {
             // Block insert/update/delete/upsert in demo mode
             if (['insert', 'update', 'delete', 'upsert'].includes(chainProp) && isDemo()) {
               showDemoToast()
-              // Return a fake chain that's fully Promise-compatible
+              // Fake chain: resolves a success-shaped result (the demo is meant to
+              // look like it works) but must be Promise-compatible AND cover every
+              // builder method real code chains, or those paths throw
+              // "x is not a function" mid-demo (AUDIT §1.5). The leak that made this
+              // dangerous for REAL users is closed separately by clearing
+              // sandbox_mode on any non-demo sign-in (AUDIT §1.6).
               const fakeResult = Promise.resolve({ data: null, error: null })
-              const fakeChain = {
-                select: () => fakeChain,
-                single: () => fakeResult,
-                eq: () => fakeChain,
-                in: () => fakeChain,
-                then: (cb) => fakeResult.then(cb),
-                catch: (cb) => fakeResult.catch(cb),
+              const fakeChain = {}
+              // Builder methods return the chain (allow further chaining).
+              for (const m of ['select', 'eq', 'neq', 'in', 'is', 'not', 'or', 'filter', 'match',
+                'order', 'limit', 'range', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike', 'contains',
+                'overlaps', 'returns']) {
+                fakeChain[m] = () => fakeChain
               }
+              // Terminal methods resolve the result.
+              fakeChain.single = () => fakeResult
+              fakeChain.maybeSingle = () => fakeResult
+              fakeChain.csv = () => fakeResult
+              fakeChain.then = (cb) => fakeResult.then(cb)
+              fakeChain.catch = (cb) => fakeResult.catch(cb)
+              fakeChain.finally = (cb) => fakeResult.finally(cb)
               return () => fakeChain
             }
             return chainTarget[chainProp]
