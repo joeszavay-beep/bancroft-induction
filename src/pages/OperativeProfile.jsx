@@ -44,11 +44,25 @@ export default function OperativeProfile() {
   const [lightbox, setLightbox] = useState(null)
 
   async function loadOperative() {
-    const { data } = await supabase
-      .from('operatives')
-      .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
-      .eq('id', operativeId)
-      .single()
+    // First-time setup (anon): the RPC returns the operative only while
+    // unactivated (DOB NULL). Returning (authenticated) users fall back to the
+    // direct read of their own row (allowed under the RLS lockdown).
+    const { data: setup } = await supabase.rpc('get_operative_for_setup', { p_id: operativeId })
+    let data = null
+    if (setup?.operative) {
+      data = {
+        ...setup.operative,
+        operative_projects: (setup.projects || []).map(p => ({ project_id: p.id, projects: { name: p.name } })),
+        companies: setup.company,
+      }
+    } else {
+      const { data: direct } = await supabase
+        .from('operatives')
+        .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
+        .eq('id', operativeId)
+        .single()
+      data = direct
+    }
     if (!data) { navigate('/worker'); return }
     setOperative(data)
     const trades = ['Labourer', 'Apprentice', 'Electrician', 'Plumber', 'BMS Engineer', 'Lighting Control', 'Supervisor', 'Engineer']
@@ -135,24 +149,50 @@ export default function OperativeProfile() {
       }
     }
 
-    const { error } = await supabase.from('operatives').update({
-      role: (role === 'Other' ? otherRole.trim() : role.trim()) || null,
-      date_of_birth: dob || null,
-      ni_number: niNumber.trim().toUpperCase() || null,
-      address: address.trim() || null,
-      mobile: mobile.trim() || null,
-      email: email.trim() || null,
-      next_of_kin: nextOfKin.trim() || null,
-      next_of_kin_phone: nextOfKinPhone.trim() || null,
-      card_type: cardType || null,
-      card_number: cardNumber.trim() || null,
-      card_expiry: cardExpiry || null,
-      card_front_url: cardFrontUrl || null,
-      card_back_url: cardBackUrl || null,
-      card_verified: null,
-      card_verified_by: null,
-      card_verified_at: null,
-    }).eq('id', operativeId)
+    const roleVal = (role === 'Other' ? otherRole.trim() : role.trim()) || null
+    let error
+    if (isFirstTime) {
+      // Anon first-time setup goes through the RPC (gated on DOB still NULL),
+      // since direct anon UPDATE on operatives is removed by the RLS lockdown.
+      const { data: res, error: rpcErr } = await supabase.rpc('complete_operative_setup', {
+        p_id: operativeId,
+        p_role: roleVal,
+        p_date_of_birth: dob || null,
+        p_ni_number: niNumber.trim().toUpperCase() || null,
+        p_address: address.trim() || null,
+        p_mobile: mobile.trim() || null,
+        p_email: email.trim() || null,
+        p_next_of_kin: nextOfKin.trim() || null,
+        p_next_of_kin_phone: nextOfKinPhone.trim() || null,
+        p_card_type: cardType || null,
+        p_card_number: cardNumber.trim() || null,
+        p_card_expiry: cardExpiry || null,
+        p_card_front_url: cardFrontUrl || null,
+        p_card_back_url: cardBackUrl || null,
+      })
+      error = rpcErr || (res?.error ? new Error(res.error) : null)
+    } else {
+      // Returning (authenticated) user editing their own row — direct update.
+      const { error: updErr } = await supabase.from('operatives').update({
+        role: roleVal,
+        date_of_birth: dob || null,
+        ni_number: niNumber.trim().toUpperCase() || null,
+        address: address.trim() || null,
+        mobile: mobile.trim() || null,
+        email: email.trim() || null,
+        next_of_kin: nextOfKin.trim() || null,
+        next_of_kin_phone: nextOfKinPhone.trim() || null,
+        card_type: cardType || null,
+        card_number: cardNumber.trim() || null,
+        card_expiry: cardExpiry || null,
+        card_front_url: cardFrontUrl || null,
+        card_back_url: cardBackUrl || null,
+        card_verified: null,
+        card_verified_by: null,
+        card_verified_at: null,
+      }).eq('id', operativeId)
+      error = updErr
+    }
     setSaving(false)
     if (error) { toast.error('Failed to save'); return }
     toast.success('Profile saved')

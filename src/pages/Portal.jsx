@@ -23,22 +23,26 @@ export default function Portal() {
   }
 
   async function loadProjectData() {
-    const [proj, sigs, docs] = await Promise.all([
-      supabase.from('projects').select('*, companies(name, logo_url, primary_colour, secondary_colour, settings)').eq('id', projectId).single(),
-      supabase.from('signatures').select('*').eq('project_id', projectId).order('signed_at', { ascending: false }),
-      supabase.from('documents').select('*').eq('project_id', projectId).order('created_at'),
-    ])
-    setProject(proj.data)
-    setSignatures(sigs.data || [])
-    setDocuments(docs.data || [])
-    if (proj.data?.companies) setBranding(buildBranding(proj.data.companies))
-
-    // Derive operatives from signatures — no direct project_id on operatives table
-    const opIds = [...new Set((sigs.data || []).map(s => s.operative_id).filter(Boolean))]
-    if (opIds.length > 0) {
-      const { data: opsData } = await supabase.from('operatives').select('*').in('id', opIds).order('name')
-      setOperatives(opsData || [])
+    // Public page: one SECURITY DEFINER RPC (works under the RLS lockdown).
+    // Returns project + flattened company branding, documents, full signature
+    // detail, and the project's assigned operatives.
+    const { data, error } = await supabase.rpc('get_portal_data', { p_project_id: projectId })
+    if (error || !data) { setLoading(false); return }
+    setProject(data.project)
+    setSignatures(data.signatures || [])
+    setDocuments(data.documents || [])
+    if (data.project) {
+      setBranding(buildBranding({
+        name: data.project.company_name,
+        logo_url: data.project.logo_url,
+        primary_colour: data.project.primary_colour,
+        secondary_colour: data.project.secondary_colour,
+        settings: data.project.settings,
+      }))
     }
+    // Show operatives who have at least one signature (preserves prior behaviour).
+    const signedIds = new Set((data.signatures || []).map(s => s.operative_id).filter(Boolean))
+    setOperatives((data.operatives || []).filter(op => signedIds.has(op.id)))
     setLoading(false)
   }
 

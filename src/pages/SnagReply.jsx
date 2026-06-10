@@ -26,22 +26,17 @@ export default function SnagReply() {
   const [comments, setComments] = useState([])
 
   async function loadSnag() {
-    const { data } = await supabase
-      .from('snags')
-      .select('*, drawings(name, level_ref, drawing_number)')
-      .eq('reply_token', token)
-      .single()
-
-    if (!data) { setLoading(false); return }
-    setSnag(data)
-    setDrawing(data.drawings)
+    // Public page: token-scoped SECURITY DEFINER RPC (works under RLS lockdown).
+    // Returns snag + drawing + comments in one call.
+    const { data, error } = await supabase.rpc('get_snag_for_reply', { p_token: token })
+    if (error || !data?.snag) { setLoading(false); return }
+    setSnag(data.snag)
+    setDrawing(data.drawing?.name ? data.drawing : null)
 
     // Already submitted?
-    if (data.status === 'pending_review') setSubmitted(true)
+    if (data.snag.status === 'pending_review') setSubmitted(true)
 
-    // Load comments
-    const { data: cmts } = await supabase.from('snag_comments').select('*').eq('snag_id', data.id).order('created_at')
-    setComments(cmts || [])
+    setComments(data.comments || [])
     setLoading(false)
   }
 
@@ -69,19 +64,16 @@ export default function SnagReply() {
   async function handleCommentOnly() {
     if (!comment.trim()) { toast.error('Please enter a comment'); return }
     setUploading(true)
-    try {
-      await supabase.from('snag_comments').insert({
-        snag_id: snag.id, comment: comment.trim(),
-        author_name: snag.assigned_to || 'Operative', author_role: 'Operative',
-      })
-      setUploading(false)
-      setComment('')
-      toast.success('Comment added')
-      loadSnag()
-    } catch {
-      setUploading(false)
-      toast.error('Failed to add comment')
-    }
+    const { data, error } = await supabase.rpc('submit_snag_comment', {
+      p_token: token,
+      p_comment: comment.trim(),
+      p_author_name: snag.assigned_to || 'Operative',
+    })
+    setUploading(false)
+    if (error || data?.error) { toast.error('Failed to add comment'); return }
+    setComment('')
+    toast.success('Comment added')
+    loadSnag()
   }
 
   async function handleSubmit() {
@@ -96,30 +88,17 @@ export default function SnagReply() {
 
       const { data: urlData } = supabase.storage.from('snag-photos').getPublicUrl(filePath)
 
-      // Update snag status and photo
-      const { error } = await supabase.from('snags').update({
-        status: 'pending_review',
-        review_photo_url: urlData.publicUrl,
-        review_submitted_at: new Date().toISOString(),
-        review_submitted_by: snag.assigned_to || 'Operative',
-        updated_at: new Date().toISOString(),
-      }).eq('id', snag.id)
+      // RPC sets status=pending_review + review fields, inserts the optional
+      // comment and the "Completion photo submitted for review" system comment
+      // server-side (works under the RLS lockdown).
+      const { data, error } = await supabase.rpc('submit_snag_reply', {
+        p_token: token,
+        p_comment: comment.trim() || null,
+        p_author_name: snag.assigned_to || 'Operative',
+        p_photo_url: urlData.publicUrl,
+      })
 
-      if (error) { console.error('Update error:', error); setUploading(false); toast.error('Failed to submit'); return }
-
-      // Optional comment and log — don't block success
-      try {
-        if (comment.trim()) {
-          await supabase.from('snag_comments').insert({
-            snag_id: snag.id, comment: comment.trim(),
-            author_name: snag.assigned_to || 'Operative', author_role: 'Operative',
-          })
-        }
-        await supabase.from('snag_comments').insert({
-          snag_id: snag.id, comment: 'Completion photo submitted for review',
-          author_name: snag.assigned_to || 'Operative', author_role: 'Operative',
-        })
-      } catch { /* ignore */ }
+      if (error || data?.error) { console.error('Submit error:', error || data?.error); setUploading(false); toast.error('Failed to submit'); return }
 
       setUploading(false)
       setSubmitted(true)

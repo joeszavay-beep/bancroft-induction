@@ -54,16 +54,11 @@ export default function AftercarePage() {
   const [photoPreview, setPhotoPreview] = useState(null)
   const [previousDefects, setPreviousDefects] = useState([])
 
-  // Fetch project info
+  // Fetch project info (public RPC — works under the RLS lockdown).
   useEffect(() => {
     async function fetchProject() {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('id', projectId)
-        .single()
-
-      if (error) {
+      const { data, error } = await supabase.rpc('get_project_public_info', { p_id: projectId })
+      if (error || !data) {
         toast.error('Project not found')
       } else {
         setProject(data)
@@ -73,18 +68,12 @@ export default function AftercarePage() {
     fetchProject()
   }, [projectId])
 
-  // Fetch previously submitted defects by email
+  // Fetch previously submitted defects by email (public RPC).
   useEffect(() => {
     if (!form.email || !projectId) return
 
     const timeout = setTimeout(async () => {
-      const { data } = await supabase
-        .from('aftercare_defects')
-        .select('*')
-        .eq('project_id', projectId)
-        .eq('email', form.email)
-        .order('created_at', { ascending: false })
-
+      const { data } = await supabase.rpc('get_aftercare_defects', { p_project_id: projectId, p_email: form.email })
       if (data) setPreviousDefects(data)
     }, 500)
 
@@ -144,27 +133,24 @@ export default function AftercarePage() {
         photo_url = urlData?.publicUrl || null
       }
 
-      const { data, error } = await supabase
-        .from('aftercare_defects')
-        .insert({
-          company_id: project.company_id,
-          project_id: projectId,
-          reported_by: form.reported_by.trim(),
-          email: form.email.trim() || null,
-          phone: form.phone.trim() || null,
-          unit_ref: form.unit_ref.trim() || null,
-          location: form.location.trim() || null,
-          description: form.description.trim(),
-          photo_url,
-          priority: form.priority,
-          status: 'open',
-        })
-        .select()
-        .single()
+      // RPC looks up company_id from the project and inserts server-side
+      // (works under the RLS lockdown, which removes anon insert on the table).
+      const { data, error } = await supabase.rpc('submit_aftercare_defect', {
+        p_project_id: projectId,
+        p_reported_by: form.reported_by.trim(),
+        p_email: form.email.trim() || null,
+        p_phone: form.phone.trim() || null,
+        p_unit_ref: form.unit_ref.trim() || null,
+        p_location: form.location.trim() || null,
+        p_description: form.description.trim(),
+        p_photo_url: photo_url,
+        p_priority: form.priority,
+        p_status: 'open',
+      })
 
-      if (error) throw error
+      if (error || data?.error) throw (error || new Error(data.error))
 
-      setSubmitted(data)
+      setSubmitted({ id: data.id })
       toast.success('Defect reported successfully')
     } catch (err) {
       console.error('Submit error:', err)

@@ -51,41 +51,50 @@ test.describe.serial('Toolbox talks', () => {
     }).toPass({ timeout: 10_000 })
   })
 
-  test('operative sign persists a toolbox_signature', async ({ page }) => {
+  test('operative sign (anon, via RPC) persists a toolbox_signature', async ({ browser }) => {
     if (!talkId) {
       const row = await fetchRow('toolbox_talks', { company_id: ids.companyId, title: marker })
       talkId = row?.id
     }
     expect(talkId, 'need a talk id from the create step').toBeTruthy()
 
-    // ToolboxSign auto-selects the logged-in operative from operative_session.
-    await page.addInitScript(
-      (op) => localStorage.setItem('operative_session', JSON.stringify(op)),
-      { id: operativeId, name: 'E2E Worker' },
-    )
-    await page.goto(`/toolbox/${talkId}`)
+    // Pure anon context (no manager JWT in storage) so the page's
+    // get_toolbox_for_signing / submit_toolbox_signature RPCs run as the anon
+    // role — the public path that must keep working after the RLS lockdown.
+    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+    const page = await ctx.newPage()
+    try {
+      // ToolboxSign auto-selects the logged-in operative from operative_session.
+      await page.addInitScript(
+        (op) => localStorage.setItem('operative_session', JSON.stringify(op)),
+        { id: operativeId, name: 'E2E Worker' },
+      )
+      await page.goto(`/toolbox/${talkId}`)
 
-    // Operatives load via the operative_projects junction (AUDIT §2.24 fix), so
-    // the signing UI must render rather than "All operatives have signed".
-    await expect(page.getByText('All operatives have signed')).toBeHidden({ timeout: 5_000 })
+      // Operatives load via the RPC (operative_projects junction), so the signing
+      // UI must render rather than "All operatives have signed".
+      await expect(page.getByText('All operatives have signed')).toBeHidden({ timeout: 5_000 })
 
-    // Draw on the signature canvas to enable the submit button.
-    const canvas = page.locator('canvas')
-    await expect(canvas).toBeVisible({ timeout: 15_000 })
-    const box = await canvas.boundingBox()
-    await page.mouse.move(box.x + 20, box.y + 20)
-    await page.mouse.down()
-    await page.mouse.move(box.x + 100, box.y + 60)
-    await page.mouse.move(box.x + 160, box.y + 30)
-    await page.mouse.up()
+      // Draw on the signature canvas to enable the submit button.
+      const canvas = page.locator('canvas')
+      await expect(canvas).toBeVisible({ timeout: 15_000 })
+      const box = await canvas.boundingBox()
+      await page.mouse.move(box.x + 20, box.y + 20)
+      await page.mouse.down()
+      await page.mouse.move(box.x + 100, box.y + 60)
+      await page.mouse.move(box.x + 160, box.y + 30)
+      await page.mouse.up()
 
-    const submit = page.getByRole('button', { name: /confirm attendance/i })
-    await expect(submit).toBeEnabled({ timeout: 5_000 })
-    await submit.click()
+      const submit = page.getByRole('button', { name: /confirm attendance/i })
+      await expect(submit).toBeEnabled({ timeout: 5_000 })
+      await submit.click()
 
-    await expect(async () => {
-      const sig = await fetchRow('toolbox_signatures', { talk_id: talkId, operative_id: operativeId })
-      expect(sig, 'a toolbox signature should persist after signing').not.toBeNull()
-    }).toPass({ timeout: 10_000 })
+      await expect(async () => {
+        const sig = await fetchRow('toolbox_signatures', { talk_id: talkId, operative_id: operativeId })
+        expect(sig, 'a toolbox signature should persist after signing').not.toBeNull()
+      }).toPass({ timeout: 10_000 })
+    } finally {
+      await ctx.close()
+    }
   })
 })

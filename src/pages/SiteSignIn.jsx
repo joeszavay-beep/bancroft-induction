@@ -35,12 +35,9 @@ export default function SiteSignIn() {
     async function init() {
       setLoading(true)
 
-      // Load project
-      const { data: proj } = await supabase
-        .from('projects')
-        .select('*, companies(name, primary_colour, logo_url)')
-        .eq('id', projectId)
-        .single()
+      // Load project via public RPC (branding + geofence + hours) so the kiosk
+      // works for anon users under the RLS lockdown.
+      const { data: proj } = await supabase.rpc('get_project_public_info', { p_id: projectId })
       if (proj) setProject(proj)
 
       // Check for existing operative session
@@ -84,7 +81,7 @@ export default function SiteSignIn() {
 
   async function loadOperativeAndAttendance(operativeId, projId) {
     const [opRes, attRes] = await Promise.all([
-      supabase.from('operatives').select('id, name, role, photo_url, company_id, start_time, end_time').eq('id', operativeId).single(),
+      supabase.rpc('get_operative_public_info', { p_id: operativeId }),
       supabase.rpc('get_operative_attendance', { p_operative_id: operativeId, p_project_id: projId }),
     ])
 
@@ -108,13 +105,11 @@ export default function SiteSignIn() {
       })
 
       if (signInErr || !authData?.user) {
-        // Check if this operative exists but has no auth account
-        const { data: ops } = await supabase.from('operatives')
-          .select('id, date_of_birth')
-          .ilike('email', email.trim().toLowerCase())
-        if (ops?.length && !ops[0].date_of_birth) {
+        // Check if this operative exists but has no auth account (booleans only).
+        const { data: info } = await supabase.rpc('operative_exists_by_email', { p_email: email.trim().toLowerCase() })
+        if (info?.exists && !info.profile_complete) {
           setAuthError('You need to complete your profile first. Check your invite email for the link.')
-        } else if (ops?.length) {
+        } else if (info?.exists) {
           setAuthError('Invalid password. If you haven\'t set a password yet, check your invite email to complete your profile.')
         } else {
           setAuthError('Invalid email or password')
@@ -223,7 +218,7 @@ export default function SiteSignIn() {
 
       // Atomic sign-in/out via RPC (prevents duplicate consecutive same-type events)
       const { data: result, error } = await supabase.rpc('record_attendance', {
-        p_company_id: project?.company_id || project?.companies?.id || null,
+        p_company_id: operative?.company_id || project?.company_id || null,
         p_project_id: projectId,
         p_operative_id: operative.id,
         p_operative_name: operative.name,
@@ -270,7 +265,7 @@ export default function SiteSignIn() {
   // Derive on-site status for this operative
   const isOnSite = attendance.length > 0 && attendance[0].type === 'sign_in'
   const lastRecord = attendance[0] || null
-  const primaryColour = project?.companies?.primary_colour || '#1A2744'
+  const primaryColour = project?.primary_colour || '#1A2744'
 
   // --- Loading ---
   if (loading) {
@@ -298,7 +293,7 @@ export default function SiteSignIn() {
     )
   }
 
-  const companyName = project.companies?.name || ''
+  const companyName = project.company_name || ''
 
   // --- Success screen ---
   if (success) {
@@ -374,8 +369,8 @@ export default function SiteSignIn() {
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8f9fa' }}>
         <div style={{ background: '#1A2744', padding: '16px 20px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {project.companies?.logo_url ? (
-              <img src={project.companies?.logo_url} alt="" style={{ height: 24, opacity: 0.8 }} />
+            {project.logo_url ? (
+              <img src={project.logo_url} alt="" style={{ height: 24, opacity: 0.8 }} />
             ) : (
               <div style={{ color: '#fff', fontSize: 18, fontWeight: 300, letterSpacing: 1 }}>
                 CORE<span style={{ fontWeight: 700 }}>SITE</span>
@@ -496,8 +491,8 @@ export default function SiteSignIn() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#1A2744' }}>
       <div style={{ padding: '20px 20px 12px', flexShrink: 0 }}>
-        {project.companies?.logo_url ? (
-          <img src={project.companies?.logo_url} alt="" style={{ height: 28, opacity: 0.7 }} />
+        {project.logo_url ? (
+          <img src={project.logo_url} alt="" style={{ height: 28, opacity: 0.7 }} />
         ) : (
           <div style={{ color: '#fff', fontSize: 20, fontWeight: 300, letterSpacing: 1 }}>
             CORE<span style={{ fontWeight: 700 }}>SITE</span>

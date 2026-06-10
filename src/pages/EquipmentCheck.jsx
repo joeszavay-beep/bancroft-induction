@@ -35,24 +35,15 @@ export default function EquipmentCheck() {
   useEffect(() => {
     if (!equipmentId) return
     ;(async () => {
-      const { data } = await supabase
-        .from('equipment')
-        .select('id, description, type, serial_number, status, inspection_interval_days, company_id, project_id, projects(name, location), companies(name, logo_url, primary_colour)')
-        .eq('id', equipmentId)
-        .single()
-
-      if (!data) { setPhase('not-found'); setLoading(false); return }
+      // Public page: one SECURITY DEFINER RPC returns the equipment + its
+      // project/floors + company branding (works under the RLS lockdown).
+      const { data: r } = await supabase.rpc('get_equipment_public_check', { p_equipment_id: equipmentId })
+      if (!r?.equipment) { setPhase('not-found'); setLoading(false); return }
+      // Reshape to the nested form the rest of the component already reads.
+      const data = { ...r.equipment, projects: r.project, companies: r.company }
       setEquipment(data)
-
-      // Load project floors (for structured floor selection)
-      if (data.project_id) {
-        const [floorsRes, projRes] = await Promise.all([
-          supabase.from('project_floors').select('*').eq('project_id', data.project_id).order('sort_order'),
-          supabase.from('projects').select('floor_plans_enabled').eq('id', data.project_id).single(),
-        ])
-        setProjectFloors(floorsRes.data || [])
-        setFloorPlansEnabled(projRes.data?.floor_plans_enabled || false)
-      }
+      setProjectFloors(r.floors || [])
+      setFloorPlansEnabled(r.project?.floor_plans_enabled || false)
 
       if (data.status === 'Defective') { setPhase('lockout'); setLoading(false); return }
       if (data.status === 'Off-Hire' || data.status === 'Off-Site') { setPhase('unavailable'); setLoading(false); return }
