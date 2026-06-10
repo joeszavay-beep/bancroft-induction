@@ -317,3 +317,42 @@ Independently, run the original anon-key probe (the JS-bundle key) and confirm c
 
 ### One-line bottom line
 deploy4's clean-slate drop is correct, but **do not apply it yet**: the client calls **zero** of the public RPCs, so lockdown breaks every public page today. Wire the RPCs (and write the ~8 missing ones), patch the `operatives`-UPDATE `WITH CHECK`, the ~11 cross-tenant Pattern-C tables, the missing `site_attendance` UPDATE, the floor-plans storage gap, and the two rollback bugs — gate the whole thing behind logged-out E2E specs for every public route — then lock down in a window and re-run the §1 probe to prove anon is denied.
+
+---
+
+## PRE-APPLY CHECKLIST — the lockdown session (owner-run)
+
+> Everything below is staged on branch `rls-lockdown-prep` (PR #4). Nothing here
+> has been applied. Run in a low-traffic window with the rollback scripts open.
+
+**0. Prerequisites**
+- [ ] PRs #2 → #3 → #4 merged to `main` and the client **deployed** (so the app already calls the RPCs/endpoints).
+- [ ] You have the Supabase SQL editor open and a few minutes of low traffic.
+
+**1. Baseline (read-only)**
+- [ ] Run §1 queries A, B, C; save the output as the "before" snapshot.
+- [ ] Run the original anon-key probe; note anon currently reads across tenants.
+
+**2. Dry-run every SQL file (no commit)** — for each of `storage-lockdown.sql`, `rls-deploy4-lockdown.sql`, `rls-deploy4-patches.sql`, and both rollback scripts: temporarily change the final `COMMIT;` to `ROLLBACK;`, run it, confirm **no parse/constraint error**, then restore `COMMIT;`. (Schema validation already confirmed every referenced table/column/function/bucket exists live — this catches anything static checks can't.)
+
+**3. RPCs present**
+- [ ] Re-run `rls-deploy3-rpc-functions.sql` then `rls-deploy3b-public-rpcs.sql` (idempotent) so `search_agencies` and all others are live.
+- [ ] Confirm: `SELECT proname FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname LIKE '%agenc%' OR proname IN ('search_agencies','get_my_agency_ids');` — `search_agencies` present (`get_my_agency_ids` is created by deploy4-patches in step 4).
+
+**4. Apply the lockdown — IN THIS ORDER**
+1. [ ] `storage-lockdown.sql`
+2. [ ] `rls-deploy4-lockdown.sql`
+3. [ ] `rls-deploy4-patches.sql`
+
+**5. Verify (gates — do not skip)**
+- [ ] `RLS_LOCKDOWN_APPLIED=1 npm run test:e2e` → full suite green **including** `rls-lockdown-verification.spec.js` (anon denied; RPCs still work) and the super-admin happy path.
+- [ ] Re-run §1 queries A/B/C; compare to the step-1 baseline: anon `SELECT … USING(true)` shrinks to `companies/uk_bank_holidays/postcode_cache`; query B returns only the intended anon writes; no `floor_plans_*` anon storage policies remain.
+- [ ] Manual smoke (2 min): one public page (toolbox sign via QR), agency search+connect, DocumentHub loads sign-offs, and the **super-admin panel** (overview loads + toggle a company active).
+
+**6. Rollback trigger & procedure**
+- Trigger if any public page errors for real users, a tenant loses access to their own data, or an RPC throws for anon.
+- Run (dry-run-confirmed in step 2): `rls-lockdown-rollback.sql` (patched) **+** `storage-lockdown-rollback.sql`. Because rollback drops the deploy3/3b RPCs, **also redeploy the pre-RPC client OR immediately re-apply deploy3 + deploy3b**, or the public pages break against the restored permissive DB. Rollback reopens the §5.3 anon holes — it's an outage-stopper, not a safe state.
+
+**7. After**
+- [ ] Remove the temporary anon storage-folder exceptions once all operatives authenticate via Supabase Auth (tracked in storage-lockdown STEP 3).
+- [ ] Schedule the deferred §5.4 manager-password fix (auth.admin.updateUserById) and the §5.7b SuperAdminPanel already done.
