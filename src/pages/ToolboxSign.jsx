@@ -24,18 +24,15 @@ export default function ToolboxSign() {
   const opSession = (() => { try { return JSON.parse(getSession('operative_session') || 'null') } catch { /* ignore */ return null } })()
 
   async function loadData() {
-    const { data: t } = await supabase.from('toolbox_talks').select('*').eq('id', talkId).single()
-    if (!t) { setLoading(false); return }
-    setTalk(t)
-
-    const [p, o, s] = await Promise.all([
-      supabase.from('projects').select('*, companies(name, logo_url)').eq('id', t.project_id).single(),
-      supabase.from('operatives').select('*, operative_projects!inner(project_id)').eq('operative_projects.project_id', t.project_id).order('name'),
-      supabase.from('toolbox_signatures').select('operative_id').eq('talk_id', talkId),
-    ])
-    setProject(p.data)
-    setOperatives(o.data || [])
-    setExistingSigs(s.data || [])
+    // Public page: load via SECURITY DEFINER RPC so it works under the RLS
+    // lockdown (no direct anon table reads). Returns talk + flattened project
+    // branding + project operatives + the list of operative ids who've signed.
+    const { data, error } = await supabase.rpc('get_toolbox_for_signing', { p_talk_id: talkId })
+    if (error || !data?.talk) { setLoading(false); return }
+    setTalk(data.talk)
+    setProject(data.project)
+    setOperatives(data.operatives || [])
+    setExistingSigs(data.signed || [])
     setLoading(false)
   }
 
@@ -62,24 +59,11 @@ export default function ToolboxSign() {
     if (!hasSigned || !selectedOp) return
     setSaving(true)
 
-    // Re-check for duplicate signature before submitting
-    const { data: existing } = await supabase
-      .from('toolbox_signatures')
-      .select('id')
-      .eq('talk_id', talkId)
-      .eq('operative_id', selectedOp)
-      .limit(1)
-    if (existing && existing.length > 0) {
-      setSaving(false)
-      toast.error('You have already signed this toolbox talk')
-      setShowSuccess(true)
-      return
-    }
-
     const op = operatives.find(o => o.id === selectedOp)
     const signatureDataUrl = sigRef.current.toDataURL('image/png')
 
-    // Upload signature
+    // Upload signature (the documents/toolbox/ prefix has an anon-folder
+    // storage policy under the lockdown).
     const blob = await (await fetch(signatureDataUrl)).blob()
     const filePath = `toolbox/${talkId}/${selectedOp}_${crypto.randomUUID()}.png`
     const { error: upErr } = await supabase.storage.from('documents').upload(filePath, blob, { contentType: 'image/png' })
@@ -90,36 +74,24 @@ export default function ToolboxSign() {
       sigUrl = urlData.publicUrl
     }
 
-    const { error } = await supabase.from('toolbox_signatures').insert({
-      talk_id: talkId,
-      operative_id: selectedOp,
-      operative_name: op?.name || 'Unknown',
-      signature_url: sigUrl,
+    // RPC does the dedupe re-check, project-assignment check, signature insert
+    // and manager notifications server-side (works under the RLS lockdown).
+    const { data, error } = await supabase.rpc('submit_toolbox_signature', {
+      p_talk_id: talkId,
+      p_operative_id: selectedOp,
+      p_operative_name: op?.name || 'Unknown',
+      p_signature_url: sigUrl,
     })
 
     setSaving(false)
-    if (error) {
+    if (error || data?.error) {
+      if (data?.error === 'Already signed') {
+        toast.error('You have already signed this toolbox talk')
+        setShowSuccess(true)
+        return
+      }
       toast.error('Failed to submit signature')
       return
-    }
-
-    // Notify managers that toolbox talk was signed
-    if (talk?.company_id) {
-      try {
-        const { data: mgrs } = await supabase.from('profiles').select('id')
-          .eq('company_id', talk.company_id)
-          .in('role', ['manager', 'admin', 'super_admin'])
-        for (const m of (mgrs || [])) {
-          await supabase.from('notifications').insert({
-            company_id: talk.company_id,
-            user_id: m.id,
-            type: 'info',
-            title: 'Toolbox Talk Signed',
-            body: `${op?.name || 'An operative'} signed "${talk.title}"`,
-            link: `/app/toolbox-live/${talkId}`,
-          })
-        }
-      } catch { /* non-critical */ }
     }
 
     setShowSuccess(true)
@@ -165,17 +137,17 @@ export default function ToolboxSign() {
     )
   }
 
-  const signedOpIds = new Set(existingSigs.map(s => s.operative_id))
+  const signedOpIds = new Set(existingSigs)
   const availableOps = operatives.filter(o => !signedOpIds.has(o.id))
 
   return (
     <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
       <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-4 py-3 shrink-0">
         <div className="flex items-center gap-3">
-          {project?.companies?.logo_url ? (
-            <img src={project.companies.logo_url} alt={project.companies.name} className="h-7" />
+          {project?.logo_url ? (
+            <img src={project.logo_url} alt={project.company_name} className="h-7" />
           ) : (
-            <span className="text-sm font-semibold text-slate-700">{project?.companies?.name || <><span className="font-light tracking-widest">CORE</span><span className="font-bold">SITE</span></>}</span>
+            <span className="text-sm font-semibold text-slate-700">{project?.company_name || <><span className="font-light tracking-widest">CORE</span><span className="font-bold">SITE</span></>}</span>
           )}
           <div className="min-w-0">
             <p className="text-xs text-slate-400">Toolbox Talk</p>
