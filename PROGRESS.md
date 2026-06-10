@@ -81,7 +81,30 @@ must self-clean with a unique per-run marker.
 ## Status: COMPLETE — all bugs fixed, suite fully green
 
 All 9 workflow specs written. `npm run test:e2e` runs the suite.
-**18/18 passing** (verified across 3 consecutive full runs, no flakiness).
+**21/21 passing** (was 18/18; +2 auth tests for the §1.7 refinement, +1 induction
+test for the PMDashboard.jsx:710 sign-off %).
+
+### 2026-06-10 session
+- **§1.7 REFINED** (see AUDIT.md §1.7 "REFINED"): `checkSession` now distinguishes
+  network-level failures (AuthRetryableFetchError / 5s race timeout → treat as
+  offline, use cache fallback even when navigator.onLine is true) from definitive
+  server verdicts (AuthApiError invalid/expired refresh token, AuthSessionMissingError
+  → /login). New `isAuthNetworkError()` in CompanyContext.jsx; step-2 refreshSession
+  is skipped after a network failure (would only re-fail after backoff). Two new
+  e2e/auth.spec.js tests: auth endpoint aborted → cached fallback admits;
+  server-rejected stale refresh token → /login.
+- **PMDashboard.jsx:710 now covered**: induction.spec.js (now serial) asserts the
+  projects-tab E2E Site card shows a non-zero sign-off % after the operative signs.
+- **Flake note**: one full-suite run had toolbox sign's 10s DB poll expire while the
+  submit (dup-check + storage upload + insert against live Supabase) was still in
+  flight; green in isolation and on re-run. If it recurs, bump that toPass timeout.
+- **§2.24 compliance investigation** (no code change): bug introduced 2026-03-30
+  21:46 +0100 (commit 4094e5b, both ToolboxSign/ToolboxTalkLive created broken,
+  pushed to main same minute). Production still broken until this branch deploys.
+  Since that date: 15 talks; the only signatures are demo-company rows inserted by
+  seed scripts; the single organic real-customer talk ("TEST", Thomas Worley
+  Electrical LTD, 2026-05-22, talk a00a5bee-27c7-4ab6-9b52-467a72d523a6) has zero
+  signatures despite 18 eligible operatives — corroborates the bug.
 
 The 3 bugs the E2E suite caught are now FIXED (all documented in AUDIT.md):
 - §2.24 toolbox signing — ToolboxSign/ToolboxTalkLive queried non-existent
@@ -98,9 +121,10 @@ of re-importing @supabase-js per request.
 
 NOT YET PUSHED — awaiting user review.
 
-### Suite status (last full run): 15 passed, 3 KNOWN-RED (all documented bugs)
-- KNOWN-RED: plant edit (§2.1), auth session-expiry (§1.7), toolbox sign (§2.24).
-  These are real app bugs left red on purpose — do NOT fix app code without telling user.
+### Suite status: fully green — no KNOWN-RED remain
+- The former KNOWN-RED trio — plant edit (§2.1), auth session-expiry (§1.7),
+  toolbox sign (§2.24) — are all fixed in app code and their tests now assert the
+  fixed behaviour.
 
 ### Important test-infra notes for whoever resumes
 - Playwright storageState persists localStorage but NOT sessionStorage. On web the
