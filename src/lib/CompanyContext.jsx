@@ -5,6 +5,10 @@ import { cacheAuth, getCachedAuth, clearStore } from './offlineDb'
 
 const CompanyContext = createContext(null)
 
+// The sandbox/demo account. Demo status is keyed off this identity so a real
+// session can never be treated as demo (AUDIT §1.6).
+const DEMO_EMAIL = 'demo@coresite.io'
+
 // True when a failed session check never got an answer from the auth server
 // (fetch failed / timed out): supabase-js wraps those as AuthRetryableFetchError,
 // and our own 5s race produces "Session check timeout". Anything carrying a real
@@ -30,6 +34,7 @@ export function CompanyProvider({ children }) {
     removeSession('manager_data')
     removeSession('operative_session')
     removeSession('operative_return_url')
+    sessionStorage.removeItem('sandbox_mode') // don't let demo state outlive a logout (AUDIT §1.6)
     document.title = 'CoreSite — Site Compliance Platform'
     document.documentElement.style.setProperty('--primary-color', '#1B6FC8')
     document.documentElement.style.setProperty('--sidebar-color', '#1A2744')
@@ -135,6 +140,14 @@ export function CompanyProvider({ children }) {
   }
 
   function setupFromAuth(authUser) {
+    // Close the sandbox leak (AUDIT §1.6): a stray sandbox_mode flag (set on demo
+    // entry, only cleared by the demo banner) would otherwise survive into a real
+    // login and silently fake every write as successful. Any session that is NOT
+    // the demo account clears it. Demo entry sets the flag AFTER this runs, so the
+    // genuine demo is unaffected.
+    if (authUser.email !== DEMO_EMAIL) {
+      sessionStorage.removeItem('sandbox_mode')
+    }
     const meta = authUser.user_metadata || {}
     const userData = {
       id: authUser.id,

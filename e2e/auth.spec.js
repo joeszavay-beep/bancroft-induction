@@ -43,6 +43,21 @@ test('valid login creates a Supabase session and lands in /app', async ({ page }
   expect(JSON.parse(token).access_token, 'session should hold an access_token').toBeTruthy()
 })
 
+test('a leaked sandbox_mode flag is cleared by a real login (AUDIT §1.6)', async ({ page }) => {
+  // Simulate the leak: a demo session left sandbox_mode set, then a real user
+  // logs in on the same tab. Before the fix the flag survived and every write
+  // was silently faked as successful. setupFromAuth now clears it for any
+  // non-demo account, so after a real login the flag must be gone.
+  await page.addInitScript(() => sessionStorage.setItem('sandbox_mode', 'true'))
+  await gotoPasswordStep(page, process.env.E2E_EMAIL)
+  await page.locator('input[type="password"]').fill(process.env.E2E_PASSWORD)
+  await page.getByRole('button', { name: /sign in/i }).click()
+  await page.waitForURL('**/app', { timeout: 20_000 })
+
+  const flag = await page.evaluate(() => sessionStorage.getItem('sandbox_mode'))
+  expect(flag, 'sandbox_mode must be cleared after a real (non-demo) login').toBeNull()
+})
+
 test('wrong password is rejected and creates no session', async ({ page }) => {
   await gotoPasswordStep(page, process.env.E2E_EMAIL)
   await page.locator('input[type="password"]').fill('WrongPassword123')
