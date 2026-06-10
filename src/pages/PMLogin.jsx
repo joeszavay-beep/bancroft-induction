@@ -35,19 +35,17 @@ export default function PMLogin() {
 
     const trimmed = email.trim().toLowerCase()
 
-    // Check both tables in parallel
-    const [{ data: profiles }, { data: operatives }] = await Promise.all([
-      supabase.from('profiles').select('id, name, company_id, companies(name)').eq('email', trimmed).limit(1),
-      supabase.from('operatives').select('id, name, date_of_birth, company_id, companies(name)').eq('email', trimmed).limit(1),
-    ])
-
-    const foundManager = profiles?.length > 0
-    const foundWorker = operatives?.length > 0
+    // Public routing via RPC — returns only display-safe fields (booleans +
+    // names), never raw profiles/operatives rows. Works under the RLS lockdown
+    // and removes a current anon disclosure of those tables.
+    const { data: route } = await supabase.rpc('resolve_login_route', { p_email: trimmed })
+    const foundManager = !!route?.has_manager
+    const foundWorker = !!route?.has_worker
 
     setHasManager(foundManager)
     setHasWorker(foundWorker)
-    if (foundManager) { setManagerName(profiles[0].name); setManagerCompany(profiles[0].companies?.name || '') }
-    if (foundWorker) { setWorkerName(operatives[0].name); setWorkerCompany(operatives[0].companies?.name || '') }
+    if (foundManager) { setManagerName(route.manager_name || ''); setManagerCompany(route.manager_company || '') }
+    if (foundWorker) { setWorkerName(route.worker_name || ''); setWorkerCompany(route.worker_company || '') }
 
     if (foundManager && foundWorker) {
       // Both exist — let user choose
@@ -57,14 +55,14 @@ export default function PMLogin() {
     }
 
     if (foundManager) {
-      setAccountName(profiles[0].name)
+      setAccountName(route.manager_name || '')
       setStep('manager')
       setChecking(false)
       return
     }
 
-    if (operatives?.length > 0) {
-      setAccountName(operatives[0].name)
+    if (foundWorker) {
+      setAccountName(route.worker_name || '')
       setStep('worker')
       setChecking(false)
       return
