@@ -38,6 +38,15 @@ export function getAnonDb() {
   return createClient(url, anon, { auth: { persistSession: false } })
 }
 
+/** Sign in (fresh anon-key client, no shared state) and return the access token. */
+export async function getAccessToken(email, password) {
+  const url = process.env.VITE_SUPABASE_URL
+  const anon = process.env.VITE_SUPABASE_ANON_KEY
+  const c = createClient(url, anon, { auth: { persistSession: false } })
+  const { data } = await c.auth.signInWithPassword({ email, password })
+  return data?.session?.access_token || null
+}
+
 /** Resolve the test account's user/company/project ids at runtime (never hardcode). */
 export async function getIds() {
   if (_ids) return _ids

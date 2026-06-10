@@ -203,8 +203,37 @@ async function ensureDocument(companyId, projectId) {
   return doc.id
 }
 
+async function ensureSuperAdmin(companyId) {
+  // A dedicated super_admin so the SuperAdminPanel / api/superadmin endpoint
+  // happy path is E2E-testable. verifySuperAdmin matches on the managers table:
+  // email + role='super_admin' + is_active=true.
+  const saEmail = (process.env.E2E_SUPERADMIN_EMAIL || 'e2e-superadmin@coresite.io').toLowerCase()
+  const saPass = process.env.E2E_SUPERADMIN_PASSWORD || 'E2eSuper2026!'
+
+  const created = await admin.auth.admin.createUser({
+    email: saEmail, password: saPass, email_confirm: true,
+    user_metadata: { name: 'E2E Super Admin', role: 'super_admin' },
+  })
+  if (created.error && !/already.+(registered|exists)/i.test(created.error.message)) {
+    console.error('superadmin createUser failed:', created.error.message); process.exit(1)
+  }
+
+  const { data: mgr } = await admin.from('managers').select('id, role, is_active').eq('email', saEmail).maybeSingle()
+  if (!mgr) {
+    const ins = await admin.from('managers').insert({
+      name: 'E2E Super Admin', email: saEmail, role: 'super_admin', company_id: companyId, is_active: true, project_ids: [],
+    })
+    if (ins.error) { console.error('superadmin manager insert failed:', ins.error.message); process.exit(1) }
+  } else if (mgr.role !== 'super_admin' || !mgr.is_active) {
+    await admin.from('managers').update({ role: 'super_admin', is_active: true }).eq('id', mgr.id)
+  }
+  console.log(`✓ Super admin ready (${saEmail})`)
+  return saEmail
+}
+
 const user = await signInOrSignUp()
 const companyId = await ensureCompany(user)
+const superAdminEmail = await ensureSuperAdmin(companyId)
 // Put company_id in the auth user's metadata so the app's setupFromAuth writes a
 // complete manager_data (company_id) immediately on login — many pages need it.
 await admin.auth.admin.updateUserById(user.id, {
@@ -219,6 +248,7 @@ const documentId = await ensureDocument(companyId, projectId)
 
 console.log('\n=== E2E account ready ===')
 console.log(`email:        ${EMAIL}`)
+console.log(`superadmin:   ${superAdminEmail}`)
 console.log(`user_id:      ${user.id}`)
 console.log(`company_id:   ${companyId}`)
 console.log(`project_id:   ${projectId}`)
