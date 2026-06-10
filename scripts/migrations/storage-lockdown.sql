@@ -29,14 +29,19 @@ BEGIN;
 -- STEP 1: DROP ALL EXISTING STORAGE POLICIES
 -- =====================================================================
 
-DROP POLICY IF EXISTS "Allow public uploads" ON storage.objects;
-DROP POLICY IF EXISTS "Allow public reads" ON storage.objects;
-DROP POLICY IF EXISTS "Allow public deletes" ON storage.objects;
-DROP POLICY IF EXISTS "Allow public on progress-drawings" ON storage.objects;
-DROP POLICY IF EXISTS "Allow public on progress-photos" ON storage.objects;
-DROP POLICY IF EXISTS "Allow public on company-assets" ON storage.objects;
-DROP POLICY IF EXISTS "Allow public on drawings bucket" ON storage.objects;
-DROP POLICY IF EXISTS "Allow public on snag-photos bucket" ON storage.objects;
+-- Drop EVERY existing policy on storage.objects — not a hard-coded name list.
+-- The old hard-coded list missed floor_plans_read/upload/delete (from
+-- add-floor-plans.sql), so anon could still upload to / delete from the
+-- floor-plans bucket after the lockdown ran (AUDIT §5.9). A generic loop closes
+-- that gap and is robust to any future bucket policies.
+DO $$
+DECLARE pol record;
+BEGIN
+  FOR pol IN SELECT policyname FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects', pol.policyname);
+  END LOOP;
+END $$;
 
 
 -- =====================================================================
@@ -51,21 +56,21 @@ CREATE POLICY "storage_public_read" ON storage.objects
 CREATE POLICY "storage_authenticated_upload" ON storage.objects
   FOR INSERT WITH CHECK (
     auth.role() = 'authenticated'
-    AND bucket_id IN ('documents', 'snag-photos', 'progress-drawings', 'progress-photos', 'company-assets', 'drawings')
+    AND bucket_id IN ('documents', 'snag-photos', 'progress-drawings', 'progress-photos', 'company-assets', 'drawings', 'floor-plans')
   );
 
 -- UPDATE: Authenticated users only (for replacing files)
 CREATE POLICY "storage_authenticated_update" ON storage.objects
   FOR UPDATE USING (
     auth.role() = 'authenticated'
-    AND bucket_id IN ('documents', 'snag-photos', 'progress-drawings', 'progress-photos', 'company-assets', 'drawings')
+    AND bucket_id IN ('documents', 'snag-photos', 'progress-drawings', 'progress-photos', 'company-assets', 'drawings', 'floor-plans')
   );
 
 -- DELETE: Authenticated users only
 CREATE POLICY "storage_authenticated_delete" ON storage.objects
   FOR DELETE USING (
     auth.role() = 'authenticated'
-    AND bucket_id IN ('documents', 'snag-photos', 'progress-drawings', 'progress-photos', 'company-assets', 'drawings')
+    AND bucket_id IN ('documents', 'snag-photos', 'progress-drawings', 'progress-photos', 'company-assets', 'drawings', 'floor-plans')
   );
 
 
@@ -147,13 +152,18 @@ CREATE POLICY "storage_anon_toolbox_upload" ON storage.objects
 -- WHERE schemaname = 'storage' AND tablename = 'objects'
 -- ORDER BY policyname;
 --
--- Expected: 6 policies
+-- Expected: 9 policies (4 base + 5 anon-folder exceptions). Critically, NO
+-- floor_plans_read/upload/delete should remain (the generic drop in STEP 1
+-- removes them; floor-plans writes now go through storage_authenticated_*).
 --   1. storage_public_read (SELECT, true)
---   2. storage_authenticated_upload (INSERT, authenticated + bucket check)
---   3. storage_authenticated_update (UPDATE, authenticated + bucket check)
---   4. storage_authenticated_delete (DELETE, authenticated + bucket check)
+--   2. storage_authenticated_upload (INSERT, authenticated + bucket check incl. floor-plans)
+--   3. storage_authenticated_update (UPDATE, authenticated + bucket check incl. floor-plans)
+--   4. storage_authenticated_delete (DELETE, authenticated + bucket check incl. floor-plans)
 --   5. storage_anon_aftercare_upload (INSERT, anon + snag-photos/aftercare/*)
 --   6. storage_anon_snag_reply_upload (INSERT, anon + snag-photos/snag-replies/*)
+--   7. storage_anon_card_upload (INSERT, anon + documents/cards/*)
+--   8. storage_anon_signature_upload (INSERT, anon + documents/signatures/*)
+--   9. storage_anon_toolbox_upload (INSERT, anon + documents/toolbox/*)
 -- =====================================================================
 
 COMMIT;
