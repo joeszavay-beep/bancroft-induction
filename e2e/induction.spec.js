@@ -6,8 +6,11 @@ import { getIds, getDb } from './helpers/db.js'
  * Drives the operative documents hub: open it (incomplete), sign the document,
  * return and confirm "induction complete", then verify in the DB that every
  * project document has a valid signature.
+ *
+ * Serial: the projects-tab sign-off % test relies on the signature created by
+ * the signing test.
  */
-test.describe('Induction', () => {
+test.describe.serial('Induction', () => {
   let ids, db
 
   test.beforeAll(async () => {
@@ -59,5 +62,17 @@ test.describe('Induction', () => {
       expect(docs.length, 'project should have at least one document').toBeGreaterThan(0)
       expect(docs.every((d) => signed.has(d.id)), 'all project documents should be signed').toBe(true)
     }).toPass({ timeout: 10_000 })
+  })
+
+  test('projects tab shows a non-zero sign-off % for the signed project', async ({ page }) => {
+    // Regression guard for the AUDIT §2.24 companion fix at PMDashboard.jsx:710:
+    // per-project operatives used to be matched on the non-existent
+    // operatives.project_id, so the sign-off % was always 0. With the operative
+    // signed (previous test), the E2E Site card must show a non-zero %.
+    await page.goto('/app/projects')
+    const card = page.locator('div.rounded-xl').filter({ has: page.getByRole('heading', { name: 'E2E Site' }) })
+    const signOffStat = card.locator('div').filter({ hasText: /^\d+%Sign-off$/ })
+    await expect(signOffStat).toBeVisible({ timeout: 20_000 })
+    await expect(signOffStat).not.toHaveText(/^0%/)
   })
 })
