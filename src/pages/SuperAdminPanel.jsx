@@ -50,26 +50,15 @@ export default function SuperAdminPanel() {
 
   async function loadData() {
     setLoading(true)
-    const { data: cos } = await supabase.from('companies').select('*').order('created_at', { ascending: false })
-    setCompanies(cos || [])
-
-    // Fetch stats per company
-    const s = {}
-    for (const co of (cos || [])) {
-      const [ops, projs, sigs, snags] = await Promise.all([
-        supabase.from('operatives').select('id', { count: 'exact', head: true }).eq('company_id', co.id),
-        supabase.from('projects').select('id', { count: 'exact', head: true }).eq('company_id', co.id),
-        supabase.from('signatures').select('id', { count: 'exact', head: true }).eq('company_id', co.id),
-        supabase.from('snags').select('id', { count: 'exact', head: true }).eq('company_id', co.id),
-      ])
-      s[co.id] = {
-        operatives: ops.count || 0,
-        projects: projs.count || 0,
-        signatures: sigs.count || 0,
-        snags: snags.count || 0,
-      }
+    // Cross-tenant read — served by the service-role endpoint (works under the
+    // RLS lockdown, which scopes companies/operatives/etc. to the caller's own).
+    const { ok, data } = await adminApi('/api/superadmin', { action: 'overview' })
+    if (ok) {
+      setCompanies(data.companies || [])
+      setStats(data.stats || {})
+    } else {
+      toast.error(data?.error || 'Failed to load companies')
     }
-    setStats(s)
     setLoading(false)
   }
 
@@ -107,20 +96,24 @@ export default function SuperAdminPanel() {
         }
       }
 
-      const { data: co, error: coErr } = await supabase.from('companies').insert({
-        name: name.trim(),
-        slug: slug.trim(),
-        contact_name: contactName.trim() || null,
-        contact_email: contactEmail.trim(),
-        subscription_plan: plan,
-        trial_ends_at: plan === 'trial' && trialEnds ? trialEnds : null,
-        max_operatives: maxOps ? parseInt(maxOps) : null,
-        primary_colour: primaryColour,
-        logo_url: logoUrl,
-      }).select().single()
-
-      if (coErr || !co) {
-        toast.error(coErr?.code === '23505' ? 'Slug already exists' : (coErr?.message || 'Failed to create company'))
+      // Cross-tenant write — via the service-role endpoint (lockdown-safe).
+      const { ok: coOk, data: coRes } = await adminApi('/api/superadmin', {
+        action: 'create-company',
+        company: {
+          name: name.trim(),
+          slug: slug.trim(),
+          contact_name: contactName.trim() || null,
+          contact_email: contactEmail.trim(),
+          subscription_plan: plan,
+          trial_ends_at: plan === 'trial' && trialEnds ? trialEnds : null,
+          max_operatives: maxOps ? parseInt(maxOps) : null,
+          primary_colour: primaryColour,
+          logo_url: logoUrl,
+        },
+      })
+      const co = coRes?.company
+      if (!coOk || !co) {
+        toast.error(/duplicate|unique|23505/i.test(coRes?.error || '') ? 'Slug already exists' : (coRes?.error || 'Failed to create company'))
         return
       }
 
@@ -157,7 +150,8 @@ export default function SuperAdminPanel() {
 
   async function toggleActive(co) {
     const newState = !co.is_active
-    await supabase.from('companies').update({ is_active: newState }).eq('id', co.id)
+    const { ok, data } = await adminApi('/api/superadmin', { action: 'set-company-active', companyId: co.id, isActive: newState })
+    if (!ok) { toast.error(data?.error || 'Failed to update'); return }
     toast.success(newState ? `${co.name} reactivated` : `${co.name} suspended`)
     loadData()
   }
@@ -361,14 +355,19 @@ function CompanyDetailView({ company: initialCompany, onBack }) {
 
   async function loadAll() {
     setLoading(true)
-    const [u, w, p] = await Promise.all([
-      supabase.from('managers').select('*').eq('company_id', company.id).order('name'),
-      supabase.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', company.id).order('name'),
-      supabase.from('projects').select('*').eq('company_id', company.id).order('name'),
-    ])
-    setUsers(u.data || [])
-    setWorkers(w.data || [])
-    setProjects(p.data || [])
+    // Cross-tenant read — service-role endpoint (lockdown-safe).
+    const res = await authFetch('/api/superadmin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'company-detail', companyId: company.id }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok) {
+      setUsers(data.managers || [])
+      setWorkers(data.operatives || [])
+      setProjects(data.projects || [])
+    } else {
+      toast.error(data.error || 'Failed to load company')
+    }
     setLoading(false)
   }
 
@@ -403,24 +402,34 @@ function CompanyDetailView({ company: initialCompany, onBack }) {
   }
 
   async function resetPassword(user) {
-    // eslint-disable-next-line react-hooks/purity
-    const newPw = `Reset${Math.random().toString(36).slice(2, 8)}`
     setResetting(user.id)
-    await supabase.from('managers').update({ password: newPw, must_change_password: true }).eq('id', user.id)
+    const res = await authFetch('/api/superadmin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reset-manager-password', managerId: user.id }),
+    })
+    const data = await res.json().catch(() => ({}))
     setResetting(null)
-    toast.success(`Password reset for ${user.name}: ${newPw}`)
+    if (!res.ok) { toast.error(data.error || 'Failed to reset password'); return }
+    toast.success(`Password reset for ${user.name}: ${data.newPassword}`)
   }
 
   async function toggleUserActive(user) {
-    await supabase.from('managers').update({ is_active: !user.is_active }).eq('id', user.id)
+    const res = await authFetch('/api/superadmin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set-manager-active', managerId: user.id, isActive: !user.is_active }),
+    })
+    if (!res.ok) { toast.error('Failed to update'); return }
     toast.success(user.is_active ? `${user.name} deactivated` : `${user.name} activated`)
     loadAll()
   }
 
   async function toggleFeature(key) {
     const updated = { ...features, [key]: !features[key] }
-    const { error } = await supabase.from('companies').update({ features: updated }).eq('id', company.id)
-    if (error) { toast.error('Failed to update'); return }
+    const res = await authFetch('/api/superadmin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set-company-features', companyId: company.id, features: updated }),
+    })
+    if (!res.ok) { toast.error('Failed to update'); return }
     setCompany({ ...company, features: updated })
     toast.success(`${key.replace(/_/g, ' ')} ${updated[key] ? 'enabled' : 'disabled'}`)
   }

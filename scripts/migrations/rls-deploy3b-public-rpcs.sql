@@ -439,9 +439,34 @@ BEGIN
 END;
 $$;
 
+-- ---------------------------------------------------------------------
+-- Agency discovery (authenticated marketplace search). Returns ONLY the
+-- minimal fields the connect flow needs — never insurance docs, registration/
+-- VAT numbers, addresses or rate ranges. Lets the agencies SELECT policy be
+-- scoped to own/connected agencies (rls-deploy4-patches.sql) while companies
+-- can still find unconnected agencies to connect to.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION search_agencies(p_term text)
+RETURNS TABLE (id uuid, company_name text, primary_contact_name text, primary_contact_email text, status text)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT id, company_name, primary_contact_name, primary_contact_email, status
+  FROM agencies
+  WHERE status = 'active'
+    AND p_term IS NOT NULL
+    AND length(trim(p_term)) >= 2
+    AND company_name ILIKE '%' || p_term || '%'
+  ORDER BY company_name
+  LIMIT 20
+$$;
+
 -- =====================================================================
 -- GRANTS (anon + authenticated)
 -- =====================================================================
+GRANT EXECUTE ON FUNCTION search_agencies(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION resolve_login_route(text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION submit_snag_comment(text, text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION get_operative_public_info(uuid) TO anon, authenticated;

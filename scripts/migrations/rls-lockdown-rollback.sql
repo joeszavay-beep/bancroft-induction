@@ -31,10 +31,42 @@ DROP FUNCTION IF EXISTS get_project_public_info(uuid);
 DROP FUNCTION IF EXISTS get_snag_for_reply(text);
 DROP FUNCTION IF EXISTS submit_snag_reply(text, text, text, text);
 DROP FUNCTION IF EXISTS get_aftercare_defects(uuid, text);
-DROP FUNCTION IF EXISTS submit_aftercare_defect(uuid, uuid, text, text, text, text, text, text, text, text, text);
+-- FIX (lockdown-prep): the real function is 10 args (uuid + 9 text), not 11.
+-- The old 11-arg signature never matched, so submit_aftercare_defect SURVIVED a
+-- "rollback". Corrected to the actual signature (see rls-deploy3-rpc-functions.sql:144).
+DROP FUNCTION IF EXISTS submit_aftercare_defect(uuid, text, text, text, text, text, text, text, text, text);
 DROP FUNCTION IF EXISTS get_portal_data(uuid);
 DROP FUNCTION IF EXISTS get_toolbox_for_signing(uuid);
 DROP FUNCTION IF EXISTS submit_toolbox_signature(uuid, uuid, text, text);
+
+-- FIX (lockdown-prep): the "Company isolation" policies recreated below
+-- reference get_user_company_id(), which is defined ONLY in the live DB (no
+-- migration file creates it). If it was dropped before a rollback, every such
+-- CREATE POLICY would throw and ABORT the rollback mid-incident. Define it here
+-- so the rollback is self-contained. CONFIRMED 2026-06-10: the live
+-- get_user_company_id() returns the identical value to get_my_company_id() for
+-- the test user, so this body (the signed-in user's company from profiles) is
+-- behaviourally correct. For full certainty capture the canonical body once via
+-- `SELECT pg_get_functiondef('get_user_company_id'::regproc);` in the SQL editor.
+CREATE OR REPLACE FUNCTION get_user_company_id()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT company_id FROM profiles WHERE id = auth.uid()
+$$;
+
+-- NOTE (lockdown-prep): this rollback also drops the deploy3/deploy3b PUBLIC
+-- RPCs that the migrated public pages now depend on. If you roll back deploy4,
+-- you must ALSO redeploy the pre-RPC client (or immediately re-apply
+-- rls-deploy3 + rls-deploy3b), or the public pages will break. The deploy3b
+-- functions (resolve_login_route, submit_snag_comment, get_operative_public_info,
+-- operative_exists_by_email, get_equipment_public_check, get_operative_for_setup,
+-- complete_operative_setup) and the deploy4 helpers (get_my_company_id,
+-- get_my_agency_ids) are intentionally NOT dropped here so a partial rollback
+-- doesn't strand a still-deployed client.
 
 
 -- =====================================================================

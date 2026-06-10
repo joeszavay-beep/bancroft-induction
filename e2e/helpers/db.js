@@ -26,6 +26,27 @@ export async function getDb() {
   return _db
 }
 
+/**
+ * Anon-key client with NO sign-in — represents an unauthenticated visitor using
+ * the public key shipped in the JS bundle. Used by the lockdown-verification
+ * spec to assert what anon can (RPCs) and cannot (raw table reads/writes) do.
+ */
+export function getAnonDb() {
+  const url = process.env.VITE_SUPABASE_URL
+  const anon = process.env.VITE_SUPABASE_ANON_KEY
+  if (!url || !anon) throw new Error('Supabase env vars missing — is .env loaded?')
+  return createClient(url, anon, { auth: { persistSession: false } })
+}
+
+/** Sign in (fresh anon-key client, no shared state) and return the access token. */
+export async function getAccessToken(email, password) {
+  const url = process.env.VITE_SUPABASE_URL
+  const anon = process.env.VITE_SUPABASE_ANON_KEY
+  const c = createClient(url, anon, { auth: { persistSession: false } })
+  const { data } = await c.auth.signInWithPassword({ email, password })
+  return data?.session?.access_token || null
+}
+
 /** Resolve the test account's user/company/project ids at runtime (never hardcode). */
 export async function getIds() {
   if (_ids) return _ids

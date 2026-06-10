@@ -411,6 +411,12 @@ A second silent-save path worth checking with affected users: **1.6** — anyone
 - **File:** `scripts/migrations/rls-deploy4-lockdown.sql:269`
 - **Issue:** `USING (... OR id = get_my_operative_id())` with no `WITH CHECK` lets an operative set their own `company_id` to any company (gaining read access to its projects/documents/chat) and self-edit role/rates.
 - **Fix:** Add a `WITH CHECK` that pins `company_id`, or restrict self-updates to a column-limited RPC.
+- **PATCH PREPARED (2026-06-10):** `scripts/migrations/rls-deploy4-patches.sql` re-creates the operatives `co_update` policy with a `WITH CHECK` pinning company (and adds the missing `site_attendance` UPDATE, §5.5). Not yet applied — part of the owner-approved lockdown batch.
+
+### 5.7b [HIGH] SuperAdminPanel reads every company's data with only a client-side role check — DEFERRED
+- **File:** `src/pages/SuperAdminPanel.jsx` (role gated by `manager_data` in storage; reads ALL `companies` + per-tenant `operatives`/`projects`/`signatures`/`snags`/`managers`; `company-assets` bucket).
+- **Issue:** This is a deliberate cross-tenant SELECT (it's the super-admin console) but it's authorised only by a client-side role flag, and it relies on the permissive RLS to actually return other tenants' rows. After the lockdown, `get_my_company_id()`-scoped policies will (correctly) stop it reading other companies — so the page will break unless it moves to a server/service-role endpoint that verifies super-admin server-side. It is the one remaining client path doing cross-tenant reads after the public-page migration.
+- **Fix:** Move SuperAdminPanel's data access to authenticated server endpoints (its `adminApi` helper already sends a Bearer token) that verify `role = 'super_admin'` from `profiles` server-side and use the service-role key. **DEFERRED to a later session — do NOT lose this; it must be handled before/with the lockdown or the super-admin console breaks.** Not part of the current public-page migration or the Step-5 SQL batch.
 
 ### 5.11 [MEDIUM] Missing UNIQUE constraints under check-then-insert flows — double-submit duplicates
 - **Files:** `supabase-schema.sql:42-52` (signatures — no `UNIQUE(operative_id, document_id)`; client pre-checks then inserts, `SignDocument.jsx:31,164`); toolbox_signatures (`ToolboxSign.jsx:67,93` + RPC also check-then-insert); site_attendance (`record-attendance-rpc.sql:48-66` SELECT-then-INSERT, no lock)
