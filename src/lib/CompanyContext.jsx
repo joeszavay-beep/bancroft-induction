@@ -11,7 +11,7 @@ const CompanyContext = createContext(null)
 // HTTP status is a server verdict (invalid/expired session), not a network error.
 function isAuthNetworkError(err) {
   if (!err) return false
-  if (err.name === 'AuthRetryableFetchError') return true
+  if (err.name === 'AuthRetryableFetchError' || err.name === 'SessionCheckTimeout') return true
   if (typeof err.status === 'number' && err.status > 0) return false
   return /network|fetch|timeout|timed out|load failed/i.test(err.message || '')
 }
@@ -22,17 +22,44 @@ export function CompanyProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  function clearState() {
+    setUser(null)
+    setProfile(null)
+    setCompany(null)
+    removeSession('pm_auth')
+    removeSession('manager_data')
+    removeSession('operative_session')
+    removeSession('operative_return_url')
+    document.title = 'CoreSite — Site Compliance Platform'
+    document.documentElement.style.setProperty('--primary-color', '#1B6FC8')
+    document.documentElement.style.setProperty('--sidebar-color', '#1A2744')
+  }
+
   async function checkSession() {
     let restored = false
     // navigator.onLine === true doesn't guarantee Supabase is reachable. When
     // the session check fails at the network level we never learned whether the
     // session is valid, so treat the device as offline for the fallbacks below.
     let networkFailed = false
+    // Set when the session check loses the 5s race but later resolves with a
+    // definitive server rejection — the optimistic cache restore must not
+    // stand (or be applied) once the server has actually said "invalid".
+    let lateVerdict = false
 
     try {
       // 1. Try active Supabase session
       const sessionPromise = supabase.auth.getSession()
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Session check timeout')), 5000))
+      sessionPromise.then(({ data, error }) => {
+        if (error && !isAuthNetworkError(error) && !data?.session) {
+          lateVerdict = true
+          clearState()
+        }
+      }).catch(() => {})
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => {
+        const err = new Error('Session check timeout')
+        err.name = 'SessionCheckTimeout' // classified as a network failure by isAuthNetworkError
+        reject(err)
+      }, 5000))
       const { data: { session }, error: sessionError } = await Promise.race([sessionPromise, timeoutPromise])
       networkFailed = isAuthNetworkError(sessionError)
       if (session?.user) {
@@ -71,7 +98,7 @@ export function CompanyProvider({ children }) {
     // 3. Try IndexedDB offline cache — ONLY when offline. Online, a definitive
     // absent/expired Supabase session must mean "not authenticated" so the route
     // guards send the user to login rather than run with no token (AUDIT §1.7).
-    if (!restored && offline) {
+    if (!restored && offline && !lateVerdict) {
       try {
         const cachedUser = await getCachedAuth('user')
         if (cachedUser) {
@@ -90,7 +117,7 @@ export function CompanyProvider({ children }) {
 
     // 4. Try stored session in localStorage (mobile persistent login) — offline only,
     // for the same reason as step 3.
-    if (!restored && offline) {
+    if (!restored && offline && !lateVerdict) {
       const stored = getSession('manager_data')
       if (stored) {
         try {
@@ -202,19 +229,6 @@ export function CompanyProvider({ children }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     checkSession()
   }, [])
-
-  function clearState() {
-    setUser(null)
-    setProfile(null)
-    setCompany(null)
-    removeSession('pm_auth')
-    removeSession('manager_data')
-    removeSession('operative_session')
-    removeSession('operative_return_url')
-    document.title = 'CoreSite — Site Compliance Platform'
-    document.documentElement.style.setProperty('--primary-color', '#1B6FC8')
-    document.documentElement.style.setProperty('--sidebar-color', '#1A2744')
-  }
 
   async function login(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })

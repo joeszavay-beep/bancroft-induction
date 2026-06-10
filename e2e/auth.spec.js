@@ -106,7 +106,15 @@ test('auth network failure falls back to the cached login (AUDIT §1.7 refinemen
 test('definitively rejected session (server says invalid) forces re-login', async ({ page }) => {
   // Same stored state, but the auth server IS reachable and rejects the stale
   // refresh token — a real "session expired" verdict, so the cached fallback
-  // must NOT be used and the user lands on /login.
+  // must NOT be used and the user lands on /login. The rejection is stubbed
+  // (the live server's real response shape) so the verdict always lands inside
+  // the 5s session-check race: a slow live answer would be classified as a
+  // network failure and flake this test.
+  await page.route('**/auth/v1/token**', (route) => route.fulfill({
+    status: 400,
+    contentType: 'application/json',
+    body: JSON.stringify({ error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token: Refresh Token Not Found' }),
+  }))
   await seedExpiredLogin(page)
   await page.goto('/app/plant-equipment')
 
