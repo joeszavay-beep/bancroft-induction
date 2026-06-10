@@ -37,16 +37,14 @@ export default function OperativeGuard({ children }) {
       } catch { /* ignore */ }
     }
 
-    // Not logged in — check if this is a first-time profile setup
+    // Not logged in — check if this is a first-time profile setup. The
+    // get_operative_for_setup RPC returns the operative only while unactivated
+    // (DOB still NULL), so it both detects first-time AND works under the RLS
+    // lockdown (no direct anon read of operatives).
     if (isProfilePage && operativeId) {
       try {
-        const { data: op } = await supabase
-          .from('operatives')
-          .select('id, date_of_birth')
-          .eq('id', operativeId)
-          .single()
-
-        if (op && !op.date_of_birth) {
+        const { data: setup } = await supabase.rpc('get_operative_for_setup', { p_id: operativeId })
+        if (setup?.operative) {
           // First-time setup — no DOB yet, allow through without login
           setStatus('ok')
           return
