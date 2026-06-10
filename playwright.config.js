@@ -14,7 +14,11 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  // The suite runs serially against a SHARED LIVE Supabase, so individual tests
+  // occasionally time out waiting for a UI element under network/DB latency
+  // (a different test each run, never a logic failure — those fail on retry too).
+  // One retry absorbs those latency blips without masking real regressions.
+  retries: 1,
   reporter: [['list'], ['html', { open: 'never' }]],
   timeout: 30_000,
   expect: { timeout: 10_000 },
