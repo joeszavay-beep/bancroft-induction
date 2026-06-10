@@ -707,7 +707,7 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh, c
         <div className="space-y-4">
           {projects.map(p => {
             const projDocs = documents.filter(d => d.project_id === p.id)
-            const projOps = operatives.filter(o => o.project_id === p.id)
+            const projOps = operatives.filter(o => (o.operative_projects || []).some(r => r.project_id === p.id))
             const projSigs = signatures.filter(s => s.project_id === p.id && !s.invalidated)
             const totalSigsNeeded = projDocs.length * projOps.length
             const signOffPct = totalSigsNeeded > 0 ? Math.round((projSigs.length / totalSigsNeeded) * 100) : 0

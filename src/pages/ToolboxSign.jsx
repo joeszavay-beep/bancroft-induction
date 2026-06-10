@@ -30,7 +30,7 @@ export default function ToolboxSign() {
 
     const [p, o, s] = await Promise.all([
       supabase.from('projects').select('*, companies(name, logo_url)').eq('id', t.project_id).single(),
-      supabase.from('operatives').select('*').eq('project_id', t.project_id).order('name'),
+      supabase.from('operatives').select('*, operative_projects!inner(project_id)').eq('operative_projects.project_id', t.project_id).order('name'),
       supabase.from('toolbox_signatures').select('operative_id').eq('talk_id', talkId),
     ])
     setProject(p.data)

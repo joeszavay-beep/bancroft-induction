@@ -354,10 +354,33 @@ export default async function handler(req, res) {
       if (!b.id) return res.status(400).json({ error: 'Missing id' })
       if (!await verifyEquipmentAccess(b.id)) return res.status(403).json({ error: 'Not authorised' })
 
+      // The client sends camelCase keys (see PlantEquipment.handleSave); map them
+      // to columns the same way the POST handler does. (Previously this read
+      // snake_case keys that the client never sends, so every field except
+      // description/type was silently dropped — AUDIT §2.1.)
+      // projectId is intentionally NOT applied here: the client sends the page's
+      // current project context, which would clobber/move the item's project on
+      // an edit (AUDIT §2.2). Project assignment stays a create-time concern.
+      const map = {
+        description: 'description',
+        type: 'type',
+        serialNumber: 'serial_number',
+        hireCompany: 'hire_company',
+        onHireDate: 'on_hire_date',
+        offHireDate: 'off_hire_date',
+        hireRatePeriod: 'hire_rate_period',
+        inspectionIntervalDays: 'inspection_interval_days',
+        status: 'status',
+      }
       const updates = { updated_at: new Date().toISOString() }
-      const fields = ['description', 'type', 'serial_number', 'hire_company', 'on_hire_date', 'off_hire_date', 'daily_hire_rate', 'hire_rate', 'hire_rate_period', 'status', 'project_id', 'inspection_interval_days']
-      for (const f of fields) {
-        if (b[f] !== undefined) updates[f] = b[f] === '' ? null : b[f]
+      for (const [key, col] of Object.entries(map)) {
+        if (b[key] !== undefined) updates[col] = b[key] === '' ? null : b[key]
+      }
+      // Hire rate populates both columns, mirroring the POST handler.
+      if (b.hireRate !== undefined || b.dailyHireRate !== undefined) {
+        const rate = b.hireRate ?? b.dailyHireRate
+        updates.hire_rate = rate === '' ? null : rate
+        updates.daily_hire_rate = rate === '' ? null : rate
       }
 
       const { error } = await supabase.from('equipment').update(updates).eq('id', b.id)

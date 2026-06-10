@@ -92,9 +92,17 @@ import OperativeGuard from './components/OperativeGuard'
 import { getSession, getLastRole } from './lib/storage'
 
 // On native: redirect based on last active role, then fall back to session checks
+// pm_auth is a local flag the app sets, NOT a credential. Online we require a
+// verified Supabase session (isAuthenticated); the flag is only trusted offline
+// so the PWA still opens without a network round-trip. Prevents a stale flag from
+// admitting a user whose session has expired (AUDIT §1.7).
+function hasManagerSession(isAuthenticated) {
+  return isAuthenticated || (!navigator.onLine && getSession('pm_auth') === 'true')
+}
+
 function NativeEntry() {
   const { isAuthenticated, isLoading } = useCompany()
-  const hasPmSession = isAuthenticated || getSession('pm_auth') === 'true'
+  const hasPmSession = hasManagerSession(isAuthenticated)
   const hasOpSession = !!getSession('operative_session')
   const lastRole = getLastRole()
   if (isLoading) return <div className="min-h-dvh flex items-center justify-center" style={{ backgroundColor: '#1A2744' }}><div className="animate-spin w-8 h-8 border-2 border-white/30 border-t-white rounded-full" /></div>
@@ -110,7 +118,7 @@ function NativeEntry() {
 // On native: redirect away from login if already authenticated
 function LoginGuard() {
   const { isAuthenticated, isLoading } = useCompany()
-  const hasSession = isAuthenticated || getSession('pm_auth') === 'true'
+  const hasSession = hasManagerSession(isAuthenticated)
   if (isLoading) return <div className="min-h-dvh flex items-center justify-center" style={{ backgroundColor: '#1A2744' }}><div className="animate-spin w-8 h-8 border-2 border-white/30 border-t-white rounded-full" /></div>
   if (isNative && hasSession) return <Navigate to="/app" replace />
   return <PMLogin />
@@ -118,7 +126,7 @@ function LoginGuard() {
 
 function AppLayout() {
   const { isAuthenticated, isLoading } = useCompany()
-  const hasSession = isAuthenticated || getSession('pm_auth') === 'true'
+  const hasSession = hasManagerSession(isAuthenticated)
   if (isLoading) return <div className="min-h-dvh flex items-center justify-center" style={{ backgroundColor: 'var(--bg-main)' }}><div className="animate-spin w-8 h-8 border-2 border-[#1B6FC8] border-t-transparent rounded-full" /></div>
   if (!hasSession) return <Navigate to="/login" replace />
   return (
