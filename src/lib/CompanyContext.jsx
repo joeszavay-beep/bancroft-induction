@@ -5,6 +5,17 @@ import { cacheAuth, getCachedAuth, clearStore } from './offlineDb'
 
 const CompanyContext = createContext(null)
 
+// True when a failed session check never got an answer from the auth server
+// (fetch failed / timed out): supabase-js wraps those as AuthRetryableFetchError,
+// and our own 5s race produces "Session check timeout". Anything carrying a real
+// HTTP status is a server verdict (invalid/expired session), not a network error.
+function isAuthNetworkError(err) {
+  if (!err) return false
+  if (err.name === 'AuthRetryableFetchError') return true
+  if (typeof err.status === 'number' && err.status > 0) return false
+  return /network|fetch|timeout|timed out|load failed/i.test(err.message || '')
+}
+
 export function CompanyProvider({ children }) {
   const [company, setCompany] = useState(null)
   const [user, setUser] = useState(null)
@@ -13,12 +24,17 @@ export function CompanyProvider({ children }) {
 
   async function checkSession() {
     let restored = false
+    // navigator.onLine === true doesn't guarantee Supabase is reachable. When
+    // the session check fails at the network level we never learned whether the
+    // session is valid, so treat the device as offline for the fallbacks below.
+    let networkFailed = false
 
     try {
       // 1. Try active Supabase session
       const sessionPromise = supabase.auth.getSession()
       const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Session check timeout')), 5000))
-      const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise])
+      const { data: { session }, error: sessionError } = await Promise.race([sessionPromise, timeoutPromise])
+      networkFailed = isAuthNetworkError(sessionError)
       if (session?.user) {
         setupFromAuth(session.user)
         loadFullProfile(session.user.id)
@@ -26,26 +42,36 @@ export function CompanyProvider({ children }) {
         restored = true
       }
 
-      // 2. Try refreshing an expired token
-      if (!restored) {
+      // 2. Try refreshing an expired token — skipped after a network-level
+      // failure: the refresh would re-fail the same way after its own retry
+      // backoff, only delaying the offline fallback.
+      if (!restored && !networkFailed) {
         try {
-          const { data: { session: refreshed } } = await supabase.auth.refreshSession()
+          const { data: { session: refreshed }, error: refreshError } = await supabase.auth.refreshSession()
+          networkFailed = isAuthNetworkError(refreshError)
           if (refreshed?.user) {
             setupFromAuth(refreshed.user)
             loadFullProfile(refreshed.user.id)
             cacheAuth('session', { access_token: refreshed.access_token, refresh_token: refreshed.refresh_token, user: refreshed.user }).catch(() => {})
             restored = true
           }
-        } catch { /* ignore */ }
+        } catch (err) {
+          if (isAuthNetworkError(err)) networkFailed = true
+        }
       }
     } catch (err) {
       console.error('Session check failed:', err)
+      if (isAuthNetworkError(err)) networkFailed = true
     }
 
-    // 3. Try IndexedDB offline cache — ONLY when actually offline. Online, an
+    // Offline for fallback purposes = the browser says offline OR the check
+    // itself couldn't reach Supabase (garbage connection with onLine true).
+    const offline = !navigator.onLine || networkFailed
+
+    // 3. Try IndexedDB offline cache — ONLY when offline. Online, a definitive
     // absent/expired Supabase session must mean "not authenticated" so the route
     // guards send the user to login rather than run with no token (AUDIT §1.7).
-    if (!restored && !navigator.onLine) {
+    if (!restored && offline) {
       try {
         const cachedUser = await getCachedAuth('user')
         if (cachedUser) {
@@ -64,7 +90,7 @@ export function CompanyProvider({ children }) {
 
     // 4. Try stored session in localStorage (mobile persistent login) — offline only,
     // for the same reason as step 3.
-    if (!restored && !navigator.onLine) {
+    if (!restored && offline) {
       const stored = getSession('manager_data')
       if (stored) {
         try {
