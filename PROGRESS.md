@@ -89,6 +89,26 @@ test for the PMDashboard.jsx:710 sign-off %, +1 sandbox-leak test §1.6).
   the E2E suite + the 3 caught bugs (§2.24/§1.7/§2.1) + §1.7 refinement. Awaiting merge.
 - `audit-fixes-2` (off e2e-tests, **not pushed**): the 2026-06-10 audit-fix batch below
   + the verified RLS findings + RLS-REMEDIATION-PLAN.md.
+- `rls-public-page-rpcs` (off audit-fixes-2, **not pushed**): RLS Steps 1–3 — the
+  public-page RPCs (`rls-deploy3b-public-rpcs.sql`, deployed to prod by owner) +
+  all 8 public pages migrated to them + anon E2E gates. `retries:1` added for
+  live-DB latency. Suite green (now ~27 tests). NO policy change / lockdown yet.
+
+### RLS public-page migration (rls-public-page-rpcs branch)
+All 8 public pages now read/write via SECURITY DEFINER RPCs instead of direct
+anon table access, so they keep working after the lockdown removes anon table
+access. Committed per page, full suite green each time:
+1. ToolboxSign → get_toolbox_for_signing / submit_toolbox_signature
+2. Portal → get_portal_data
+3. SnagReply → get_snag_for_reply / submit_snag_comment / submit_snag_reply
+4. AftercarePage → get_project_public_info / get_aftercare_defects / submit_aftercare_defect
+5. PMLogin email routing → resolve_login_route (also removes an anon profiles/operatives disclosure)
+6. EquipmentCheck → get_equipment_public_check
+7. OperativeProfile + OperativeGuard → get_operative_for_setup / complete_operative_setup
+8. SiteSignIn → get_project_public_info / get_operative_public_info / operative_exists_by_email
+**NEXT = Step 5 (lockdown), owner-approved separately.** See RLS-REMEDIATION-PLAN.md
+"PROGRESS" header for what Step 5 still needs (SQL patches + post-lockdown anon-denied
+E2E assertions + apply in a window).
 
 ### 2026-06-10 session — audit-fixes-2 batch
 - **RLS exposure CONFIRMED LIVE** (owner-authorized read-only probe): production runs the
