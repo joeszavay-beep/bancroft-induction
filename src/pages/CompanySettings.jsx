@@ -131,6 +131,7 @@ export default function CompanySettings() {
   const [autoSignOutTime, setAutoSignOutTime] = useState('23:59')
   const [requireGPS, setRequireGPS] = useState(false)
   const [requireDOB, setRequireDOB] = useState(true)
+  const [sharedHolidayVisibility, setSharedHolidayVisibility] = useState(false)
   const [savingSite, setSavingSite] = useState(false)
 
   // Commercial state
@@ -207,6 +208,7 @@ export default function CompanySettings() {
       setAutoSignOutTime(s.auto_sign_out_time || '23:59')
       setRequireGPS(!!s.require_gps)
       setRequireDOB(s.require_dob !== false)
+      setSharedHolidayVisibility(!!s.shared_holiday_visibility)
       setRetentionPct(s.retention_pct ?? 5)
       setPaymentTermsDays(s.payment_terms_days ?? 30)
       setCisRate(s.cis_rate ?? 20)
@@ -367,6 +369,7 @@ export default function CompanySettings() {
         auto_sign_out_time: autoSignOutTime,
         require_gps: requireGPS,
         require_dob: requireDOB,
+        shared_holiday_visibility: sharedHolidayVisibility,
       }
 
       const { data, error } = await supabase.from('companies').update({
@@ -1076,6 +1079,14 @@ export default function CompanySettings() {
                   <p className="text-xs text-slate-500">Workers must confirm date of birth when signing documents</p>
                 </div>
                 <Toggle checked={requireDOB} onChange={setRequireDOB} />
+              </div>
+
+              <div className="border-t border-slate-100 pt-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">Shared Holiday Visibility</p>
+                  <p className="text-xs text-slate-500">All managers see every holiday request and the shared calendar, and any manager can approve or reject — not just the assigned approver</p>
+                </div>
+                <Toggle checked={sharedHolidayVisibility} onChange={setSharedHolidayVisibility} />
               </div>
 
               <LoadingButton

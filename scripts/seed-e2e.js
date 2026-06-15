@@ -249,6 +249,51 @@ async function ensureSuperAdmin(companyId) {
   return saEmail
 }
 
+// Two extra managers for the shared-holiday-visibility E2E (holiday-visibility.spec.js):
+// M1 is a real NON-admin manager who logs in; M2 is approver-only (no auth user needed).
+async function ensureHolidayManagers(companyId) {
+  const m1Email = (process.env.E2E_MGR1_EMAIL || 'e2e-mgr1@coresite.io').toLowerCase()
+  const m1Pass = process.env.E2E_MGR1_PASSWORD || 'E2eMgr1-2026!'
+  const created = await admin.auth.admin.createUser({
+    email: m1Email, password: m1Pass, email_confirm: true,
+    user_metadata: { name: 'E2E Manager One', role: 'manager', company_id: companyId },
+  })
+  if (created.error && !/already.+(registered|exists)/i.test(created.error.message)) {
+    console.error('M1 createUser failed:', created.error.message); process.exit(1)
+  }
+  // Ensure company_id is in the JWT metadata even if M1 pre-existed — the holidays API
+  // resolves the company from meta.company_id for a manager with no profile row.
+  const m1sb = createClient(URL, ANON, { auth: { persistSession: false } })
+  const m1SignIn = await m1sb.auth.signInWithPassword({ email: m1Email, password: m1Pass })
+  if (m1SignIn.data?.user) {
+    await admin.auth.admin.updateUserById(m1SignIn.data.user.id, {
+      user_metadata: { ...m1SignIn.data.user.user_metadata, name: 'E2E Manager One', role: 'manager', company_id: companyId },
+    })
+  }
+  let { data: m1 } = await admin.from('managers').select('id').eq('email', m1Email).eq('company_id', companyId).maybeSingle()
+  if (!m1) {
+    const ins = await admin.from('managers').insert({
+      name: 'E2E Manager One', email: m1Email, role: 'manager', company_id: companyId, is_active: true, project_ids: [],
+    }).select('id').single()
+    if (ins.error) { console.error('M1 managers insert failed:', ins.error.message); process.exit(1) }
+    m1 = ins.data
+  }
+  const m2Email = (process.env.E2E_MGR2_EMAIL || 'e2e-mgr2@coresite.io').toLowerCase()
+  let { data: m2 } = await admin.from('managers').select('id').eq('email', m2Email).eq('company_id', companyId).maybeSingle()
+  if (!m2) {
+    const ins = await admin.from('managers').insert({
+      name: 'E2E Manager Two', email: m2Email, role: 'manager', company_id: companyId, is_active: true, project_ids: [],
+    }).select('id').single()
+    if (ins.error) { console.error('M2 managers insert failed:', ins.error.message); process.exit(1) }
+    m2 = ins.data
+  }
+  // Purge stale test requests from prior runs (service-role; holiday_requests has no
+  // DELETE policy under the lockdown, so the spec itself can't hard-delete them).
+  await admin.from('holiday_requests').delete().eq('company_id', companyId).eq('reason', 'E2E-HOLVIS')
+  console.log(`✓ Holiday managers ready (M1 ${m1.id} / M2 ${m2.id})`)
+  return { m1Email, m1Id: m1.id, m2Email, m2Id: m2.id }
+}
+
 const user = await signInOrSignUp()
 const companyId = await ensureCompany(user)
 const superAdminEmail = await ensureSuperAdmin(companyId)
@@ -263,6 +308,7 @@ await admin.from('managers').update({ project_ids: [projectId] }).eq('email', EM
 const drawingId = await ensureDrawing(companyId, projectId)
 const operativeId = await ensureOperative(companyId, projectId)
 const documentId = await ensureDocument(companyId, projectId)
+const holidayMgrs = await ensureHolidayManagers(companyId)
 
 console.log('\n=== E2E account ready ===')
 console.log(`email:        ${EMAIL}`)
@@ -273,4 +319,6 @@ console.log(`project_id:   ${projectId}`)
 console.log(`drawing_id:   ${drawingId}`)
 console.log(`operative_id: ${operativeId}`)
 console.log(`document_id:  ${documentId}`)
+console.log(`hol mgr 1:    ${holidayMgrs.m1Email} (${holidayMgrs.m1Id})`)
+console.log(`hol mgr 2:    ${holidayMgrs.m2Email} (${holidayMgrs.m2Id})`)
 process.exit(0)
