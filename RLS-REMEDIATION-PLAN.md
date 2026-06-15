@@ -340,15 +340,15 @@ deploy4's clean-slate drop is correct, but **do not apply it yet**: the client c
 - [x] Confirm: `SELECT proname FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname LIKE '%agenc%' OR proname IN ('search_agencies','get_my_agency_ids');` — `search_agencies` present (`get_my_agency_ids` is created by deploy4-patches in step 4). Verified all 16 public RPCs + 2 helpers live with correct anon/authenticated EXECUTE grants.
 - [x] **REVOKE fix applied:** `search_agencies` is `SECURITY DEFINER` returning cross-tenant agency contact PII, but `CREATE` default-grants `EXECUTE` to `PUBLIC` (incl. anon) — so anon could enumerate it, a hole the §5 `pg_policies` probe can't see (it checks table policies, not function grants). `REVOKE EXECUTE … FROM PUBLIC, anon` now in `rls-deploy3b-public-rpcs.sql`; verified `anon_exec=false`, `authenticated` retained. (Helpers `get_my_operative_id`/`get_operative_company_id` keep their `PUBLIC` grant — **required** for RLS policy evaluation under anon, and harmless since they're JWT-self-scoped.)
 
-**4. Apply the lockdown — IN THIS ORDER**
-1. [ ] `storage-lockdown.sql`
-2. [ ] `rls-deploy4-lockdown.sql`
-3. [ ] `rls-deploy4-patches.sql`
+**4. Apply the lockdown — IN THIS ORDER** — ✅ DONE 2026-06-15 (live apply→rollback dress-rehearsal first, then real apply)
+1. [x] `storage-lockdown.sql` — 9 policies, no `floor_plans_*`
+2. [x] `rls-deploy4-lockdown.sql` — clean-slate + 276 scoped policies
+3. [x] `rls-deploy4-patches.sql` — `agencies` scoped, 6 coverage tables, operatives/site_attendance UPDATE
 
-**5. Verify (gates — do not skip)**
-- [ ] `RLS_LOCKDOWN_APPLIED=1 npm run test:e2e` → full suite green **including** `rls-lockdown-verification.spec.js` (anon denied; RPCs still work) and the super-admin happy path.
-- [ ] Re-run §1 queries A/B/C; compare to the step-1 baseline: anon `SELECT … USING(true)` shrinks to `companies/uk_bank_holidays/postcode_cache`; query B returns only the intended anon writes; no `floor_plans_*` anon storage policies remain.
-- [ ] Manual smoke (2 min): one public page (toolbox sign via QR), agency search+connect, DocumentHub loads sign-offs, and the **super-admin panel** (overview loads + toggle a company active).
+**5. Verify (gates — do not skip)** — ✅ DONE 2026-06-15
+- [x] `RLS_LOCKDOWN_APPLIED=1 npm run test:e2e` → **33/33 green** incl. `rls-lockdown-verification.spec.js` (anon reads 0 rows, can't forge a signature, can't delete a comment, RPCs still work). Caught one real regression — snag-reply comments inserted without `company_id` → invisible post-lockdown (AUDIT §5.16); fixed SQL-only (RPCs now stamp `company_id` from the snag) and re-verified green.
+- [x] §1 queries A/B/C vs baseline: A = `companies/postcode_cache/uk_bank_holidays` only; B = only `demo_requests`/`postcode_cache` INSERT; C = 9 storage policies, no `floor_plans_*`.
+- [x] Manual smoke: super-admin overview + toggle company active ✅; DocumentHub upload + sign-offs ✅; toolbox QR "not assigned" = **pre-existing duplicate-operative-identity** data issue, NOT the lockdown (AUDIT §5.17). ⚠️ **agency search+connect NOT verified** (no agency data in prod) — blocking gate before the first agency onboards (§5.7c / PROGRESS header).
 
 **6. Rollback trigger & procedure**
 - Trigger if any public page errors for real users, a tenant loses access to their own data, or an RPC throws for anon.
