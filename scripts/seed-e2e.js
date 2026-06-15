@@ -161,15 +161,12 @@ async function ensureOperative(companyId, projectId) {
   const wEmail = (process.env.E2E_WORKER_EMAIL || 'e2e-worker@coresite.io').toLowerCase()
   const wPass = process.env.E2E_WORKER_PASSWORD || 'E2eWorker2026!'
 
-  // Pre-confirmed auth user so the worker can log in via email+password.
-  const created = await admin.auth.admin.createUser({
-    email: wEmail, password: wPass, email_confirm: true,
-    user_metadata: { name: 'E2E Worker', role: 'operative' },
-  })
-  if (created.error && !/already.+(registered|exists)/i.test(created.error.message)) {
-    console.error('worker createUser failed:', created.error.message); process.exit(1)
-  }
-
+  // Ensure the operative row FIRST so we can stamp its id into the auth user's
+  // JWT. get_operative_company_id() reads user_metadata.operative_id; without it,
+  // post-lockdown operative-scoped reads (e.g. SiteSignIn's operatives lookup)
+  // return zero rows. Mirrors prod api/create-operative-account.js, which sets
+  // operative_id at creation — the seed previously omitted it (worked only under
+  // the pre-lockdown permissive RLS).
   let { data: op } = await admin.from('operatives').select('id').eq('email', wEmail).maybeSingle()
   if (!op) {
     const ins = await admin.from('operatives').insert({
@@ -182,6 +179,27 @@ async function ensureOperative(companyId, projectId) {
     // Ensure project_id is set (ToolboxSign/induction filter operatives by it).
     await admin.from('operatives').update({ project_id: projectId }).eq('id', op.id)
   }
+
+  // Pre-confirmed auth user carrying operative_id in user_metadata.
+  const wMeta = { name: 'E2E Worker', role: 'operative', operative_id: op.id }
+  const created = await admin.auth.admin.createUser({
+    email: wEmail, password: wPass, email_confirm: true, user_metadata: wMeta,
+  })
+  if (created.error && !/already.+(registered|exists)/i.test(created.error.message)) {
+    console.error('worker createUser failed:', created.error.message); process.exit(1)
+  }
+  // Whether just-created or pre-existing (an earlier run created it WITHOUT
+  // operative_id), force operative_id onto the JWT metadata. Resolve the user id
+  // via a throwaway anon sign-in so the admin/anon shared sessions are untouched.
+  const wsb = createClient(URL, ANON, { auth: { persistSession: false } })
+  const wSignIn = await wsb.auth.signInWithPassword({ email: wEmail, password: wPass })
+  if (!wSignIn.data?.user) {
+    console.error('worker sign-in failed:', wSignIn.error?.message); process.exit(1)
+  }
+  await admin.auth.admin.updateUserById(wSignIn.data.user.id, {
+    user_metadata: { ...wSignIn.data.user.user_metadata, ...wMeta },
+  })
+
   // Link to project (idempotent).
   const { data: link } = await admin.from('operative_projects')
     .select('operative_id').eq('operative_id', op.id).eq('project_id', projectId).maybeSingle()
