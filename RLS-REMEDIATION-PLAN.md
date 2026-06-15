@@ -335,9 +335,10 @@ deploy4's clean-slate drop is correct, but **do not apply it yet**: the client c
 
 **2. Dry-run every SQL file (no commit)** — for each of `storage-lockdown.sql`, `rls-deploy4-lockdown.sql`, `rls-deploy4-patches.sql`, and both rollback scripts: temporarily change the final `COMMIT;` to `ROLLBACK;`, run it, confirm **no parse/constraint error**, then restore `COMMIT;`. (Schema validation already confirmed every referenced table/column/function/bucket exists live — this catches anything static checks can't.)
 
-**3. RPCs present**
-- [ ] Re-run `rls-deploy3-rpc-functions.sql` then `rls-deploy3b-public-rpcs.sql` (idempotent) so `search_agencies` and all others are live.
-- [ ] Confirm: `SELECT proname FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname LIKE '%agenc%' OR proname IN ('search_agencies','get_my_agency_ids');` — `search_agencies` present (`get_my_agency_ids` is created by deploy4-patches in step 4).
+**3. RPCs present** — ✅ DONE 2026-06-15
+- [x] Re-run `rls-deploy3-rpc-functions.sql` then `rls-deploy3b-public-rpcs.sql` (idempotent) so `search_agencies` and all others are live.
+- [x] Confirm: `SELECT proname FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname LIKE '%agenc%' OR proname IN ('search_agencies','get_my_agency_ids');` — `search_agencies` present (`get_my_agency_ids` is created by deploy4-patches in step 4). Verified all 16 public RPCs + 2 helpers live with correct anon/authenticated EXECUTE grants.
+- [x] **REVOKE fix applied:** `search_agencies` is `SECURITY DEFINER` returning cross-tenant agency contact PII, but `CREATE` default-grants `EXECUTE` to `PUBLIC` (incl. anon) — so anon could enumerate it, a hole the §5 `pg_policies` probe can't see (it checks table policies, not function grants). `REVOKE EXECUTE … FROM PUBLIC, anon` now in `rls-deploy3b-public-rpcs.sql`; verified `anon_exec=false`, `authenticated` retained. (Helpers `get_my_operative_id`/`get_operative_company_id` keep their `PUBLIC` grant — **required** for RLS policy evaluation under anon, and harmless since they're JWT-self-scoped.)
 
 **4. Apply the lockdown — IN THIS ORDER**
 1. [ ] `storage-lockdown.sql`
