@@ -458,6 +458,11 @@ A second silent-save path worth checking with affected users: **1.6** — anyone
 - **Issue:** Surfaced during the 2026-06-15 lockdown smoke (Joe scanned a Thomas Worley "Morgan Lewis" toolbox QR and wasn't recognised), but **not caused by the lockdown** — `get_toolbox_for_signing` is `SECURITY DEFINER` and bypasses RLS, and Joe IS linked to that project in `operative_projects`, so the RPC returns him regardless. Root cause: Joe has **3 operative records across companies** (`507c6d52` company NULL, `0b5775d7` Thomas Worley, `269e5905` Bancroft), **two sharing `joe.szavay@icloud.com`**. His active `operative_session` resolved to the wrong-company identity (Bancroft), which isn't on the Thomas Worley project → "not assigned". ToolboxSign matches the signer only by `opSession.id`, with no fallback to email-across-the-project-roster, so a stale/cross-company session blocks signing.
 - **Fix (deferred, separate from lockdown):** (a) de-duplicate operatives / forbid one email across multiple operative records, or key identity to the auth user; (b) harden ToolboxSign to resolve the signer by email against the returned roster, not just session id. Rolling back the lockdown would NOT fix this.
 
+### 5.18 [BLOCKING GATE] Rotate service-role key + shared demo password — BEFORE onboarding any new customer
+- **Scope:** `SUPABASE_SERVICE_ROLE_KEY` (used Node-only: `scripts/seed-e2e.js`, the `api/*` serverless functions via env) and the shared `demo@coresite.io` password shipped in the JS bundle (`SandboxEntry`/demo flow).
+- **Action:** Rotate `SUPABASE_SERVICE_ROLE_KEY` in Supabase, then update local `.env` **and** the Vercel project env (Production + Preview); also rotate/flag the shared `demo@coresite.io` password. **MUST be done before onboarding any customer beyond the current trial.** Same tier as §5.7c.
+- **Why deferred:** owner-decided — handled later, before the next customer. No evidence of exposure; the key has never been committed (gitignored `.env` only).
+
 ---
 
 ## 6. RACE CONDITIONS / ASYNC / OFFLINE SYNC

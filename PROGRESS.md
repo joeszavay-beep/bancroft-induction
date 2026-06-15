@@ -9,19 +9,22 @@ so any session can resume from it alone.
 
 ---
 
-## 🚨 BLOCKING GATE (2026-06-15) — verify agency flow before onboarding the FIRST agency
+## 🚨 BLOCKING GATES (2026-06-15) — clear BEFORE onboarding any customer beyond the current trial
 
-**Agency search+connect (`search_agencies` + `get_my_agency_ids()` scoping) is UNVERIFIED in the
-locked state.** The 2026-06-15 RLS lockdown re-scopes `agencies` from `USING(true)` to
-own+connected (via `get_my_agency_ids()`), moving marketplace discovery to the `search_agencies`
-RPC. This flow has **zero E2E coverage** (`seed-e2e.js` seeds no agency data;
-`rls-lockdown-verification.spec.js` only checks anon is *denied* `agency_operatives`) and
-**could not be manually tested** (no agency exists in prod). **MUST verify before onboarding the
-first agency** — either (a) seed a throwaway agency + 2nd company + connection and walk
-search+connect in the locked state, or (b) add a self-seeding agency E2E spec to the
-`RLS_LOCKDOWN_APPLIED=1` suite. **Top of the deferred backlog.** Shipped without it because there
-are zero agency users in prod (zero blast radius) and the failure mode is fail-closed (breakage,
-not a leak). See AUDIT.md §5.7c.
+**Gate 1 — Agency search+connect UNVERIFIED in the locked state.** The 2026-06-15 RLS lockdown
+re-scopes `agencies` from `USING(true)` to own+connected (via `get_my_agency_ids()`), moving
+marketplace discovery to the `search_agencies` RPC. This flow has **zero E2E coverage**
+(`seed-e2e.js` seeds no agency data; `rls-lockdown-verification.spec.js` only checks anon is
+*denied* `agency_operatives`) and **could not be manually tested** (no agency exists in prod).
+**MUST verify before onboarding the first agency** — either (a) seed a throwaway agency + 2nd
+company + connection and walk search+connect in the locked state, or (b) add a self-seeding agency
+E2E spec to the `RLS_LOCKDOWN_APPLIED=1` suite. Shipped without it because there are zero agency
+users in prod (zero blast radius) and the failure mode is fail-closed (breakage, not a leak).
+See AUDIT.md §5.7c.
+
+**Gate 2 — Rotate secrets.** Rotate `SUPABASE_SERVICE_ROLE_KEY` + update local `.env` and the
+Vercel env; also rotate/flag the shared `demo@coresite.io` password shipped in the JS bundle.
+**BEFORE onboarding any new customer beyond the current trial.** See AUDIT.md §5.18.
 
 ---
 
