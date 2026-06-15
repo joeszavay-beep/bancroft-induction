@@ -467,6 +467,12 @@ $$;
 -- GRANTS (anon + authenticated)
 -- =====================================================================
 GRANT EXECUTE ON FUNCTION search_agencies(text) TO authenticated;
+-- search_agencies is authenticated-only (marketplace discovery). CREATE grants
+-- EXECUTE to PUBLIC by default, which INCLUDES anon — and this SECURITY DEFINER
+-- RPC returns cross-tenant agency contact PII, bypassing RLS. Revoke the default
+-- PUBLIC/anon grant so anon cannot enumerate agency contacts after the lockdown.
+REVOKE EXECUTE ON FUNCTION search_agencies(text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION search_agencies(text) FROM anon;
 GRANT EXECUTE ON FUNCTION resolve_login_route(text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION submit_snag_comment(text, text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION get_operative_public_info(uuid) TO anon, authenticated;
