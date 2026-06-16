@@ -9,6 +9,58 @@ so any session can resume from it alone.
 
 ---
 
+## 🟠 §5.19 — INTERIM FIX APPLIED + VERIFIED (2026-06-16); DURABLE FOLLOW-UP PENDING
+
+**Operative RLS scoping is forgeable via user-writable `user_metadata`.** The applied 2026-06-15
+lockdown scopes nearly every table via `get_my_company_id()` / `get_operative_company_id()`, which
+resolve identity from `auth.jwt() -> 'user_metadata' ->> 'operative_id'`. `user_metadata` is
+user-writable (`supabase.auth.updateUser({ data })`), so any **authenticated** user who knows a real
+operative UUID in a victim company can inject it, refresh their token, and gain cross-tenant read
+(and write where `co_insert`/`co_update` exist) — defeating the tenant isolation the lockdown enforces.
+Authenticated-only and needs a genuine operative UUID (anon cannot), but still CRITICAL.
+**Interim mitigation APPLIED + VERIFIED in prod (2026-06-16)** via
+`scripts/migrations/rls-5-19-interim-email-crosscheck.sql`: the three helpers now cross-check the
+injected `operative_id` against the verified, non-forgeable JWT `email` claim (`mailer_autoconfirm=false`
+confirmed live). Deliberate apply: live-capture → dry-run/ROLLBACK → `BEGIN`/`COMMIT` → re-capture
+confirmed → `RLS_LOCKDOWN_APPLIED=1` E2E **35/35 green** (operatives still resolve, anon still denied).
+**DURABLE fix still PENDING: add `operatives.auth_user_id` FK + redefine helpers via `auth.uid()`,
+dropping `user_metadata` trust entirely — also closes the §5.17 duplicate-email residual and underlies
+§4.1/§4.2.** See AUDIT.md §5.19.
+
+---
+
+## 🔧 §4.x SECURITY REMEDIATION — IN FLIGHT (2026-06-16)
+
+**Three PRs pushed, NOT yet opened/merged** (open on GitHub; the PR triggers the Playwright CI gate):
+- `fix/cron-auth-4-4` — §4.4: cron endpoints require `CRON_SECRET`; spoofable `x-vercel-cron`/UA shortcut removed. vitest 8/8. **Merge FIRST** (carries `vitest.config.js` + the `test:unit` script).
+- `fix/holiday-approval-4-3` — §4.3: approve/reject requires a verified JWT (cancel/reassign untouched). vitest 7/7. Merge after PR 1.
+- `docs/audit-5-19-operative-rls-forgeable` — §5.19 finding + interim migration/rollback + §5.20 gate + verified status. **Record-only: the §5.19 SQL is already LIVE in prod.**
+
+**§5.19 interim = APPLIED + VERIFIED live** (see the §5.19 block above; 35/35 E2E).
+
+**NEXT MAJOR PIECE — durable `auth_user_id` fix (PLAN-FIRST at xhigh; owner walkthrough before any apply):**
+Add `operatives.auth_user_id` FK + redefine `get_my_operative_id` / `get_operative_company_id` /
+`get_my_company_id` to resolve via `auth.uid()`, dropping `user_metadata` trust entirely. Retires the
+§5.19 interim, closes the §5.17 duplicate-email residual, and is the SAME foundation as **§4.1/§4.2**
+(operative-session-is-own-UUID + email-change account takeover) and client **§1.11** (route operative
+pages through `authFetch`). Also fold in **§1.10** (operative session never expires) as a separate PR.
+Requires a prod migration + a backfill with duplicate-email/unlinkable operatives resolved MANUALLY by
+the owner. **Not started.**
+
+---
+
+## 📋 FEATURE BACKLOG
+
+- **Super-admin role toggle** — add a per-user **Admin / Manager** toggle in `SuperAdminPanel`, backed
+  by a new `set-manager-role` action in `api/superadmin.js`: update `profiles.role` (authoritative) +
+  sync the auth user's metadata role via `auth.admin.updateUserById`. Cap at `admin`/`manager` (never
+  `super_admin`); scope to the user's own company. ~couple hours, low risk — the authenticated endpoint
+  + per-user-toggle plumbing already exists (`set-manager-active`). _(2026-06-16: David Worley was
+  promoted manager→admin as a manual one-off in the meantime; his `managers` row may still read
+  `manager` — sync if any screen shows him as such.)_
+
+---
+
 ## 🚨 BLOCKING GATES (2026-06-15) — clear BEFORE onboarding any customer beyond the current trial
 
 **Gate 1 — Agency search+connect UNVERIFIED in the locked state.** The 2026-06-15 RLS lockdown
@@ -25,6 +77,13 @@ See AUDIT.md §5.7c.
 **Gate 2 — Rotate secrets.** Rotate `SUPABASE_SERVICE_ROLE_KEY` + update local `.env` and the
 Vercel env; also rotate/flag the shared `demo@coresite.io` password shipped in the JS bundle.
 **BEFORE onboarding any new customer beyond the current trial.** See AUDIT.md §5.18.
+
+**Gate 3 — Self-service signup broken by Confirm-email (§5.20).** The §5.19 fix requires Supabase
+"Confirm email" ON (`mailer_autoconfirm=false`, set 2026-06-16). With it on, `Signup.jsx`'s
+`signUp → immediate signInWithPassword` fails with "Email not confirmed", so self-service company
+signup throws + orphans an auth user. Admin-created accounts (`email_confirm:true`) are unaffected.
+**Do NOT disable Confirm-email to fix it — that reopens §5.19.** Move signup to an admin-confirmed
+endpoint or a confirm-your-email UX **before onboarding any new company.** See AUDIT.md §5.20.
 
 ---
 
