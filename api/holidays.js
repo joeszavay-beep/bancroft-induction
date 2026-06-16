@@ -183,8 +183,13 @@ export default async function handler(req, res) {
     const { data: mgrRow } = await supabase.from('managers').select('id').eq('email', user.email).eq('company_id', companyId).limit(1)
     const managerId = mgrRow?.[0]?.id
 
+    // Per-company opt-in: when shared_holiday_visibility is on, every manager in the
+    // company sees ALL requests + the shared calendar (not only those assigned to them).
+    const { data: coRow } = await supabase.from('companies').select('settings').eq('id', companyId).limit(1)
+    const sharedHolidays = coRow?.[0]?.settings?.shared_holiday_visibility === true
+
     let q = supabase.from('holiday_requests').select('*, operatives(id, name, photo_url, role)').eq('company_id', companyId).order('start_date')
-    if (!isAdmin && (managerId || profileId)) {
+    if (!isAdmin && !sharedHolidays && (managerId || profileId)) {
       // Show requests assigned to this person via either managers or profiles ID
       const ids = [managerId, profileId].filter(Boolean)
       q = q.in('approver_id', ids)
@@ -230,10 +235,12 @@ export default async function handler(req, res) {
     // Check profiles table for actual role and IDs (JWT metadata may be stale/incomplete)
     let callerManagerId = null
     let callerProfileId = null
+    let callerProfileCompanyId = null
     if (user) {
-      const { data: prof } = await supabase.from('profiles').select('id, role').eq('email', user.email).limit(1)
+      const { data: prof } = await supabase.from('profiles').select('id, role, company_id').eq('email', user.email).limit(1)
       if (prof?.[0]) {
         callerProfileId = prof[0].id
+        callerProfileCompanyId = prof[0].company_id
         if (['admin', 'super_admin'].includes(prof[0].role)) isAdmin = true
       }
       const { data: mgrRow } = await supabase.from('managers').select('id').eq('email', user.email).eq('is_active', true).limit(1)
@@ -242,9 +249,18 @@ export default async function handler(req, res) {
     const isAssignedApprover = callerId === request.approver_id || callerManagerId === request.approver_id || callerProfileId === request.approver_id
     const isOperativeOwner = operativeSessionId === request.operative_id
 
+    // Per-company opt-in: when shared_holiday_visibility is on, any manager/admin in the
+    // request's OWN company can approve/reject — not only the assigned approver.
+    const callerCompanyId = callerProfileCompanyId || user?.user_metadata?.company_id || null
+    let sharedHolidays = false
+    if ((callerManagerId || callerProfileId) && callerCompanyId && callerCompanyId === request.company_id) {
+      const { data: coRow } = await supabase.from('companies').select('settings').eq('id', request.company_id).limit(1)
+      sharedHolidays = coRow?.[0]?.settings?.shared_holiday_visibility === true
+    }
+
     // Permission checks per action
     if (action === 'approve' || action === 'reject') {
-      if (!isAssignedApprover && !isAdmin) return res.status(403).json({ error: 'Only the assigned approver or an admin can action this request' })
+      if (!isAssignedApprover && !isAdmin && !sharedHolidays) return res.status(403).json({ error: 'Only the assigned approver or an admin can action this request' })
       if (request.status !== 'pending') return res.status(400).json({ error: 'Can only approve/reject pending requests' })
       if (action === 'reject' && !note) return res.status(400).json({ error: 'Rejection reason is required' })
     } else if (action === 'cancel') {
