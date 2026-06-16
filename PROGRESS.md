@@ -49,6 +49,18 @@ the owner. **Not started.**
 
 ---
 
+## 📋 FEATURE BACKLOG
+
+- **Super-admin role toggle** — add a per-user **Admin / Manager** toggle in `SuperAdminPanel`, backed
+  by a new `set-manager-role` action in `api/superadmin.js`: update `profiles.role` (authoritative) +
+  sync the auth user's metadata role via `auth.admin.updateUserById`. Cap at `admin`/`manager` (never
+  `super_admin`); scope to the user's own company. ~couple hours, low risk — the authenticated endpoint
+  + per-user-toggle plumbing already exists (`set-manager-active`). _(2026-06-16: David Worley was
+  promoted manager→admin as a manual one-off in the meantime; his `managers` row may still read
+  `manager` — sync if any screen shows him as such.)_
+
+---
+
 ## 🚨 BLOCKING GATES (2026-06-15) — clear BEFORE onboarding any customer beyond the current trial
 
 **Gate 1 — Agency search+connect UNVERIFIED in the locked state.** The 2026-06-15 RLS lockdown
