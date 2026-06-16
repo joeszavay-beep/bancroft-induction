@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { verifyAuth } from './_auth.js'
+import { canApproveOrReject } from './_holiday-auth.js'
 
 function calculateWorkingDays(startDate, endDate, startHalfDay, endHalfDay) {
   let count = 0
@@ -260,7 +261,12 @@ export default async function handler(req, res) {
 
     // Permission checks per action
     if (action === 'approve' || action === 'reject') {
-      if (!isAssignedApprover && !isAdmin && !sharedHolidays) return res.status(403).json({ error: 'Only the assigned approver or an admin can action this request' })
+      // §4.3: approve/reject requires a verified JWT (manager/admin). The
+      // unauthenticated operativeSessionId branch must never satisfy the approver
+      // check — an operative could pass approver_id as their own session id and
+      // self-approve. isAssignedApprover/isAdmin/sharedHolidays are JWT-derived.
+      const verdict = canApproveOrReject({ hasVerifiedUser: !!user, isAssignedApprover, isAdmin, sharedHolidays })
+      if (!verdict.ok) return res.status(verdict.status).json({ error: verdict.error })
       if (request.status !== 'pending') return res.status(400).json({ error: 'Can only approve/reject pending requests' })
       if (action === 'reject' && !note) return res.status(400).json({ error: 'Rejection reason is required' })
     } else if (action === 'cancel') {
