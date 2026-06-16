@@ -29,6 +29,26 @@ dropping `user_metadata` trust entirely — also closes the §5.17 duplicate-ema
 
 ---
 
+## 🔧 §4.x SECURITY REMEDIATION — IN FLIGHT (2026-06-16)
+
+**Three PRs pushed, NOT yet opened/merged** (open on GitHub; the PR triggers the Playwright CI gate):
+- `fix/cron-auth-4-4` — §4.4: cron endpoints require `CRON_SECRET`; spoofable `x-vercel-cron`/UA shortcut removed. vitest 8/8. **Merge FIRST** (carries `vitest.config.js` + the `test:unit` script).
+- `fix/holiday-approval-4-3` — §4.3: approve/reject requires a verified JWT (cancel/reassign untouched). vitest 7/7. Merge after PR 1.
+- `docs/audit-5-19-operative-rls-forgeable` — §5.19 finding + interim migration/rollback + §5.20 gate + verified status. **Record-only: the §5.19 SQL is already LIVE in prod.**
+
+**§5.19 interim = APPLIED + VERIFIED live** (see the §5.19 block above; 35/35 E2E).
+
+**NEXT MAJOR PIECE — durable `auth_user_id` fix (PLAN-FIRST at xhigh; owner walkthrough before any apply):**
+Add `operatives.auth_user_id` FK + redefine `get_my_operative_id` / `get_operative_company_id` /
+`get_my_company_id` to resolve via `auth.uid()`, dropping `user_metadata` trust entirely. Retires the
+§5.19 interim, closes the §5.17 duplicate-email residual, and is the SAME foundation as **§4.1/§4.2**
+(operative-session-is-own-UUID + email-change account takeover) and client **§1.11** (route operative
+pages through `authFetch`). Also fold in **§1.10** (operative session never expires) as a separate PR.
+Requires a prod migration + a backfill with duplicate-email/unlinkable operatives resolved MANUALLY by
+the owner. **Not started.**
+
+---
+
 ## 🚨 BLOCKING GATES (2026-06-15) — clear BEFORE onboarding any customer beyond the current trial
 
 **Gate 1 — Agency search+connect UNVERIFIED in the locked state.** The 2026-06-15 RLS lockdown
