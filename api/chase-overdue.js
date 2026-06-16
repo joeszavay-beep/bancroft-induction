@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
+import { isAuthorizedCron } from './_cron-auth.js'
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -17,11 +18,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
  * - 14+ days overdue: mark as high priority if not already
  */
 export default async function handler(req, res) {
-  // Allow manual trigger with key, or Vercel cron (no auth needed for cron)
-  const isManual = process.env.CRON_SECRET && req.headers['x-cron-key'] === process.env.CRON_SECRET
-  const isCron = req.headers['x-vercel-cron'] === '1' || req.headers['user-agent']?.includes('vercel-cron')
-
-  if (!isManual && !isCron) {
+  if (!isAuthorizedCron(req)) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 

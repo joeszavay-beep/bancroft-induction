@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { isAuthorizedCron } from './_cron-auth.js'
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -13,10 +14,7 @@ const supabase = createClient(
  * (meaning they forgot to sign out) and inserts an automatic 'sign_out'.
  */
 export default async function handler(req, res) {
-  const isCron = req.headers['x-vercel-cron'] === '1' || req.headers['user-agent']?.includes('vercel-cron')
-  const isManual = process.env.CRON_SECRET && req.headers['x-cron-key'] === process.env.CRON_SECRET
-
-  if (!isCron && !isManual) {
+  if (!isAuthorizedCron(req)) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
