@@ -76,16 +76,21 @@ SET search_path = public
 AS $$
 DECLARE
   v_snag_id uuid;
+  v_company_id uuid;
 BEGIN
   IF p_comment IS NULL OR TRIM(p_comment) = '' THEN
     RETURN json_build_object('error', 'Comment is required');
   END IF;
-  SELECT id INTO v_snag_id FROM snags WHERE reply_token = p_token;
+  -- company_id is read from the snag row (server-side), NEVER from caller input.
+  -- This RPC is anon-callable, so tenancy must be derived, not client-supplied.
+  -- Required post-lockdown: snag_comments SELECT is company-scoped, so a NULL
+  -- company_id row is invisible to the PM (the snag-reply regression).
+  SELECT id, company_id INTO v_snag_id, v_company_id FROM snags WHERE reply_token = p_token;
   IF v_snag_id IS NULL THEN
     RETURN json_build_object('error', 'Invalid reply token');
   END IF;
-  INSERT INTO snag_comments (snag_id, comment, author_name, author_role)
-  VALUES (v_snag_id, TRIM(p_comment), COALESCE(p_author_name, 'Operative'), 'Operative');
+  INSERT INTO snag_comments (snag_id, comment, author_name, author_role, company_id)
+  VALUES (v_snag_id, TRIM(p_comment), COALESCE(p_author_name, 'Operative'), 'Operative', v_company_id);
   RETURN json_build_object('success', true, 'snag_id', v_snag_id);
 END;
 $$;
@@ -109,15 +114,19 @@ SET search_path = public
 AS $$
 DECLARE
   v_snag_id uuid;
+  v_company_id uuid;
 BEGIN
-  SELECT id INTO v_snag_id FROM snags WHERE reply_token = p_token;
+  -- company_id is read from the snag row (server-side), NEVER from caller input.
+  -- This RPC is anon-callable; both snag_comments inserts below stamp the snag's
+  -- company so the post-lockdown company-scoped SELECT shows them to the PM.
+  SELECT id, company_id INTO v_snag_id, v_company_id FROM snags WHERE reply_token = p_token;
   IF v_snag_id IS NULL THEN
     RETURN json_build_object('error', 'Invalid reply token');
   END IF;
   -- Optional free-text comment (rare on the photo path; kept for parity).
   IF p_comment IS NOT NULL AND TRIM(p_comment) <> '' THEN
-    INSERT INTO snag_comments (snag_id, comment, author_name, author_role)
-    VALUES (v_snag_id, TRIM(p_comment), COALESCE(p_author_name, 'Operative'), 'Operative');
+    INSERT INTO snag_comments (snag_id, comment, author_name, author_role, company_id)
+    VALUES (v_snag_id, TRIM(p_comment), COALESCE(p_author_name, 'Operative'), 'Operative', v_company_id);
   END IF;
   UPDATE snags SET
     status = 'pending_review',
@@ -128,8 +137,8 @@ BEGIN
   WHERE id = v_snag_id;
   -- The page records a system comment marking the completion submission.
   IF p_photo_url IS NOT NULL THEN
-    INSERT INTO snag_comments (snag_id, comment, author_name, author_role)
-    VALUES (v_snag_id, 'Completion photo submitted for review', COALESCE(p_author_name, 'Operative'), 'Operative');
+    INSERT INTO snag_comments (snag_id, comment, author_name, author_role, company_id)
+    VALUES (v_snag_id, 'Completion photo submitted for review', COALESCE(p_author_name, 'Operative'), 'Operative', v_company_id);
   END IF;
   RETURN json_build_object('success', true, 'snag_id', v_snag_id);
 END;
@@ -467,6 +476,12 @@ $$;
 -- GRANTS (anon + authenticated)
 -- =====================================================================
 GRANT EXECUTE ON FUNCTION search_agencies(text) TO authenticated;
+-- search_agencies is authenticated-only (marketplace discovery). CREATE grants
+-- EXECUTE to PUBLIC by default, which INCLUDES anon — and this SECURITY DEFINER
+-- RPC returns cross-tenant agency contact PII, bypassing RLS. Revoke the default
+-- PUBLIC/anon grant so anon cannot enumerate agency contacts after the lockdown.
+REVOKE EXECUTE ON FUNCTION search_agencies(text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION search_agencies(text) FROM anon;
 GRANT EXECUTE ON FUNCTION resolve_login_route(text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION submit_snag_comment(text, text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION get_operative_public_info(uuid) TO anon, authenticated;

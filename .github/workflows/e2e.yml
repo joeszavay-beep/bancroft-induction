@@ -1,0 +1,50 @@
+name: E2E
+
+# Gate every PR into main on the full Playwright suite with the post-lockdown
+# anon-denied checks enabled (RLS_LOCKDOWN_APPLIED=1). There is one LIVE Supabase
+# project (no staging), so the suite uses the isolated "E2E Test Co" account that
+# scripts/seed-e2e.js provisions below.
+on:
+  pull_request:
+    branches: [main]
+
+# The suite mutates a SHARED live test account, so concurrent runs would collide.
+# Queue them (do not cancel an in-flight run that is mid-write).
+concurrency:
+  group: e2e-live-db
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+      E2E_WORKER_EMAIL: ${{ secrets.E2E_WORKER_EMAIL }}
+      E2E_WORKER_PASSWORD: ${{ secrets.E2E_WORKER_PASSWORD }}
+      # Run the rls-lockdown-verification spec (anon must be denied). This also guards
+      # against prod accidentally reverting to the permissive policy set.
+      RLS_LOCKDOWN_APPLIED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Seed the isolated E2E account
+        run: node scripts/seed-e2e.js
+      - name: Run E2E suite (lockdown verification on)
+        run: npm run test:e2e
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

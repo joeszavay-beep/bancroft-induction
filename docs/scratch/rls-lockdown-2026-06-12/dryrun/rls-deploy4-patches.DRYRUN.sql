@@ -346,7 +346,7 @@ CREATE POLICY "Company members can delete their schedules"
   ON procurement_schedules FOR DELETE
   USING (company_id = get_my_company_id());
 
-COMMIT;
+ROLLBACK; -- DRY RUN (was COMMIT;) — nothing persists
 
 -- =====================================================================
 -- VERIFY (read-only, after running): no Pattern-C table is still wide-open to

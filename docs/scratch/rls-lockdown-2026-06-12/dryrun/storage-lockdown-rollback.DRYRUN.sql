@@ -97,4 +97,4 @@ CREATE POLICY "floor_plans_upload" ON storage.objects
 CREATE POLICY "floor_plans_delete" ON storage.objects
   FOR DELETE USING (bucket_id = 'floor-plans');
 
-COMMIT;
+ROLLBACK; -- DRY RUN (was COMMIT;) — nothing persists

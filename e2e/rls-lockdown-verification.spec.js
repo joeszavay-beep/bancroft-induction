@@ -65,7 +65,7 @@ test.describe('RLS lockdown verification (post-lockdown only)', () => {
     }).select('id').single()
     if (se) throw new Error('verify snag seed failed: ' + se.message)
     const { data: cmt } = await db.from('snag_comments').insert({
-      snag_id: snag.id, comment: 'protected', author_name: 'verify', author_role: 'verify',
+      snag_id: snag.id, company_id: ids.companyId, comment: 'protected', author_name: 'verify', author_role: 'verify',
     }).select('id').single()
     try {
       const anon = getAnonDb()
