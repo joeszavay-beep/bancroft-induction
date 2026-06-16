@@ -9,7 +9,7 @@ so any session can resume from it alone.
 
 ---
 
-## 🔴 LIVE CRITICAL — IN REMEDIATION (2026-06-16) — AUDIT §5.19
+## 🟠 §5.19 — INTERIM FIX APPLIED + VERIFIED (2026-06-16); DURABLE FOLLOW-UP PENDING
 
 **Operative RLS scoping is forgeable via user-writable `user_metadata`.** The applied 2026-06-15
 lockdown scopes nearly every table via `get_my_company_id()` / `get_operative_company_id()`, which
@@ -18,10 +18,14 @@ user-writable (`supabase.auth.updateUser({ data })`), so any **authenticated** u
 operative UUID in a victim company can inject it, refresh their token, and gain cross-tenant read
 (and write where `co_insert`/`co_update` exist) — defeating the tenant isolation the lockdown enforces.
 Authenticated-only and needs a genuine operative UUID (anon cannot), but still CRITICAL.
-**Remediation (owner-approved 2026-06-16): interim SQL-only mitigation FIRST (close arbitrary
-injection), THEN the durable `operatives.auth_user_id` FK fix — the same link that underlies §4.1/§4.2.
-Sequenced ahead of the §4.1 API-route work; the helpers are the isolation backbone.** Prod RLS change —
-apply deliberately (dry-run / verify), not on momentum. See AUDIT.md §5.19.
+**Interim mitigation APPLIED + VERIFIED in prod (2026-06-16)** via
+`scripts/migrations/rls-5-19-interim-email-crosscheck.sql`: the three helpers now cross-check the
+injected `operative_id` against the verified, non-forgeable JWT `email` claim (`mailer_autoconfirm=false`
+confirmed live). Deliberate apply: live-capture → dry-run/ROLLBACK → `BEGIN`/`COMMIT` → re-capture
+confirmed → `RLS_LOCKDOWN_APPLIED=1` E2E **35/35 green** (operatives still resolve, anon still denied).
+**DURABLE fix still PENDING: add `operatives.auth_user_id` FK + redefine helpers via `auth.uid()`,
+dropping `user_metadata` trust entirely — also closes the §5.17 duplicate-email residual and underlies
+§4.1/§4.2.** See AUDIT.md §5.19.
 
 ---
 
