@@ -196,8 +196,11 @@ export default async function handler(req, res) {
       q = q.in('approver_id', ids)
     }
     if (status) q = q.eq('status', status)
-    if (from_date) q = q.gte('start_date', from_date)
-    if (to_date) q = q.lte('end_date', to_date)
+    // Overlap (NOT containment): include any holiday that TOUCHES [from_date, to_date],
+    // so holidays straddling a month boundary still appear on the shared calendar.
+    // A holiday [start,end] overlaps the window [from,to] iff start <= to AND end >= from.
+    if (from_date) q = q.gte('end_date', from_date)
+    if (to_date) q = q.lte('start_date', to_date)
 
     const { data } = await q
     return res.json({ requests: data || [] })
