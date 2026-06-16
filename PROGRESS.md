@@ -42,6 +42,13 @@ See AUDIT.md §5.7c.
 Vercel env; also rotate/flag the shared `demo@coresite.io` password shipped in the JS bundle.
 **BEFORE onboarding any new customer beyond the current trial.** See AUDIT.md §5.18.
 
+**Gate 3 — Self-service signup broken by Confirm-email (§5.20).** The §5.19 fix requires Supabase
+"Confirm email" ON (`mailer_autoconfirm=false`, set 2026-06-16). With it on, `Signup.jsx`'s
+`signUp → immediate signInWithPassword` fails with "Email not confirmed", so self-service company
+signup throws + orphans an auth user. Admin-created accounts (`email_confirm:true`) are unaffected.
+**Do NOT disable Confirm-email to fix it — that reopens §5.19.** Move signup to an admin-confirmed
+endpoint or a confirm-your-email UX **before onboarding any new company.** See AUDIT.md §5.20.
+
 ---
 
 ## ✅ UNBLOCKED (2026-06-09)

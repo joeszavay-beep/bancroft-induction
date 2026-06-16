@@ -474,6 +474,13 @@ A second silent-save path worth checking with affected users: **1.6** — anyone
   - Prod RLS change → apply deliberately (dry-run / verify), not on momentum.
 - **Status (2026-06-16):** confirmed, NOT yet remediated. First item in the §4.x remediation sequence.
 
+### 5.20 [BLOCKING GATE] Self-service signup broken by Confirm-email (required for §5.19) — before onboarding any new company
+- **Files:** `src/pages/Signup.jsx:48`, `:135` (client `supabase.auth.signUp`); the no-session fallback at `:58-68` (`signUp` → immediate `signInWithPassword`).
+- **Issue:** The §5.19 interim fix requires Supabase **"Confirm email" ON** (`mailer_autoconfirm=false`) so the JWT `email` claim is non-forgeable. With it on, `signUp` returns a user but **no session**, and the `:58-68` fallback's immediate `signInWithPassword` fails with *"Email not confirmed"* → self-service company signup throws and leaves an **orphaned unconfirmed auth user**. (Confirmed live 2026-06-16: `mailer_autoconfirm=false`.) All **admin-created** paths are unaffected — `create-operative-account.js:66`, `create-company-admin.js:85,94`, `create-manager.js:127,141` set `email_confirm: true`.
+- **⚠️ Constraint:** Do **NOT** disable "Confirm email" to fix this — that reopens §5.19 (the `email` claim becomes user-forgeable again).
+- **Fix (before onboarding any new company):** route self-service signup through an **admin-confirmed server endpoint** (`email_confirm: true`, like `create-company-admin`), **or** implement a proper confirm-your-email UX (the `emailRedirectTo: …/onboarding` hook at `Signup.jsx:53` suggests this was partly intended) and handle the no-session state instead of force-signing-in. Also clean up the orphaned auth user on failure (§2.10).
+- **Status (2026-06-16):** tracked, NOT fixed. No imminent onboarding (owner: ≥1 month out). **Hard gate before the next company onboards.**
+
 ---
 
 ## 6. RACE CONDITIONS / ASYNC / OFFLINE SYNC
