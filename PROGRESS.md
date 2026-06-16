@@ -9,6 +9,22 @@ so any session can resume from it alone.
 
 ---
 
+## 🔴 LIVE CRITICAL — IN REMEDIATION (2026-06-16) — AUDIT §5.19
+
+**Operative RLS scoping is forgeable via user-writable `user_metadata`.** The applied 2026-06-15
+lockdown scopes nearly every table via `get_my_company_id()` / `get_operative_company_id()`, which
+resolve identity from `auth.jwt() -> 'user_metadata' ->> 'operative_id'`. `user_metadata` is
+user-writable (`supabase.auth.updateUser({ data })`), so any **authenticated** user who knows a real
+operative UUID in a victim company can inject it, refresh their token, and gain cross-tenant read
+(and write where `co_insert`/`co_update` exist) — defeating the tenant isolation the lockdown enforces.
+Authenticated-only and needs a genuine operative UUID (anon cannot), but still CRITICAL.
+**Remediation (owner-approved 2026-06-16): interim SQL-only mitigation FIRST (close arbitrary
+injection), THEN the durable `operatives.auth_user_id` FK fix — the same link that underlies §4.1/§4.2.
+Sequenced ahead of the §4.1 API-route work; the helpers are the isolation backbone.** Prod RLS change —
+apply deliberately (dry-run / verify), not on momentum. See AUDIT.md §5.19.
+
+---
+
 ## 🚨 BLOCKING GATES (2026-06-15) — clear BEFORE onboarding any customer beyond the current trial
 
 **Gate 1 — Agency search+connect UNVERIFIED in the locked state.** The 2026-06-15 RLS lockdown
