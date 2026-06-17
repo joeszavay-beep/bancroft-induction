@@ -69,13 +69,15 @@ Verify post-backfill: `SELECT count(*) FROM (SELECT auth_user_id FROM operatives
 
 | PR | Content | Prod? | Rollback |
 |---|---|---|---|
-| **PR1 docs** (this) | AUDIT §5.17 resolution / §5.19 durable note / §5.20 note / §5.21; this plan doc; read-only audit script | no | revert commit |
-| **PR2 schema** | `auth_user_id` + `left_at` + partial-unique; `create-operative-account.js` link (both branches); `getUserById` | **yes** (additive) | `DROP INDEX; ALTER … DROP COLUMN ×2` |
-| **PR3 backfill** | default-active; auto-link 30; resolve Joe's 3; skip 26 ABC; run count-=0 verify | **yes** (writes 2 cols) | set `auth_user_id`/`left_at` back to NULL |
+| **PR1 docs** ✅ merged (#11) | AUDIT §5.17/§5.19/§5.20/§5.21; this plan doc; read-only audit script | no | revert commit |
+| **PR2 schema** ✅ applied + merged (#12), proven live | `auth_user_id` + `left_at` + partial-unique; `create-operative-account.js` link (both branches); `getUserById` | **yes** (additive) | `DROP INDEX; ALTER … DROP COLUMN ×2` |
+| **§5.22 docs** (this) | AUDIT §5.22 + §5.21 orphan-login update + this PR-slot | no | revert commit |
+| **PR3 backfill** (next) | **re-audit first** (now 56, not 58 — two junk test rows removed 2026-06-17, no real loss); default-active; auto-link the unambiguous 1:1 set; resolve Joe's 3 (`0b5775d7` active+link `87eccb3f`; `269e5905`+`507c6d52` historical); skip ABC demo; count-=0 verify | **yes** (writes 2 cols) | set `auth_user_id`/`left_at` back to NULL |
+| **PR3b remove-flow → mark-historical** (§5.22) | `PMDashboard.removeOperative` / `AllWorkers` / `api/delete-operative` "remove" sets `left_at = now()`, `auth_user_id = NULL` instead of hard-DELETE (preserves compliance history per the lifecycle rule); reserve hard-DELETE for **admin-only GDPR erasure** with the §2.8 cascade fixed + paged `listUsers`/`getUserById` (§4.9) so auth cleanup actually fires | **yes** (code + RPC) | revert to prior remove behaviour |
 | **PR4 dual-accept** | 3 helpers → COALESCE(auth.uid, interim); `resolve_login_route` + worker-login sites → active record | **yes** (fn bodies + code) | re-apply captured interim defs |
 | **PR5 enforce** | 3 helpers → auth.uid()+`left_at` only; stop writing `user_metadata.operative_id`; `UNIQUE(lower(email))` forward-guard; close §5.20 path | **yes** (fn bodies) | re-apply PR4 (dual-accept) defs |
 
-Gate PR4→PR5 on backfill 100% + count-=0 + green E2E (dual-accept bake window). PR5 is the only feels-irreversible cutover.
+**PR3b must land before PR4** — once `left_at`-aware helpers go live, the remove flow has to *set* `left_at` (not delete) or the lifecycle/retention guarantee is contradicted by the app's own remove button (§5.22). Gate PR4→PR5 on backfill 100% + count-=0 + green E2E (dual-accept bake window). PR5 is the only feels-irreversible cutover.
 
 ### 5.5 E2E coverage (before enforce cutover)
 - Seed sets `auth_user_id` + `left_at = NULL` on the seeded operative.
