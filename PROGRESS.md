@@ -55,11 +55,18 @@ pages through `authFetch`). Also fold in **§1.10** (operative session never exp
   (Szavay-PG) has a different email with its own auth account → excluded from auto-link, marked
   historical. Files on branch `docs/audit-522-remove-operative` (PR3 SQL + rollback + doc updates),
   **not yet committed/opened.**
-- ⏭️ **NEXT = PR3b** remove-flow → mark-historical (§5.22; `PMDashboard.removeOperative` / `AllWorkers`
-  / `api/delete-operative` set `left_at`/unlink instead of hard-DELETE). **Must land before PR4.**
-  Then **PR4 dual-accept** (helpers `COALESCE(auth.uid, interim)` + worker-login sites resolve the
+- ✅ **PR3b remove→mark-historical DONE 2026-06-21** (branch `fix/operative-leave-mark-historical`,
+  draft PR open): code committed (new `api/operative-leave` + both manager remove paths via authFetch +
+  AllWorkers Active/Past toggle + GDPR §4.9 fix + `left_at IS NULL` on 27 client/API reads), stage-2 SQL
+  guards **APPLIED+VERIFIED in prod** (`rls-5-22-pr3b-leftat-guards.sql` — 3 helpers + 5 RPCs + cascade
+  returns auth_user_id), E2E **green** (`operative-remove-historical`/`-rejoin`/`-gdpr-erase` + full
+  regression 39 passed; baseline restored 56/54/2). **Owner to merge the PR** (SQL already live → no
+  exposure window; merge order was SQL→E2E→merge). Self-contained: read-side guards folded in, NOT
+  deferred to PR4. **Must precede PR4.**
+- ⏭️ Then **PR4 dual-accept** (helpers `COALESCE(auth.uid, interim)` + worker-login sites resolve the
   active record), gated → **PR5 enforce** (auth.uid only; stop writing `user_metadata.operative_id`).
-  Helpers STILL read `user_metadata` today (interim email cross-check live) — no RLS behaviour change yet.
+  Helpers now ALSO filter `left_at IS NULL` (PR3b) but STILL resolve identity via `user_metadata`+email
+  (interim cross-check live) — the auth.uid switch is PR4/PR5.
 
 ---
 
