@@ -241,6 +241,21 @@ export default function ProgressDrawingsList() {
   if (filterTrade !== 'all') filtered = filtered.filter(d => d.trade === filterTrade)
   if (filterLevel !== 'all') filtered = filtered.filter(d => d.floor_level === filterLevel)
 
+  // Aggregate the currently-visible drawings into one overall total.
+  // Reduces over the same `filtered` array and same `itemCounts` the rows use,
+  // so the summary can never disagree with the per-drawing rows beneath it.
+  const summary = filtered.reduce((acc, d) => {
+    const c = itemCounts[d.id] || { total: 0, green: 0, yellow: 0, red: 0 }
+    acc.total += c.total
+    acc.green += c.green
+    acc.yellow += c.yellow
+    acc.red += c.red
+    return acc
+  }, { total: 0, green: 0, yellow: 0, red: 0 })
+  const sPctGreen = summary.total > 0 ? Math.round((summary.green / summary.total) * 100) : 0
+  const sPctYellow = summary.total > 0 ? Math.round((summary.yellow / summary.total) * 100) : 0
+  const sPctRed = summary.total > 0 ? Math.round((summary.red / summary.total) * 100) : 0
+
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin w-8 h-8 border-2 border-[#1B6FC8] border-t-transparent rounded-full" /></div>
 
   return (
@@ -270,6 +285,27 @@ export default function ProgressDrawingsList() {
           </select>
         )}
       </div>
+
+      {/* Overall summary — combines all currently-visible (post-filter) drawings */}
+      {filtered.length > 0 && summary.total > 0 && (
+        <div className="bg-white border-2 border-[#E2E6EA] rounded-lg shadow-sm p-4 mb-3">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-bold text-[#1A1A2E]">Overall progress</h3>
+            <span className="text-[10px] text-[#6B7A99]">{filtered.length} drawing{filtered.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="flex h-2.5 rounded-full overflow-hidden bg-[#F5F6F8]">
+            {summary.green > 0 && <div style={{ width: `${sPctGreen}%`, backgroundColor: STATUS_COLORS.green }} />}
+            {summary.yellow > 0 && <div style={{ width: `${sPctYellow}%`, backgroundColor: STATUS_COLORS.yellow }} />}
+            {summary.red > 0 && <div style={{ width: `${sPctRed}%`, backgroundColor: STATUS_COLORS.red }} />}
+          </div>
+          <div className="flex gap-3 mt-1.5 text-[10px] text-[#6B7A99]">
+            <span><span className="inline-block w-2 h-2 rounded-full mr-0.5" style={{ backgroundColor: STATUS_COLORS.green }} /> {sPctGreen}% ({summary.green})</span>
+            <span><span className="inline-block w-2 h-2 rounded-full mr-0.5" style={{ backgroundColor: STATUS_COLORS.yellow }} /> {sPctYellow}% ({summary.yellow})</span>
+            <span><span className="inline-block w-2 h-2 rounded-full mr-0.5" style={{ backgroundColor: STATUS_COLORS.red }} /> {sPctRed}% ({summary.red})</span>
+            <span className="text-[#B0B8C9]">{summary.total} items</span>
+          </div>
+        </div>
+      )}
 
       {/* Drawings */}
       {filtered.length === 0 ? (
