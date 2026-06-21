@@ -83,6 +83,45 @@ export async function createDisposableOperative(companyId, projectId, documentId
   return { id, email, password: PASSWORD, name, authUserId, signatureId }
 }
 
+/**
+ * Create a disposable second COMPANY (+ one project) so a spec can prove
+ * cross-tenant isolation — the §5.19 escalation forge-target must live in a
+ * DIFFERENT company. Returns { companyId, projectId, tag }.
+ */
+export async function createDisposableCompany() {
+  const admin = getAdmin()
+  const tag = freshTag()
+  const { data: company, error } = await admin.from('companies').insert({
+    name: `E2E Victim Co ${tag}`,
+    slug: tag,
+    contact_name: 'E2E Victim',
+    contact_email: `${tag}@coresite.io`,
+    subscription_plan: 'trial',
+    trial_ends_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+    company_type: 'subcontractor',
+    employee_count: '1-10',
+    is_active: true,
+    onboarding_complete: true,
+    onboarding_step: 99,
+    features: {},
+  }).select('id').single()
+  if (error) throw new Error(`createDisposableCompany failed: ${error.message}`)
+  const { data: project, error: pErr } = await admin.from('projects').insert({
+    name: `E2E Victim Site ${tag}`, location: 'Test', company_id: company.id,
+    start_time: '07:30', end_time: '17:00',
+  }).select('id').single()
+  if (pErr) throw new Error(`disposable company project failed: ${pErr.message}`)
+  return { companyId: company.id, projectId: project.id, tag }
+}
+
+/** Tear down a disposable company (delete its projects first, then the company). */
+export async function deleteDisposableCompany(companyId) {
+  const admin = getAdmin()
+  if (!companyId) return
+  await admin.from('projects').delete().eq('company_id', companyId)
+  await admin.from('companies').delete().eq('id', companyId)
+}
+
 /** Set left_at = now() (and detach the login) directly — simulate a prior leaver. */
 export async function markHistorical(id) {
   const admin = getAdmin()

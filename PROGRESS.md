@@ -55,18 +55,35 @@ pages through `authFetch`). Also fold in **§1.10** (operative session never exp
   (Szavay-PG) has a different email with its own auth account → excluded from auto-link, marked
   historical. Files on branch `docs/audit-522-remove-operative` (PR3 SQL + rollback + doc updates),
   **not yet committed/opened.**
-- ✅ **PR3b remove→mark-historical DONE 2026-06-21** (branch `fix/operative-leave-mark-historical`,
-  draft PR open): code committed (new `api/operative-leave` + both manager remove paths via authFetch +
-  AllWorkers Active/Past toggle + GDPR §4.9 fix + `left_at IS NULL` on 27 client/API reads), stage-2 SQL
-  guards **APPLIED+VERIFIED in prod** (`rls-5-22-pr3b-leftat-guards.sql` — 3 helpers + 5 RPCs + cascade
-  returns auth_user_id), E2E **green** (`operative-remove-historical`/`-rejoin`/`-gdpr-erase` + full
-  regression 39 passed; baseline restored 56/54/2). **Owner to merge the PR** (SQL already live → no
-  exposure window; merge order was SQL→E2E→merge). Self-contained: read-side guards folded in, NOT
-  deferred to PR4. **Must precede PR4.**
-- ⏭️ Then **PR4 dual-accept** (helpers `COALESCE(auth.uid, interim)` + worker-login sites resolve the
-  active record), gated → **PR5 enforce** (auth.uid only; stop writing `user_metadata.operative_id`).
-  Helpers now ALSO filter `left_at IS NULL` (PR3b) but STILL resolve identity via `user_metadata`+email
-  (interim cross-check live) — the auth.uid switch is PR4/PR5.
+- ✅ **PR3b remove→mark-historical MERGED + LIVE 2026-06-21** (PR #15 → main), **owner-tested in prod**:
+  new `api/operative-leave` + both manager remove paths via authFetch + AllWorkers Active/Past toggle +
+  GDPR §4.9 fix; `left_at IS NULL` on 27 client/API reads; stage-2 SQL guards **applied+verified in prod**
+  (`rls-5-22-pr3b-leftat-guards.sql` — 3 helpers + 5 RPCs + cascade returns auth_user_id); E2E green
+  (`operative-remove-historical`/`-rejoin`/`-gdpr-erase` + regression 39 passed). Self-contained — read
+  guards folded in, NOT deferred to PR4.
+- ✅ **Reactivate / return-to-work MERGED + LIVE 2026-06-21** (PR #16 → main), **owner-tested**: new
+  `api/operative-reactivate` (clears `left_at`, re-links the login; **409** if the login is active elsewhere)
+  + AllWorkers Past-tab "Reactivate" (any manager); prior document signatures invalidated so the returner
+  re-inducts. Code-only, no DB change. E2E `operative-reactivate` green. Refines the lifecycle rule:
+  same-company return = reactivate in place; cross-company = new record.
+- 🟢 **PR4 dual-accept — SQL APPLIED + VERIFIED live 2026-06-21; binding-site code written (NOT yet deployed/E2E'd).**
+  Branch `fix/operative-dual-accept`. The **first live tenant-resolution change since the 2026-06-15 lockdown**, done
+  capture-first: owner ran `pg_get_functiondef` for the 3 helpers → diff vs repo (**live == post-PR3b source, no drift**;
+  none has `SET search_path`) → rollback = captured defs verbatim → dry-run `BEGIN…ROLLBACK` clean → `BEGIN…COMMIT` →
+  re-capture **verified** all 3 live. Helpers now `COALESCE((auth_user_id = auth.uid() AND left_at IS NULL), interim
+  user_metadata+email+left_at)`; `get_my_company_id` is 3-arm (profiles FIRST, unchanged → managers unaffected).
+  auth.uid() arm has no email guard (non-forgeable + partial-unique); interim arm keeps it. SQL:
+  `scripts/migrations/rls-5-19-pr4-dual-accept.sql` (+ `-rollback.sql`). **Safety proven on live data:** 28 active+linked
+  resolve via auth.uid (27 identical to interim; Joe `0b5775d7` gains his own active record, never cross-tenant), 26
+  active+unlinked are all ABC demo (no logins) → fall to interim, **0 operatives redirected to a different company.**
+  Binding sites (`PMLogin:117`/`OperativeLogin:48`/`SiteSignIn:127`) now resolve by `auth_user_id` first with email
+  fallback (PR5 hard-switches); `vite build` green; `create-operative-account.js` still writes `user_metadata.operative_id`
+  (kept for dual-accept). **NEXT: E2E both paths (linked-via-auth.uid + unlinked-via-interim) → deploy code → gate.**
+- ⏭️ **PR5 enforce** (gated on a green dual-accept bake): helpers → auth.uid()+`left_at` only; stop writing
+  `user_metadata.operative_id`; `UNIQUE(lower(email))` forward-guard; closes §5.20. Only feels-irreversible cutover.
+- 🛡️ **NOT URGENT / no live hole:** the §5.19 **interim email cross-check guard is live and protecting**
+  (helpers resolve via user_metadata + verified-email + now `left_at IS NULL`). PR4/PR5 are the "finish it
+  properly before onboarding the next customer" step, not a live-hole fix.
 
 ---
 
