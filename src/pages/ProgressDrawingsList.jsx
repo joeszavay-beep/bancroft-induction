@@ -296,20 +296,46 @@ export default function ProgressDrawingsList() {
       {/* Overall summary — combines all currently-visible (post-filter) drawings */}
       {filtered.length > 0 && summary.total > 0 && (
         <div className="bg-white border-2 border-[#E2E6EA] rounded-lg shadow-sm p-4 mb-3">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold text-[#1A1A2E]">Overall progress</h3>
             <span className="text-[10px] text-[#6B7A99]">{filtered.length} drawing{filtered.length !== 1 ? 's' : ''}</span>
           </div>
-          <div className="flex h-2.5 rounded-full overflow-hidden bg-[#F5F6F8]">
-            {summary.green > 0 && <div style={{ width: `${sPctGreen}%`, backgroundColor: STATUS_COLORS.green }} />}
-            {summary.yellow > 0 && <div style={{ width: `${sPctYellow}%`, backgroundColor: STATUS_COLORS.yellow }} />}
-            {summary.red > 0 && <div style={{ width: `${sPctRed}%`, backgroundColor: STATUS_COLORS.red }} />}
-          </div>
-          <div className="flex gap-3 mt-1.5 text-[10px] text-[#6B7A99]">
-            <span><span className="inline-block w-2 h-2 rounded-full mr-0.5" style={{ backgroundColor: STATUS_COLORS.green }} /> {sPctGreen}% ({summary.green})</span>
-            <span><span className="inline-block w-2 h-2 rounded-full mr-0.5" style={{ backgroundColor: STATUS_COLORS.yellow }} /> {sPctYellow}% ({summary.yellow})</span>
-            <span><span className="inline-block w-2 h-2 rounded-full mr-0.5" style={{ backgroundColor: STATUS_COLORS.red }} /> {sPctRed}% ({summary.red})</span>
-            <span className="text-[#B0B8C9]">{summary.total} items</span>
+          <div className="flex items-center gap-4">
+            {/* Donut — same hand-rolled SVG technique as the Snags overview */}
+            <svg viewBox="0 0 100 100" className="w-32 h-32 shrink-0">
+              {(() => {
+                let cumulative = 0
+                const segs = [
+                  { key: 'green', count: summary.green, color: STATUS_COLORS.green },
+                  { key: 'yellow', count: summary.yellow, color: STATUS_COLORS.yellow },
+                  { key: 'red', count: summary.red, color: STATUS_COLORS.red },
+                ]
+                return segs.filter(s => s.count > 0).map(s => {
+                  const pct = (s.count / summary.total) * 100
+                  const dashArray = `${pct * 2.51327} ${251.327 - pct * 2.51327}`
+                  const rotation = cumulative * 3.6 - 90
+                  cumulative += pct
+                  return <circle key={s.key} cx="50" cy="50" r="40" fill="none" stroke={s.color} strokeWidth="20"
+                    strokeDasharray={dashArray} transform={`rotate(${rotation} 50 50)`} />
+                })
+              })()}
+              <text x="50" y="50" textAnchor="middle" dy="4" fontSize="16" fontWeight="700" fill="#1A1A2E">{summary.total}</text>
+            </svg>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: STATUS_COLORS.green }} />
+                <span className="text-[#6B7A99]">Installed — {sPctGreen}% ({summary.green})</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: STATUS_COLORS.yellow }} />
+                <span className="text-[#6B7A99]">Available — {sPctYellow}% ({summary.yellow})</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: STATUS_COLORS.red }} />
+                <span className="text-[#6B7A99]">Blocked — {sPctRed}% ({summary.red})</span>
+              </div>
+              <div className="text-[10px] text-[#B0B8C9] pt-0.5">{summary.total} items total</div>
+            </div>
           </div>
         </div>
       )}
