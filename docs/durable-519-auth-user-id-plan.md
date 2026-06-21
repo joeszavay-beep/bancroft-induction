@@ -25,6 +25,8 @@ So: the **person** = one auth login (`auth_user_id`); they accumulate **one ACTI
 - 30 rows auto-map 1:1 (unique email + one auth user); 26 are demo (ABC Construction Ltd, no auth account); 0 null-email.
 - `UNIQUE(auth_user_id) WHERE left_at IS NULL` is **satisfiable** once Joe is resolved to one active record.
 
+**Re-audit 2026-06-21 (PR3, post PR2 schema; two junk test rows removed → 56):** 56 operatives / 5 companies / 52 auth users; `auth_user_id` set = 0, `left_at` set = 0 (PR2 clean slate); active-collision = 0. Buckets: **27 auto-link** (26 Thomas Worley workers + 1 E2E Test Co worker — unique email + exactly one auth user), 26 ABC demo (no auth → skip), 3 manual Joe rows, 0 null-email = 56. **The earlier "30 auto-map" is superseded by 27** (−2 junk rows came out of the auto set; **−1 because `507c6d52` must be excluded — see the §5.2 gotcha below**).
+
 **The login picker** (`PMLogin.jsx` `step==='choose'`) is **Manager(`profiles`) vs Worker(`operatives`)**, shown when `resolve_login_route` finds both for an email. It is **client-side routing only** — neither path writes the JWT. The worker path binds `operative_session` via `ops[0]` (unordered, arbitrary among email-matched rows; same in `OperativeLogin.jsx:47`), while RLS resolves via `user_metadata` — the mismatch is the live §5.17 "scanned QR, not recognised" symptom. The session is always the **union** of manager-scope + (single) active-operative-scope; the picker cannot gate RLS (owner accepts this — one login carrying both identities is fine).
 
 ## 4. Design keystone
@@ -45,18 +47,20 @@ CREATE UNIQUE INDEX CONCURRENTLY operatives_active_auth_user_id_key
 - "Leaving" a company = `left_at = now()`, `auth_user_id = NULL` on the old record; new company = new record. Manager "remove operative" should become "mark historical," not delete (retain compliance history) — UI follow-on.
 
 ### 5.2 Backfill + manual-resolution list
-1. Default all existing rows `left_at = NULL` (active) — no data to mark otherwise; future leavers set it.
-2. Auto-link the 30 unambiguous 1:1 rows (unique email + one auth user); partial-unique is the collision backstop.
+1. Default all existing rows `left_at = NULL` (active) — no data to mark otherwise; future leavers set it. (No write needed: PR2 left all rows `left_at` NULL.)
+2. Auto-link the **27** unambiguous 1:1 rows (unique email + exactly one auth user) — **as an explicit `(op_id → auth_user_id)` VALUES list**, not a live email-JOIN, so the rows written are exactly the ones the read-only audit verified; partial-unique is the collision backstop. (Was "30" at 58 rows; now 27 — see the gotcha below.)
 3. 26 ABC Construction rows: no auth user → backfill **skips** them (confirmed demo).
 4. **Joe — applied explicitly per owner resolution (no guessed mappings):**
 
-| op id | company | role there | action |
-|---|---|---|---|
-| `0b5775d7` | Thomas Worley Electrical | **active operative** | `auth_user_id = 87eccb3f` (icloud), `left_at = NULL` |
-| `269e5905` | Bancroft LTD | manager (via `profiles`, not operative) | `left_at = now()`, `auth_user_id = NULL` |
-| `507c6d52` | ∅ (Szavay Property Group) | super-admin (via `profiles`/`managers`, not operative) | `left_at = now()`, `auth_user_id = NULL` |
+| op id | company | email | role there | action |
+|---|---|---|---|---|
+| `0b5775d7` | Thomas Worley Electrical | joe.szavay@icloud.com | **active operative** | `auth_user_id = 87eccb3f` (icloud), `left_at = NULL` |
+| `269e5905` | Bancroft LTD | joe.szavay@icloud.com | manager (via `profiles`, not operative) | `left_at = now()`, `auth_user_id = NULL` |
+| `507c6d52` | ∅ (Szavay Property Group) | joe.szavay@**szavaypropertygroup.co.uk** | super-admin (via `profiles`/`managers`, not operative) | `left_at = now()`, `auth_user_id = NULL` |
 
-Verify post-backfill: `SELECT count(*) FROM (SELECT auth_user_id FROM operatives WHERE left_at IS NULL AND auth_user_id IS NOT NULL GROUP BY auth_user_id HAVING count(*)>1) x;` must be **0**.
+> ⚠️ **`507c6d52` gotcha (found 2026-06-21).** Its email (`szavaypropertygroup.co.uk`) differs from Joe's icloud address **and has its own confirmed auth account** (`d15cd22c`), so the generic "unique email + has auth" rule sweeps it into the auto-mappable set. It must be **explicitly excluded from the Write-1 auto-link** and handled as historical here (Write 3) — auto-linking it would give Joe a 2nd active identity and contradict this resolution. The two icloud rows (`0b5775d7`/`269e5905`) are *not* at risk (their shared email maps to 2 operatives, so the unambiguity rule already excludes them).
+
+Verify post-backfill: `SELECT count(*) FROM (SELECT auth_user_id FROM operatives WHERE left_at IS NULL AND auth_user_id IS NOT NULL GROUP BY auth_user_id HAVING count(*)>1) x;` must be **0**. Expected end state: active_linked = 28 (27 auto + Joe `0b5775d7`), active_unlinked = 26 (ABC), historical = 2, total = 56. **SQL: `scripts/migrations/rls-5-19-pr3-backfill.sql`** (rollback `…-rollback.sql`).
 
 ### 5.3 Helper redefinition (bodies only) + picker fix
 `pg_get_functiondef` the live interim bodies first (rollback artifact — `rls-5-19-interim-email-crosscheck.sql` already captures them).
@@ -72,7 +76,7 @@ Verify post-backfill: `SELECT count(*) FROM (SELECT auth_user_id FROM operatives
 | **PR1 docs** ✅ merged (#11) | AUDIT §5.17/§5.19/§5.20/§5.21; this plan doc; read-only audit script | no | revert commit |
 | **PR2 schema** ✅ applied + merged (#12), proven live | `auth_user_id` + `left_at` + partial-unique; `create-operative-account.js` link (both branches); `getUserById` | **yes** (additive) | `DROP INDEX; ALTER … DROP COLUMN ×2` |
 | **§5.22 docs** (this) | AUDIT §5.22 + §5.21 orphan-login update + this PR-slot | no | revert commit |
-| **PR3 backfill** (next) | **re-audit first** (now 56, not 58 — two junk test rows removed 2026-06-17, no real loss); default-active; auto-link the unambiguous 1:1 set; resolve Joe's 3 (`0b5775d7` active+link `87eccb3f`; `269e5905`+`507c6d52` historical); skip ABC demo; count-=0 verify | **yes** (writes 2 cols) | set `auth_user_id`/`left_at` back to NULL |
+| **PR3 backfill** ✅ **applied + verified 2026-06-21** | re-audited 2026-06-21 (56 rows); auto-linked the **27** unambiguous 1:1 rows (explicit VALUES); resolved Joe's 3 (`0b5775d7` active+link `87eccb3f`; `269e5905`+`507c6d52` historical — `507c6d52` **excluded** from auto-link, see §5.2 gotcha); skipped 26 ABC demo. Deliberate apply: dry-run `BEGIN…ROLLBACK` → `COMMIT` → independent read-only re-verify, all reading `collisions=0 active_linked=28 active_unlinked=26 historical=2 total=56`. SQL: `rls-5-19-pr3-backfill.sql` | **yes** (writes 2 cols) | `…-pr3-backfill-rollback.sql` (NULL the 30 touched rows) |
 | **PR3b remove-flow → mark-historical** (§5.22) | `PMDashboard.removeOperative` / `AllWorkers` / `api/delete-operative` "remove" sets `left_at = now()`, `auth_user_id = NULL` instead of hard-DELETE (preserves compliance history per the lifecycle rule); reserve hard-DELETE for **admin-only GDPR erasure** with the §2.8 cascade fixed + paged `listUsers`/`getUserById` (§4.9) so auth cleanup actually fires | **yes** (code + RPC) | revert to prior remove behaviour |
 | **PR4 dual-accept** | 3 helpers → COALESCE(auth.uid, interim); `resolve_login_route` + worker-login sites → active record | **yes** (fn bodies + code) | re-apply captured interim defs |
 | **PR5 enforce** | 3 helpers → auth.uid()+`left_at` only; stop writing `user_metadata.operative_id`; `UNIQUE(lower(email))` forward-guard; close §5.20 path | **yes** (fn bodies) | re-apply PR4 (dual-accept) defs |
