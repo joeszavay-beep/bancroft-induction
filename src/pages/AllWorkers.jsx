@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { authFetch } from '../lib/authFetch'
 import toast from 'react-hot-toast'
-import { Users, Search, Plus, Trash2, ChevronRight, AlertTriangle, ShieldCheck, Clock, CreditCard } from 'lucide-react'
+import { Users, Search, Plus, Trash2, ChevronRight, AlertTriangle, ShieldCheck, Clock, CreditCard, RotateCcw } from 'lucide-react'
 import AttendanceHistory from '../components/AttendanceHistory'
 import CardVerification from '../components/CardVerification'
 import { getSession } from '../lib/storage'
@@ -45,6 +45,24 @@ export default function AllWorkers() {
       toast.success('Worker marked as left')
     } catch (err) {
       toast.error(`Failed to remove: ${err.message}`)
+    }
+    loadData()
+  }
+
+  async function reactivateWorker(id, name) {
+    if (!confirm(`Reactivate ${name}? They'll be added back to the active team and their login restored. They'll need to re-sign their inductions/RAMS before working.`)) return
+    try {
+      const res = await authFetch('/api/operative-reactivate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operativeId: id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data.error) throw new Error(data.error || 'Failed')
+      toast.success('Worker reactivated')
+      if (data.warnings?.length) data.warnings.forEach(w => toast(w, { icon: '⚠️', duration: 5000 }))
+    } catch (err) {
+      toast.error(`Failed to reactivate: ${err.message}`)
     }
     loadData()
   }
@@ -166,6 +184,9 @@ export default function AllWorkers() {
                         <div className="flex items-center gap-1">
                           {showPast ? (
                             <>
+                              <button onClick={() => reactivateWorker(op.id, op.name)} className="p-1.5 text-[#6B7A99] hover:text-[#2EA043] transition-colors" title="Reactivate worker">
+                                <RotateCcw size={14} />
+                              </button>
                               <button onClick={() => setSelectedWorker(op)} className="p-1.5 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors" title="Attendance history">
                                 <Clock size={14} />
                               </button>
