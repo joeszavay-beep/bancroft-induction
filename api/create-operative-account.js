@@ -92,13 +92,14 @@ export default async function handler(req, res) {
   }
 
   // Create new auth account (auto-verified, no email confirmation needed).
-  // user_metadata.operative_id is still written for the §5.19 dual-accept phase; it
-  // stops being authoritative for RLS at enforce (PR5), which keys on auth_user_id.
+  // §5.19 PR5 (enforce): user_metadata.operative_id is NO LONGER written — RLS keys
+  // on auth_user_id (set below), never on the forgeable metadata claim. Any stale
+  // operative_id in pre-existing accounts' metadata is inert post-enforce.
   const { data, error } = await supabase.auth.admin.createUser({
     email: email.toLowerCase(),
     password,
     email_confirm: true,
-    user_metadata: { role: 'operative', operative_id: operativeId },
+    user_metadata: { role: 'operative' },
   })
 
   if (error) {
