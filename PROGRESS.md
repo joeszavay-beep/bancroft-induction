@@ -9,7 +9,7 @@ so any session can resume from it alone.
 
 ---
 
-## 🟠 §5.19 — INTERIM FIX APPLIED + VERIFIED (2026-06-16); DURABLE FOLLOW-UP PENDING
+## ✅ §5.19 — DURABLY CLOSED (2026-06-21): operative RLS identity now resolves via non-forgeable `auth.uid()` only
 
 **Operative RLS scoping is forgeable via user-writable `user_metadata`.** The applied 2026-06-15
 lockdown scopes nearly every table via `get_my_company_id()` / `get_operative_company_id()`, which
@@ -23,9 +23,11 @@ Authenticated-only and needs a genuine operative UUID (anon cannot), but still C
 injected `operative_id` against the verified, non-forgeable JWT `email` claim (`mailer_autoconfirm=false`
 confirmed live). Deliberate apply: live-capture → dry-run/ROLLBACK → `BEGIN`/`COMMIT` → re-capture
 confirmed → `RLS_LOCKDOWN_APPLIED=1` E2E **35/35 green** (operatives still resolve, anon still denied).
-**DURABLE fix still PENDING: add `operatives.auth_user_id` FK + redefine helpers via `auth.uid()`,
-dropping `user_metadata` trust entirely — also closes the §5.17 duplicate-email residual and underlies
-§4.1/§4.2.** See AUDIT.md §5.19.
+**DURABLE fix COMPLETE (2026-06-21):** `operatives.auth_user_id` FK + `left_at` lifecycle added (PR2), backfilled
+(PR3), remove→mark-historical (PR3b), dual-accept (PR4), and **ENFORCE (PR5) — the 3 helpers now resolve via
+`auth.uid()` + `left_at` ONLY, `user_metadata` trust dropped entirely.** Closes the §5.17 duplicate-email residual
+and is the foundation under §4.1/§4.2. The §5.19 interim email cross-check is **retired**. See AUDIT.md §5.19 and the
+PR-status list below.
 
 ---
 
@@ -83,13 +85,23 @@ pages through `authFetch`). Also fold in **§1.10** (operative session never exp
   untouched) + E2E `operative-dual-accept.spec` both paths (linked-via-auth.uid forge-inert, closing the §5.17 same-email
   residual the interim email-guard does not; unlinked-via-interim) — full `RLS_LOCKDOWN_APPLIED=1` suite **52 passed, 0
   retries**. Code deploys via Vercel on merge; SQL was already live → **no exposure window**.
-- ⏭️ **PR5 enforce — LAST step, plan-first, NOT urgent.** Gated on a dual-accept bake. Helpers → auth.uid()+`left_at`
-  only (drop the interim arm); hard-switch the 3 binding sites to `auth_user_id`-only (drop the PR4 email fallback); stop
-  writing `user_metadata.operative_id` (`create-operative-account.js:101`); `UNIQUE(lower(email))` forward-guard; closes
-  §5.20. Only feels-irreversible cutover. Gate (all met): dual-accept verified ✓, both E2E paths green ✓, collisions=0 ✓.
-- 🛡️ **NOT URGENT / no live hole:** post-PR4 the helpers resolve via the non-forgeable `auth.uid()` arm first, with the
-  §5.19 **interim email cross-check guard live as a redundant-but-harmless fallback**. PR5 (retire the fallback) is the
-  "finish it properly before onboarding the next customer" step, not a live-hole fix.
+- ✅ **PR5 enforce — APPLIED + VERIFIED + E2E-green 2026-06-21** (branch `fix/operative-rls-enforce`). The final cutover:
+  3 helpers → `auth_user_id = auth.uid() AND left_at IS NULL` **only** (interim `user_metadata`+email arm DROPPED;
+  `get_my_company_id` keeps profiles-first + the auth.uid operative arm); binding sites (`PMLogin`/`OperativeLogin`/
+  `SiteSignIn`) → `auth_user_id`-only (PR4 email fallback removed); `create-operative-account.js` stops writing
+  `user_metadata.operative_id`. **Capture-first** (the §A discipline paid off): live `pg_get_functiondef` == PR4 dual-accept
+  **semantically**, but **cosmetically drifted** from the repo apply file (no body comments, 4-space indent) → rollback =
+  the **verbatim capture**, not the stale repo text (`rls-5-19-pr5-enforce-rollback.sql`). **Part B proof run FRESH = 0**
+  (no active+unlinked operative shares an email with any auth account → nobody locked out). Deliberate apply: dry-run
+  `BEGIN…ROLLBACK` (no-metadata/email check 0, collisions 0, Part B 0) → `BEGIN…COMMIT` → re-capture **verified** all 3
+  bodies are auth.uid()+left_at only. **E2E `operative-enforce.spec` 3/3** (forged metadata → ZERO; linked resolves;
+  unlinked-authenticated → ZERO) + full `RLS_LOCKDOWN_APPLIED=1` suite **52 passed**. SQL: `rls-5-19-pr5-enforce.sql`.
+  The §5.19 interim email cross-check is **RETIRED**; identity is now non-forgeable `auth.uid()` end-to-end.
+- ⏭️ **Decoupled from PR5 (owner decision):** (1) `UNIQUE(lower(email)) WHERE left_at IS NULL` active-only hygiene index —
+  **optional PR5b**, not load-bearing for RLS post-enforce; gated on a dup-check + an invite/cross-company/reactivate
+  ordering audit (mark-historical-before-create). (2) **§5.20** Confirm-email gate — its constraint is now **LIFTED**
+  (the email claim is no longer load-bearing for tenant isolation); close via an admin-confirm signup endpoint as its own
+  follow-up before onboarding the next company. Neither is a live hole.
 
 ---
 

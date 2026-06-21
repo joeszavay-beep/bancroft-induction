@@ -7,27 +7,32 @@ import {
 } from './helpers/operatives.js'
 
 /**
- * §5.19 PR4 — DUAL-ACCEPT proof (this is the operative-escalation coverage).
+ * §5.19 PR5 — ENFORCE proof (replaces operative-dual-accept.spec.js).
  *
- * The three operative RLS helpers now resolve identity via
- *   COALESCE( auth_user_id = auth.uid() AND left_at IS NULL,   -- non-forgeable, first
- *             interim user_metadata.operative_id + verified email + left_at )  -- fallback
+ * The three operative RLS helpers now resolve identity via the NON-FORGEABLE
+ *   auth_user_id = auth.uid() AND left_at IS NULL
+ * ONLY — the interim user_metadata.operative_id + email COALESCE arm is GONE.
  *
- * Two properties must hold SIMULTANEOUSLY during the transition:
+ * Three properties must hold AFTER enforce:
  *
- *   A. LINKED operative resolves via the auth.uid() arm, so a forged
- *      user_metadata.operative_id is INERT — no cross-tenant escalation, and the
- *      operative still reads its own company. The forge target deliberately
- *      SHARES the attacker's email (the §5.17 same-email residual that the interim
- *      email-guard does NOT close) → escalation is prevented ONLY by auth.uid()
- *      resolving first. This is exactly what PR4 adds over the interim fix.
+ *   A. LINKED operative resolves via auth.uid() and still reads its OWN company —
+ *      nobody locked out.
  *
- *   B. UNLINKED operative (auth_user_id NULL, not yet backfilled) still resolves
- *      via the interim fallback arm → nobody is locked out mid-transition.
+ *   B. A forged user_metadata.operative_id is INERT — even when the forge target
+ *      SHARES the attacker's email (the §5.17 same-email residual). Under PR4 this
+ *      was prevented by auth.uid() resolving *first*; under PR5 the metadata path
+ *      does not exist at all, so it is dead regardless of ordering.
  *
- * RLS-resolution probe (same as the lifecycle specs): sign in AS the operative
- * with a fresh anon client, then `operatives.select(id).eq(id, …)` — 1 row means
- * RLS resolved them into that company; 0 means it did not.
+ *   C. (INVERTS dual-accept Path B.) An UNLINKED-but-authenticated operative
+ *      (auth_user_id NULL, user_metadata.operative_id still pointing at its own
+ *      row + email matching) now resolves to ZERO rows. The interim fallback that
+ *      previously carried such logins is gone. This is the behavioural twin of the
+ *      Part B proof: it MUST be 0 in prod before enforce is applied, so post-enforce
+ *      the only such rows are no-login demo data.
+ *
+ * RLS-resolution probe (same as the lifecycle specs): sign in AS the operative with
+ * a fresh anon client, then `operatives.select(id).eq(id, …)` — 1 row = RLS resolved
+ * them into that company; 0 = it did not.
  */
 
 const newClient = () =>
@@ -35,7 +40,7 @@ const newClient = () =>
     auth: { persistSession: false },
   })
 
-test.describe.serial('§5.19 PR4 dual-accept — Path A: linked resolves via auth.uid() (forge inert)', () => {
+test.describe.serial('§5.19 PR5 enforce — Path A/B: linked resolves via auth.uid(); forged metadata is dead', () => {
   let ids, admin, attacker, victimCo, victim
 
   test.beforeAll(async () => {
@@ -53,7 +58,6 @@ test.describe.serial('§5.19 PR4 dual-accept — Path A: linked resolves via aut
   })
 
   test.afterAll(async () => {
-    // cleanupByEmail removes BOTH operative rows sharing the email + the auth user.
     if (attacker) await cleanupByEmail(attacker.email, attacker.authUserId)
     if (victimCo) await deleteDisposableCompany(victimCo.companyId)
   })
@@ -71,7 +75,7 @@ test.describe.serial('§5.19 PR4 dual-accept — Path A: linked resolves via aut
     await c.auth.signOut()
   })
 
-  test('forging user_metadata.operative_id to the victim is INERT — auth.uid() wins', async () => {
+  test('forging user_metadata.operative_id to the victim is INERT — metadata path is gone', async () => {
     // Forge the self-writable claim to point at the victim (same email, other co).
     const upd = await admin.auth.admin.updateUserById(attacker.authUserId, {
       user_metadata: { name: attacker.name, role: 'operative', operative_id: victim.id },
@@ -83,27 +87,27 @@ test.describe.serial('§5.19 PR4 dual-accept — Path A: linked resolves via aut
     const { error } = await c.auth.signInWithPassword({ email: attacker.email, password: attacker.password })
     expect(error, error?.message).toBeFalsy()
 
-    // Despite the forged metadata + MATCHING email (which would satisfy the
-    // interim arm), the victim company stays unreadable…
+    // The forged victim stays unreadable (no metadata arm exists to resolve it)…
     const cross = await c.from('operatives').select('id').eq('id', victim.id)
-    expect(cross.data?.length || 0, 'forged victim must remain invisible (auth.uid() resolves first)').toBe(0)
+    expect(cross.data?.length || 0, 'forged victim must remain invisible (no metadata arm)').toBe(0)
 
-    // …and the attacker still resolves to its OWN record (not locked out).
+    // …and the attacker still resolves to its OWN record via auth.uid() (not locked out).
     const own = await c.from('operatives').select('id').eq('id', attacker.id)
     expect(own.data?.length, 'own record still resolves via auth.uid()').toBe(1)
     await c.auth.signOut()
   })
 })
 
-test.describe('§5.19 PR4 dual-accept — Path B: unlinked resolves via the interim fallback', () => {
+test.describe('§5.19 PR5 enforce — Path C: unlinked-authenticated now resolves to ZERO (interim arm gone)', () => {
   let ids, admin, op
 
   test.beforeAll(async () => {
     ids = await getIds()
     admin = getAdmin()
     await sweepDisposable()
-    // Create an operative WITH an auth user + user_metadata.operative_id, then
-    // DETACH auth_user_id → the exact "not yet backfilled" state in transition.
+    // Operative WITH an auth user + user_metadata.operative_id (pointing at its own
+    // row) + email matching — i.e. the interim arm WOULD have resolved it under PR4.
+    // Then DETACH auth_user_id → the "not yet linked" state.
     op = await createDisposableOperative(ids.companyId, ids.projectId, ids.documentId, { withAuth: true })
     const { error } = await admin.from('operatives').update({ auth_user_id: null }).eq('id', op.id)
     if (error) throw new Error(`detach auth_user_id failed: ${error.message}`)
@@ -113,13 +117,15 @@ test.describe('§5.19 PR4 dual-accept — Path B: unlinked resolves via the inte
     if (op) await cleanupByEmail(op.email, op.authUserId)
   })
 
-  test('unlinked operative (auth_user_id NULL) still resolves via the interim arm', async () => {
+  test('unlinked operative (auth_user_id NULL) resolves to ZERO — interim fallback removed', async () => {
     const c = newClient()
     const { error } = await c.auth.signInWithPassword({ email: op.email, password: op.password })
     expect(error, error?.message).toBeFalsy()
 
+    // Even though metadata.operative_id points at its OWN row and the email matches
+    // (the interim arm's exact precondition), enforce no longer has that arm → 0 rows.
     const own = await c.from('operatives').select('id').eq('id', op.id)
-    expect(own.data?.length, 'interim fallback resolves the unlinked operative — nobody locked out').toBe(1)
+    expect(own.data?.length || 0, 'no interim fallback — unlinked login resolves nothing').toBe(0)
     await c.auth.signOut()
   })
 })

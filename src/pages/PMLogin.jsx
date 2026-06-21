@@ -108,20 +108,15 @@ export default function PMLogin() {
         return
       }
 
-      // Dual-accept (§5.19 PR4): resolve the active record by the auth-linked id
-      // first (matches RLS via auth.uid()); fall back to the email match for
-      // operatives not yet linked during the transition.
+      // Enforce (§5.19 PR5): resolve the active record by the auth-linked id ONLY
+      // (matches RLS via auth.uid()). The email fallback is gone — every active
+      // operative is linked (auth_user_id set at account creation); an unlinked
+      // login must complete account-linking before it can resolve.
       const OP_SELECT = '*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)'
-      let { data: ops } = await supabase
+      const { data: ops } = await supabase
         .from('operatives').select(OP_SELECT)
         .eq('auth_user_id', authData.user.id)
         .is('left_at', null)
-      if (!ops?.length) {
-        ;({ data: ops } = await supabase
-          .from('operatives').select(OP_SELECT)
-          .ilike('email', email.trim().toLowerCase())
-          .is('left_at', null))
-      }
 
       if (!ops?.length) {
         setError('No worker account found for this email')
