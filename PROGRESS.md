@@ -85,7 +85,7 @@ pages through `authFetch`). Also fold in **§1.10** (operative session never exp
   untouched) + E2E `operative-dual-accept.spec` both paths (linked-via-auth.uid forge-inert, closing the §5.17 same-email
   residual the interim email-guard does not; unlinked-via-interim) — full `RLS_LOCKDOWN_APPLIED=1` suite **52 passed, 0
   retries**. Code deploys via Vercel on merge; SQL was already live → **no exposure window**.
-- ✅ **PR5 enforce — APPLIED + VERIFIED + E2E-green 2026-06-21** (branch `fix/operative-rls-enforce`). The final cutover:
+- ✅ **PR5 enforce — MERGED + DEPLOYED + E2E-green + smoke-verified 2026-06-21 (PR #19 → main `718f2c8`).** The final cutover:
   3 helpers → `auth_user_id = auth.uid() AND left_at IS NULL` **only** (interim `user_metadata`+email arm DROPPED;
   `get_my_company_id` keeps profiles-first + the auth.uid operative arm); binding sites (`PMLogin`/`OperativeLogin`/
   `SiteSignIn`) → `auth_user_id`-only (PR4 email fallback removed); `create-operative-account.js` stops writing
@@ -97,6 +97,9 @@ pages through `authFetch`). Also fold in **§1.10** (operative session never exp
   bodies are auth.uid()+left_at only. **E2E `operative-enforce.spec` 3/3** (forged metadata → ZERO; linked resolves;
   unlinked-authenticated → ZERO) + full `RLS_LOCKDOWN_APPLIED=1` suite **52 passed**. SQL: `rls-5-19-pr5-enforce.sql`.
   The §5.19 interim email cross-check is **RETIRED**; identity is now non-forgeable `auth.uid()` end-to-end.
+  **Smoke-verified on live prod post-deploy:** icloud worker login resolved to the active Thomas Worley record via the
+  deployed `auth_user_id`-only binding (login `87eccb3f` → `0b5775d7`), no email fallback — deployed code agrees with the
+  already-live enforced SQL. §5.19 closed end-to-end.
 - ⏭️ **Decoupled from PR5 (owner decision):** (1) `UNIQUE(lower(email)) WHERE left_at IS NULL` active-only hygiene index —
   **optional PR5b**, not load-bearing for RLS post-enforce; gated on a dup-check + an invite/cross-company/reactivate
   ordering audit (mark-historical-before-create). (2) **§5.20** Confirm-email gate — its constraint is now **LIFTED**
