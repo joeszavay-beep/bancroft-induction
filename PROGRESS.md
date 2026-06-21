@@ -66,7 +66,7 @@ pages through `authFetch`). Also fold in **§1.10** (operative session never exp
   + AllWorkers Past-tab "Reactivate" (any manager); prior document signatures invalidated so the returner
   re-inducts. Code-only, no DB change. E2E `operative-reactivate` green. Refines the lifecycle rule:
   same-company return = reactivate in place; cross-company = new record.
-- 🟢 **PR4 dual-accept — SQL APPLIED + VERIFIED live 2026-06-21; binding-site code written (NOT yet deployed/E2E'd).**
+- ✅ **PR4 dual-accept — MERGED + DEPLOYED + E2E-green + smoke-verified 2026-06-21 (PR #17 → main `d4d78d7`).**
   Branch `fix/operative-dual-accept`. The **first live tenant-resolution change since the 2026-06-15 lockdown**, done
   capture-first: owner ran `pg_get_functiondef` for the 3 helpers → diff vs repo (**live == post-PR3b source, no drift**;
   none has `SET search_path`) → rollback = captured defs verbatim → dry-run `BEGIN…ROLLBACK` clean → `BEGIN…COMMIT` →
@@ -77,13 +77,19 @@ pages through `authFetch`). Also fold in **§1.10** (operative session never exp
   resolve via auth.uid (27 identical to interim; Joe `0b5775d7` gains his own active record, never cross-tenant), 26
   active+unlinked are all ABC demo (no logins) → fall to interim, **0 operatives redirected to a different company.**
   Binding sites (`PMLogin:117`/`OperativeLogin:48`/`SiteSignIn:127`) now resolve by `auth_user_id` first with email
-  fallback (PR5 hard-switches); `vite build` green; `create-operative-account.js` still writes `user_metadata.operative_id`
-  (kept for dual-accept). **NEXT: E2E both paths (linked-via-auth.uid + unlinked-via-interim) → deploy code → gate.**
-- ⏭️ **PR5 enforce** (gated on a green dual-accept bake): helpers → auth.uid()+`left_at` only; stop writing
-  `user_metadata.operative_id`; `UNIQUE(lower(email))` forward-guard; closes §5.20. Only feels-irreversible cutover.
-- 🛡️ **NOT URGENT / no live hole:** the §5.19 **interim email cross-check guard is live and protecting**
-  (helpers resolve via user_metadata + verified-email + now `left_at IS NULL`). PR4/PR5 are the "finish it
-  properly before onboarding the next customer" step, not a live-hole fix.
+  fallback (PR5 hard-switches); `create-operative-account.js` still writes `user_metadata.operative_id` (kept for
+  dual-accept). **Verified:** manual smoke on live prod (icloud worker → Thomas Worley via the auth.uid() arm, since his
+  metadata points at his now-historical record → proves auth.uid() did it; icloud manager → Bancroft, profiles-first
+  untouched) + E2E `operative-dual-accept.spec` both paths (linked-via-auth.uid forge-inert, closing the §5.17 same-email
+  residual the interim email-guard does not; unlinked-via-interim) — full `RLS_LOCKDOWN_APPLIED=1` suite **52 passed, 0
+  retries**. Code deploys via Vercel on merge; SQL was already live → **no exposure window**.
+- ⏭️ **PR5 enforce — LAST step, plan-first, NOT urgent.** Gated on a dual-accept bake. Helpers → auth.uid()+`left_at`
+  only (drop the interim arm); hard-switch the 3 binding sites to `auth_user_id`-only (drop the PR4 email fallback); stop
+  writing `user_metadata.operative_id` (`create-operative-account.js:101`); `UNIQUE(lower(email))` forward-guard; closes
+  §5.20. Only feels-irreversible cutover. Gate (all met): dual-accept verified ✓, both E2E paths green ✓, collisions=0 ✓.
+- 🛡️ **NOT URGENT / no live hole:** post-PR4 the helpers resolve via the non-forgeable `auth.uid()` arm first, with the
+  §5.19 **interim email cross-check guard live as a redundant-but-harmless fallback**. PR5 (retire the fallback) is the
+  "finish it properly before onboarding the next customer" step, not a live-hole fix.
 
 ---
 
