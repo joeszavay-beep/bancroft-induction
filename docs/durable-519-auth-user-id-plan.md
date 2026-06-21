@@ -18,6 +18,8 @@ An operative's signatures/inductions/attendance **stay with the company where th
 
 So: the **person** = one auth login (`auth_user_id`); they accumulate **one ACTIVE** operative record + a **retained historical trail** (one per company they've left). RLS resolves the person to their single active record; historical records remain readable only by their company's managers (via `get_my_company_id`), never followed by the person.
 
+**Refinement (2026-06-21 — reactivate / return-to-work, branch `feat/operative-reactivate`):** a return to the **same** company **reactivates the existing historical record in place** (`left_at = NULL`, login re-linked) — continuous history — rather than spawning a new record; prior **document signatures are invalidated** so the returner re-inducts (card credentials + past toolbox-talk records stay intact). A move to a **different** company is still a new record. The active-login partial-unique guarantees one active record per login, so reactivation is **refused (409)** if the person's login is already active elsewhere. `api/operative-reactivate` + AllWorkers Past-tab "Reactivate" (any manager); code-only, no RLS/schema change.
+
 ## 3. Live audit (2026-06-17, read-only — `scripts/audit-operative-auth-linkage.js`)
 
 - 58 operatives / 5 companies / 51 auth users / 35 columns. **No active/historical marker column exists** → `left_at` must be added.
