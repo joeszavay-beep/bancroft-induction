@@ -44,8 +44,22 @@ Add `operatives.auth_user_id` FK + redefine `get_my_operative_id` / `get_operati
 §5.19 interim, closes the §5.17 duplicate-email residual, and is the SAME foundation as **§4.1/§4.2**
 (operative-session-is-own-UUID + email-change account takeover) and client **§1.11** (route operative
 pages through `authFetch`). Also fold in **§1.10** (operative session never expires) as a separate PR.
-Requires a prod migration + a backfill with duplicate-email/unlinkable operatives resolved MANUALLY by
-the owner. **Not started.**
+
+**DURABLE-FIX PR STATUS (see `docs/durable-519-auth-user-id-plan.md` §5.4):**
+- ✅ **PR1 docs** (merged #11) · ✅ **PR2 schema + account-linking** (merged #12, proven live).
+- ✅ **PR3 backfill APPLIED + VERIFIED 2026-06-21** (`scripts/migrations/rls-5-19-pr3-backfill.sql`):
+  56 operatives — auto-linked 27 unambiguous 1:1 rows (explicit VALUES), Joe's active Thomas Worley
+  record linked to `87eccb3f`, his Bancroft + Szavay-PG records marked historical (`left_at` set),
+  26 ABC demo skipped. Dry-run→COMMIT→independent re-verify all read
+  `collisions=0 active_linked=28 active_unlinked=26 historical=2 total=56`. Gotcha caught: `507c6d52`
+  (Szavay-PG) has a different email with its own auth account → excluded from auto-link, marked
+  historical. Files on branch `docs/audit-522-remove-operative` (PR3 SQL + rollback + doc updates),
+  **not yet committed/opened.**
+- ⏭️ **NEXT = PR3b** remove-flow → mark-historical (§5.22; `PMDashboard.removeOperative` / `AllWorkers`
+  / `api/delete-operative` set `left_at`/unlink instead of hard-DELETE). **Must land before PR4.**
+  Then **PR4 dual-accept** (helpers `COALESCE(auth.uid, interim)` + worker-login sites resolve the
+  active record), gated → **PR5 enforce** (auth.uid only; stop writing `user_metadata.operative_id`).
+  Helpers STILL read `user_metadata` today (interim email cross-check live) — no RLS behaviour change yet.
 
 ---
 
