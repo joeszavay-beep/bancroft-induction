@@ -64,14 +64,21 @@ export default function ProgressDrawingsList() {
     setDrawings(d.data || [])
     setProjects(p.data || [])
 
-    // Load item counts per drawing
+    // Load item counts per drawing via server-side aggregation (cap-immune).
+    // get_progress_item_counts() returns one row per drawing — total + each
+    // colour, counting only real points (annotations excluded) to match the
+    // detail view. SECURITY INVOKER, so the same progress_items RLS applies.
     if (d.data && d.data.length > 0) {
-      const { data: items } = await supabase.from('progress_items').select('drawing_id, status')
+      const { data: rows } = await supabase.rpc('get_progress_item_counts')
       const counts = {}
-      ;(items || []).forEach(item => {
-        if (!counts[item.drawing_id]) counts[item.drawing_id] = { total: 0, green: 0, yellow: 0, red: 0 }
-        counts[item.drawing_id].total++
-        counts[item.drawing_id][item.status] = (counts[item.drawing_id][item.status] || 0) + 1
+      ;(rows || []).forEach(r => {
+        // counts are bigint -> coerce so the summary's += stays arithmetic
+        counts[r.drawing_id] = {
+          total: Number(r.total),
+          green: Number(r.green),
+          yellow: Number(r.yellow),
+          red: Number(r.red),
+        }
       })
       setItemCounts(counts)
     }
