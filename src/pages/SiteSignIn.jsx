@@ -123,6 +123,7 @@ export default function SiteSignIn() {
       const { data: ops } = await supabase.from('operatives')
         .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
         .ilike('email', email.trim().toLowerCase())
+        .is('left_at', null)
       if (ops?.length) op = ops[0]
 
       if (!op) { setAuthError('No worker account found for this email'); setAuthLoading(false); return }

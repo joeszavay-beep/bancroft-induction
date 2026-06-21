@@ -194,7 +194,7 @@ export default function Chat() {
 
   async function openNewChat() {
     const { data } = await supabase.from('operatives').select('id, name, role, photo_url')
-      .eq('company_id', cid).order('name')
+      .eq('company_id', cid).is('left_at', null).order('name')
     setAllOperatives(data || [])
     setShowNewChat(true)
     setOpSearch('')

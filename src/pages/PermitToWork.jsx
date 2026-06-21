@@ -282,7 +282,7 @@ export default function PermitToWork() {
       supabase.from('permit_templates').select('*').eq('company_id', cid).order('type'),
       supabase.from('permits').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
       supabase.from('projects').select('id, name').eq('company_id', cid).order('name'),
-      supabase.from('operatives').select('id, name, role').eq('company_id', cid).order('name'),
+      supabase.from('operatives').select('id, name, role').eq('company_id', cid).is('left_at', null).order('name'),
     ])
     setTemplates(tRes.data || [])
     setPermits(pRes.data || [])

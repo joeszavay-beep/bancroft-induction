@@ -112,6 +112,7 @@ export default function PMLogin() {
         .from('operatives')
         .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
         .ilike('email', email.trim().toLowerCase())
+        .is('left_at', null)
 
       if (!ops?.length) {
         setError('No worker account found for this email')

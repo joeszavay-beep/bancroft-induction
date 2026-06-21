@@ -122,7 +122,7 @@ export default function SnagDrawingView() {
     const [proj, snagsList, opsList] = await Promise.all([
       fetchAndCache('projects', (sb) => sb.from('projects').select('*').eq('id', d.project_id).single()),
       fetchAndCache('snags', (sb) => sb.from('snags').select('*').eq('drawing_id', drawingId).order('snag_number')),
-      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*, operative_projects(project_id)').eq('company_id', JSON.parse(getSession('manager_data') || '{}').company_id).order('name')),
+      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*, operative_projects(project_id)').eq('company_id', JSON.parse(getSession('manager_data') || '{}').company_id).is('left_at', null).order('name')),
     ])
 
     setProject(Array.isArray(proj) ? proj.find(r => r.id === d.project_id) : proj)

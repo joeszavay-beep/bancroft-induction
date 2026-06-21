@@ -44,6 +44,7 @@ export default async function handler(req, res) {
     .from('operatives')
     .select('id, name, company_id')
     .eq('id', operativeId)
+    .is('left_at', null)
     .single()
 
   if (!op) {

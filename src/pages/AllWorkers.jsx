@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { authFetch } from '../lib/authFetch'
 import toast from 'react-hot-toast'
 import { Users, Search, Plus, Trash2, ChevronRight, AlertTriangle, ShieldCheck, Clock, CreditCard } from 'lucide-react'
 import AttendanceHistory from '../components/AttendanceHistory'
@@ -15,38 +16,40 @@ export default function AllWorkers() {
   const [search, setSearch] = useState('')
   const [selectedWorker, setSelectedWorker] = useState(null)
   const [verifyWorker, setVerifyWorker] = useState(null)
+  const [pastWorkers, setPastWorkers] = useState([])
+  const [showPast, setShowPast] = useState(false)
 
   async function loadData() {
     setLoading(true)
     if (!cid) { setLoading(false); return }
-    const { data } = await supabase.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', cid).order('name')
+    const { data } = await supabase.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', cid).is('left_at', null).order('name')
     setOperatives(data || [])
+    // Retained historical records (workers who have left) — read-only, kept for compliance.
+    const { data: past } = await supabase.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', cid).not('left_at', 'is', null).order('left_at', { ascending: false })
+    setPastWorkers(past || [])
     setLoading(false)
   }
 
   useEffect(() => { loadData() }, [])
 
   async function removeWorker(id, name) {
-    if (!confirm(`Remove ${name}? This will remove all their data including signatures, attendance, and messages.`)) return
+    if (!confirm(`Mark ${name} as left? They'll be removed from active lists and their login revoked. Their signatures, attendance and messages are kept for compliance.`)) return
     try {
-      // Delete all related records first (foreign key constraints)
-      await Promise.all([
-        supabase.from('signatures').delete().eq('operative_id', id),
-        supabase.from('site_attendance').delete().eq('operative_id', id),
-        supabase.from('toolbox_signatures').delete().eq('operative_id', id),
-        supabase.from('chat_messages').delete().eq('operative_id', id),
-        supabase.from('notifications').delete().eq('user_id', id),
-      ])
-      const { error } = await supabase.from('operatives').delete().eq('id', id)
-      if (error) throw error
-      toast.success('Worker removed')
+      const res = await authFetch('/api/operative-leave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operativeId: id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data.error) throw new Error(data.error || 'Failed')
+      toast.success('Worker marked as left')
     } catch (err) {
       toast.error(`Failed to remove: ${err.message}`)
     }
     loadData()
   }
 
-  const filtered = operatives.filter(op =>
+  const filtered = (showPast ? pastWorkers : operatives).filter(op =>
     (op.name || '').toLowerCase().includes(search.toLowerCase()) ||
     (op.email && op.email.toLowerCase().includes(search.toLowerCase()))
   )
@@ -59,7 +62,11 @@ export default function AllWorkers() {
             <Users size={20} className="text-[#1B6FC8]" />
           </div>
           <h1 className="text-2xl font-bold text-[#1A1A2E]">All Workers</h1>
-          <span className="text-sm text-[#6B7A99]">({operatives.length})</span>
+          <span className="text-sm text-[#6B7A99]">({(showPast ? pastWorkers : operatives).length})</span>
+          <div className="flex items-center rounded-md border border-[#E2E6EA] overflow-hidden text-xs font-medium">
+            <button onClick={() => setShowPast(false)} className={`px-3 py-1.5 transition-colors ${!showPast ? 'bg-[#1B6FC8] text-white' : 'text-[#6B7A99] hover:bg-[#F5F6F8]'}`}>Active</button>
+            <button onClick={() => setShowPast(true)} className={`px-3 py-1.5 transition-colors ${showPast ? 'bg-[#1B6FC8] text-white' : 'text-[#6B7A99] hover:bg-[#F5F6F8]'}`}>Past{pastWorkers.length ? ` (${pastWorkers.length})` : ''}</button>
+          </div>
         </div>
         <button onClick={() => navigate('/app/workers/new')} className="flex items-center gap-1.5 px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-md transition-colors w-full sm:w-auto justify-center sm:justify-start">
           <Plus size={14} /> Add New Worker
@@ -157,15 +164,26 @@ export default function AllWorkers() {
                       </td>
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
-                          <button onClick={() => setVerifyWorker(op)} className={`p-1.5 transition-colors ${op.card_verified === true ? 'text-[#2EA043]' : op.card_front_url || op.card_number ? 'text-amber-500' : 'text-[#B0B8C9]'} hover:text-[#1B6FC8]`} title="Card verification">
-                            <CreditCard size={14} />
-                          </button>
-                          <button onClick={() => setSelectedWorker(op)} className="p-1.5 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors" title="Attendance history">
-                            <Clock size={14} />
-                          </button>
-                          <button onClick={() => removeWorker(op.id, op.name)} className="p-1.5 text-[#6B7A99] hover:text-[#DA3633] transition-colors" title="Remove worker">
-                            <Trash2 size={14} />
-                          </button>
+                          {showPast ? (
+                            <>
+                              <button onClick={() => setSelectedWorker(op)} className="p-1.5 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors" title="Attendance history">
+                                <Clock size={14} />
+                              </button>
+                              <span className="text-[11px] text-[#B0B8C9] whitespace-nowrap" title="Marked as left — records retained for compliance">Left {op.left_at ? new Date(op.left_at).toLocaleDateString() : ''}</span>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => setVerifyWorker(op)} className={`p-1.5 transition-colors ${op.card_verified === true ? 'text-[#2EA043]' : op.card_front_url || op.card_number ? 'text-amber-500' : 'text-[#B0B8C9]'} hover:text-[#1B6FC8]`} title="Card verification">
+                                <CreditCard size={14} />
+                              </button>
+                              <button onClick={() => setSelectedWorker(op)} className="p-1.5 text-[#6B7A99] hover:text-[#1B6FC8] transition-colors" title="Attendance history">
+                                <Clock size={14} />
+                              </button>
+                              <button onClick={() => removeWorker(op.id, op.name)} className="p-1.5 text-[#6B7A99] hover:text-[#DA3633] transition-colors" title="Remove worker">
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

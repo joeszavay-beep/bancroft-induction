@@ -32,7 +32,7 @@ export default function ContractorPerformance() {
       if (projectId) snagQuery = snagQuery.eq('project_id', projectId)
       const [snagsRes, opsRes] = await Promise.all([
         snagQuery,
-        supabase.from('operatives').select('*').eq('company_id', company_id),
+        supabase.from('operatives').select('*').eq('company_id', company_id).is('left_at', null),
       ])
       setSnags(snagsRes.data || [])
       setOperatives(opsRes.data || [])

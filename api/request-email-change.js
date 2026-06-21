@@ -36,7 +36,7 @@ export default async function handler(req, res) {
   }
 
   // Check new email not already in use by another operative
-  const { data: existing } = await supabase.from('operatives').select('id').ilike('email', email)
+  const { data: existing } = await supabase.from('operatives').select('id').ilike('email', email).is('left_at', null)
   if (existing?.some(o => o.id !== operativeId)) {
     return res.status(400).json({ error: 'This email is already in use by another worker' })
   }

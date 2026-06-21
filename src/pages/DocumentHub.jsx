@@ -220,7 +220,7 @@ export default function DocumentHub() {
       supabase.from('document_hub').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
       supabase.from('document_packs').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
       supabase.from('projects').select('id, name').eq('company_id', cid).order('name'),
-      supabase.from('operatives').select('id, name, role').eq('company_id', cid).order('name'),
+      supabase.from('operatives').select('id, name, role').eq('company_id', cid).is('left_at', null).order('name'),
     ])
     const docs = docRes.data || []
     setDocuments(docs)

@@ -72,7 +72,7 @@ export default function SiteAttendance() {
     const todayStart = getTodayStart()
     const [p, o, a] = await Promise.all([
       supabase.from('projects').select('id, name').eq('company_id', cid),
-      supabase.from('operatives').select('id, name, role, photo_url').eq('company_id', cid),
+      supabase.from('operatives').select('id, name, role, photo_url').eq('company_id', cid).is('left_at', null),
       supabase.from('site_attendance').select('*').eq('company_id', cid)
         .gte('recorded_at', todayStart)
         .order('recorded_at', { ascending: false }),

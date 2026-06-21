@@ -13,6 +13,7 @@ export default function OperativeSelect() {
     const { data } = await supabase
       .from('operatives')
       .select('*, operative_projects(project_id, projects(name))')
+      .is('left_at', null)
       .order('name')
     setOperatives(data || [])
     setLoading(false)

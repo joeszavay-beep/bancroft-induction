@@ -272,7 +272,7 @@ export default function AddNewWorker() {
                     <input type="email" value={email} onChange={e => { setEmail(e.target.value); setEmailDuplicate(null) }}
                       onBlur={async () => {
                         if (!email.trim()) return
-                        const { data } = await supabase.from('operatives').select('name').ilike('email', email.trim().toLowerCase()).limit(1)
+                        const { data } = await supabase.from('operatives').select('name').ilike('email', email.trim().toLowerCase()).is('left_at', null).limit(1)
                         if (data?.length) setEmailDuplicate(data[0].name)
                         else setEmailDuplicate(null)
                       }}
