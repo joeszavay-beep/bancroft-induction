@@ -118,12 +118,19 @@ export default function SiteSignIn() {
         return
       }
 
-      // Load operative record
+      // Load operative record. Dual-accept (§5.19 PR4): prefer the auth-linked
+      // active record (matches RLS via auth.uid()); fall back to the email match
+      // for not-yet-linked operatives during transition.
       let op = null
-      const { data: ops } = await supabase.from('operatives')
-        .select('*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)')
-        .ilike('email', email.trim().toLowerCase())
+      const OP_SELECT = '*, operative_projects(project_id, projects(name)), companies(name, logo_url, primary_colour)'
+      let { data: ops } = await supabase.from('operatives').select(OP_SELECT)
+        .eq('auth_user_id', authData.user.id)
         .is('left_at', null)
+      if (!ops?.length) {
+        ;({ data: ops } = await supabase.from('operatives').select(OP_SELECT)
+          .ilike('email', email.trim().toLowerCase())
+          .is('left_at', null))
+      }
       if (ops?.length) op = ops[0]
 
       if (!op) { setAuthError('No worker account found for this email'); setAuthLoading(false); return }
