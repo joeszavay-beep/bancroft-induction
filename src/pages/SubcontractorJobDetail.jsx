@@ -145,7 +145,7 @@ export default function SubcontractorJobDetail() {
         supabase.from('job_variations').select('*').eq('job_id', jobId).order('date_agreed', { ascending: false }),
         supabase.from('job_operatives').select('*, operatives(id, name, role, card_type, card_number, card_expiry, card_front_url, card_verified, cscs_number, cscs_expiry, cscs_type)')
           .eq('job_id', jobId).order('created_at', { ascending: false }),
-        supabase.from('operatives').select('id, name, role, card_type, card_number, card_expiry, card_front_url, card_verified, cscs_number, cscs_expiry, cscs_type').eq('company_id', cid),
+        supabase.from('operatives').select('id, name, role, card_type, card_number, card_expiry, card_front_url, card_verified, cscs_number, cscs_expiry, cscs_type').eq('company_id', cid).is('left_at', null),
       ])
       if (jobRes.error) throw jobRes.error
       setJob(jobRes.data)

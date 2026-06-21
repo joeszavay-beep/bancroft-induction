@@ -26,7 +26,7 @@ export default async function handler(req, res) {
         const stats = {}
         for (const co of companies || []) {
           const [ops, projs, sigs, snags] = await Promise.all([
-            supabase.from('operatives').select('id', { count: 'exact', head: true }).eq('company_id', co.id),
+            supabase.from('operatives').select('id', { count: 'exact', head: true }).eq('company_id', co.id).is('left_at', null),
             supabase.from('projects').select('id', { count: 'exact', head: true }).eq('company_id', co.id),
             supabase.from('signatures').select('id', { count: 'exact', head: true }).eq('company_id', co.id),
             supabase.from('snags').select('id', { count: 'exact', head: true }).eq('company_id', co.id),
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
         if (!companyId) return res.status(400).json({ error: 'Missing companyId' })
         const [u, w, p] = await Promise.all([
           supabase.from('managers').select('*').eq('company_id', companyId).order('name'),
-          supabase.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', companyId).order('name'),
+          supabase.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', companyId).is('left_at', null).order('name'),
           supabase.from('projects').select('*').eq('company_id', companyId).order('name'),
         ])
         return res.status(200).json({ managers: u.data || [], operatives: w.data || [], projects: p.data || [] })

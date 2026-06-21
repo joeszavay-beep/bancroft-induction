@@ -63,20 +63,16 @@ export default async function handler(req, res) {
     }
   }
 
-  // 3. Auth user cleanup (best-effort — match by email)
-  if (result.email) {
-    try {
-      const { data: users } = await supabase.auth.admin.listUsers()
-      const authUser = users?.users?.find(u => u.email === result.email.toLowerCase())
-      if (authUser) {
-        const { error: delErr } = await supabase.auth.admin.deleteUser(authUser.id)
-        if (delErr) {
-          warnings.push(`Auth user cleanup failed: ${delErr.message}`)
-        }
-      }
-    } catch (e) {
-      warnings.push(`Auth user lookup failed: ${e.message}`)
-    }
+  // 3. Auth user cleanup. Prefer the linked auth_user_id (PR2/PR3 populated it);
+  //    the broken first-page-only listUsers() scan (§4.9) is gone. A historical
+  //    operative has a NULL auth_user_id (its login may belong to an active record
+  //    at another company / a future rejoin) — skip deletion then rather than
+  //    risk orphan-deleting a login that is still in use elsewhere.
+  if (result.auth_user_id) {
+    const { error: delErr } = await supabase.auth.admin.deleteUser(result.auth_user_id)
+    if (delErr) warnings.push(`Auth user cleanup failed: ${delErr.message}`)
+  } else if (result.email) {
+    warnings.push('Login not deleted: operative was already detached (left). Remove the auth user manually if erasure requires it.')
   }
 
   return res.status(200).json({

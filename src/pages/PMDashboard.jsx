@@ -59,7 +59,7 @@ export default function PMDashboard({ initialTab }) {
 
     const [pData, oData, dData, sData] = await Promise.all([
       fetchAndCache('projects', (sb) => sb.from('projects').select('*').eq('company_id', cid).order('created_at', { ascending: false })),
-      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', cid).order('name')),
+      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', cid).is('left_at', null).order('name')),
       fetchAndCache('documents', (sb) => sb.from('documents').select('*').eq('company_id', cid).order('created_at', { ascending: false })),
       fetchAndCache('signatures', (sb) => sb.from('signatures').select('*').eq('company_id', cid).order('signed_at', { ascending: false })),
     ])
@@ -1231,14 +1231,18 @@ function TeamTab({ operatives, projects, onRefresh }) {
   }
 
   async function removeOperative(id) {
-    if (!confirm('Remove this operative?')) return
-    await supabase.from('signatures').delete().eq('operative_id', id)
-    const { error } = await supabase.from('operatives').delete().eq('id', id)
-    if (error) {
-      toast.error('Failed to remove operative')
+    if (!confirm("Mark this operative as left? They'll be removed from active lists and their login revoked. Their signatures and attendance are kept for compliance.")) return
+    const res = await authFetch('/api/operative-leave', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operativeId: id }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || data.error) {
+      toast.error(data.error || 'Failed to remove operative')
       return
     }
-    toast.success('Operative removed')
+    toast.success('Operative marked as left')
     onRefresh()
   }
 
@@ -1556,7 +1560,7 @@ function SnagsTab({ projects, navigate }) {
     const [dData, sData, oData] = await Promise.all([
       fetchAndCache('drawings', (sb) => sb.from('drawings').select('*').eq('company_id', cid).order('uploaded_at', { ascending: false })),
       fetchAndCache('snags', (sb) => sb.from('snags').select('*').eq('company_id', cid).order('snag_number')),
-      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', cid).order('name')),
+      fetchAndCache('operatives', (sb) => sb.from('operatives').select('*, operative_projects(project_id, projects(name))').eq('company_id', cid).is('left_at', null).order('name')),
     ])
     setDrawings(dData || [])
     setAllSnags(sData || [])

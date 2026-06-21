@@ -29,7 +29,7 @@ export default function OnboardingChecklist() {
     const [projects, drawings, operatives, snags] = await Promise.all([
       supabase.from('projects').select('id').eq('company_id', cid).limit(1),
       supabase.from('drawings').select('id').eq('company_id', cid).limit(1),
-      supabase.from('operatives').select('id').eq('company_id', cid).limit(1),
+      supabase.from('operatives').select('id').eq('company_id', cid).is('left_at', null).limit(1),
       supabase.from('snags').select('id').eq('company_id', cid).limit(1),
     ])
 

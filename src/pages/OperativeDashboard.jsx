@@ -61,7 +61,7 @@ export default function OperativeDashboard() {
 
     // Find all operative records for this person (may be on multiple projects)
     const { data: allOpRecords } = await supabase.from('operatives').select('id, operative_projects(project_id)')
-      .eq('company_id', cid).eq('email', opData.email)
+      .eq('company_id', cid).eq('email', opData.email).is('left_at', null)
     const projectIds = [...new Set((allOpRecords || []).flatMap(o => (o.operative_projects || []).map(r => r.project_id)))]
     const operativeIds = (allOpRecords || []).map(o => o.id)
 

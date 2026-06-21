@@ -57,6 +57,7 @@ export default async function handler(req, res) {
         .select('email, name')
         .eq('company_id', group.companyId)
         .eq('name', group.assignedTo)
+        .is('left_at', null)
         .limit(1)
 
       const opEmail = ops?.[0]?.email

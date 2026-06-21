@@ -57,6 +57,7 @@ export default function TodayOnSite({ projects, projectId }) {
       .from('operatives')
       .select('id, name, role, photo_url')
       .eq('company_id', cid)
+      .is('left_at', null)
 
     const [attRes, opRes] = await Promise.all([attQuery, opQuery])
 

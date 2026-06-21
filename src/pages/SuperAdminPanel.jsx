@@ -646,9 +646,9 @@ function CompanyDetailView({ company: initialCompany, onBack }) {
       {deleteWorker && (
         <Modal open onClose={() => { setDeleteWorker(null); setDeleteConfirm('') }}>
           <div className="space-y-4">
-            <h3 className="text-lg font-bold text-[#1A1A2E]">Permanently delete {deleteWorker.name}?</h3>
+            <h3 className="text-lg font-bold text-[#1A1A2E]">Permanently erase {deleteWorker.name}? (GDPR)</h3>
             <p className="text-sm text-[#6B7A99]">
-              This will remove the worker and <strong>ALL</strong> associated data (attendance, inductions, signatures, snags, card photos, etc). This cannot be undone.
+              This permanently erases the worker and <strong>ALL</strong> compliance history (attendance, inductions, signatures, snags, card photos, login). This cannot be undone. To simply remove someone who has left, use “Remove” on the workers list instead — that keeps their records.
             </p>
             <div>
               <label className="text-xs text-[#6B7A99] font-medium mb-1 block">Type DELETE to confirm</label>
