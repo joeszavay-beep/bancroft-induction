@@ -9,6 +9,12 @@ so any session can resume from it alone.
 
 ---
 
+## ✅ Progress Drawings counts — `get_progress_item_counts` RPC APPLIED + VERIFIED live in prod (2026-06-22)
+
+`get_progress_item_counts()` (SECURITY INVOKER, per-drawing server-side aggregation, cap-immune — fixes the 1000-row client-count undercount; PR #22) is **live in prod, verified 2026-06-22**: `pg_proc` confirms it exists (`prosecdef=false`), Level 08 (`daf32e0b-1206-41dc-9e16-3435323cdbcf`) returns **760/66/278/416**. Both the Drawings-list counts and the overall-summary **donut** (PR #23) depend on it. The client call (`ProgressDrawingsList.jsx`) now captures the RPC error (`console.error` + toast) instead of silently zeroing counts/hiding the donut. No re-investigation needed.
+
+---
+
 ## ✅ §5.19 — DURABLY CLOSED (2026-06-21): operative RLS identity now resolves via non-forgeable `auth.uid()` only
 
 **Operative RLS scoping is forgeable via user-writable `user_metadata`.** The applied 2026-06-15

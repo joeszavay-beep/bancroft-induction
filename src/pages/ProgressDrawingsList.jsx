@@ -69,7 +69,14 @@ export default function ProgressDrawingsList() {
     // colour, counting only real points (annotations excluded) to match the
     // detail view. SECURITY INVOKER, so the same progress_items RLS applies.
     if (d.data && d.data.length > 0) {
-      const { data: rows } = await supabase.rpc('get_progress_item_counts')
+      const { data: rows, error: countsErr } = await supabase.rpc('get_progress_item_counts')
+      // Surface failures loudly: a dropped/renamed function or an RLS change
+      // would otherwise silently zero every count and hide the summary donut
+      // (the failure mode that made "is the RPC even live?" hard to answer).
+      if (countsErr) {
+        console.error('get_progress_item_counts failed:', countsErr)
+        toast.error('Could not load progress counts')
+      }
       const counts = {}
       ;(rows || []).forEach(r => {
         // counts are bigint -> coerce so the summary's += stays arithmetic
