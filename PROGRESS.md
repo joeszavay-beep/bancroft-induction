@@ -9,6 +9,12 @@ so any session can resume from it alone.
 
 ---
 
+## 🔧 §5.18 — API-key migration IN PROGRESS (2026-06-22): rotate exposed service_role + retire legacy keys
+
+Both keys are **legacy JWT** (`eyJh…`); Supabase **removed legacy rotation**, so the only way to kill the exposed `service_role` is to **migrate to new API keys** (`sb_secret_` + `sb_publishable_`) and **deactivate the legacy pair** (anon forced into scope — shared JWT secret). Zero-downtime via coexistence. **Invariant: legacy stays valid until EVERY consumer (prod app, an api/function call, a CI run, local) is verified green on new keys; deactivate legacy ONLY then; it is reversible.** Branch `security/api-key-migration-5-18`. Non-secret prep done (SandboxEntry fallback removed, `.env.example`, AUDIT/PROGRESS). Dashboard steps + verify pending; **legacy NOT yet deactivated — exposed key still live.** Full plan, sequence, and consumer inventory: **AUDIT.md §5.18**. Demo-password real fix tracked at **§1.9**.
+
+---
+
 ## ✅ Progress Drawings counts — `get_progress_item_counts` RPC APPLIED + VERIFIED live in prod (2026-06-22)
 
 `get_progress_item_counts()` (SECURITY INVOKER, per-drawing server-side aggregation, cap-immune — fixes the 1000-row client-count undercount; PR #22) is **live in prod, verified 2026-06-22**: `pg_proc` confirms it exists (`prosecdef=false`), Level 08 (`daf32e0b-1206-41dc-9e16-3435323cdbcf`) returns **760/66/278/416**. Both the Drawings-list counts and the overall-summary **donut** (PR #23) depend on it. The client call (`ProgressDrawingsList.jsx`) now captures the RPC error (`console.error` + toast) instead of silently zeroing counts/hiding the donut. No re-investigation needed.
