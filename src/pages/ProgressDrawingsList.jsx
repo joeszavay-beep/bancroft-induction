@@ -554,7 +554,7 @@ export default function ProgressDrawingsList() {
             companyId={cid}
             onComplete={(count) => {
               setDwgDetectDrawing(null)
-              loadDrawings()
+              loadAll()
               if (dwgDetectDrawing) navigate(`/progress/${dwgDetectDrawing.id}`)
             }}
           />
