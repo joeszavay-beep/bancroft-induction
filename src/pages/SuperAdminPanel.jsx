@@ -20,6 +20,12 @@ export default function SuperAdminPanel() {
   const [showCreate, setShowCreate] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // Companies | Agencies top-level view (agencies lazy-loaded on first switch)
+  const [view, setView] = useState('companies')
+  const [agencies, setAgencies] = useState([])
+  const [agenciesLoaded, setAgenciesLoaded] = useState(false)
+  const [agencyBusy, setAgencyBusy] = useState(null)
+
   // Create form
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -70,6 +76,35 @@ export default function SuperAdminPanel() {
     }
     loadData()
   }, [])
+
+  async function loadAgencies() {
+    // Cross-tenant read incl. pending agencies — service-role endpoint (RLS scopes
+    // agencies to own/connected, so only this path surfaces ones awaiting review).
+    const { ok, data } = await adminApi('/api/superadmin', { action: 'agencies-overview' })
+    if (ok) { setAgencies(data.agencies || []); setAgenciesLoaded(true) }
+    else toast.error(data?.error || 'Failed to load agencies')
+  }
+
+  function showAgencies() {
+    setView('agencies')
+    if (!agenciesLoaded) loadAgencies()
+  }
+
+  // The ONLY sanctioned way to change agency.status (AUDIT §5.7c R1). Activating
+  // makes the agency discoverable to all companies via search_agencies, so it's a
+  // deliberate super-admin review step (server-side verifySuperAdmin + allowlist).
+  async function setAgencyStatus(agency, status) {
+    setAgencyBusy(agency.id)
+    const { ok, data } = await adminApi('/api/superadmin', { action: 'set-agency-status', agencyId: agency.id, status })
+    if (ok) {
+      const verb = status === 'active' ? 'activated' : status === 'suspended' ? 'suspended' : 'set to pending'
+      toast.success(`${agency.company_name} ${verb}`)
+      await loadAgencies()
+    } else {
+      toast.error(data?.error || 'Failed to update agency')
+    }
+    setAgencyBusy(null)
+  }
 
   function autoSlug(n) {
     return n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -216,6 +251,14 @@ export default function SuperAdminPanel() {
           <CompanyDetailView company={selectedCompany} onBack={() => { setSelectedCompany(null); loadData() }} />
         ) : (
           <>
+            {/* View switcher: Companies | Agencies */}
+            <div className="flex items-center gap-1 mb-6 bg-white border border-[#E2E6EA] rounded-lg p-1 w-fit">
+              <button onClick={() => setView('companies')} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${view === 'companies' ? 'bg-[#1B6FC8] text-white' : 'text-[#6B7A99] hover:text-[#1A1A2E]'}`}>Companies</button>
+              <button onClick={showAgencies} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${view === 'agencies' ? 'bg-[#1B6FC8] text-white' : 'text-[#6B7A99] hover:text-[#1A1A2E]'}`}>Agencies</button>
+            </div>
+
+            {view === 'companies' ? (
+            <>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-[#1A1A2E]">Companies ({companies.length})</h2>
               <button onClick={() => { setShowCreate(true); resetForm() }} className="flex items-center gap-1.5 px-4 py-2 bg-[#1B6FC8] hover:bg-[#1558A0] text-white text-sm font-medium rounded-md transition-colors">
@@ -268,6 +311,76 @@ export default function SuperAdminPanel() {
                 )
               })}
             </div>
+            </>
+            ) : (
+            <>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-[#1A1A2E]">Agencies ({agencies.length})</h2>
+            </div>
+
+            {!agenciesLoaded ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin w-6 h-6 border-2 border-[#1B6FC8] border-t-transparent rounded-full" />
+              </div>
+            ) : agencies.length === 0 ? (
+              <div className="text-center py-16 bg-white border border-[#E2E6EA] rounded-lg">
+                <Building2 size={36} className="text-[#B0B8C9] mx-auto mb-3" />
+                <p className="text-[#6B7A99] font-medium">No agencies registered yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {agencies.map(a => {
+                  const badge = a.status === 'active' ? 'bg-green-100 text-green-700'
+                    : a.status === 'suspended' ? 'bg-red-100 text-red-600'
+                    : 'bg-amber-100 text-amber-700'
+                  return (
+                    <div key={a.id} className={`bg-white border rounded-lg shadow-sm p-5 ${a.status === 'active' ? 'border-[#E2E6EA]' : 'border-amber-200 bg-amber-50/20'}`}>
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-[#1A2744] flex items-center justify-center text-white shrink-0">
+                          <Building2 size={20} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-base font-bold text-[#1A1A2E]">{a.company_name}</h3>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${badge}`}>
+                              {(a.status || 'pending_verification').replace(/_/g, ' ').toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#6B7A99] mb-2">
+                            {a.primary_contact_name || '—'} · {a.primary_contact_email || 'No email'}{a.primary_contact_phone ? ` · ${a.primary_contact_phone}` : ''}
+                          </p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#6B7A99]">
+                            {a.company_registration_number && <span>Reg: {a.company_registration_number}</span>}
+                            {a.vat_number && <span>VAT: {a.vat_number}</span>}
+                            {a.insurance_expiry_date && <span>Insurance exp: {a.insurance_expiry_date}</span>}
+                            {a.insurance_document_url && (
+                              <a href={a.insurance_document_url} target="_blank" rel="noreferrer" className="text-[#1B6FC8] hover:underline flex items-center gap-1">
+                                <FileText size={12} /> Insurance doc
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {a.status === 'active' ? (
+                            <button onClick={() => setAgencyStatus(a, 'suspended')} disabled={agencyBusy === a.id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md text-[#6B7A99] hover:text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-50" title="Suspend (de-list from marketplace)">
+                              <XCircle size={14} /> Suspend
+                            </button>
+                          ) : (
+                            <button onClick={() => setAgencyStatus(a, 'active')} disabled={agencyBusy === a.id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md text-white bg-[#2EA043] hover:bg-[#268838] transition-colors disabled:opacity-50" title="Activate (make discoverable in marketplace)">
+                              <CheckCircle2 size={14} /> Activate
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            </>
+            )}
           </>
         )}
       </div>
