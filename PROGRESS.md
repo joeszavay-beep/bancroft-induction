@@ -134,16 +134,20 @@ pages through `authFetch`). Also fold in **§1.10** (operative session never exp
 
 ## 🚨 BLOCKING GATES (2026-06-15) — clear BEFORE onboarding any customer beyond the current trial
 
-**Gate 1 — Agency search+connect UNVERIFIED in the locked state.** The 2026-06-15 RLS lockdown
-re-scopes `agencies` from `USING(true)` to own+connected (via `get_my_agency_ids()`), moving
-marketplace discovery to the `search_agencies` RPC. This flow has **zero E2E coverage**
-(`seed-e2e.js` seeds no agency data; `rls-lockdown-verification.spec.js` only checks anon is
-*denied* `agency_operatives`) and **could not be manually tested** (no agency exists in prod).
-**MUST verify before onboarding the first agency** — either (a) seed a throwaway agency + 2nd
-company + connection and walk search+connect in the locked state, or (b) add a self-seeding agency
-E2E spec to the `RLS_LOCKDOWN_APPLIED=1` suite. Shipped without it because there are zero agency
-users in prod (zero blast radius) and the failure mode is fail-closed (breakage, not a leak).
-See AUDIT.md §5.7c.
+**Gate 1 — Agency search+connect — ✅ RLS/RPC VERIFIED 2026-06-23; one product gap (R1) left to
+close before the first agency onboards.** The 2026-06-15 lockdown re-scoped `agencies` from
+`USING(true)` to own+connected (via `get_my_agency_ids()`), moving discovery to the
+`search_agencies` RPC. Verified via option (b): new `e2e/agency-connect.spec.js` +
+`e2e/helpers/agencies.js` (self-seeding disposable agency, full teardown). **6/6 green against the
+live locked prod DB**, zero residue confirmed by a service-role probe (same cleanup discipline as
+§5.20). **R2** (connect upsert's `onConflict` UNIQUE constraint) **exists in prod**; **R3** (connection
+visible to its creator — no §5.16 silent-invisible bug); **R4** (anon denied / pending hidden /
+active discoverable / connected scoping opens agency + roster) all **PASS**. No schema/policy change
+needed. **STILL OPEN — R1 (product gap, not RLS):** nothing promotes an agency from
+`pending_verification → active`, so a real agency is undiscoverable until a super-admin runs manual
+SQL. Owner to decide: document the manual-SQL process, or build a small super-admin verify toggle
+(mirrors `set-manager-active`). Optional ~5-min manual UI smoke of `AgencyConnections.jsx` also
+recommended (the spec covers the RLS/RPC layer, not the React wiring). See AUDIT.md §5.7c.
 
 **Gate 2 — Rotate secrets.** Rotate `SUPABASE_SERVICE_ROLE_KEY` + update local `.env` and the
 Vercel env; also rotate/flag the shared `demo@coresite.io` password shipped in the JS bundle.
