@@ -96,6 +96,31 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, newPassword })
       }
 
+      case 'agencies-overview': {
+        // Cross-tenant read of EVERY agency incl. pending_verification ones — the
+        // RLS agency_select policy scopes agencies to own/connected, so only the
+        // service-role client sees unverified agencies awaiting review. Returns the
+        // full row so the reviewer can check insurance/registration before activating.
+        const { data, error } = await supabase
+          .from('agencies').select('*').order('created_at', { ascending: false })
+        if (error) throw error
+        return res.status(200).json({ agencies: data || [] })
+      }
+
+      case 'set-agency-status': {
+        // The ONLY sanctioned path to flip agency.status (AUDIT §5.7c R1) — agencies
+        // register as pending_verification and search_agencies returns only 'active',
+        // so activation is a deliberate super-admin review step. Allowlist-validated so
+        // a typo can't write a status discovery would silently never match.
+        const { agencyId, status } = req.body
+        if (!agencyId) return res.status(400).json({ error: 'Missing agencyId' })
+        const ALLOWED = ['active', 'pending_verification', 'suspended']
+        if (!ALLOWED.includes(status)) return res.status(400).json({ error: 'Invalid status' })
+        const { error } = await supabase.from('agencies').update({ status }).eq('id', agencyId)
+        if (error) throw error
+        return res.status(200).json({ success: true })
+      }
+
       default:
         return res.status(400).json({ error: 'Unknown action' })
     }
