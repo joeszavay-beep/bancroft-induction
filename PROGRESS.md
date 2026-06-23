@@ -149,12 +149,17 @@ See AUDIT.md §5.7c.
 Vercel env; also rotate/flag the shared `demo@coresite.io` password shipped in the JS bundle.
 **BEFORE onboarding any new customer beyond the current trial.** See AUDIT.md §5.18.
 
-**Gate 3 — Self-service signup broken by Confirm-email (§5.20).** The §5.19 fix requires Supabase
-"Confirm email" ON (`mailer_autoconfirm=false`, set 2026-06-16). With it on, `Signup.jsx`'s
-`signUp → immediate signInWithPassword` fails with "Email not confirmed", so self-service company
-signup throws + orphans an auth user. Admin-created accounts (`email_confirm:true`) are unaffected.
-**Do NOT disable Confirm-email to fix it — that reopens §5.19.** Move signup to an admin-confirmed
-endpoint or a confirm-your-email UX **before onboarding any new company.** See AUDIT.md §5.20.
+**Gate 3 — Self-service signup broken by Confirm-email (§5.20). RESOLVED in code 2026-06-23
+(PR #26 → main `ae5c802`); awaiting owner live smoke-test to fully close.** New public
+`api/signup-company.js` creates the auth user server-side with `email_confirm:true` (like
+`create-operative-account`/`create-company-admin`); `Signup.jsx` (both Subcontractor + Agency tabs)
+routes through it then signs in for the existing company/profile/managers/agency inserts (unchanged).
+Confirm-email stays **ON** as defense-in-depth (NOT disabled → §5.19 untouched). Public-path guards:
+**409 if the email already has an account** (never modifies an existing user → no takeover); creates
+only the auth user with `role:'admin'` metadata, no profiles/managers row — post-§5.19-enforce RLS
+keys on `auth.uid()` not the email claim, so a bare confirmed user maps to a NULL company (no
+cross-tenant access). Out of scope (logged): §2.10 orphan-on-partial-failure; rate-limit/captcha on
+public service-role endpoints. See AUDIT.md §5.20.
 
 ---
 
