@@ -6,9 +6,9 @@
 -- Expect SIX "DRYRUN OK n/6" notices and NO error. Any "DRYRUN FAILED" → do NOT apply.
 --
 -- Proves: admin (postgres) + service_role may change status; 'suspended' is
--- accepted; an authenticated agency CANNOT change status (UPDATE blocked) but CAN
--- still edit profile fields; an authenticated INSERT of status='active' is coerced
--- to pending_verification; a service_role INSERT keeps its chosen status.
+-- accepted; an authenticated agency CANNOT self-activate (UPDATE→active blocked)
+-- but CAN still edit profile fields; an authenticated INSERT of status='active' is
+-- coerced to pending_verification; a service_role INSERT keeps its chosen status.
 --
 -- NOTE: the authenticated simulation (SET ROLE + jwt claims) is the fiddly part;
 -- the definitive proof remains the LIVE end-to-end test against the deployed app.
@@ -46,7 +46,10 @@ FROM public.agencies WHERE company_name = '__dryrun_guard__';
 
 DO $test$
 DECLARE
-  blocked boolean := false;
+  blocked         boolean := false;
+  v_role_during   text;
+  v_profile_rows  integer;
+  v_status_after  text;
   v_auth_ins_status text;
   v_sr_ins_status   text;
 BEGIN
@@ -64,22 +67,30 @@ BEGIN
   RESET ROLE;
   RAISE NOTICE 'DRYRUN OK 3/6 — service_role status change allowed';
 
-  -- (4) AUTHENTICATED agency: UPDATE status BLOCKED, profile edit still allowed:
+  -- (4) AUTHENTICATED agency: cannot self-activate, but can edit profile.
+  -- Reset to a NON-active status first so 'active' is a REAL change (else the
+  -- guard's IS DISTINCT FROM is false and nothing is being blocked).
+  UPDATE public.agencies SET status = 'pending_verification' WHERE company_name = '__dryrun_guard__';
   PERFORM set_config('request.jwt.claims',
     '{"role":"authenticated","email":"dryrun-guard@example.com"}', true);
   SET LOCAL ROLE authenticated;
+  v_role_during := current_user;  -- confirm the role actually switched
+  -- profile (non-status) edit must succeed AND reach the row (proves RLS visibility):
+  UPDATE public.agencies SET primary_contact_phone = '07999999999' WHERE company_name = '__dryrun_guard__';
+  GET DIAGNOSTICS v_profile_rows = ROW_COUNT;
+  -- self-activation attempt must be blocked:
   BEGIN
     UPDATE public.agencies SET status = 'active' WHERE company_name = '__dryrun_guard__';
   EXCEPTION WHEN insufficient_privilege THEN
     blocked := true;
   END;
-  UPDATE public.agencies SET primary_contact_phone = '07999999999'
-  WHERE company_name = '__dryrun_guard__';
   RESET ROLE;
-  IF blocked THEN
-    RAISE NOTICE 'DRYRUN OK 4/6 — authenticated status change blocked; profile edit allowed';
+  SELECT status INTO v_status_after FROM public.agencies WHERE company_name = '__dryrun_guard__';
+  IF v_role_during = 'authenticated' AND v_profile_rows = 1 AND blocked AND v_status_after = 'pending_verification' THEN
+    RAISE NOTICE 'DRYRUN OK 4/6 — authenticated self-activation blocked; profile edit allowed';
   ELSE
-    RAISE EXCEPTION 'DRYRUN FAILED — authenticated WAS able to change status';
+    RAISE EXCEPTION 'DRYRUN FAILED 4/6 — role=% profile_rows=% blocked=% status_after=% (expected authenticated/1/true/pending_verification)',
+      v_role_during, v_profile_rows, blocked, v_status_after;
   END IF;
 
   -- (5) AUTHENTICATED INSERT with status='active' is coerced to pending_verification:
@@ -94,7 +105,7 @@ BEGIN
   IF v_auth_ins_status = 'pending_verification' THEN
     RAISE NOTICE 'DRYRUN OK 5/6 — authenticated INSERT status=active coerced to pending_verification';
   ELSE
-    RAISE EXCEPTION 'DRYRUN FAILED — authenticated INSERT landed as % (expected pending_verification)', v_auth_ins_status;
+    RAISE EXCEPTION 'DRYRUN FAILED 5/6 — authenticated INSERT landed as % (expected pending_verification)', v_auth_ins_status;
   END IF;
 
   -- (6) service_role INSERT keeps its chosen status (exempt):
@@ -107,7 +118,7 @@ BEGIN
   IF v_sr_ins_status = 'active' THEN
     RAISE NOTICE 'DRYRUN OK 6/6 — service_role INSERT kept status=active (exempt)';
   ELSE
-    RAISE EXCEPTION 'DRYRUN FAILED — service_role INSERT landed as % (expected active)', v_sr_ins_status;
+    RAISE EXCEPTION 'DRYRUN FAILED 6/6 — service_role INSERT landed as % (expected active)', v_sr_ins_status;
   END IF;
 END
 $test$;
