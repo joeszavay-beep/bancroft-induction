@@ -19,6 +19,20 @@ const STEPS = [
 
 const INDUSTRIES = ['M&E', 'Fit-out', 'Civils', 'General', 'Other']
 
+// A company UPDATE that matches 0 rows means RLS (co_update: id = get_my_company_id())
+// didn't match the live session — i.e. the login drifted or expired (common when more
+// than one account has been used in the same browser). Surface a clear re-auth prompt
+// instead of PostgREST's cryptic "Cannot coerce the result to a single JSON object".
+function assertRowUpdated(data, error) {
+  if (error) throw error
+  if (!data) {
+    const e = new Error('Your session has changed or expired. Please sign in again to continue.')
+    e.code = 'SESSION_MISMATCH'
+    throw e
+  }
+  return data
+}
+
 export default function Onboarding() {
   const navigate = useNavigate()
   const { company, refreshCompany, isAuthenticated, isLoading } = useCompany()
@@ -98,13 +112,13 @@ export default function Onboarding() {
         name: companyName.trim(),
         address: address.trim() || null,
         website: website.trim() || null,
-      }).eq('id', company.id).select().single()
-      if (error) throw error
-      refreshCompany(data)
+      }).eq('id', company.id).select().maybeSingle()
+      refreshCompany(assertRowUpdated(data, error))
       await saveStep(1)
       setStep(1)
     } catch (err) {
       toast.error(err.message || 'Failed to save')
+      if (err.code === 'SESSION_MISMATCH') navigate('/login')
     }
     setSaving(false)
   }
@@ -127,13 +141,13 @@ export default function Onboarding() {
         logo_url: logoUrl,
         primary_colour: primaryColour,
         secondary_colour: sidebarColour,
-      }).eq('id', company.id).select().single()
-      if (error) throw error
-      refreshCompany(data)
+      }).eq('id', company.id).select().maybeSingle()
+      refreshCompany(assertRowUpdated(data, error))
       await saveStep(2)
       setStep(2)
     } catch (err) {
       toast.error(err.message || 'Failed to save')
+      if (err.code === 'SESSION_MISMATCH') navigate('/login')
     }
     setSaving(false)
   }
@@ -248,12 +262,12 @@ export default function Onboarding() {
       const { data, error } = await supabase.from('companies').update({
         onboarding_complete: true,
         onboarding_step: 5,
-      }).eq('id', company.id).select().single()
-      if (error) throw error
-      refreshCompany(data)
+      }).eq('id', company.id).select().maybeSingle()
+      refreshCompany(assertRowUpdated(data, error))
       setCompleted(true)
     } catch (err) {
       toast.error(err.message || 'Failed to complete')
+      if (err.code === 'SESSION_MISMATCH') navigate('/login')
     }
     setSaving(false)
   }
