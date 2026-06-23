@@ -122,6 +122,13 @@ pages through `authFetch`). Also fold in **§1.10** (operative session never exp
 
 ## 📋 FEATURE BACKLOG
 
+- **Agency platform redesign (EPIC — product-design-led; needs owner design decisions FIRST; capture only, not scoped/started).**
+  Two strands: (1) **agency-scoped UX with role-based feature gating** — an agency account currently sees the
+  *subcontractor/company* feature set; agencies should get an agency-appropriate UI surface, not the company one
+  (the "agency sees company features" observation from the §5.7c walk folds in here); (2) **rework the
+  labour-requesting flow** between subcontractors and agencies (the request → propose → connect lifecycle).
+  Design decisions precede any scoping — do NOT start without them.
+
 - **Super-admin role toggle** — add a per-user **Admin / Manager** toggle in `SuperAdminPanel`, backed
   by a new `set-manager-role` action in `api/superadmin.js`: update `profiles.role` (authoritative) +
   sync the auth user's metadata role via `auth.admin.updateUserById`. Cap at `admin`/`manager` (never
@@ -134,20 +141,22 @@ pages through `authFetch`). Also fold in **§1.10** (operative session never exp
 
 ## 🚨 BLOCKING GATES (2026-06-15) — clear BEFORE onboarding any customer beyond the current trial
 
-**Gate 1 — Agency search+connect — ✅ RLS/RPC VERIFIED 2026-06-23; one product gap (R1) left to
-close before the first agency onboards.** The 2026-06-15 lockdown re-scoped `agencies` from
-`USING(true)` to own+connected (via `get_my_agency_ids()`), moving discovery to the
-`search_agencies` RPC. Verified via option (b): new `e2e/agency-connect.spec.js` +
-`e2e/helpers/agencies.js` (self-seeding disposable agency, full teardown). **6/6 green against the
-live locked prod DB**, zero residue confirmed by a service-role probe (same cleanup discipline as
-§5.20). **R2** (connect upsert's `onConflict` UNIQUE constraint) **exists in prod**; **R3** (connection
-visible to its creator — no §5.16 silent-invisible bug); **R4** (anon denied / pending hidden /
-active discoverable / connected scoping opens agency + roster) all **PASS**. No schema/policy change
-needed. **STILL OPEN — R1 (product gap, not RLS):** nothing promotes an agency from
-`pending_verification → active`, so a real agency is undiscoverable until a super-admin runs manual
-SQL. Owner to decide: document the manual-SQL process, or build a small super-admin verify toggle
-(mirrors `set-manager-active`). Optional ~5-min manual UI smoke of `AgencyConnections.jsx` also
-recommended (the spec covers the RLS/RPC layer, not the React wiring). See AUDIT.md §5.7c.
+**Gate 1 — Agency search+connect — ✅ CLOSED 2026-06-23 (live-verified end to end).** The 2026-06-15
+lockdown re-scoped `agencies` to own+connected (via `get_my_agency_ids()`), moving discovery to the
+`search_agencies` RPC. Now fully closed:
+- **RLS/RPC search+connect** proven by `e2e/agency-connect.spec.js` (6/6 green on the live locked DB;
+  R2 onConflict UNIQUE exists, R3 no silent-invisible, R4 anon-denied/pending-hidden/active-discoverable).
+- **Verify toggle (PR #30):** super-admin `set-agency-status`/`agencies-overview` (verifySuperAdmin +
+  allowlist) + SuperAdminPanel Agencies tab. Closes the original R1 gap (no app path activated an agency).
+- **Self-activation bypass shut (PR #31):** `BEFORE INSERT OR UPDATE` trigger (SECURITY INVOKER) blocks an
+  authenticated agency self-activating via UPDATE and coerces app-role INSERTs to `pending_verification`
+  (both `agency_update` + `agency_insert` doors). Applied to prod via the §5.19-grade ritual; live-proven.
+- **Signup regression fixed (PR #32):** `.insert().select()` RETURNING failed under scoped `agency_select`
+  before `agency_users` existed → client-gen id + drop `.select()` in both signup paths; live-verified.
+- **Owner ran the full live UI walk** (register → invisible → Activate → discoverable → connect) — passed.
+  Walk test data deleted; 5 demo agencies suspended (out of prospect search).
+- **Scope:** this closes the **security/onboarding gate**, NOT the agency product — see the *Agency platform
+  redesign* epic in the FEATURE BACKLOG. See AUDIT.md §5.7c.
 
 **Gate 2 — Rotate secrets.** Rotate `SUPABASE_SERVICE_ROLE_KEY` + update local `.env` and the
 Vercel env; also rotate/flag the shared `demo@coresite.io` password shipped in the JS bundle.
