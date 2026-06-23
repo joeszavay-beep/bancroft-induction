@@ -60,7 +60,13 @@ export default function AgencyRegister() {
         insurance_document_url = urlData.publicUrl
       }
 
-      const { data: agency, error } = await supabase.from('agencies').insert({
+      // Generate the id client-side and do NOT .select() it back: post-lockdown
+      // agency_select only shows own/connected agencies, and the agency_users link
+      // that get_my_agency_ids() keys on doesn't exist yet — so a RETURNING read here
+      // fails RLS ("new row violates row-level security policy").
+      const agencyId = crypto.randomUUID()
+      const { error } = await supabase.from('agencies').insert({
+        id: agencyId,
         company_name: form.company_name,
         trading_name: form.trading_name || null,
         company_registration_number: form.company_registration_number || null,
@@ -73,13 +79,13 @@ export default function AgencyRegister() {
         insurance_document_url,
         insurance_expiry_date: insuranceExpiry || null,
         status: 'pending_verification',
-      }).select().single()
+      })
 
       if (error) throw new Error(error.message)
 
       // Link the current user to the agency
       await supabase.from('agency_users').insert({
-        agency_id: agency.id,
+        agency_id: agencyId,
         email: managerData.email,
         name: managerData.name || form.primary_contact_name,
         role: 'admin',
