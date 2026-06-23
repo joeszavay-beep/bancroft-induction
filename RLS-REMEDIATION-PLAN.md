@@ -348,7 +348,7 @@ deploy4's clean-slate drop is correct, but **do not apply it yet**: the client c
 **5. Verify (gates — do not skip)** — ✅ DONE 2026-06-15
 - [x] `RLS_LOCKDOWN_APPLIED=1 npm run test:e2e` → **33/33 green** incl. `rls-lockdown-verification.spec.js` (anon reads 0 rows, can't forge a signature, can't delete a comment, RPCs still work). Caught one real regression — snag-reply comments inserted without `company_id` → invisible post-lockdown (AUDIT §5.16); fixed SQL-only (RPCs now stamp `company_id` from the snag) and re-verified green.
 - [x] §1 queries A/B/C vs baseline: A = `companies/postcode_cache/uk_bank_holidays` only; B = only `demo_requests`/`postcode_cache` INSERT; C = 9 storage policies, no `floor_plans_*`.
-- [x] Manual smoke: super-admin overview + toggle company active ✅; DocumentHub upload + sign-offs ✅; toolbox QR "not assigned" = **pre-existing duplicate-operative-identity** data issue, NOT the lockdown (AUDIT §5.17). ⚠️ **agency search+connect NOT verified** (no agency data in prod) — blocking gate before the first agency onboards (§5.7c / PROGRESS header).
+- [x] Manual smoke: super-admin overview + toggle company active ✅; DocumentHub upload + sign-offs ✅; toolbox QR "not assigned" = **pre-existing duplicate-operative-identity** data issue, NOT the lockdown (AUDIT §5.17). ✅ **agency search+connect VERIFIED 2026-06-23** via self-seeding `e2e/agency-connect.spec.js` (6/6 green on the live locked DB, zero residue) — R2/R3/R4 all pass, no schema/policy change. Residual item is the R1 product gap (no app path activates a `pending_verification` agency) — see §5.7c.
 
 **6. Rollback trigger & procedure**
 - Trigger if any public page errors for real users, a tenant loses access to their own data, or an RPC throws for anon.
