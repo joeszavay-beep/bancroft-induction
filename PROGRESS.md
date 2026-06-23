@@ -149,8 +149,11 @@ See AUDIT.md §5.7c.
 Vercel env; also rotate/flag the shared `demo@coresite.io` password shipped in the JS bundle.
 **BEFORE onboarding any new customer beyond the current trial.** See AUDIT.md §5.18.
 
-**Gate 3 — Self-service signup broken by Confirm-email (§5.20). RESOLVED in code 2026-06-23
-(PR #26 → main `ae5c802`); awaiting owner live smoke-test to fully close.** New public
+**Gate 3 — Self-service signup broken by Confirm-email (§5.20). ✅ CLOSED — LIVE-VERIFIED
+2026-06-23.** Clean-session signup on coresite.io completed end to end (account → onboarding);
+a read-only diagnostic confirmed a complete correctly-linked account. The "Cannot coerce" seen
+mid-test was stale browser-session drift, NOT a bug (Onboarding hardened to say "sign in again"
+instead — PR #27 → `a971f5d`). Fix below: new public
 `api/signup-company.js` creates the auth user server-side with `email_confirm:true` (like
 `create-operative-account`/`create-company-admin`); `Signup.jsx` (both Subcontractor + Agency tabs)
 routes through it then signs in for the existing company/profile/managers/agency inserts (unchanged).
