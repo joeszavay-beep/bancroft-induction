@@ -44,28 +44,28 @@ export default function Signup() {
 
     setLoading(true)
     try {
-      // 1. Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password: password.trim(),
-        options: {
-          data: { name: name.trim(), role: 'admin' },
-          emailRedirectTo: window.location.origin + '/onboarding',
-        },
-      })
-      if (authError) throw authError
-
-      // If email confirmation is required, signUp returns user but no session
-      // Sign in immediately to get a session for DB operations
-      let authUser = authData.user
-      if (!authData.session) {
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      // 1. Create a confirmed auth user server-side (§5.20). Confirm-email is ON, so
+      //    a client signUp returns no session and an immediate sign-in fails with
+      //    "Email not confirmed". The endpoint sets email_confirm:true; we then sign in
+      //    to get a session for the DB inserts below (which run under RLS as this admin).
+      const signupResp = await fetch('/api/signup-company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           email: email.trim().toLowerCase(),
           password: password.trim(),
-        })
-        if (signInError) throw signInError
-        authUser = signInData.user
-      }
+          name: name.trim(),
+        }),
+      })
+      const signupResult = await signupResp.json()
+      if (!signupResp.ok) throw new Error(signupResult.error || 'Account creation failed')
+
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password: password.trim(),
+      })
+      if (signInError) throw signInError
+      const authUser = signInData.user
       if (!authUser) throw new Error('Account creation failed. Please try again.')
 
       // 2. Create company
@@ -131,26 +131,28 @@ export default function Signup() {
 
     setLoading(true)
     try {
-      // 1. Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password: password.trim(),
-        options: {
-          data: { name: name.trim(), role: 'admin' },
-          emailRedirectTo: window.location.origin + '/onboarding',
-        },
-      })
-      if (authError) throw authError
-
-      let authUser = authData.user
-      if (!authData.session) {
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      // 1. Create a confirmed auth user server-side (§5.20). Confirm-email is ON, so
+      //    a client signUp returns no session and an immediate sign-in fails with
+      //    "Email not confirmed". The endpoint sets email_confirm:true; we then sign in
+      //    to get a session for the DB inserts below (which run under RLS as this admin).
+      const signupResp = await fetch('/api/signup-company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           email: email.trim().toLowerCase(),
           password: password.trim(),
-        })
-        if (signInError) throw signInError
-        authUser = signInData.user
-      }
+          name: name.trim(),
+        }),
+      })
+      const signupResult = await signupResp.json()
+      if (!signupResp.ok) throw new Error(signupResult.error || 'Account creation failed')
+
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password: password.trim(),
+      })
+      if (signInError) throw signInError
+      const authUser = signInData.user
       if (!authUser) throw new Error('Account creation failed. Please try again.')
 
       // 2. Create company
