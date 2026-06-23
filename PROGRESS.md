@@ -9,6 +9,12 @@ so any session can resume from it alone.
 
 ---
 
+## ✅ §5.18 — RESOLVED 2026-06-23: legacy keys DISABLED, all consumers on the new API-key pair
+
+Migrated both legacy JWT keys → the new `sb_secret_`/`sb_publishable_` pair and **disabled the legacy keys** in Supabase, holding the invariant throughout (legacy stayed valid until every consumer — local, CI, prod app + functions, demo — verified green; then disabled; reversible). Demo password rotated via `auth.admin.updateUserById` (the dashboard only offered an unreceivable recovery email; one-off `scripts/set-demo-password.mjs`, deleted after); `SandboxEntry` `'Demo2026!'` fallback removed (PR #25). The exposed legacy `service_role` key is **dead**; live app fully working post-cutover on the new keys. Full record + cleanup items (unused default key pair; §1.9 demo-privilege lockdown): **AUDIT.md §5.18**.
+
+---
+
 ## ✅ Progress Drawings counts — `get_progress_item_counts` RPC APPLIED + VERIFIED live in prod (2026-06-22)
 
 `get_progress_item_counts()` (SECURITY INVOKER, per-drawing server-side aggregation, cap-immune — fixes the 1000-row client-count undercount; PR #22) is **live in prod, verified 2026-06-22**: `pg_proc` confirms it exists (`prosecdef=false`), Level 08 (`daf32e0b-1206-41dc-9e16-3435323cdbcf`) returns **760/66/278/416**. Both the Drawings-list counts and the overall-summary **donut** (PR #23) depend on it. The client call (`ProgressDrawingsList.jsx`) now captures the RPC error (`console.error` + toast) instead of silently zeroing counts/hiding the donut. No re-investigation needed.

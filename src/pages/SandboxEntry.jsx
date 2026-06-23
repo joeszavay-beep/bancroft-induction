@@ -20,9 +20,11 @@ export default function SandboxEntry() {
     setError('')
 
     try {
-      // Sign in as demo account (needed for RLS)
+      // Sign in as demo account (needed for RLS). Password comes ONLY from
+      // VITE_DEMO_PASSWORD — no hardcoded fallback (a literal here ships a known
+      // password in the public bundle; §5.18). Demo fails loudly if it is unset.
       const { data, error: authErr } = await supabase.auth.signInWithPassword({
-        email: 'demo@coresite.io', password: import.meta.env.VITE_DEMO_PASSWORD || 'Demo2026!',
+        email: 'demo@coresite.io', password: import.meta.env.VITE_DEMO_PASSWORD,
       })
 
       if (authErr || !data?.user) {
