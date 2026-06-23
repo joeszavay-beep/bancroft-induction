@@ -9,9 +9,9 @@ so any session can resume from it alone.
 
 ---
 
-## 🔧 §5.18 — API-key migration IN PROGRESS (2026-06-22): rotate exposed service_role + retire legacy keys
+## ✅ §5.18 — RESOLVED 2026-06-23: legacy keys DISABLED, all consumers on the new API-key pair
 
-Both keys are **legacy JWT** (`eyJh…`); Supabase **removed legacy rotation**, so the only way to kill the exposed `service_role` is to **migrate to new API keys** (`sb_secret_` + `sb_publishable_`) and **deactivate the legacy pair** (anon forced into scope — shared JWT secret). Zero-downtime via coexistence. **Invariant: legacy stays valid until EVERY consumer (prod app, an api/function call, a CI run, local) is verified green on new keys; deactivate legacy ONLY then; it is reversible.** Branch `security/api-key-migration-5-18`. Non-secret prep done (SandboxEntry fallback removed, `.env.example`, AUDIT/PROGRESS). Dashboard steps + verify pending; **legacy NOT yet deactivated — exposed key still live.** Full plan, sequence, and consumer inventory: **AUDIT.md §5.18**. Demo-password real fix tracked at **§1.9**.
+Migrated both legacy JWT keys → the new `sb_secret_`/`sb_publishable_` pair and **disabled the legacy keys** in Supabase, holding the invariant throughout (legacy stayed valid until every consumer — local, CI, prod app + functions, demo — verified green; then disabled; reversible). Demo password rotated via `auth.admin.updateUserById` (the dashboard only offered an unreceivable recovery email; one-off `scripts/set-demo-password.mjs`, deleted after); `SandboxEntry` `'Demo2026!'` fallback removed (PR #25). The exposed legacy `service_role` key is **dead**; live app fully working post-cutover on the new keys. Full record + cleanup items (unused default key pair; §1.9 demo-privilege lockdown): **AUDIT.md §5.18**.
 
 ---
 
