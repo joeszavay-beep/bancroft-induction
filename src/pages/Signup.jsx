@@ -184,8 +184,13 @@ export default function Signup() {
       })
       if (profError) throw profError
 
-      // 4. Create agency record
-      const { data: agency, error: agencyError } = await supabase.from('agencies').insert({
+      // 4. Create agency record. Generate the id client-side and do NOT .select() it
+      // back: post-lockdown agency_select only shows own/connected agencies, and the
+      // agency_users link that get_my_agency_ids() keys on doesn't exist yet — so a
+      // RETURNING read here fails RLS ("new row violates row-level security policy").
+      const agencyId = crypto.randomUUID()
+      const { error: agencyError } = await supabase.from('agencies').insert({
+        id: agencyId,
         company_name: companyName.trim(),
         trading_name: tradingName.trim() || null,
         primary_contact_name: name.trim(),
@@ -193,12 +198,12 @@ export default function Signup() {
         primary_contact_phone: phone.trim() || null,
         company_registration_number: regNumber.trim() || null,
         status: 'pending_verification',
-      }).select().single()
+      })
       if (agencyError) throw agencyError
 
       // 5. Create agency_users link
       await supabase.from('agency_users').insert({
-        agency_id: agency.id,
+        agency_id: agencyId,
         email: email.trim().toLowerCase(),
         name: name.trim(),
         role: 'admin',
