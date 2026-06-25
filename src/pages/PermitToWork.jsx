@@ -414,13 +414,15 @@ export default function PermitToWork() {
 
       if (error) throw error
 
-      // Add requestor signature
-      await supabase.from('permit_signatures').insert({
+      // Add requestor signature; if it fails, roll back the permit so there is
+      // never a permit without its submission audit entry (§2.20)
+      const { error: sigErr } = await supabase.from('permit_signatures').insert({
         permit_id: permit.id,
         signer_name: managerName,
         role: 'requestor',
         action: 'submitted',
       })
+      if (sigErr) { await supabase.from('permits').delete().eq('id', permit.id); throw sigErr }
 
       toast.success(`Permit ${permitNumber} submitted for approval`)
       resetPermitForm()
@@ -482,45 +484,50 @@ export default function PermitToWork() {
   async function approvePermit() {
     if (!selectedPermit) return
     setActionLoading(true)
+    // Audit signature FIRST — a permit must never change state without it; if the
+    // state change then fails, undo the signature so the two stay in lockstep (§2.20)
+    const { data: sig, error: sigErr } = await supabase.from('permit_signatures').insert({
+      permit_id: selectedPermit.id,
+      signer_name: managerName,
+      role: 'approver',
+      action: 'approved',
+    }).select('id').single()
+    if (sigErr) { setActionLoading(false); toast.error('Couldn\'t record the approval signature — permit not approved. Please retry.'); return }
     const { error } = await supabase.from('permits')
       .update({ status: 'active', approved_by: managerName, approved_at: new Date().toISOString() })
       .eq('id', selectedPermit.id)
-    if (!error) {
-      await supabase.from('permit_signatures').insert({
-        permit_id: selectedPermit.id,
-        signer_name: managerName,
-        role: 'approver',
-        action: 'approved',
-      })
-      toast.success('Permit approved')
-      setSelectedPermit(null)
-      loadData()
-    } else {
-      toast.error('Failed to approve')
+    if (error) {
+      await supabase.from('permit_signatures').delete().eq('id', sig.id)
+      setActionLoading(false); toast.error('Failed to approve — please retry.'); return
     }
+    toast.success('Permit approved')
+    setSelectedPermit(null)
+    loadData()
     setActionLoading(false)
   }
 
   async function rejectPermit() {
     if (!selectedPermit || !rejectReason.trim()) return toast.error('Enter a rejection reason')
     setActionLoading(true)
+    // Audit signature first, roll back if the state change fails (§2.20)
+    const { data: sig, error: sigErr } = await supabase.from('permit_signatures').insert({
+      permit_id: selectedPermit.id,
+      signer_name: managerName,
+      role: 'approver',
+      action: 'rejected',
+      notes: rejectReason.trim(),
+    }).select('id').single()
+    if (sigErr) { setActionLoading(false); toast.error('Couldn\'t record the rejection signature — permit not rejected. Please retry.'); return }
     const { error } = await supabase.from('permits')
       .update({ status: 'rejected', rejection_reason: rejectReason.trim(), rejected_by: managerName })
       .eq('id', selectedPermit.id)
-    if (!error) {
-      await supabase.from('permit_signatures').insert({
-        permit_id: selectedPermit.id,
-        signer_name: managerName,
-        role: 'approver',
-        action: 'rejected',
-        notes: rejectReason.trim(),
-      })
-      toast.success('Permit rejected')
-      setSelectedPermit(null)
-      loadData()
-    } else {
-      toast.error('Failed to reject')
+    if (error) {
+      await supabase.from('permit_signatures').delete().eq('id', sig.id)
+      setActionLoading(false); toast.error('Failed to reject — please retry.'); return
     }
+    toast.success('Permit rejected')
+    setSelectedPermit(null)
+    loadData()
     setActionLoading(false)
   }
 
@@ -530,24 +537,26 @@ export default function PermitToWork() {
     const currentEnd = new Date(selectedPermit.valid_to)
     const newEnd = new Date(currentEnd.getTime() + extendHours * 3600000)
     const newDuration = (selectedPermit.duration_hours || 0) + extendHours
+    // Audit signature first, roll back if the extension write fails (§2.20)
+    const { data: sig, error: sigErr } = await supabase.from('permit_signatures').insert({
+      permit_id: selectedPermit.id,
+      signer_name: managerName,
+      role: 'approver',
+      action: 'extended',
+      notes: `Extended by ${extendHours} hours`,
+    }).select('id').single()
+    if (sigErr) { setExtending(false); toast.error('Couldn\'t record the extension signature — permit not extended. Please retry.'); return }
     const { error } = await supabase.from('permits')
       .update({ valid_to: newEnd.toISOString(), duration_hours: newDuration })
       .eq('id', selectedPermit.id)
-    if (!error) {
-      await supabase.from('permit_signatures').insert({
-        permit_id: selectedPermit.id,
-        signer_name: managerName,
-        role: 'approver',
-        action: 'extended',
-        notes: `Extended by ${extendHours} hours`,
-      })
-      toast.success(`Permit extended by ${extendHours} hours`)
-      setShowExtendForm(false)
-      setSelectedPermit(null)
-      loadData()
-    } else {
-      toast.error('Failed to extend')
+    if (error) {
+      await supabase.from('permit_signatures').delete().eq('id', sig.id)
+      setExtending(false); toast.error('Failed to extend — please retry.'); return
     }
+    toast.success(`Permit extended by ${extendHours} hours`)
+    setShowExtendForm(false)
+    setSelectedPermit(null)
+    loadData()
     setExtending(false)
   }
 
@@ -561,6 +570,15 @@ export default function PermitToWork() {
     if (!allChecked) return toast.error('Complete all closure checks')
 
     setActionLoading(true)
+    // Audit signature first, roll back if the closure write fails (§2.20)
+    const { data: sig, error: sigErr } = await supabase.from('permit_signatures').insert({
+      permit_id: selectedPermit.id,
+      signer_name: managerName,
+      role: 'closer',
+      action: 'closed',
+      notes: closeNotes.trim(),
+    }).select('id').single()
+    if (sigErr) { setActionLoading(false); toast.error('Couldn\'t record the closure signature — permit not closed. Please retry.'); return }
     const { error } = await supabase.from('permits')
       .update({
         status: 'closed',
@@ -570,20 +588,13 @@ export default function PermitToWork() {
         closure_checks: closureChecks,
       })
       .eq('id', selectedPermit.id)
-    if (!error) {
-      await supabase.from('permit_signatures').insert({
-        permit_id: selectedPermit.id,
-        signer_name: managerName,
-        role: 'closer',
-        action: 'closed',
-        notes: closeNotes.trim(),
-      })
-      toast.success('Permit closed')
-      setSelectedPermit(null)
-      loadData()
-    } else {
-      toast.error('Failed to close')
+    if (error) {
+      await supabase.from('permit_signatures').delete().eq('id', sig.id)
+      setActionLoading(false); toast.error('Failed to close — please retry.'); return
     }
+    toast.success('Permit closed')
+    setSelectedPermit(null)
+    loadData()
     setActionLoading(false)
   }
 

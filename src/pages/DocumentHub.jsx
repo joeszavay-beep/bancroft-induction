@@ -227,8 +227,8 @@ export default function DocumentHub() {
     setPacks(packRes.data || [])
     setProjects(projRes.data || [])
     setOperatives(opRes.data || [])
-    // document_signoffs has NO company_id column — scope by the company's
-    // document_hub ids instead (the old .eq('company_id', cid) silently errored).
+    // Scope sign-offs by the company's document_hub ids — equivalent to, and
+    // independent of, any company_id column on document_signoffs.
     const docIds = docs.map(d => d.id)
     if (docIds.length) {
       const { data: sigs } = await supabase.from('document_signoffs').select('*').in('document_id', docIds)
@@ -395,30 +395,48 @@ export default function DocumentHub() {
 
       if (error) throw error
 
-      // Archive old version
-      await supabase.from('document_hub').update({ is_archived: true }).eq('id', doc.id)
+      // Supersede the old version. Roll the new version back on failure so a
+      // broken re-issue leaves the OLD version as the single live current doc
+      // (clean retry, no version proliferation, never "both versions live") — §2.19.
+      try {
+        if (doc.requires_signoff) {
+          // Fresh pending sign-offs against the NEW version for the same operatives
+          const oldSignoffs = signoffs.filter(s => s.document_id === doc.id)
+          if (oldSignoffs.length > 0) {
+            const newSignoffRows = oldSignoffs.map(s => ({
+              company_id: cid,
+              document_id: newDoc.id,
+              operative_id: s.operative_id,
+              status: 'pending',
+            }))
+            const { error: soErr } = await supabase.from('document_signoffs').insert(newSignoffRows)
+            if (soErr) throw soErr
+          }
+        }
+        // Archive old LAST of the guarded steps → the new version is now the only live one
+        const { error: archErr } = await supabase.from('document_hub').update({ is_archived: true }).eq('id', doc.id)
+        if (archErr) throw archErr
+      } catch (supersedeErr) {
+        await supabase.from('document_signoffs').delete().eq('document_id', newDoc.id)
+        await supabase.from('document_hub').delete().eq('id', newDoc.id)
+        throw supersedeErr
+      }
 
-      // If requires signoff, invalidate old and create new pending signoffs
+      // Best-effort: clear the OLD version's sign-offs. It is already archived
+      // (superseded), so a failure here is non-blocking hygiene, not a live gap —
+      // and per-row signed/pending status can't be cleanly restored on rollback,
+      // so it stays outside the all-or-nothing block above (§2.19).
+      let staleSignoffWarn = false
       if (doc.requires_signoff) {
-        await supabase.from('document_signoffs')
+        const { error: invErr } = await supabase.from('document_signoffs')
           .update({ status: 'invalidated' })
           .eq('document_id', doc.id)
-
-        // Get operatives who had signoffs on old version
-        const oldSignoffs = signoffs.filter(s => s.document_id === doc.id)
-        if (oldSignoffs.length > 0) {
-          const newSignoffRows = oldSignoffs.map(s => ({
-            company_id: cid,
-            document_id: newDoc.id,
-            operative_id: s.operative_id,
-            status: 'pending',
-          }))
-          await supabase.from('document_signoffs').insert(newSignoffRows)
-        }
+        if (invErr) { console.error('Old sign-off invalidation failed:', invErr.message); staleSignoffWarn = true }
       }
 
       logAudit('version_update', newDoc.id, { from_version: doc.version, to_version: newVersion, previous_id: doc.id })
-      toast.success(`Version ${newVersion} uploaded`)
+      if (staleSignoffWarn) toast('Version uploaded — old sign-offs could not be cleared, but the old version is archived so they no longer apply.', { icon: '⚠️', duration: 6000 })
+      else toast.success(`Version ${newVersion} uploaded`)
       setShowVersionUpload(null)
       setVersionFile(null)
       setVersionRevision('')
