@@ -209,15 +209,22 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
         }).catch(() => {})
       }
 
-      // In-app notification (use operative ID if found, fall back to name)
-      supabase.from('notifications').insert({
-        company_id: mgr.company_id,
-        user_id: assigneeOp?.id || newAssignee,
-        type: 'info',
-        title: 'Snag Assigned',
-        body: `Snag #${snag.snag_number} has been assigned to you`,
-        link: '/worker',
-      }).then(() => {})
+      // In-app notification — only when the assignee resolves to an operative
+      // ID; user_id is a uuid column, so a name string errors / is undeliverable
+      // (AUDIT §2.21)
+      if (assigneeOp?.id) {
+        const { error: notifyErr } = await supabase.from('notifications').insert({
+          company_id: mgr.company_id,
+          user_id: assigneeOp.id,
+          type: 'info',
+          title: 'Snag Assigned',
+          body: `Snag #${snag.snag_number} has been assigned to you`,
+          link: '/worker',
+        })
+        if (notifyErr) console.error('Snag assign notification failed:', notifyErr.message)
+      } else {
+        console.warn('Snag assign notification skipped — could not resolve operative for', newAssignee)
+      }
     }
 
     toastSmart('Snag updated', 'Changes saved offline', offline)
@@ -321,14 +328,22 @@ export default function SnagDetail({ snag, onClose, onUpdated, isPM, operatives,
     // Notify the assigned operative of status change
     if (!offline && snag.assigned_to) {
       const mgr = JSON.parse(getSession('manager_data') || '{}')
-      supabase.from('notifications').insert({
-        company_id: mgr.company_id,
-        user_id: snag.assigned_to,
-        type: newStatus === 'completed' || newStatus === 'closed' ? 'success' : 'warning',
-        title: `Snag #${snag.snag_number} ${label}`,
-        body: `Your snag has been ${label} by ${mgr.name || 'the manager'}`,
-        link: '/worker/snags',
-      }).then(() => {})
+      // Resolve the assignee name to an operative ID — user_id is a uuid column
+      // (AUDIT §2.21)
+      const assigneeOp = operatives.find(op => op.name === snag.assigned_to)
+      if (assigneeOp?.id) {
+        const { error: notifyErr } = await supabase.from('notifications').insert({
+          company_id: mgr.company_id,
+          user_id: assigneeOp.id,
+          type: newStatus === 'completed' || newStatus === 'closed' ? 'success' : 'warning',
+          title: `Snag #${snag.snag_number} ${label}`,
+          body: `Your snag has been ${label} by ${mgr.name || 'the manager'}`,
+          link: '/worker/snags',
+        })
+        if (notifyErr) console.error('Snag status notification failed:', notifyErr.message)
+      } else {
+        console.warn('Snag status notification skipped — could not resolve operative for', snag.assigned_to)
+      }
     }
 
     toastSmart(`Snag #${snag.snag_number} ${label}`, `Snag #${snag.snag_number} ${label} (offline)`, offline)

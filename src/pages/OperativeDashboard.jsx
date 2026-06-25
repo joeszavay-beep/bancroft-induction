@@ -166,19 +166,23 @@ export default function OperativeDashboard() {
     const msgText = chatMsg.trim()
     setChatSending(true)
 
-    // Upload photo if attached
+    // Upload photo if attached — abort the send if it fails (don't send a photo-less "photo")
     let photoUrl = null
     if (photoFile) {
       const path = `chat/${op.company_id}/${crypto.randomUUID()}.jpg`
-      const { error } = await supabase.storage.from('documents').upload(path, photoFile, { contentType: photoFile.type })
-      if (!error) {
-        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
-        photoUrl = urlData.publicUrl
+      const { error: upErr } = await supabase.storage.from('documents').upload(path, photoFile, { contentType: photoFile.type })
+      if (upErr) {
+        setChatSending(false)
+        toast.error('Photo upload failed — message not sent')
+        return
       }
+      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+      photoUrl = urlData.publicUrl
     }
 
+    const tempId = `temp-${crypto.randomUUID()}`
     const tempMsg = {
-      id: `temp-${crypto.randomUUID()}`,
+      id: tempId,
       company_id: op.company_id,
       operative_id: op.id,
       operative_name: op.name,
@@ -196,7 +200,7 @@ export default function OperativeDashboard() {
     setChatMsg('')
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
 
-    await supabase.from('chat_messages').insert({
+    const { data: saved, error } = await supabase.from('chat_messages').insert({
       company_id: op.company_id,
       operative_id: op.id,
       operative_name: op.name,
@@ -208,7 +212,20 @@ export default function OperativeDashboard() {
       photo_url: photoUrl,
       read_by_manager: false,
       read_by_operative: true,
-    })
+    }).select().single()
+
+    if (error) {
+      // Roll back the optimistic bubble and restore the user's text
+      setChatMessages(prev => prev.filter(m => m.id !== tempId))
+      setChatMsg(msgText)
+      setChatSending(false)
+      toast.error('Message failed to send')
+      return
+    }
+
+    // Replace the temp bubble with the real saved row
+    setChatMessages(prev => prev.map(m => (m.id === tempId ? saved : m)))
+
     await supabase.from('notifications').insert({
       company_id: op.company_id,
       user_id: selectedManager.id,
@@ -244,14 +261,18 @@ export default function OperativeDashboard() {
   async function addSnagComment() {
     if (!newComment.trim() || !selectedSnag) return
     setSendingComment(true)
-    await supabase.from('snag_comments').insert({
+    const { error } = await supabase.from('snag_comments').insert({
       snag_id: selectedSnag.id,
       comment: newComment.trim(),
       author_name: op.name,
       author_role: 'Operative',
     })
-    setNewComment('')
     setSendingComment(false)
+    if (error) {
+      toast.error('Comment failed to send')
+      return
+    }
+    setNewComment('')
     const { data } = await supabase.from('snag_comments').select('*').eq('snag_id', selectedSnag.id).order('created_at')
     setSnagComments(data || [])
     toast.success('Comment added')
@@ -883,10 +904,14 @@ function ProfileTab({ op, operative, handleLogout, navigate, primaryColor, setOp
   }
 
   async function handleCancelPending() {
-    await supabase.from('operatives').update({ pending_email: null }).eq('id', op.id)
-    await supabase.from('pending_email_changes')
+    const { error: opErr } = await supabase.from('operatives').update({ pending_email: null }).eq('id', op.id)
+    const { error: chgErr } = await supabase.from('pending_email_changes')
       .update({ cancelled_at: new Date().toISOString() })
       .eq('operative_id', op.id).is('verified_at', null).is('cancelled_at', null)
+    if (opErr || chgErr) {
+      toast.error('Couldn\'t cancel the email change — please try again')
+      return
+    }
     if (setOperative) setOperative(prev => prev ? { ...prev, pending_email: null } : prev)
     toast.success('Email change cancelled')
   }

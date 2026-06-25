@@ -136,18 +136,23 @@ export default function ProgrammeSetup() {
       }).filter(l => l.entity_count > 0 || parsed.layers.length <= 100) // save all if reasonable count
 
       if (layerRows.length > 0) {
-        await supabase.from('drawing_layers').delete().eq('drawing_id', drawingData.id)
+        // Check each step so a failed re-insert (which would lose baselines)
+        // throws into the catch below rather than silently succeeding (§2.22)
+        const { error: delErr } = await supabase.from('drawing_layers').delete().eq('drawing_id', drawingData.id)
+        if (delErr) throw delErr
         const batchSize = 50
         for (let i = 0; i < layerRows.length; i += batchSize) {
-          await supabase.from('drawing_layers').insert(layerRows.slice(i, i + batchSize))
+          const { error: insErr } = await supabase.from('drawing_layers').insert(layerRows.slice(i, i + batchSize))
+          if (insErr) throw insErr
         }
       }
 
       // Update drawing scale factor
-      await supabase.from('design_drawings').update({
+      const { error: scaleErr } = await supabase.from('design_drawings').update({
         scale_factor: parsed.scaleFactor,
         units: parsed.unitsLabel || 'mm',
       }).eq('id', drawingData.id)
+      if (scaleErr) throw scaleErr
 
     } catch (err) {
       console.error('DXF parse error:', err)

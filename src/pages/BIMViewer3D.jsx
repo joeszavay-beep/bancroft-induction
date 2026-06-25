@@ -809,7 +809,7 @@ export default function BIMViewer3D() {
       if (drawErr) throw drawErr
 
       for (const mod of allModels) {
-        await supabase.from('bim_drawing_calibration').upsert({
+        const { error: calErr } = await supabase.from('bim_drawing_calibration').upsert({
           drawing_id: drawing.id,
           model_id: mod.id,
           company_id: managerData.company_id,
@@ -817,6 +817,7 @@ export default function BIMViewer3D() {
           floor_name: 'All',
           created_by: managerData.name || 'System',
         }, { onConflict: 'drawing_id,model_id' })
+        if (calErr) throw calErr
       }
 
       setDrawings(prev => [...prev, drawing])

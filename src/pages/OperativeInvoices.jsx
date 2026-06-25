@@ -157,10 +157,14 @@ export default function OperativeInvoices() {
       const ext = file.name.split('.').pop()
       const path = `invoices/${invoiceId}/${crypto.randomUUID()}.${ext}`
       const { error } = await supabase.storage.from('documents').upload(path, file, { contentType: file.type })
-      if (!error) {
-        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
-        uploaded.push({ name: file.name, url: urlData.publicUrl, type: file.type })
+      if (error) {
+        // Don't silently drop a failed attachment (§2.22)
+        console.error('Invoice attachment upload failed:', file.name, error.message)
+        toast.error(`Failed to upload ${file.name}`)
+        continue
       }
+      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+      uploaded.push({ name: file.name, url: urlData.publicUrl, type: file.type })
     }
     return uploaded
   }
@@ -224,7 +228,8 @@ export default function OperativeInvoices() {
         setUploadingFiles(true)
         const attachments = await uploadInvoiceFiles(inserted.id, invoiceFiles)
         if (attachments.length > 0) {
-          await supabase.from('operative_invoices').update({ attachments }).eq('id', inserted.id)
+          const { error: attErr } = await supabase.from('operative_invoices').update({ attachments }).eq('id', inserted.id)
+          if (attErr) toast.error('Invoice saved, but attachments could not be linked')
         }
         setUploadingFiles(false)
       }
@@ -298,7 +303,8 @@ export default function OperativeInvoices() {
         const newAttachments = await uploadInvoiceFiles(updated.id, invoiceFiles)
         const existing = updated.attachments || []
         if (newAttachments.length > 0) {
-          await supabase.from('operative_invoices').update({ attachments: [...existing, ...newAttachments] }).eq('id', updated.id)
+          const { error: attErr } = await supabase.from('operative_invoices').update({ attachments: [...existing, ...newAttachments] }).eq('id', updated.id)
+          if (attErr) toast.error('Invoice updated, but new attachments could not be linked')
         }
         setUploadingFiles(false)
       }

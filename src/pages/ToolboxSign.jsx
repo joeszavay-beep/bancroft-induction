@@ -68,11 +68,14 @@ export default function ToolboxSign() {
     const filePath = `toolbox/${talkId}/${selectedOp}_${crypto.randomUUID()}.png`
     const { error: upErr } = await supabase.storage.from('documents').upload(filePath, blob, { contentType: 'image/png' })
 
-    let sigUrl = null
-    if (!upErr) {
-      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
-      sigUrl = urlData.publicUrl
+    // Don't record a signature with no image — abort and let the user retry (§2.22)
+    if (upErr) {
+      setSaving(false)
+      toast.error('Couldn\'t upload your signature — please try again')
+      return
     }
+    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
+    const sigUrl = urlData.publicUrl
 
     // RPC does the dedupe re-check, project-assignment check, signature insert
     // and manager notifications server-side (works under the RLS lockdown).

@@ -6,6 +6,7 @@ import {
   Paperclip, X, Package, Wrench, AlertTriangle, Clock
 } from 'lucide-react'
 import { getSession } from '../lib/storage'
+import toast from 'react-hot-toast'
 
 const QUICK_MESSAGES = [
   { icon: Package, label: 'Material Request', text: 'Material needed: ' },
@@ -133,20 +134,26 @@ export default function Chat() {
     const msgText = newMsg.trim()
     setSending(true)
 
-    // Upload photo if attached
+    // Upload photo if attached — abort the send if it fails (don't send a photo-less "photo")
     let photoUrl = null
     if (photoFile) {
       const path = `chat/${cid}/${crypto.randomUUID()}.jpg`
-      const { error } = await supabase.storage.from('documents').upload(path, photoFile, { contentType: photoFile.type })
-      if (!error) {
-        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
-        photoUrl = urlData.publicUrl
+      const { error: upErr } = await supabase.storage.from('documents').upload(path, photoFile, { contentType: photoFile.type })
+      if (upErr) {
+        setSending(false)
+        toast.error('Photo upload failed — message not sent')
+        return
       }
+      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+      photoUrl = urlData.publicUrl
     }
 
-    // Optimistic: show immediately
+    // Optimistic: show immediately (remember inputs so we can roll back on failure)
+    const tempId = `temp-${crypto.randomUUID()}`
+    const prevPhotoFile = photoFile
+    const prevPhotoPreview = photoPreview
     const tempMsg = {
-      id: `temp-${crypto.randomUUID()}`,
+      id: tempId,
       company_id: cid,
       operative_id: selectedOp.operative_id,
       operative_name: selectedOp.operative_name,
@@ -166,7 +173,7 @@ export default function Chat() {
     setPhotoPreview(null)
     setTimeout(() => messagesEndRef.current?.parentElement?.scrollTo({ top: messagesEndRef.current.parentElement.scrollHeight, behavior: 'smooth' }), 50)
 
-    await supabase.from('chat_messages').insert({
+    const { data: saved, error } = await supabase.from('chat_messages').insert({
       company_id: cid,
       project_id: null,
       operative_id: selectedOp.operative_id,
@@ -179,8 +186,23 @@ export default function Chat() {
       photo_url: photoUrl,
       read_by_manager: true,
       read_by_operative: false,
-    })
-    // Notify the operative
+    }).select().single()
+
+    if (error) {
+      // Roll back the optimistic bubble and restore the user's input
+      setMessages(prev => prev.filter(m => m.id !== tempId))
+      setNewMsg(msgText)
+      setPhotoFile(prevPhotoFile)
+      setPhotoPreview(prevPhotoPreview)
+      setSending(false)
+      toast.error('Message failed to send')
+      return
+    }
+
+    // Replace the temp bubble with the real saved row
+    setMessages(prev => prev.map(m => (m.id === tempId ? saved : m)))
+
+    // Notify the operative — best-effort, must not fail the message
     await supabase.from('notifications').insert({
       company_id: cid,
       user_id: selectedOp.operative_id,

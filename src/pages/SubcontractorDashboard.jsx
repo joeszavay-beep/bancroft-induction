@@ -248,13 +248,12 @@ export default function SubcontractorDashboard() {
   async function dismissMarginAlert(job) {
     const newThreshold = Math.floor(job.projections.projectedMarginPct - 1)
     setDismissedAlerts(prev => new Set([...prev, job.id]))
-    try {
-      await supabase.from('subcontractor_jobs')
-        .update({ margin_alert_threshold: newThreshold })
-        .eq('id', job.id)
-    } catch (err) {
-      console.error('Failed to update threshold', err)
-    }
+    // supabase returns an error object (it doesn't throw) — check it, else the
+    // dismiss silently no-ops and the alert returns on next load (§2.22)
+    const { error } = await supabase.from('subcontractor_jobs')
+      .update({ margin_alert_threshold: newThreshold })
+      .eq('id', job.id)
+    if (error) console.error('Failed to update margin threshold', error.message)
   }
 
   const tl = TRAFFIC_LIGHT_COLORS[financials.projections.trafficLight] || TRAFFIC_LIGHT_COLORS.green

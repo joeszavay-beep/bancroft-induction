@@ -420,7 +420,8 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh, c
 
   async function deleteFloor(floorId, projectId) {
     if (!confirm('Delete this floor level?')) return
-    await supabase.from('project_floors').delete().eq('id', floorId)
+    const { error } = await supabase.from('project_floors').delete().eq('id', floorId)
+    if (error) { toast.error('Failed to delete floor'); return }
     toast.success('Floor deleted')
     loadFloors(projectId)
   }
@@ -438,7 +439,8 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh, c
       const { error: upErr } = await supabase.storage.from('floor-plans').upload(path, blob, { upsert: true, contentType: 'image/png' })
       if (upErr) throw upErr
       const { data: urlData } = supabase.storage.from('floor-plans').getPublicUrl(path)
-      await supabase.from('project_floors').update({ image_url: urlData.publicUrl }).eq('id', floor.id)
+      const { error: dbErr } = await supabase.from('project_floors').update({ image_url: urlData.publicUrl }).eq('id', floor.id)
+      if (dbErr) throw dbErr
       toast.success('Floor plan uploaded')
       loadFloors(projectId)
     } catch (err) {
@@ -620,10 +622,14 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh, c
       toast.error('Failed to update document')
       return
     }
-    // Invalidate all existing signatures for this document
-    await supabase.from('signatures').update({ invalidated: true }).eq('document_id', showUpdateDoc.id)
+    // Invalidate all existing signatures for this document so operatives re-sign
+    const { error: invErr } = await supabase.from('signatures').update({ invalidated: true }).eq('document_id', showUpdateDoc.id)
     setSaving(false)
-    toast.success('Document updated — operatives flagged to re-sign')
+    if (invErr) {
+      toast.error('Document updated, but flagging operatives to re-sign failed — please retry')
+    } else {
+      toast.success('Document updated — operatives flagged to re-sign')
+    }
     setShowUpdateDoc(null)
     setUploadFile(null)
     onRefresh()
@@ -847,7 +853,8 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh, c
                             radius={p.geofence_radius || 200}
                             height={220}
                             onChange={async (coords) => {
-                              await supabase.from('projects').update({ site_latitude: coords.latitude, site_longitude: coords.longitude, geofence_enabled: true }).eq('id', p.id)
+                              const { error } = await supabase.from('projects').update({ site_latitude: coords.latitude, site_longitude: coords.longitude, geofence_enabled: true }).eq('id', p.id)
+                              if (error) { toast.error('Failed to update site location'); return }
                               toast.success('Site location updated')
                               onRefresh()
                             }}
@@ -860,7 +867,8 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh, c
                               onBlur={async (e) => {
                                 const val = Math.max(50, Math.min(10000, Number(e.target.value) || 200))
                                 e.target.value = val
-                                await supabase.from('projects').update({ geofence_radius: val }).eq('id', p.id)
+                                const { error } = await supabase.from('projects').update({ geofence_radius: val }).eq('id', p.id)
+                                if (error) { toast.error('Failed to update radius'); return }
                                 toast.success('Radius updated')
                                 onRefresh()
                               }}
@@ -871,7 +879,8 @@ function ProjectsTab({ projects, documents, operatives, signatures, onRefresh, c
                           </div>
                           {p.site_latitude && (
                             <button onClick={async () => {
-                              await supabase.from('projects').update({ site_latitude: null, site_longitude: null, geofence_enabled: false }).eq('id', p.id)
+                              const { error } = await supabase.from('projects').update({ site_latitude: null, site_longitude: null, geofence_enabled: false }).eq('id', p.id)
+                              if (error) { toast.error('Failed to clear location'); return }
                               setGeofenceToggles(prev => ({ ...prev, [p.id]: false }))
                               toast.success('Location cleared')
                               onRefresh()
@@ -1203,25 +1212,34 @@ function TeamTab({ operatives, projects, onRefresh }) {
       return
     }
     if (projectId && data) {
-      await supabase.from('operative_projects').insert({ operative_id: data.id, project_id: projectId })
-    }
-    // Send invite email/SMS
-    if (data && (email.trim() || mobile.trim())) {
-      const proj = projects.find(p => p.id === projectId)
-      await authFetch('/api/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          operativeId: data.id,
-          operativeName: name.trim(),
-          email: email.trim().toLowerCase() || null,
-          mobile: mobile.trim() || null,
-          projectName: proj?.name || '',
-        }),
-      }).catch(() => {})
+      const { error: linkErr } = await supabase.from('operative_projects').insert({ operative_id: data.id, project_id: projectId })
+      if (linkErr) toast.error('Operative created, but could not be linked to the project')
     }
     setSaving(false)
-    toast.success(email.trim() ? 'Operative added — invite sent' : 'Operative added')
+    // Send invite email/SMS and report the real outcome (AUDIT §2.9/§2.11)
+    if (data && (email.trim() || mobile.trim())) {
+      const proj = projects.find(p => p.id === projectId)
+      try {
+        const inviteRes = await authFetch('/api/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            operativeId: data.id,
+            operativeName: name.trim(),
+            email: email.trim().toLowerCase() || null,
+            mobile: mobile.trim() || null,
+            projectName: proj?.name || '',
+          }),
+        })
+        const inviteData = await inviteRes.json()
+        if (inviteData.results?.email === 'sent' || inviteData.results?.sms === 'sent') toast.success('Operative added — invite sent')
+        else toast.error('Operative added, but the invite failed to send')
+      } catch {
+        toast.error('Operative added, but the invite failed to send')
+      }
+    } else {
+      toast.success('Operative added')
+    }
     setShowAdd(false)
     setName('')
     setProjectId('')
@@ -1617,15 +1635,25 @@ function SnagsTab({ projects, navigate }) {
     setAssigning(true)
 
     const snagIds = [...checkedSnags]
-    // Update assigned_to and generate reply tokens
+    // Update assigned_to and generate per-snag reply tokens; only snags that
+    // actually persist get an email/reply link (AUDIT §2.11 — no dead links)
     const replyTokens = {}
+    const assignedIds = []
     for (const id of snagIds) {
       const token = crypto.randomUUID()
+      const { error: updErr } = await supabase.from('snags').update({ assigned_to: assignTo, reply_token: token, updated_at: new Date().toISOString() }).eq('id', id)
+      if (updErr) { console.error('Snag assign failed for', id, updErr.message); continue }
       replyTokens[id] = token
-      await supabase.from('snags').update({ assigned_to: assignTo, reply_token: token, updated_at: new Date().toISOString() }).eq('id', id)
+      assignedIds.push(id)
     }
 
-    const selectedSnagData = allSnags.filter(s => checkedSnags.has(s.id))
+    if (assignedIds.length === 0) {
+      setAssigning(false)
+      toast.error('Failed to assign snags — please try again')
+      return
+    }
+
+    const selectedSnagData = allSnags.filter(s => assignedIds.includes(s.id))
     const drawingId = selectedSnagData[0]?.drawing_id
     const drawing = drawings.find(d => d.id === drawingId)
     const proj = projects.find(p => p.id === drawing?.project_id)
@@ -1647,8 +1675,10 @@ function SnagsTab({ projects, navigate }) {
     } catch (err) { console.error('PDF generation for email failed:', err) }
 
     // Send email with snag details and PDF link
+    let emailOk = false
     if (assignEmail) {
-      await authFetch('/api/invite', {
+      try {
+      const inviteRes = await authFetch('/api/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1664,7 +1694,7 @@ function SnagsTab({ projects, navigate }) {
               </div>
               <div style="background:#fff;padding:24px;border:1px solid #E2E6EA;border-top:none;">
                 <p style="color:#1A1A2E;font-size:15px;margin:0 0 8px;">Hi ${assignTo},</p>
-                <p style="color:#6B7A99;font-size:14px;margin:0 0 20px;">You have been assigned <strong>${snagIds.length} snag${snagIds.length > 1 ? 's' : ''}</strong> on <strong>${drawing?.name || 'a drawing'}</strong> — ${proj?.name || ''}.</p>
+                <p style="color:#6B7A99;font-size:14px;margin:0 0 20px;">You have been assigned <strong>${assignedIds.length} snag${assignedIds.length > 1 ? 's' : ''}</strong> on <strong>${drawing?.name || 'a drawing'}</strong> — ${proj?.name || ''}.</p>
                 ${selectedSnagData.map(s => `
                   <div style="background:#F5F6F8;border:1px solid #E2E6EA;border-left:4px solid ${s.status === 'open' ? '#DA3633' : s.status === 'completed' ? '#2EA043' : '#D29922'};border-radius:6px;padding:14px;margin-bottom:10px;">
                     <table style="width:100%;border-collapse:collapse;">
@@ -1697,11 +1727,19 @@ function SnagsTab({ projects, navigate }) {
             </div>
           `,
         }),
-      }).catch(() => {})
+      })
+      const inviteData = await inviteRes.json()
+      emailOk = inviteData.results?.email === 'sent'
+      } catch { emailOk = false }
     }
 
     setAssigning(false)
-    toast.success(`${snagIds.length} snag${snagIds.length > 1 ? 's' : ''} assigned to ${assignTo}${assignEmail ? ' — email sent' : ''}`)
+    const n = assignedIds.length
+    if (assignEmail && !emailOk) {
+      toast.error(`${n} snag${n > 1 ? 's' : ''} assigned to ${assignTo}, but the email failed to send`)
+    } else {
+      toast.success(`${n} snag${n > 1 ? 's' : ''} assigned to ${assignTo}${assignEmail ? ' — email sent' : ''}`)
+    }
     setShowAssignModal(false)
     setCheckedSnags(new Set())
     setAssignTo('')

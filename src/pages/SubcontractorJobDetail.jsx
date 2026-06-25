@@ -208,10 +208,14 @@ export default function SubcontractorJobDetail() {
       const ext = file.name.split('.').pop()
       const path = `variations/${variationId}/${crypto.randomUUID()}.${ext}`
       const { error } = await supabase.storage.from('documents').upload(path, file, { contentType: file.type })
-      if (!error) {
-        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
-        uploaded.push({ name: file.name, url: urlData.publicUrl, type: file.type, size: file.size })
+      if (error) {
+        // Don't silently drop a failed attachment (§2.22)
+        console.error('Variation attachment upload failed:', file.name, error.message)
+        toast.error(`Failed to upload ${file.name}`)
+        continue
       }
+      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+      uploaded.push({ name: file.name, url: urlData.publicUrl, type: file.type, size: file.size })
     }
     return uploaded
   }
@@ -237,7 +241,8 @@ export default function SubcontractorJobDetail() {
         setUploadingVarFiles(true)
         const uploaded = await uploadVariationFiles(inserted.id, varFiles)
         if (uploaded.length > 0) {
-          await supabase.from('job_variations').update({ attachments: uploaded }).eq('id', inserted.id)
+          const { error: attErr } = await supabase.from('job_variations').update({ attachments: uploaded }).eq('id', inserted.id)
+          if (attErr) toast.error('Variation added, but attachments could not be linked')
         }
         setUploadingVarFiles(false)
       }
@@ -275,6 +280,8 @@ export default function SubcontractorJobDetail() {
     if (!error) {
       toast.success('File removed')
       loadJob()
+    } else {
+      toast.error('Failed to remove file')
     }
   }
 

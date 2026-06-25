@@ -50,26 +50,35 @@ export default function InviteNewWorkers() {
     }
 
     if (selectedProject && data) {
-      await supabase.from('operative_projects').insert({ operative_id: data.id, project_id: selectedProject })
-    }
-
-    // Send invite email
-    if (data) {
-      await authFetch('/api/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          operativeId: data.id,
-          operativeName: fullName,
-          email: email.trim().toLowerCase(),
-          mobile: mobile.trim() || null,
-          projectName: projects.find(p => p.id === selectedProject)?.name || 'CoreSite',
-        }),
-      }).catch(() => {})
+      const { error: linkErr } = await supabase.from('operative_projects').insert({ operative_id: data.id, project_id: selectedProject })
+      if (linkErr) toast.error('Worker created, but could not be linked to the project')
     }
 
     setSaving(false)
-    toast.success(`Invitation sent to ${fullName}`)
+
+    // Send invite email and report the real outcome (the endpoint returns 200
+    // with results.email even when the email itself fails — AUDIT §2.9)
+    if (data) {
+      try {
+        const inviteRes = await authFetch('/api/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            operativeId: data.id,
+            operativeName: fullName,
+            email: email.trim().toLowerCase(),
+            mobile: mobile.trim() || null,
+            projectName: projects.find(p => p.id === selectedProject)?.name || 'CoreSite',
+          }),
+        })
+        const inviteData = await inviteRes.json()
+        if (inviteData.results?.email === 'sent') toast.success(`Invitation sent to ${fullName}`)
+        else if (inviteData.results?.email === 'no_api_key') toast.error('Worker saved, but email is not configured on the server')
+        else toast.error('Worker saved, but the invitation failed to send')
+      } catch {
+        toast.error('Worker saved, but the invitation failed to send')
+      }
+    }
     setFirstName(''); setLastName(''); setEmail(''); setMobile(''); setSelectedProject('')
   }
 
@@ -134,21 +143,30 @@ export default function InviteNewWorkers() {
         continue
       }
       if (bulkProject && data) {
-        await supabase.from('operative_projects').insert({ operative_id: data.id, project_id: bulkProject })
+        const { error: linkErr } = await supabase.from('operative_projects').insert({ operative_id: data.id, project_id: bulkProject })
+        if (linkErr) console.error('Bulk invite: project link failed for', row.email, linkErr.message)
       }
       if (data) {
-        await authFetch('/api/invite', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            operativeId: data.id,
-            operativeName: fullName,
-            email: row.email,
-            mobile: row.mobile || null,
-            projectName: projects.find(p => p.id === bulkProject)?.name || 'CoreSite',
-          }),
-        }).catch(() => { failCount++ })
-        successCount++
+        // Count success only when the email actually went out — never both
+        // success and fail for the same row (AUDIT §2.9 double-count).
+        try {
+          const inviteRes = await authFetch('/api/invite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              operativeId: data.id,
+              operativeName: fullName,
+              email: row.email,
+              mobile: row.mobile || null,
+              projectName: projects.find(p => p.id === bulkProject)?.name || 'CoreSite',
+            }),
+          })
+          const inviteData = await inviteRes.json()
+          if (inviteData.results?.email === 'sent') successCount++
+          else failCount++
+        } catch {
+          failCount++
+        }
       }
     }
     setBulkSaving(false)

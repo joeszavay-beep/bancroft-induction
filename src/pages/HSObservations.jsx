@@ -233,7 +233,10 @@ export default function HSObservations() {
             movedUrls.push(url)
           }
         }
-        await supabase.from('hs_observations').update({ photos: movedUrls }).eq('id', data.id)
+        // The observation row already exists; if the photo-pointer update fails
+        // the photos just won't display — log rather than fail the save (§2.22)
+        const { error: photoErr } = await supabase.from('hs_observations').update({ photos: movedUrls }).eq('id', data.id)
+        if (photoErr) console.error('HS observation photo pointer update failed:', photoErr.message)
       }
 
       toast.success('Observation recorded')
