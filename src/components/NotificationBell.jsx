@@ -102,14 +102,17 @@ export default function NotificationBell() {
   }, [open])
 
   async function markAsRead(id) {
-    await supabase.from('notifications').update({ read: true }).eq('id', id)
+    // Read-flag only — keep the optimistic UI, but log if it doesn't persist (§2.22)
+    const { error } = await supabase.from('notifications').update({ read: true }).eq('id', id)
+    if (error) console.error('Mark-as-read failed:', error.message)
     setNotifications((prev) => prev.filter((n) => n.id !== id))
   }
 
   async function markAllRead() {
     if (!userId || notifications.length === 0) return
     const ids = notifications.map((n) => n.id)
-    await supabase.from('notifications').update({ read: true }).in('id', ids)
+    const { error } = await supabase.from('notifications').update({ read: true }).in('id', ids)
+    if (error) console.error('Mark-all-read failed:', error.message)
     setNotifications([])
   }
 

@@ -320,16 +320,22 @@ export default async function handler(req, res) {
 
       if (error) return res.status(500).json({ error: error.message })
 
-      // Flip equipment status to Defective
-      await supabase.from('equipment').update({ status: 'Defective', updated_at: new Date().toISOString() }).eq('id', b.equipmentId)
+      // The defect row is now created. The following are secondary: if the
+      // status flip fails we must NOT 500 (the client would retry and create a
+      // duplicate defect — AUDIT §2.13 shape), so surface it as a warning.
+      const warnings = []
 
-      // Notify all managers in the company
+      // Flip equipment status to Defective
+      const { error: statusErr } = await supabase.from('equipment').update({ status: 'Defective', updated_at: new Date().toISOString() }).eq('id', b.equipmentId)
+      if (statusErr) warnings.push('Defect recorded, but the equipment could not be marked Defective — please refresh.')
+
+      // Notify all managers in the company (best-effort)
       const { data: managers } = await supabase
         .from('profiles')
         .select('id')
         .eq('company_id', eq.company_id)
       for (const m of (managers || [])) {
-        await supabase.from('notifications').insert({
+        const { error: notifyErr } = await supabase.from('notifications').insert({
           company_id: eq.company_id,
           user_id: m.id,
           type: 'warning',
@@ -337,9 +343,10 @@ export default async function handler(req, res) {
           body: `${eq.description}${eq.serial_number ? ' (' + eq.serial_number + ')' : ''} — ${b.severity}: ${b.description}. Reported by ${b.reporterName}.`,
           link: '/app/plant-equipment',
         })
+        if (notifyErr) console.error('Defect notify failed for manager', m.id, notifyErr.message)
       }
 
-      return res.json({ success: true, defect })
+      return res.json({ success: true, defect, ...(warnings.length ? { warnings } : {}) })
     }
 
     return res.status(400).json({ error: 'Unknown POST action' })
@@ -383,8 +390,12 @@ export default async function handler(req, res) {
         updates.daily_hire_rate = rate === '' ? null : rate
       }
 
-      const { error } = await supabase.from('equipment').update(updates).eq('id', b.id)
+      // .select() so a 0-row update (no matching row) is distinguishable from a
+      // real success — otherwise an UPDATE that touched nothing returns success
+      // (AUDIT §2.3).
+      const { data: updated, error } = await supabase.from('equipment').update(updates).eq('id', b.id).select('id')
       if (error) return res.status(500).json({ error: error.message })
+      if (!updated || updated.length === 0) return res.status(404).json({ error: 'Equipment not found or not updated' })
       return res.json({ success: true })
     }
 
@@ -396,26 +407,33 @@ export default async function handler(req, res) {
       if (!defect) return res.status(404).json({ error: 'Defect not found' })
       if (defect.company_id !== callerCompanyId) return res.status(403).json({ error: 'Not authorised' })
 
-      // Resolve the defect
-      await supabase.from('equipment_defects').update({
+      // Resolve the defect — this is the primary write; fail loudly if it errors
+      // (otherwise the client toasts "Defect resolved" while the defect stays
+      // open and the equipment stays locked — AUDIT §2.3).
+      const { error: resolveErr } = await supabase.from('equipment_defects').update({
         status: 'Resolved',
         resolved_by_id: user.id,
         resolved_by_name: b.resolverName || user.user_metadata?.name || 'Manager',
         resolution_notes: b.notes || null,
         resolved_at: new Date().toISOString(),
       }).eq('id', b.defectId)
+      if (resolveErr) return res.status(500).json({ error: resolveErr.message })
 
       // Check if any other open defects remain
+      const warnings = []
       const { data: remaining } = await supabase
         .from('equipment_defects')
         .select('id')
         .eq('equipment_id', defect.equipment_id)
         .eq('status', 'Open')
       if (!remaining || remaining.length === 0) {
-        await supabase.from('equipment').update({ status: 'In Service', updated_at: new Date().toISOString() }).eq('id', defect.equipment_id)
+        // Secondary: the defect is already resolved, so warn (don't 500) if the
+        // status can't be flipped back — a 500 would mislead the user.
+        const { error: statusErr } = await supabase.from('equipment').update({ status: 'In Service', updated_at: new Date().toISOString() }).eq('id', defect.equipment_id)
+        if (statusErr) warnings.push('Defect resolved, but the equipment status could not be set to In Service — please refresh.')
       }
 
-      return res.json({ success: true })
+      return res.json({ success: true, ...(warnings.length ? { warnings } : {}) })
     }
 
     return res.status(400).json({ error: 'Unknown PATCH action' })

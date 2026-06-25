@@ -233,22 +233,30 @@ export default function Onboarding() {
       })
       if (error) throw error
 
-      // Try to send invite email
-      await authFetch('/api/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: inviteName.trim(),
-          email: inviteEmail.trim().toLowerCase(),
-          company_id: company.id,
-          company_name: company.name,
-        }),
-      }).catch(() => {})
+      // Send invite email and report the real outcome (manager is already
+      // created above; the endpoint returns 200 even when email fails — §2.9)
+      let emailOk = false
+      try {
+        const inviteRes = await authFetch('/api/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: inviteName.trim(),
+            email: inviteEmail.trim().toLowerCase(),
+            company_id: company.id,
+            company_name: company.name,
+          }),
+        })
+        const inviteData = await inviteRes.json()
+        emailOk = inviteData.results?.email === 'sent'
+      } catch { emailOk = false }
 
-      setInvitedPeople(prev => [...prev, { name: inviteName.trim(), email: inviteEmail.trim().toLowerCase() }])
+      const invitedEmail = inviteEmail.trim()
+      setInvitedPeople(prev => [...prev, { name: inviteName.trim(), email: invitedEmail.toLowerCase() }])
       setInviteName('')
       setInviteEmail('')
-      toast.success(`Invite sent to ${inviteEmail.trim()}`)
+      if (emailOk) toast.success(`Invite sent to ${invitedEmail}`)
+      else toast.error(`${invitedEmail} added, but the invite email failed to send`)
     } catch (err) {
       toast.error(err.message || 'Failed to invite')
     }

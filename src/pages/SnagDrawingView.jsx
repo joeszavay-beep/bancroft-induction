@@ -239,7 +239,8 @@ export default function SnagDrawingView() {
     if (upErr) { setReplacingDrawing(false); toast.error('Upload failed'); return }
 
     const { data: urlData } = supabase.storage.from('drawings').getPublicUrl(filePath)
-    await supabase.from('drawings').update({ file_url: urlData.publicUrl }).eq('id', drawingId)
+    const { error: dbErr } = await supabase.from('drawings').update({ file_url: urlData.publicUrl }).eq('id', drawingId)
+    if (dbErr) { setReplacingDrawing(false); toast.error('Uploaded, but updating the drawing record failed — please retry'); return }
 
     setReplacingDrawing(false)
     toast.success('Drawing updated — reloading')

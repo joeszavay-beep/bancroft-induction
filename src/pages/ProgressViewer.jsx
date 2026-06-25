@@ -472,15 +472,18 @@ function ProgressViewer() {
 
   async function updateItemStatus(item, newStatus) {
     if (item.status === newStatus) return
-    await supabase.from('progress_items').update({
+    const { error } = await supabase.from('progress_items').update({
       status: newStatus, updated_at: new Date().toISOString(), updated_by: mgr.name,
     }).eq('id', item.id)
+    if (error) { toast.error('Couldn\'t update item status — please try again'); return }
 
-    await supabase.from('progress_item_history').insert({
+    // History row is a secondary audit write — log but don't block on it
+    const { error: histErr } = await supabase.from('progress_item_history').insert({
       item_id: item.id, company_id: cid, drawing_id: drawingId,
       previous_status: item.status, new_status: newStatus,
       changed_by: mgr.id, changed_by_name: mgr.name,
     })
+    if (histErr) console.error('Progress history insert failed:', histErr.message)
 
     toast.success(`Item #${item.item_number} → ${STATUS_LABELS[newStatus]}`)
     setSelectedItem(null)

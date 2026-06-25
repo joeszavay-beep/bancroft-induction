@@ -66,10 +66,14 @@ export default function WorkerProfile() {
   }
 
   async function handleCancelPending() {
-    await supabase.from('operatives').update({ pending_email: null }).eq('id', id)
-    await supabase.from('pending_email_changes')
+    const { error: opErr } = await supabase.from('operatives').update({ pending_email: null }).eq('id', id)
+    const { error: chgErr } = await supabase.from('pending_email_changes')
       .update({ cancelled_at: new Date().toISOString() })
       .eq('operative_id', id).is('verified_at', null).is('cancelled_at', null)
+    if (opErr || chgErr) {
+      toast.error('Couldn\'t cancel the email change — please try again')
+      return
+    }
     setOperative(prev => ({ ...prev, pending_email: null }))
     toast.success('Email change cancelled')
   }

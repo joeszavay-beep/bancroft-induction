@@ -36,26 +36,41 @@ export default function InviteExistingWorkers() {
       return
     }
     setSending(op.id)
-    // Update operative's project assignment
-    await supabase.from('operative_projects').upsert({ operative_id: op.id, project_id: selectedProject })
+    // Update operative's project assignment — the point of this action, so fail
+    // if it errors rather than reporting a phantom success (AUDIT §2.9)
+    const { error: linkErr } = await supabase.from('operative_projects').upsert({ operative_id: op.id, project_id: selectedProject })
+    if (linkErr) {
+      setSending(null)
+      toast.error(`Couldn't assign ${op.name} to the project`)
+      return
+    }
 
-    // Send invite email
+    // Send invite email and report the real outcome
     const proj = projects.find(p => p.id === selectedProject)
     if (op.email) {
-      await authFetch('/api/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          operativeId: op.id,
-          operativeName: op.name,
-          email: op.email,
-          projectName: proj?.name || '',
-        }),
-      }).catch(() => {})
+      try {
+        const inviteRes = await authFetch('/api/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            operativeId: op.id,
+            operativeName: op.name,
+            email: op.email,
+            projectName: proj?.name || '',
+          }),
+        })
+        const inviteData = await inviteRes.json()
+        if (inviteData.results?.email === 'sent') toast.success(`${op.name} invited to ${proj?.name}`)
+        else if (inviteData.results?.email === 'no_api_key') toast.error(`${op.name} assigned, but email is not configured on the server`)
+        else toast.error(`${op.name} assigned, but the invitation failed to send`)
+      } catch {
+        toast.error(`${op.name} assigned, but the invitation failed to send`)
+      }
+    } else {
+      toast.success(`${op.name} assigned to ${proj?.name}`)
     }
 
     setSending(null)
-    toast.success(`${op.name} invited to ${proj?.name}`)
     loadData()
   }
 
