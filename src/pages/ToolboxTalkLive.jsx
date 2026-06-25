@@ -69,8 +69,11 @@ export default function ToolboxTalkLive() {
   async function closeTalk() {
     if (!confirm('Close this toolbox talk? The QR code will stop working.')) return
     setClosing(true)
-    await supabase.from('toolbox_talks').update({ is_open: false, closed_at: new Date().toISOString() }).eq('id', talkId)
+    const { error } = await supabase.from('toolbox_talks').update({ is_open: false, closed_at: new Date().toISOString() }).eq('id', talkId)
     setClosing(false)
+    // Only report closed once is_open actually flipped — the sign page gates on
+    // it, so a silent failure would leave the QR accepting signatures (§2.17)
+    if (error) { toast.error('Couldn\'t close the talk — it may still be accepting signatures. Please retry.'); return }
     toast.success('Toolbox talk closed')
     setTalk(prev => ({ ...prev, is_open: false, closed_at: new Date().toISOString() }))
   }

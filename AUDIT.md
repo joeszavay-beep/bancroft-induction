@@ -198,6 +198,7 @@ A second silent-save path worth checking with affected users: **1.6** — anyone
 - **File:** `src/pages/ToolboxTalkLive.jsx:69-76`
 - **Issue:** `closeTalk` discards the `is_open=false` update result, toasts "closed", sets local state closed. If it failed, the sign page stays live.
 - **Fix:** Check `error`; only update state/toast on success.
+- **FIXED (2026-06-25, batch 2):** `closeTalk` checks the update error and only reports "closed" once `is_open` actually flips; on failure it toasts that the talk may still be accepting signatures. Signing is gated client-side by `ToolboxSign.jsx:121` (`if (!talk.is_open)`). Server-side enforcement is logged as §2.17b (server-side hardening cluster).
 
 ### 2.18 [MEDIUM] LabourRequestDetail accept-proposal: five writes, no rollback, last two unchecked
 - **File:** `src/pages/LabourRequestDetail.jsx:78-134`
@@ -208,11 +209,13 @@ A second silent-save path worth checking with affected users: **1.6** — anyone
 - **File:** `src/pages/DocumentHub.jsx:389`, `:393-406`, `:318`, `:590`, `:515-527`
 - **Issue:** Archiving the old version, invalidating its signoffs, and inserting replacement pending signoffs all discard results — failures leave both versions live and operatives "signed off" against superseded documents. Read-flag updates use `.then(() => ...)` without reading `error` (same in `Chat.jsx:85-100`).
 - **Fix:** Destructure `{ error }` and throw into the existing catch/toast path.
+- **FIXED (2026-06-25, batch 2):** `handleUploadVersion` reordered so the new version is created first, then (guarded) new pending sign-offs are created and the old version is archived **last**; any failure in that block rolls back the new version (deletes new sign-offs + new doc) and re-throws, so a broken re-issue leaves the OLD version as the single live current doc — never "both versions live". Old sign-off invalidation is moved **after** archiving and made best-effort (the old doc is already superseded, and per-row signed/pending status can't be cleanly un-invalidated on rollback); a failure there warns rather than blocks. Stale `:230` comment ("NO company_id column") corrected — it conflicted with the error-checked `company_id` inserts at `:453`/`:597`. Full atomicity logged as §2.19b.
 
 ### 2.20 [MEDIUM] Permit audit-trail signatures inserted without checks
 - **File:** `src/pages/PermitToWork.jsx:418`, `:489`, `:511`, `:537`, `:574`
 - **Issue:** Every `permit_signatures` insert (submit/approve/reject/extend/close) ignores its result — the permit status changes but the safety audit-trail entry can silently be missing, defeating the point of permits in incident review.
 - **Fix:** Check `error` on each; warn "Permit approved but signature log failed" so it can be retried.
+- **FIXED (2026-06-25, batch 2):** Signature is now the anchor. For approve/reject/extend/close the audit signature is inserted **first** (checked) and the permit state change only follows; if the state change fails the signature is rolled back, so state + audit stay in lockstep. Submit can't go signature-first (needs `permit.id`), so a failed submission signature rolls back the just-created permit. Worst residual is a rare detectable orphaned signature (over-records, never under-records). Full DB-atomic version logged as §2.20b.
 
 ### 2.21 [MEDIUM] Snag notifications insert an operative *name* into `user_id`
 - **File:** `src/components/SnagDetail.jsx:213-220`, `:324-331`
@@ -233,6 +236,12 @@ A second silent-save path worth checking with affected users: **1.6** — anyone
 - **Fix:** Load signees via the junction, e.g. `from('operatives').select('*, operative_projects!inner(project_id)').eq('operative_projects.project_id', t.project_id)` (mirror `SiteSignIn.jsx:129`), or query `operative_projects` for the project and join operatives.
 - **CONFIRMED BY E2E (2026-06-09):** `e2e/toolbox.spec.js` — create persists (green); the sign test navigated to `/toolbox/:id` as a seeded operative on the project and found "All operatives have signed" with no canvas.
 - **FIXED (2026-06-09):** both `ToolboxSign.jsx:33` and `ToolboxTalkLive.jsx:33` now load operatives via the `operative_projects!inner` junction (`.eq('operative_projects.project_id', t.project_id)`). The same wrong-relationship assumption in `PMDashboard.jsx:710` (`operatives.filter(o => o.project_id === p.id)`, which zeroed the per-project sign-off %) was also fixed to use the junction. The toolbox sign E2E is now green.
+
+### 2.25 [BACKLOG — server-side compliance hardening cluster] (logged 2026-06-25)
+The §2.17 / §2.19 / §2.20 **client** fixes close the live gaps now (each fails in the safe direction). These are the **server-side belt-and-braces** follow-ups — all SQL/RPC changes needing the careful manual treatment, separate from the client batch. Real but **not urgent**.
+- **2.17b** — `submit_toolbox_signature` RPC should re-check `is_open` server-side. The client page-gate (`ToolboxSign.jsx:121`) closes the common path, but the RPC could be hit directly. (RPC source is not in `sql/` — current server-side behaviour unconfirmed; verify when implementing.)
+- **2.19b** — fully-atomic document re-issue (new version + archive old + invalidate old sign-offs + create new pending) in a single Postgres RPC/transaction. The client compensating-rollback is sound; the RPC removes the residual non-atomic edge (e.g. compensating delete itself failing).
+- **2.20b** — fully-atomic permit state-change + `permit_signatures` insert in one RPC. The client signature-first + compensating-rollback is sound; the RPC removes the rare orphaned-signature residual.
 
 ---
 
