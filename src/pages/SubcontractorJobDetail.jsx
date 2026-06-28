@@ -688,13 +688,17 @@ export default function SubcontractorJobDetail() {
       }
 
       if (entries.length > 0) {
-        // Upsert: delete existing auto entries for this week, then insert
-        await supabase.from('timesheet_entries')
+        // Clear this week's existing AUTO entries, then insert fresh ones. The
+        // delete MUST succeed before the insert runs — a failed delete (RLS /
+        // network; supabase returns an error, it doesn't throw) followed by the
+        // insert would DOUBLE-COUNT hours and labour cost (AUDIT §2.13).
+        const { error: delErr } = await supabase.from('timesheet_entries')
           .delete()
           .eq('job_id', jobId)
           .eq('is_manual_entry', false)
           .gte('date', weekDates[0])
           .lte('date', weekDates[6])
+        if (delErr) throw delErr
 
         const { error } = await supabase.from('timesheet_entries').insert(entries)
         if (error) throw error
