@@ -144,6 +144,7 @@ A second silent-save path worth checking with affected users: **1.6** — anyone
 - **File:** `src/pages/ProgressDrawingsList.jsx:139-143`
 - **Issue:** `deleteDrawing` deletes `progress_item_history` → `progress_items` → `progress_zones` → `progress_drawings` without checking any `error`, then always toasts "Drawing deleted". A failure at the final step leaves a drawing stripped of all markup/history; an earlier failure shows success while nothing was deleted.
 - **Fix:** Check each `error`, abort on first failure; move the cascade into an RPC/transaction or FK `ON DELETE CASCADE`.
+- **FIXED (2026-06-25, batch 3):** Live-DB introspection showed all three children (`progress_item_history`, `progress_items`, `progress_zones`) are already FK'd to `progress_drawings` with **`ON DELETE CASCADE`** (and `progress_item_history.item_id → progress_items` CASCADE), so the manual client cascade was redundant **and** was the source of the partial-destruction window. `deleteDrawing` now deletes only the parent (`progress_drawings`) — the FK cascade removes the children atomically in one statement — with a `.select('id')` 0-row guard (honest "not found / no permission") and a real error check. No RPC/SQL needed (the cascade already exists). The other `drawing_id` tables (`bim_drawing_calibration`, `drawing_layers`, `snags`) reference different drawing tables, not `progress_drawings`, so nothing is orphaned. E2E coverage logged as TH-3.
 
 ### 2.7 [CRITICAL] Agency availability toggles: write-and-forget with dead try/catch
 - **File:** `src/pages/AgencyOperativeDetail.jsx:228-244`, `:266-272`
@@ -589,6 +590,14 @@ The §2.17 / §2.19 / §2.20 **client** fixes close the live gaps now (each fail
 ### 6.11 [LOW] Assorted async gaps
 - **Files:** `src/lib/ProjectContext.jsx:21-45` (no `.catch`, no offline fallback, no stale-company guard — saved project selection vanishes offline); `src/pages/HolidayRequests.jsx:148-149`, `:173-174` (post-mutation allowance refresh without `.catch` → unhandled rejection + stale figure); `src/main.jsx:34-37` (update banner reloads before SKIP_WAITING activates — "tapped update, nothing changed"); `src/lib/CompanyContext.jsx:19-27`, `:46-61` (5s `Promise.race` timeout discards the eventually-resolved real session in favour of stale cached auth)
 - **Fix:** Add catches/fallbacks; reload on `controllerchange`; on race timeout still apply the late-resolving session when it arrives.
+
+---
+
+## Test hygiene backlog (logged 2026-06-25)
+Non-urgent E2E/test-infra follow-ups surfaced while shipping the §2.x reliability/compliance batches.
+- **TH-1 — Permit E2E coverage (guards §2.20).** No `e2e/permit.spec.js` exists, so the permit audit-trail fixes rest on diff review + the mechanical shape. Add: create permit → approve → assert a `permit_signatures` row exists (and ideally reject/extend/close each log a row). Gives the compliance audit-trail real regression coverage.
+- **TH-2 — Operative-lifecycle shared-fixture pollution.** The `operative-remove-historical` / `-reactivate` / `-rejoin` specs mutate a single shared test operative serially against live Supabase, so `left_at` state races in a full run (batch-1 run: `operative-remove-historical:88` hard-failed in the full suite but passed 6/6 in isolation; `operative-reactivate` saw `left_at` still set). Give each lifecycle spec its own freshly-seeded operative (or a per-spec beforeAll seed) so a full-suite run is deterministic.
+- **TH-3 — Progress-drawing delete E2E coverage (guards §2.6).** No spec covers drawing deletion. Add: create a throwaway `progress_drawings` row + a few `progress_items` (which generate `progress_item_history`) + a `progress_zones` row → delete the drawing via the UI → assert the drawing row **and** all three child sets are 0 for that `drawing_id` (proves the FK `ON DELETE CASCADE` fired atomically); plus a bad-id delete that hits the "not found / no permission" path and removes nothing.
 
 ---
 

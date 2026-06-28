@@ -150,10 +150,13 @@ export default function ProgressDrawingsList() {
 
   async function deleteDrawing(id, name) {
     if (!confirm(`Delete "${name}" and all its items?`)) return
-    await supabase.from('progress_item_history').delete().eq('drawing_id', id)
-    await supabase.from('progress_items').delete().eq('drawing_id', id)
-    await supabase.from('progress_zones').delete().eq('drawing_id', id)
-    await supabase.from('progress_drawings').delete().eq('id', id)
+    // progress_items / progress_zones / progress_item_history are all FK'd to
+    // progress_drawings with ON DELETE CASCADE (verified against the live DB), so
+    // deleting the parent removes them atomically in one statement — no manual
+    // child-first cascade, which is what created the partial-destruction window (§2.6).
+    const { data, error } = await supabase.from('progress_drawings').delete().eq('id', id).select('id')
+    if (error) { toast.error('Couldn\'t delete the drawing — nothing was removed. Please try again.'); return }
+    if (!data || data.length === 0) { toast.error('Drawing not found, or you don\'t have permission to delete it.'); return }
     toast.success('Drawing deleted')
     loadAll()
   }
