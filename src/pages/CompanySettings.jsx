@@ -197,7 +197,9 @@ export default function CompanySettings() {
 
       // Load settings from JSONB or individual columns
       const s = data.settings || {}
-      setNotifEmail(s.notification_email || '')
+      // §2.16b: notification email is the canonical companies.notification_email
+      // COLUMN (what SignDocument + api/notify read), not the JSONB.
+      setNotifEmail(data.notification_email || '')
       setEmailNotificationsOn(s.email_notifications !== false)
       setAutoChaseOn(!!s.auto_chase_enabled)
       setAutoChaseDays(s.auto_chase_days || 7)
@@ -241,9 +243,9 @@ export default function CompanySettings() {
       }
       setNumberingTemplate(rpt.numbering_template || '{project_prefix}-{company_prefix}-XX-HS-X-{seq:05d}')
 
-      // Also load notification email from settings table (existing functionality)
-      const { data: settingsRow } = await supabase.from('settings').select('*').eq('key', 'pm_email').single()
-      if (settingsRow?.value) setNotifEmail(settingsRow.value)
+      // (§2.16: the legacy global `settings` pm_email read is retired — it was a
+      // cross-tenant shared row with no consumer. notifEmail is loaded from the
+      // per-company companies.notification_email column above.)
 
       setLoading(false)
     }
@@ -327,7 +329,6 @@ export default function CompanySettings() {
       const currentSettings = companyData.settings || {}
       const newSettings = {
         ...currentSettings,
-        notification_email: notifEmail.trim(),
         email_notifications: emailNotificationsOn,
         auto_chase_enabled: autoChaseOn,
         auto_chase_days: autoChaseDays,
@@ -335,18 +336,14 @@ export default function CompanySettings() {
         cert_expiry_days: certExpiryDays,
       }
 
+      // §2.16b: the notification email is the canonical companies.notification_email
+      // COLUMN (read by SignDocument + api/notify); other prefs stay in the JSONB.
+      // (§2.16: the legacy global `settings` pm_email upsert is retired.)
       const { data, error } = await supabase.from('companies').update({
         settings: newSettings,
+        notification_email: notifEmail.trim() || null,
       }).eq('id', cid).select().single()
       if (error) throw error
-
-      // Also save to settings table for backward compatibility
-      if (notifEmail.trim()) {
-        await supabase.from('settings').upsert({
-          key: 'pm_email',
-          value: notifEmail.trim(),
-        }, { onConflict: 'key' })
-      }
 
       setCompanyData(data)
       toast.success('Notification preferences saved')
