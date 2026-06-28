@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { CompanyProvider } from './lib/CompanyContext'
 import { ThemeProvider } from './lib/ThemeContext'
@@ -48,33 +48,37 @@ if ('serviceWorker' in navigator) {
   })
 }
 
+// Data router (createBrowserRouter) instead of <BrowserRouter> so navigation-
+// blocking hooks (useBlocker) are available — needed for the in-app unsaved-
+// changes guard (AUDIT §2.5). App's existing route tree stays intact as the
+// splat element; the app-global providers (router-hook-free) keep wrapping.
+const router = createBrowserRouter([{ path: '*', element: <App /> }])
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>
-      <ThemeProvider>
-      <CompanyProvider>
-        <App />
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            duration: 2500,
-            style: {
-              background: '#fff',
-              color: '#1A1A2E',
-              border: '1px solid #E2E6EA',
-              borderRadius: '8px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-            },
-            success: {
-              iconTheme: { primary: '#2EA043', secondary: '#fff' },
-            },
-            error: {
-              iconTheme: { primary: '#DA3633', secondary: '#fff' },
-            },
-          }}
-        />
-      </CompanyProvider>
-      </ThemeProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+    <CompanyProvider>
+      <RouterProvider router={router} />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 2500,
+          style: {
+            background: '#fff',
+            color: '#1A1A2E',
+            border: '1px solid #E2E6EA',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          },
+          success: {
+            iconTheme: { primary: '#2EA043', secondary: '#fff' },
+          },
+          error: {
+            iconTheme: { primary: '#DA3633', secondary: '#fff' },
+          },
+        }}
+      />
+    </CompanyProvider>
+    </ThemeProvider>
   </StrictMode>,
 )
