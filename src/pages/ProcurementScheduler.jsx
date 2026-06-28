@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useBlocker } from 'react-router-dom'
 import { Download, FileSpreadsheet, Printer, CalendarRange, Settings2, FileDown } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
@@ -133,6 +134,14 @@ function ProjectHeader({ header, setHeader }) {
 // ── CSV export helper ──
 const CSV_HEADERS = ['ID', 'Description', 'Supplier', 'Level', 'Tech Sub', 'Approval', 'Approved', 'Status', 'Order Placed', 'Lead Time', 'Delivery', 'On Site', 'Comments']
 
+// Normalize rows to their persisted shape (drop the UI-only _leadWeeks field).
+const stripLeadWeeks = (rows) => rows.map(r => { const c = { ...r }; delete c._leadWeeks; return c })
+// Stable snapshot of the saved shape, so "dirty" means the content genuinely
+// differs from what was loaded/last-saved — immune to effect re-runs / StrictMode
+// double-invoke (unlike a one-shot "just loaded" flag, which could leak a false dirty).
+const scheduleSnapshot = (header, rules, rows, categories) =>
+  JSON.stringify({ header, rules, rows: stripLeadWeeks(rows), categories })
+
 // ── Main page ──
 export default function ProcurementScheduler() {
   const { user } = useCompany()
@@ -148,7 +157,7 @@ export default function ProcurementScheduler() {
   const [loaded, setLoaded] = useState(false)
   const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'error'
   const saveTimer = useRef(null)
-  const justLoadedRef = useRef(false) // skip the autosave that loading/switching a project triggers
+  const lastSavedRef = useRef(null) // snapshot of the last loaded/saved content; drives the dirty check
 
   // Load from Supabase on mount / project change
   useEffect(() => {
@@ -163,17 +172,18 @@ export default function ProcurementScheduler() {
         .maybeSingle()
       if (cancelled) return
       if (data) {
-        setHeader(data.header || { project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' })
-        setRules(data.rules || { ...DEFAULT_RULES })
-        setRows((data.rows || []).map(r => ({ ...r, _leadWeeks: parseLeadTime(r.leadTime) })))
-        setCategories(data.categories || ['General'])
+        const h = data.header || { project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' }
+        const ru = data.rules || { ...DEFAULT_RULES }
+        const rw = (data.rows || []).map(r => ({ ...r, _leadWeeks: parseLeadTime(r.leadTime) }))
+        const ca = data.categories || ['General']
+        setHeader(h); setRules(ru); setRows(rw); setCategories(ca)
+        lastSavedRef.current = scheduleSnapshot(h, ru, rw, ca)
       } else {
-        setHeader({ project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' })
-        setRules({ ...DEFAULT_RULES })
-        setRows([])
-        setCategories(['General'])
+        const h = { project: '', stage: '', projectNo: '', revision: '', date: fmtDateISO(new Date()), trade: '' }
+        const ru = { ...DEFAULT_RULES }
+        setHeader(h); setRules(ru); setRows([]); setCategories(['General'])
+        lastSavedRef.current = scheduleSnapshot(h, ru, [], ['General'])
       }
-      justLoadedRef.current = true // the state writes above will fire the autosave effect — skip that one
       setLoaded(true)
     })()
     return () => { cancelled = true }
@@ -182,13 +192,19 @@ export default function ProcurementScheduler() {
   // Auto-save to Supabase (debounced 1.5s after last change)
   useEffect(() => {
     if (!loaded || !cid || !projectId) return
-    // Skip the save the initial load / project switch triggers when it populates
-    // state — otherwise we'd re-save unchanged data and show a false "unsaved".
-    if (justLoadedRef.current) { justLoadedRef.current = false; return }
+    // Don't evaluate dirtiness until the baseline snapshot exists. `loaded` can
+    // flip true (the no-project path, or before an async (re)load resolves —
+    // `cid` arrives async from useCompany) while lastSavedRef is still null;
+    // saving then would register a false "unsaved changes".
+    if (lastSavedRef.current == null) return
+    const snapshot = scheduleSnapshot(header, rules, rows, categories)
+    // Not dirty if the content matches what was loaded / last saved. This covers
+    // the load/project-switch re-render WITHOUT a fragile one-shot flag, so a
+    // freshly-loaded page never shows a false "unsaved changes" prompt.
+    if (snapshot === lastSavedRef.current) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
-    setSaveStatus('saving') // mark unsaved from the edit, through the debounce window
+    setSaveStatus('saving') // genuine edit → unsaved, through the debounce window
     saveTimer.current = setTimeout(async () => {
-      const cleanRows = rows.map(({ _leadWeeks, ...r }) => r)
       const { error } = await supabase
         .from('procurement_schedules')
         .upsert({
@@ -196,7 +212,7 @@ export default function ProcurementScheduler() {
           project_id: projectId,
           header,
           rules,
-          rows: cleanRows,
+          rows: stripLeadWeeks(rows),
           categories,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'company_id,project_id' })
@@ -206,6 +222,7 @@ export default function ProcurementScheduler() {
         // Fixed id so an hour of failed debounced saves refreshes ONE toast, never stacks
         toast.error('Couldn\'t save your changes — they\'re still unsaved. Check your connection.', { id: 'procurement-save' })
       } else {
+        lastSavedRef.current = snapshot
         setSaveStatus('saved')
       }
     }, 1500)
@@ -215,16 +232,18 @@ export default function ProcurementScheduler() {
   // Unsaved-work flag, derived from save status so it can't drift out of sync.
   const dirty = saveStatus === 'saving' || saveStatus === 'error'
 
-  // Warn before the browser unloads (tab close / reload / external nav) while
-  // there are unsaved or failed-to-save changes. NOTE: beforeunload does NOT
-  // catch in-app React-Router navigation — that needs useBlocker, which requires
-  // migrating off <BrowserRouter> to a data router (logged as TH-4).
+  // Guard 1 — browser-level exits (tab close / reload / external nav).
   useEffect(() => {
     if (!dirty) return
     const handler = (e) => { e.preventDefault(); e.returnValue = '' }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
   }, [dirty])
+
+  // Guard 2 — in-app React-Router navigation (sidebar clicks etc.), which
+  // beforeunload can't see. Only blocks while dirty, so a clean page navigates
+  // freely (no false "unsaved changes" prompt). Renders a confirm modal below.
+  const blocker = useBlocker(() => dirty)
 
   const setRowsWrapped = useCallback(fn => {
     setRows(prev => {
@@ -460,6 +479,29 @@ export default function ProcurementScheduler() {
           @page { size: A3 landscape; margin: 10mm; }
         }
       `}</style>
+
+      {/* In-app navigation guard (Guard 2) — only mounts while a navigation is
+          actually blocked, so it never shifts the print nth-child ordering above. */}
+      {blocker.state === 'blocked' && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4" role="dialog" aria-modal="true" aria-labelledby="unsaved-title">
+          <div className="w-full max-w-sm rounded-xl border p-5 shadow-xl" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <h3 id="unsaved-title" className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Unsaved changes</h3>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Your latest changes haven&apos;t been saved. If you leave now they&apos;ll be lost.</p>
+            <div className="flex justify-end gap-2">
+              <button data-testid="nav-block-stay" onClick={() => blocker.reset()}
+                className="px-3 py-1.5 text-xs font-medium border rounded-lg transition-colors hover:bg-black/[0.02]"
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
+                Stay on page
+              </button>
+              <button data-testid="nav-block-leave" onClick={() => blocker.proceed()}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg text-white transition-opacity hover:opacity-90"
+                style={{ background: '#DA3633' }}>
+                Leave anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
