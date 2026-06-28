@@ -17,9 +17,12 @@ Worked the §2.x cluster of silent client-write failures (supabase-js returns `{
 - **Batch 3 (PR #36, #37) — destructive/data-loss:**
   - **§2.6 CLOSED + verified:** drawing delete. Live-DB introspection showed the children are already FK `ON DELETE CASCADE`, so the manual client cascade (the source of the partial-destruction window) was removed — now a single guarded parent delete cascades atomically. Manual count test: 36 items → 0, no orphans.
   - **§2.13 CLOSED + live-verified:** QR timesheet double-count. Client checked-delete-and-abort (PR #37) **+** structural `UNIQUE(job_id, operative_id, date, is_manual_entry)` (`timesheet_entries_natural_key_uniq`, migration committed under `scripts/migrations/`). Data pre-verified clean (0 existing dupes). Business rule: one manual + one auto entry per operative/day.
-  - **§2.5 (procurement autosave) — IN PROGRESS** (last batch-3 item; client-only dirty-flag + nav-guard).
+  - **§2.5 (procurement autosave) — ✅ DONE** (#39 indicator + dirty flag + beforeunload; #40 in-app `useBlocker` guard + data-router migration + snapshot-based dirty hardening).
 - **Test-hygiene backlog logged** (AUDIT TH-1 permit E2E, TH-2 operative-lifecycle fixture pollution, TH-3 drawing-delete E2E).
-- **Still deferred (non-blocking):** §2.7/§2.18 (agency product redesign), §2.10 failure-path, §2.14/§2.15 (superadmin/BIM), and the schema/tenancy batch (§2.16/§2.2). Full per-item record: **AUDIT.md §2.x**.
+- **§2.16 investigation (2026-06-28) — reframed + a new bug found.** Live-DB trace of the "cross-tenant `pm_email`" item:
+  - **§2.16 → LOW (inert):** the cross-tenant clobber is real (`settings.UNIQUE(key)`) but `pm_email` has **no consumer** — just a stale shared value in two settings screens. Dead path.
+  - **§2.16b → HIGH (NEW, customer-affecting):** company **sign-off email notifications are non-functional end-to-end** — three disconnected fields; the send path (`SignDocument`/`api/notify`) reads a `companies.notification_email` **column that doesn't exist**, the error is swallowed, so the recipient never resolves and no email has ever been sent. **Chosen fix = Option A** (add the real column — leaves the security-gated `api/notify` open-relay check untouched) + retire the dead `pm_email` path + surface the swallowed query error (api/notify 500, SignDocument console.error). One PR, pending: confirm `RESEND_API_KEY` is set in prod (a possible *second* reason it never delivered), then real inbox end-to-end verification. Full detail: **AUDIT.md §2.16 / §2.16b**.
+- **Still deferred (non-blocking):** §2.7/§2.18 (agency product redesign), §2.10 failure-path, §2.14/§2.15 (superadmin/BIM), and §2.2 (plant `project_id` tenancy). Full per-item record: **AUDIT.md §2.x**.
 
 ---
 
