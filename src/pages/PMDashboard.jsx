@@ -1434,8 +1434,13 @@ function SettingsTab() {
   const [loaded, setLoaded] = useState(false)
 
   async function loadSettings() {
-    const { data } = await supabase.from('settings').select('*').eq('key', 'pm_email').single()
-    if (data) setEmail(data.value)
+    // §2.16b: read the canonical per-company companies.notification_email column
+    // (the send path reads it too) — retires the cross-tenant `settings` pm_email row.
+    const cid = JSON.parse(getSession('manager_data') || '{}').company_id
+    if (cid) {
+      const { data } = await supabase.from('companies').select('notification_email').eq('id', cid).single()
+      if (data?.notification_email) setEmail(data.notification_email)
+    }
     setLoaded(true)
   }
 
@@ -1448,10 +1453,11 @@ function SettingsTab() {
     e.preventDefault()
     if (!email.trim()) return
     setSaving(true)
-    const { error } = await supabase.from('settings').upsert({
-      key: 'pm_email',
-      value: email.trim(),
-    }, { onConflict: 'key' })
+    // §2.16b: write the canonical companies.notification_email column (per-company)
+    const cid = JSON.parse(getSession('manager_data') || '{}').company_id
+    const { error } = await supabase.from('companies').update({
+      notification_email: email.trim(),
+    }).eq('id', cid)
     setSaving(false)
     if (error) {
       toast.error('Failed to save email')

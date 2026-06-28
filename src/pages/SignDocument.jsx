@@ -101,12 +101,15 @@ export default function SignDocument() {
         })
       }
 
-      // Also send email to company notification email
-      const { data: company } = await supabase
+      // Also send email to company notification email. Surface a real query
+      // error rather than swallowing it (the swallowed missing-column error is
+      // exactly what hid §2.16b — no sign-off email ever sent).
+      const { data: company, error: companyErr } = await supabase
         .from('companies')
         .select('notification_email')
         .eq('id', operative.company_id)
         .single()
+      if (companyErr) console.error('Sign-off notify: company lookup failed:', companyErr.message)
       const notifyEmail = company?.notification_email
       if (notifyEmail) {
         await fetch('/api/notify', {
@@ -118,7 +121,7 @@ export default function SignDocument() {
             projectName: document.projects?.name,
             operativeId,
           }),
-        }).catch(() => {})
+        }).catch((err) => console.error('Sign-off notify: POST /api/notify failed:', err))
       }
     } catch {
       // Non-critical, don't block the flow

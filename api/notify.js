@@ -51,14 +51,24 @@ export default async function handler(req, res) {
     return res.status(404).json({ error: 'Operative not found' })
   }
 
-  // Verify the "to" email matches the company's notification_email
-  const { data: company } = await supabase
+  // Verify the "to" email matches the company's notification_email.
+  // Surface a real query error (e.g. the missing-column bug that hid §2.16b)
+  // as a 500 — distinct from the legitimate "no email configured" / mismatch
+  // cases below, so a future breakage fails loudly instead of silently 403ing.
+  const { data: company, error: companyErr } = await supabase
     .from('companies')
     .select('notification_email')
     .eq('id', op.company_id)
     .single()
 
-  if (!company || company.notification_email !== to) {
+  if (companyErr) {
+    console.error('notify: company lookup failed:', companyErr.message)
+    return res.status(500).json({ error: 'Failed to look up company notification settings' })
+  }
+  if (!company || !company.notification_email) {
+    return res.status(403).json({ error: 'No notification email configured for this company' })
+  }
+  if (company.notification_email !== to) {
     return res.status(403).json({ error: 'Recipient does not match company notification email' })
   }
 
