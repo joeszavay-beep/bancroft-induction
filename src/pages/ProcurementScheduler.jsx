@@ -146,7 +146,9 @@ export default function ProcurementScheduler() {
   const [rulesOpen, setRulesOpen] = useState(false)
   const [calendarOpen, setCalendarOpen] = useState(true)
   const [loaded, setLoaded] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'error'
   const saveTimer = useRef(null)
+  const justLoadedRef = useRef(false) // skip the autosave that loading/switching a project triggers
 
   // Load from Supabase on mount / project change
   useEffect(() => {
@@ -171,6 +173,7 @@ export default function ProcurementScheduler() {
         setRows([])
         setCategories(['General'])
       }
+      justLoadedRef.current = true // the state writes above will fire the autosave effect — skip that one
       setLoaded(true)
     })()
     return () => { cancelled = true }
@@ -179,7 +182,11 @@ export default function ProcurementScheduler() {
   // Auto-save to Supabase (debounced 1.5s after last change)
   useEffect(() => {
     if (!loaded || !cid || !projectId) return
+    // Skip the save the initial load / project switch triggers when it populates
+    // state — otherwise we'd re-save unchanged data and show a false "unsaved".
+    if (justLoadedRef.current) { justLoadedRef.current = false; return }
     if (saveTimer.current) clearTimeout(saveTimer.current)
+    setSaveStatus('saving') // mark unsaved from the edit, through the debounce window
     saveTimer.current = setTimeout(async () => {
       const cleanRows = rows.map(({ _leadWeeks, ...r }) => r)
       const { error } = await supabase
@@ -193,10 +200,31 @@ export default function ProcurementScheduler() {
           categories,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'company_id,project_id' })
-      if (error) console.error('Save failed:', error.message)
+      if (error) {
+        console.error('Save failed:', error.message)
+        setSaveStatus('error')
+        // Fixed id so an hour of failed debounced saves refreshes ONE toast, never stacks
+        toast.error('Couldn\'t save your changes — they\'re still unsaved. Check your connection.', { id: 'procurement-save' })
+      } else {
+        setSaveStatus('saved')
+      }
     }, 1500)
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
   }, [header, rules, rows, categories, loaded, cid, projectId])
+
+  // Unsaved-work flag, derived from save status so it can't drift out of sync.
+  const dirty = saveStatus === 'saving' || saveStatus === 'error'
+
+  // Warn before the browser unloads (tab close / reload / external nav) while
+  // there are unsaved or failed-to-save changes. NOTE: beforeunload does NOT
+  // catch in-app React-Router navigation — that needs useBlocker, which requires
+  // migrating off <BrowserRouter> to a data router (logged as TH-4).
+  useEffect(() => {
+    if (!dirty) return
+    const handler = (e) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [dirty])
 
   const setRowsWrapped = useCallback(fn => {
     setRows(prev => {
@@ -388,6 +416,11 @@ export default function ProcurementScheduler() {
             style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
             <Printer size={13} /> Print
           </button>
+          <span className="ml-auto text-xs" aria-live="polite">
+            {saveStatus === 'saving' && <span style={{ color: 'var(--text-muted)' }}>Saving…</span>}
+            {saveStatus === 'saved' && <span className="text-green-600">All changes saved</span>}
+            {saveStatus === 'error' && <span className="text-red-600 font-medium">⚠ Couldn&apos;t save — changes unsaved</span>}
+          </span>
         </div>
       </div>
 
