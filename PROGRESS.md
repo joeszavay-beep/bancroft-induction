@@ -9,6 +9,20 @@ so any session can resume from it alone.
 
 ---
 
+## ✅ §2.x "saves that don't save" — reliability/compliance sweep (batches 1–3, 2026-06-25 → 06-28)
+
+Worked the §2.x cluster of silent client-write failures (supabase-js returns `{ error }`, doesn't throw, so the existing try/catch was dead → success toasted on failure). Shipped as reviewable batches, each build+lint clean (eslint baseline unchanged) and E2E-checked:
+- **Batch 1 (PR #34) — 7 routine** (§2.4 chat, §2.3 plant API, §2.9 invites, §2.11 PMDashboard, §2.21 snag notifications name→id, §2.22 grab-bag). §2.12 found already-fixed (§5.16 RPC); §2.8/§2.10 residuals confirmed deferred.
+- **Batch 2 (PR #35) — 3 compliance/audit-trail** (§2.17 toolbox close, §2.19 DocumentHub re-issue supersession, §2.20 permit signatures), each designed to fail in the SAFE direction (over-record / keep-current / keep-QR-open). Server-side RPC hardening logged as the §2.25 cluster (2.17b/2.19b/2.20b).
+- **Batch 3 (PR #36, #37) — destructive/data-loss:**
+  - **§2.6 CLOSED + verified:** drawing delete. Live-DB introspection showed the children are already FK `ON DELETE CASCADE`, so the manual client cascade (the source of the partial-destruction window) was removed — now a single guarded parent delete cascades atomically. Manual count test: 36 items → 0, no orphans.
+  - **§2.13 CLOSED + live-verified:** QR timesheet double-count. Client checked-delete-and-abort (PR #37) **+** structural `UNIQUE(job_id, operative_id, date, is_manual_entry)` (`timesheet_entries_natural_key_uniq`, migration committed under `scripts/migrations/`). Data pre-verified clean (0 existing dupes). Business rule: one manual + one auto entry per operative/day.
+  - **§2.5 (procurement autosave) — IN PROGRESS** (last batch-3 item; client-only dirty-flag + nav-guard).
+- **Test-hygiene backlog logged** (AUDIT TH-1 permit E2E, TH-2 operative-lifecycle fixture pollution, TH-3 drawing-delete E2E).
+- **Still deferred (non-blocking):** §2.7/§2.18 (agency product redesign), §2.10 failure-path, §2.14/§2.15 (superadmin/BIM), and the schema/tenancy batch (§2.16/§2.2). Full per-item record: **AUDIT.md §2.x**.
+
+---
+
 ## ✅ §5.18 — RESOLVED 2026-06-23: legacy keys DISABLED, all consumers on the new API-key pair
 
 Migrated both legacy JWT keys → the new `sb_secret_`/`sb_publishable_` pair and **disabled the legacy keys** in Supabase, holding the invariant throughout (legacy stayed valid until every consumer — local, CI, prod app + functions, demo — verified green; then disabled; reversible). Demo password rotated via `auth.admin.updateUserById` (the dashboard only offered an unreceivable recovery email; one-off `scripts/set-demo-password.mjs`, deleted after); `SandboxEntry` `'Demo2026!'` fallback removed (PR #25). The exposed legacy `service_role` key is **dead**; live app fully working post-cutover on the new keys. Full record + cleanup items (unused default key pair; §1.9 demo-privilege lockdown): **AUDIT.md §5.18**.
