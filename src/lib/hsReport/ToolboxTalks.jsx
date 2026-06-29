@@ -75,22 +75,35 @@ function TalkBlock({ talk, isFirst }) {
   const signedSigs = sigs.filter(s => s.signatureDataUrl != null)
   const hasZeroAttendees = sigs.length === 0
 
+  // Manual talks are PM-entered (no in-app signing): they carry a typed attendee
+  // count and no signature sheet, so render the count rather than a red error.
+  const isManual = talk.isManual === true
+  const manualCount = isManual ? (parseInt(talk.attendeeCount, 10) || 0) : 0
+
   return (
     <View style={s.talkBlock}>
       {/* Talk header: title + pill on row 1, meta on row 2 */}
       <View style={s.talkHeader}>
         <View style={s.talkTitleRow}>
           <Text style={s.talkTitle}>{talk.title || '\u2014'}</Text>
-          {hasZeroAttendees && <Pill text="No attendees" color="red" />}
+          {isManual && <Pill text="Manual entry" color="muted" />}
+          {!isManual && hasZeroAttendees && <Pill text="No attendees" color="red" />}
         </View>
         <Text style={s.talkMeta}>
-          {formatDate(talk.created_at)} {'\u00b7'} {sigs.length} attendee{sigs.length !== 1 ? 's' : ''}
+          {formatDate(talk.created_at)} {'\u00b7'} {isManual ? `${manualCount} attendee${manualCount !== 1 ? 's' : ''}` : `${sigs.length} attendee${sigs.length !== 1 ? 's' : ''}`}
           {talk.description ? ` \u00b7 ${talk.description.length > 80 ? talk.description.slice(0, 80) + '\u2026' : talk.description}` : ''}
         </Text>
       </View>
 
+      {/* Manual talk — no in-app signature sheet captured */}
+      {isManual && (
+        <View style={s.noAttendeesBox}>
+          <Text style={s.noAttendeesText}>Manually recorded {'—'} no in-app signature sheet</Text>
+        </View>
+      )}
+
       {/* Attendee table — only signed rows rendered */}
-      {sigs.length > 0 && signedSigs.length > 0 && (
+      {!isManual && sigs.length > 0 && signedSigs.length > 0 && (
         <View style={s.attendeeTable}>
           <AttendeeHeader />
           {signedSigs.map((sig, i) => (
@@ -100,14 +113,14 @@ function TalkBlock({ talk, isFirst }) {
       )}
 
       {/* Has attendees but none signed */}
-      {sigs.length > 0 && signedSigs.length === 0 && (
+      {!isManual && sigs.length > 0 && signedSigs.length === 0 && (
         <View style={s.noAttendeesBox}>
           <Text style={s.noAttendeesText}>No signed attendees for this talk</Text>
         </View>
       )}
 
       {/* Zero attendees callout */}
-      {hasZeroAttendees && (
+      {!isManual && hasZeroAttendees && (
         <View style={s.noAttendeesBox}>
           <Text style={s.noAttendeesText}>No attendees recorded for this talk</Text>
         </View>

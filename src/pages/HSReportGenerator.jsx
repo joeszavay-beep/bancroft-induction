@@ -5,28 +5,15 @@ import { getSession } from '../lib/storage'
 import { buildSectionList } from '../lib/hsReport/sectionRegistry'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
-import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import {
   FileText, Download, Save, Plus, Trash2, ChevronRight, ChevronDown,
   Loader2, Settings, BookOpen, Users, Wrench, ClipboardList, Shield,
   Leaf, HardHat, FileCheck, Calendar, AlertTriangle, Check, X,
-  RefreshCw, Eye, FolderOpen
+  RefreshCw, FolderOpen
 } from 'lucide-react'
 import { useProject } from '../lib/ProjectContext'
 
 // ── Constants ──
-const NAVY = [26, 39, 68]       // #1A2744
-const BLUE = [27, 111, 200]     // #1B6FC8
-const WHITE = [255, 255, 255]
-const LGRAY = [248, 249, 251]   // alternating rows
-const BORDER = [226, 230, 234]  // table borders
-const TXT = [26, 26, 46]        // body text
-const MUTED = [107, 122, 153]   // secondary text
-const GRN = [46, 160, 67]       // positive
-const RED = [218, 54, 51]       // negative
-const AMBER = [210, 153, 34]    // warning
-const GRAY = [213, 216, 220]    // legacy compat
 
 const PM_ITEMS = [
   'Housekeeping', 'Access / Egress', 'Scaffolding', 'Edge Protection',
@@ -100,6 +87,16 @@ function addDays(dateStr, n) {
   return `${yy}-${mm}-${dd}`
 }
 
+// Parse a UK-format date string (DD/MM/YYYY, as the manual-talk rows store) to an
+// ISO string the PDF renderer can format. Falls back to native parsing, then null.
+function parseUKDateToISO(s) {
+  if (!s) return null
+  const m = String(s).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])).toISOString()
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? null : d.toISOString()
+}
+
 function draftKey(projectId, weekStart) {
   return `hs_report_draft_${projectId}_${weekStart}`
 }
@@ -154,7 +151,6 @@ export default function HSReportGenerator() {
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart])
   const [loading, setLoading] = useState(true)
   const [dataLoading, setDataLoading] = useState(false)
-  const [generating, setGenerating] = useState(false)
   const [previewGenerating, setPreviewGenerating] = useState(false)
   const [activeSection, setActiveSection] = useState('settings')
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -179,7 +175,6 @@ export default function HSReportGenerator() {
 
   // Training
   const [operatives, setOperatives] = useState([])
-  const [manualTraining, setManualTraining] = useState([])
 
   // Equipment
   const [equipmentRows, setEquipmentRows] = useState([])
@@ -378,7 +373,6 @@ export default function HSReportGenerator() {
       opChecks, opComments, opInspector,
       labourRows, labourCompletedBy,
       safeStartCards, ssCompany, ssSupervisor, ssTrade,
-      manualTraining,
     }
     localStorage.setItem(draftKey(projectId, weekStart), JSON.stringify(draft))
     toast.success('Draft saved')
@@ -411,7 +405,6 @@ export default function HSReportGenerator() {
       if (d.ssCompany) setSsCompany(d.ssCompany)
       if (d.ssSupervisor) setSsSupervisor(d.ssSupervisor)
       if (d.ssTrade) setSsTrade(d.ssTrade)
-      if (d.manualTraining) setManualTraining(d.manualTraining)
       toast.success('Draft restored')
     } catch { /* ignore */ }
   }
@@ -438,691 +431,6 @@ export default function HSReportGenerator() {
     setter(prev => prev.map((item, i) => i === index ? { ...item, value: val } : item))
   }
 
-  // ── PDF Generation ──
-  async function generatePDF() {
-    if (!projectId) return toast.error('Select a project first')
-    setGenerating(true)
-
-    try {
-      const doc = new jsPDF('p', 'mm', 'a4')
-      const W = 210, H = 297, M = 18, CW = W - M * 2
-      const coAbbr = (companyName || 'CO').substring(0, 3).toUpperCase()
-      const pnAbbr = (project.name || 'PRJ').substring(0, 2).toUpperCase()
-      const RC = `${pnAbbr}-${coAbbr}-XX-HS-X-${String(reportNumber).padStart(5, '0')}`
-
-      const g = {
-        rn: String(reportNumber),
-        wc: fmtUK(weekStart),
-        we: fmtUK(weekEnd),
-        ib: issuedBy,
-        role: role,
-        pn: project.name || '',
-        pa: project.address || project.location || '',
-        pf: project.full_address || project.address || project.location || '',
-        cl: project.client || '',
-        jr: project.job_ref || project.reference || '',
-        co: companyName,
-      }
-
-      // ── Logo loader — natural aspect ratio ──
-      let logoImg = null
-      if (company?.logo_url) {
-        try {
-          const resp = await fetch(company.logo_url)
-          const blob = await resp.blob()
-          const dataUrl = await new Promise(r => {
-            const fr = new FileReader()
-            fr.onload = () => r(fr.result)
-            fr.readAsDataURL(blob)
-          })
-          const img = new Image()
-          img.src = dataUrl
-          await new Promise((resolve, reject) => {
-            img.onload = resolve
-            img.onerror = reject
-            setTimeout(reject, 5000)
-          })
-          logoImg = { dataUrl, width: img.naturalWidth, height: img.naturalHeight }
-        } catch { logoImg = null }
-      }
-
-      function drawLogo(x, y, targetWidth) {
-        if (logoImg) {
-          const ratio = logoImg.height / logoImg.width
-          const h = targetWidth * ratio
-          try {
-            doc.addImage(logoImg.dataUrl, 'PNG', x, y, targetWidth, h)
-          } catch {
-            doc.setTextColor(...NAVY)
-            doc.setFontSize(14)
-            doc.setFont('helvetica', 'bold')
-            doc.text(g.co, x, y + 8)
-            return 10
-          }
-          return h
-        }
-        // Fallback: company name text (not abbreviation)
-        doc.setTextColor(...NAVY)
-        doc.setFontSize(14)
-        doc.setFont('helvetica', 'bold')
-        doc.text(g.co, x, y + 8)
-        return 10
-      }
-
-      // ── Page dimensions helper ──
-      function pageDims() {
-        const pw = doc.internal.pageSize.getWidth()
-        const ph = doc.internal.pageSize.getHeight()
-        return { W: pw, H: ph, CW: pw - M * 2 }
-      }
-
-      // ── Section header — clean typography, no circles ──
-      function sectionHeader(y, num, title) {
-        // Section number
-        doc.setFontSize(9)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(...BLUE)
-        doc.text(String(num).padStart(2, '0'), M, y + 4)
-        // Title
-        doc.setFontSize(12)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(...NAVY)
-        doc.text(title.toUpperCase(), M + 10, y + 4)
-        // Short blue underline (~40mm)
-        doc.setDrawColor(...BLUE)
-        doc.setLineWidth(0.5)
-        doc.line(M, y + 8, M + 40, y + 8)
-        doc.setTextColor(...TXT)
-        return y + 14
-      }
-
-      // ── Page header (pages 2+) — minimal thin line ──
-      function pageHeader() {
-        const { W: pw } = pageDims()
-        // Thin navy line at top
-        doc.setDrawColor(...NAVY)
-        doc.setLineWidth(0.4)
-        doc.line(M, 12, pw - M, 12)
-        // Company name (left, muted)
-        doc.setFontSize(7)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(...MUTED)
-        doc.text(g.co, M, 10)
-        // Page title (centre)
-        doc.setFontSize(7)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(...MUTED)
-        doc.text('Weekly H&S Report', pw / 2, 10, { align: 'center' })
-        // Ref (right)
-        doc.setFontSize(7)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(...MUTED)
-        doc.text(RC, pw - M, 10, { align: 'right' })
-        doc.setTextColor(...TXT)
-        return 20
-      }
-
-      // ── Clean autoTable builder ──
-      function cleanTable(opts) {
-        const { startY, headers, rows, margin, columnStyles, didParseCell, bodyHalign, headFontSize, bodyFontSize } = opts
-        autoTable(doc, {
-          startY,
-          margin: margin || { left: M, right: M },
-          head: [headers],
-          body: rows,
-          theme: 'plain',
-          headStyles: {
-            fillColor: false,
-            textColor: MUTED,
-            fontSize: headFontSize || 7.5,
-            fontStyle: 'bold',
-            cellPadding: { top: 3, bottom: 3, left: 4, right: 4 },
-            lineWidth: 0,
-          },
-          bodyStyles: {
-            fontSize: bodyFontSize || 9,
-            textColor: TXT,
-            halign: bodyHalign || 'left',
-            cellPadding: { top: 3.5, bottom: 3.5, left: 4, right: 4 },
-            lineColor: [240, 240, 240],
-            lineWidth: { bottom: 0.2 },
-          },
-          alternateRowStyles: { fillColor: [252, 252, 253] },
-          columnStyles: columnStyles || {},
-          didParseCell: function (data) {
-            // Header bottom border
-            if (data.section === 'head') {
-              data.cell.styles.lineWidth = { bottom: 0.4 }
-              data.cell.styles.lineColor = BORDER
-            }
-            // Custom callback
-            if (didParseCell) didParseCell(data)
-          },
-        })
-        return doc.lastAutoTable.finalY
-      }
-
-      // ── Inspection checklist cell colouring ──
-      function inspectionCellParser(data) {
-        if (data.section === 'body' && data.column.index === 1) {
-          const v = (data.cell.raw || '').trim().toUpperCase()
-          if (v === 'Y') {
-            data.cell.styles.textColor = GRN
-            data.cell.text = ['Yes']
-          } else if (v === 'N') {
-            data.cell.styles.textColor = RED
-            data.cell.text = ['No']
-          } else if (v === 'NA' || v === 'N/A') {
-            data.cell.styles.textColor = MUTED
-            data.cell.text = ['N/A']
-          }
-        }
-      }
-
-      // ── Cert date colour parser ──
-      function certDateParser(minCol, maxCol) {
-        return function (data) {
-          if (data.section === 'body' && data.column.index >= minCol && data.column.index <= maxCol) {
-            const val = data.cell.raw
-            if (!val) return
-            const isoDate = val.split('/').reverse().join('-')
-            if (isExpired(isoDate)) {
-              data.cell.styles.textColor = RED
-              data.cell.styles.fontStyle = 'bold'
-            } else if (isExpiringSoon(isoDate)) {
-              data.cell.styles.textColor = AMBER
-              data.cell.styles.fontStyle = 'bold'
-            } else if (val) {
-              data.cell.styles.textColor = GRN
-            }
-          }
-        }
-      }
-
-      // ── Inspector row helper ──
-      function drawInspectorRow(y, inspector, comments, commentsText) {
-        doc.setFontSize(8)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(...MUTED)
-        doc.text('INSPECTOR', M, y)
-        doc.text('DATE', M + 90, y)
-        y += 4.5
-        doc.setFontSize(9)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(...TXT)
-        doc.text(inspector || '-', M, y)
-        doc.text(g.we, M + 90, y)
-        if (commentsText) {
-          y += 8
-          doc.setFontSize(8)
-          doc.setFont('helvetica', 'bold')
-          doc.setTextColor(...MUTED)
-          doc.text('COMMENTS', M, y)
-          y += 4.5
-          doc.setFontSize(8.5)
-          doc.setFont('helvetica', 'normal')
-          doc.setTextColor(...TXT)
-          const cmLines = doc.splitTextToSize(commentsText, CW - 4)
-          doc.text(cmLines, M, y)
-          y += cmLines.length * 4
-        }
-        return y
-      }
-
-      // Track landscape pages
-      const landscapePages = new Set()
-
-      // =====================================================
-      //  PAGE 1: COVER — clean, white, centred
-      // =====================================================
-
-      // Centred logo
-      const coverLogoW = 55
-      const coverLogoX = (W - coverLogoW) / 2
-      const coverLogoH = drawLogo(coverLogoX, 38, coverLogoW)
-
-      // Thin navy separator line (centred, ~60mm)
-      let y = 38 + coverLogoH + 14
-      doc.setDrawColor(...NAVY)
-      doc.setLineWidth(0.4)
-      doc.line(W / 2 - 30, y, W / 2 + 30, y)
-
-      // Title
-      y += 12
-      doc.setTextColor(...NAVY)
-      doc.setFontSize(20)
-      doc.setFont('helvetica', 'bold')
-      doc.text('WEEKLY HEALTH & SAFETY REPORT', W / 2, y, { align: 'center', charSpace: 0.8 })
-
-      // Project name
-      y += 12
-      doc.setTextColor(...BLUE)
-      doc.setFontSize(14)
-      doc.setFont('helvetica', 'normal')
-      doc.text(g.pn || 'Project', W / 2, y, { align: 'center' })
-
-      // Week range
-      y += 10
-      doc.setTextColor(...MUTED)
-      doc.setFontSize(11)
-      doc.setFont('helvetica', 'normal')
-      doc.text(`Week: ${g.wc} \u2014 ${g.we}`, W / 2, y, { align: 'center' })
-
-      // ── Info grid — 2 columns x 3 rows, thin borders ──
-      const gridTop = y + 18
-      const gridLeft = M + 20
-      const gridCellW = (CW - 40) / 2
-      const gridRowH = 22
-      const gridItems = [
-        { label: 'REPORT NO.', value: g.rn },
-        { label: 'ISSUED BY', value: g.ib },
-        { label: 'CLIENT', value: g.cl },
-        { label: 'ROLE', value: g.role },
-        { label: 'JOB REF', value: g.jr },
-        { label: 'ADDRESS', value: g.pf },
-      ]
-
-      // Draw grid border
-      const gridRows = Math.ceil(gridItems.length / 2)
-      const gridH = gridRows * gridRowH
-      doc.setDrawColor(...BORDER)
-      doc.setLineWidth(0.3)
-      doc.rect(gridLeft, gridTop, gridCellW * 2, gridH)
-      // Vertical divider
-      doc.line(gridLeft + gridCellW, gridTop, gridLeft + gridCellW, gridTop + gridH)
-      // Horizontal dividers
-      for (let r = 1; r < gridRows; r++) {
-        doc.line(gridLeft, gridTop + r * gridRowH, gridLeft + gridCellW * 2, gridTop + r * gridRowH)
-      }
-
-      gridItems.forEach((item, i) => {
-        const col = i % 2
-        const row = Math.floor(i / 2)
-        const cx = gridLeft + col * gridCellW + 5
-        const cy = gridTop + row * gridRowH + 6
-        // Label — small muted caps
-        doc.setFontSize(6.5)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(...MUTED)
-        doc.text(item.label, cx, cy)
-        // Value
-        doc.setFontSize(10)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(...TXT)
-        const valLines = doc.splitTextToSize(item.value || '-', gridCellW - 10)
-        doc.text(valLines, cx, cy + 6)
-      })
-
-      // Reference (small, muted, centred at bottom of cover)
-      const refY = gridTop + gridH + 14
-      doc.setFontSize(8)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(...MUTED)
-      doc.text(`REF: ${RC}`, W / 2, refY, { align: 'center' })
-
-      // =====================================================
-      //  PAGE 2: TOOLBOX TALKS (Section 1)
-      // =====================================================
-      doc.addPage('p')
-      y = pageHeader()
-      y = sectionHeader(y, 1, 'Toolbox Talks')
-
-      // Date field is already formatted by fmtUK() — use as-is
-      const tbtBody = allTalks.map(t => [t.date || '', t.topic || '', String(t.attendees || ''), t.notes || ''])
-      if (tbtBody.length === 0) tbtBody.push(['-', 'No talks recorded this week', '-', ''])
-      cleanTable({
-        startY: y,
-        headers: ['DATE', 'TOPIC', 'ATTENDEES', 'NOTES'],
-        rows: tbtBody,
-        columnStyles: { 0: { cellWidth: 26 }, 2: { cellWidth: 22, halign: 'center' } },
-      })
-
-      // =====================================================
-      //  PAGE 3: TRAINING MATRIX (Section 2) — Landscape
-      // =====================================================
-      doc.addPage('l')
-      landscapePages.add(doc.internal.getNumberOfPages())
-      y = pageHeader()
-      y = sectionHeader(y, 2, 'Training Matrix')
-
-      const trBody = allOperatives.filter(o => !supervisors.includes(o)).map((o, i) => [
-        String(i + 1), o.name || '', o.employer || '', o.role || '',
-        fmtUK(o.card_expiry), fmtUK(o.ipaf_expiry), fmtUK(o.pasma_expiry),
-        fmtUK(o.sssts_expiry), fmtUK(o.smsts_expiry), fmtUK(o.first_aid_expiry),
-        o.ap_number || o.cscs_number || '',
-      ])
-      manualTraining.forEach(t => {
-        trBody.push([String(trBody.length + 1), t.name, t.company, t.role, t.cscs, t.ipaf, t.pasma, t.sssts, t.smsts, t.firstAid, t.apNumber])
-      })
-      if (trBody.length === 0) trBody.push(['1', 'No operatives recorded', '', '', '', '', '', '', '', '', ''])
-      cleanTable({
-        startY: y,
-        headers: ['#', 'NAME', 'COMPANY', 'ROLE', 'CSCS', 'IPAF', 'PASMA', 'SSSTS', 'SMSTS', 'FIRST AID', 'AP'],
-        rows: trBody,
-        headFontSize: 6.5,
-        bodyFontSize: 7,
-        columnStyles: { 0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 30 }, 2: { cellWidth: 22 }, 3: { cellWidth: 22 } },
-        didParseCell: certDateParser(4, 9),
-      })
-
-      // =====================================================
-      //  PAGE 4: MANAGEMENT TRAINING (Section 3) — Landscape
-      // =====================================================
-      doc.addPage('l')
-      landscapePages.add(doc.internal.getNumberOfPages())
-      y = pageHeader()
-      y = sectionHeader(y, 3, 'Management Training')
-
-      const mgBody = supervisors.map((o, i) => [
-        String(i + 1), o.name || '', o.employer || '', o.role || '',
-        fmtUK(o.card_expiry), fmtUK(o.sssts_expiry), fmtUK(o.smsts_expiry),
-        fmtUK(o.first_aid_expiry), '', fmtUK(o.pasma_expiry), fmtUK(o.ipaf_expiry), '', '',
-      ])
-      if (mgBody.length === 0) mgBody.push(['1', 'No management staff recorded', '', '', '', '', '', '', '', '', '', '', ''])
-      cleanTable({
-        startY: y,
-        headers: ['#', 'NAME', 'COMPANY', 'POSITION', 'CSCS/JIB', 'SSSTS', 'SMSTS', 'FIRST AID (3D)', 'FIRST AID (1D)', 'PASMA', 'IPAF', 'PAV', 'OTHER'],
-        rows: mgBody,
-        headFontSize: 6.5,
-        bodyFontSize: 7,
-        columnStyles: { 0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 25 }, 2: { cellWidth: 18 }, 3: { cellWidth: 28 } },
-        didParseCell: certDateParser(4, 10),
-      })
-
-      // =====================================================
-      //  PAGE 5: EQUIPMENT REGISTER (Section 4) — Landscape
-      // =====================================================
-      doc.addPage('l')
-      landscapePages.add(doc.internal.getNumberOfPages())
-      y = pageHeader()
-      y = sectionHeader(y, 4, 'Equipment Register')
-
-      const eqBody = equipmentRows.map((r, i) => [
-        String(i + 1), r.description || '', r.ref || r.serial || '', fmtUK(r.patExpiry || r.inspectionDate || ''),
-        fmtUK(r.certExpiry || r.nextDue || ''), r.safe || r.status || '',
-      ])
-      if (eqBody.length === 0) eqBody.push(['1', 'No equipment recorded', '-', '-', '-', '-'])
-      cleanTable({
-        startY: y,
-        headers: ['#', 'ITEM', 'SERIAL / ID', 'INSPECTION DATE', 'NEXT DUE', 'STATUS'],
-        rows: eqBody,
-        bodyFontSize: 8,
-        columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 55 }, 2: { cellWidth: 35 } },
-      })
-
-      // =====================================================
-      //  PAGE 6: PM INSPECTION (Section 5)
-      // =====================================================
-      doc.addPage('p')
-      y = pageHeader()
-      y = sectionHeader(y, 5, 'PM Inspection')
-
-      const pmBody = pmChecks.map(item => [item.label, item.value || '-', ''])
-      y = cleanTable({
-        startY: y,
-        headers: ['ITEM', 'RESULT', 'COMMENTS'],
-        rows: pmBody,
-        columnStyles: { 0: { cellWidth: 75 }, 1: { cellWidth: 22, halign: 'center' } },
-        didParseCell: inspectionCellParser,
-      })
-      y += 8
-      drawInspectorRow(y, pmInspector, 'pmComments', pmComments)
-
-      // =====================================================
-      //  PAGE 7: ENVIRONMENTAL INSPECTION (Section 6)
-      // =====================================================
-      doc.addPage('p')
-      y = pageHeader()
-      y = sectionHeader(y, 6, 'Environmental Inspection')
-
-      const envBody = envChecks.map(item => [item.label, item.value || '-', ''])
-      y = cleanTable({
-        startY: y,
-        headers: ['ITEM', 'RESULT', 'COMMENTS'],
-        rows: envBody,
-        columnStyles: { 0: { cellWidth: 75 }, 1: { cellWidth: 22, halign: 'center' } },
-        didParseCell: inspectionCellParser,
-      })
-      y += 8
-      drawInspectorRow(y, envInspector, 'envComments', envComments)
-
-      // =====================================================
-      //  PAGE 8: OPERATIVE INSPECTION (Section 7)
-      // =====================================================
-      doc.addPage('p')
-      y = pageHeader()
-      y = sectionHeader(y, 7, 'Operative Inspection')
-
-      const opBody = opChecks.map(item => [item.label, item.value || '-', ''])
-      y = cleanTable({
-        startY: y,
-        headers: ['ITEM', 'RESULT', 'COMMENTS'],
-        rows: opBody,
-        columnStyles: { 0: { cellWidth: 75 }, 1: { cellWidth: 22, halign: 'center' } },
-        didParseCell: inspectionCellParser,
-      })
-      y += 8
-      drawInspectorRow(y, opInspector, 'opComments', opComments)
-
-      // =====================================================
-      //  PAGE 9: RAMS MATRIX (Section 8)
-      // =====================================================
-      doc.addPage('p')
-      y = pageHeader()
-      y = sectionHeader(y, 8, 'RAMS Matrix')
-
-      const raBody = ramsRows.map((r, i) => [
-        String(r.num || i + 1), r.title || '', r.reference || '', r.rev || '', r.issuedBy || '', r.approvedBy || '',
-      ])
-      if (raBody.length === 0) raBody.push(['1', 'No RAMS recorded', '-', '-', '-', '-'])
-      cleanTable({
-        startY: y,
-        headers: ['#', 'TITLE', 'REFERENCE', 'REV', 'ISSUED BY', 'APPROVED BY'],
-        rows: raBody,
-        columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 1: { cellWidth: 55 } },
-      })
-
-      // =====================================================
-      //  PAGE 10: LABOUR RETURN (Section 9)
-      // =====================================================
-      doc.addPage('p')
-      y = pageHeader()
-      y = sectionHeader(y, 9, 'Labour Return')
-
-      const laBody = labourRows.map(r => {
-        const total = r.days.reduce((a, b) => a + b, 0)
-        return [r.trade || r.company || '', ...r.days.map(String), String(total)]
-      })
-      if (laBody.length === 0) laBody.push(['No trades', '0', '0', '0', '0', '0', '0', '0', '0'])
-
-      // Grand totals
-      const dayTotals = [0, 0, 0, 0, 0, 0, 0]
-      labourRows.forEach(r => r.days.forEach((d, i) => { dayTotals[i] += d }))
-      const grandTotal = dayTotals.reduce((a, b) => a + b, 0)
-      laBody.push(['TOTAL', ...dayTotals.map(String), String(grandTotal)])
-
-      y = cleanTable({
-        startY: y,
-        headers: ['COMPANY / TRADE', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN', 'TOTAL'],
-        rows: laBody,
-        bodyHalign: 'center',
-        columnStyles: { 0: { halign: 'left', cellWidth: 50 }, 8: { fontStyle: 'bold' } },
-        didParseCell: function (data) {
-          // Totals row — bold text + thin top border, no heavy fill
-          if (data.section === 'body' && data.row.index === laBody.length - 1) {
-            data.cell.styles.fontStyle = 'bold'
-            data.cell.styles.textColor = NAVY
-            data.cell.styles.lineWidth = { top: 0.5, bottom: 0.2 }
-            data.cell.styles.lineColor = NAVY
-          }
-        },
-      })
-
-      // Completed by + grand total (plain text)
-      y += 8
-      doc.setFontSize(8)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(...MUTED)
-      doc.text('COMPLETED BY', M, y)
-      doc.text('WEEKLY TOTAL', W - M - 40, y)
-      y += 5
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(...TXT)
-      doc.text(labourCompletedBy || '-', M, y)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(...NAVY)
-      doc.setFontSize(14)
-      doc.text(String(grandTotal), W - M - 40, y)
-      doc.setTextColor(...TXT)
-
-      // =====================================================
-      //  SAFE START CARDS (Section 10) — compact cards
-      // =====================================================
-      safeStartCards.forEach((card, ci) => {
-        doc.addPage('p')
-        y = pageHeader()
-        if (ci === 0) y = sectionHeader(y, 10, 'Safe Start Cards')
-        else y += 4
-
-        const dayName = card.dayName || DAYS[ci] || ''
-        const dateStr = fmtUK(card.date)
-
-        // Card container
-        const cardTop = y
-        doc.setDrawColor(...BORDER)
-        doc.setLineWidth(0.3)
-
-        // Day header — light grey background, not navy
-        doc.setFillColor(245, 246, 248)
-        doc.rect(M, y, CW, 9, 'F')
-        doc.setDrawColor(...BORDER)
-        doc.rect(M, y, CW, 9, 'S')
-        doc.setTextColor(...NAVY)
-        doc.setFontSize(10)
-        doc.setFont('helvetica', 'bold')
-        doc.text(dayName.toUpperCase() + (dateStr ? '  \u2014  ' + dateStr : ''), M + 5, y + 6.5)
-        y += 13
-
-        // Company + supervisor + trade — clean labels
-        doc.setFontSize(7)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(...MUTED)
-        doc.text('COMPANY', M + 2, y)
-        doc.text('SUPERVISOR', M + 65, y)
-        doc.text('TRADE', M + 130, y)
-        y += 4.5
-        doc.setFontSize(9)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(...TXT)
-        doc.text(ssCompany || '-', M + 2, y)
-        doc.text(ssSupervisor || '-', M + 65, y)
-        doc.text(ssTrade || '-', M + 130, y)
-        y += 8
-
-        // Checklist — two columns within the card
-        const checks = card.checks || []
-        if (checks.length === 0) {
-          doc.setFontSize(8)
-          doc.setTextColor(...MUTED)
-          doc.text('No items', M + 4, y + 4)
-          y += 10
-        } else {
-          const mid = Math.ceil(checks.length / 2)
-          const col1 = checks.slice(0, mid)
-          const col2 = checks.slice(mid)
-          const colW = CW / 2 - 4
-          const lineH = 6
-
-          // Column headers
-          doc.setFontSize(7)
-          doc.setFont('helvetica', 'bold')
-          doc.setTextColor(...MUTED)
-          doc.text('ITEM', M + 4, y)
-          doc.text('', M + colW - 2, y)
-          doc.text('ITEM', M + CW / 2 + 4, y)
-          y += 2
-          doc.setDrawColor(...BORDER)
-          doc.setLineWidth(0.2)
-          doc.line(M + 2, y, M + CW - 2, y)
-          y += 3
-
-          const startCheckY = y
-          // Draw each column
-          ;[col1, col2].forEach((col, colIdx) => {
-            let cy = startCheckY
-            const offsetX = colIdx === 0 ? M + 4 : M + CW / 2 + 4
-            const valX = offsetX + colW - 10
-            col.forEach(item => {
-              doc.setFontSize(8)
-              doc.setFont('helvetica', 'normal')
-              doc.setTextColor(...TXT)
-              const label = doc.splitTextToSize(item.label || '', colW - 16)
-              doc.text(label, offsetX, cy)
-              // Value with colour
-              const v = (item.value || '-').trim().toUpperCase()
-              if (v === 'Y') {
-                doc.setTextColor(...GRN)
-                doc.text('Yes', valX, cy)
-              } else if (v === 'N') {
-                doc.setTextColor(...RED)
-                doc.text('No', valX, cy)
-              } else if (v === 'NA' || v === 'N/A') {
-                doc.setTextColor(...MUTED)
-                doc.text('N/A', valX, cy)
-              } else {
-                doc.setTextColor(...MUTED)
-                doc.text(v || '-', valX, cy)
-              }
-              cy += Math.max(label.length, 1) * lineH
-            })
-            y = Math.max(y, cy)
-          })
-        }
-
-        // Card outer border
-        const cardBottom = y + 4
-        doc.setDrawColor(...BORDER)
-        doc.setLineWidth(0.3)
-        doc.rect(M, cardTop, CW, cardBottom - cardTop)
-      })
-
-      // =====================================================
-      //  TWO-PASS: Stamp page footers with "Page X of Y"
-      // =====================================================
-      const totalPages = doc.internal.getNumberOfPages()
-      for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i)
-        const pw = doc.internal.pageSize.getWidth()
-        const ph = doc.internal.pageSize.getHeight()
-
-        // Thin footer line
-        doc.setDrawColor(...BORDER)
-        doc.setLineWidth(0.2)
-        doc.line(M, ph - 15, pw - M, ph - 15)
-
-        // Footer text — all 7pt muted
-        doc.setFontSize(7)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(...MUTED)
-        doc.text(g.co, M, ph - 10)
-        doc.text('CoreSite', pw / 2, ph - 10, { align: 'center' })
-        doc.text(`Page ${i} of ${totalPages}`, pw - M, ph - 10, { align: 'right' })
-      }
-
-      // ── Save ──
-      const filename = `${g.co}_${g.pn}_HS_Report_WE_${weekEnd.replace(/-/g, '')}.pdf`
-      doc.save(filename)
-      bumpReportCounter()
-      toast.success('PDF generated successfully')
-    } catch (err) {
-      console.error('PDF generation failed:', err)
-      toast.error('Failed to generate PDF: ' + err.message)
-    }
-
-    setGenerating(false)
-  }
-
   // ── Preview PDF (react-pdf/renderer) ──
   async function previewPDF() {
     if (!projectId) return toast.error('Select a project first')
@@ -1142,9 +450,25 @@ export default function HSReportGenerator() {
         return { ...talk, toolbox_signatures: hydrated }
       }))
 
+      // Manual (PM-entered) talks have no in-app signatures. Map them into the same
+      // talk shape the renderer consumes, flagged so it shows the typed attendee count
+      // instead of a "no attendees" error. Without this, manual talks would be dropped.
+      const manualTalkObjs = manualTalks
+        .filter(t => (t.topic || '').trim() || (t.notes || '').trim())
+        .map((t, i) => ({
+          id: `manual-${i}`,
+          title: t.topic || '',
+          description: t.notes || '',
+          created_at: parseUKDateToISO(t.date),
+          isManual: true,
+          attendeeCount: t.attendees,
+          toolbox_signatures: [],
+        }))
+      const allRawTalks = [...hydratedTalks, ...manualTalkObjs]
+
       const reportData = {
         allTalks: [...toolboxTalks, ...manualTalks],
-        rawTalks: hydratedTalks,
+        rawTalks: allRawTalks,
         operatives,
         equipmentRows,
         pmChecklist: pmChecks,
@@ -1273,13 +597,17 @@ export default function HSReportGenerator() {
       const url = URL.createObjectURL(finalBlob)
       const link = document.createElement('a')
       link.href = url
-      const pn = (reportData.project.name || 'Report').replace(/[^a-zA-Z0-9]/g, '_')
-      link.download = `HS_Report_${pn}_${weekEnd}.pdf`
+      // Match the legacy filename convention: Company_Project_HS_Report_WE_YYYYMMDD.pdf
+      const safeCo = (companyName || 'Company').replace(/[^a-zA-Z0-9]/g, '_')
+      const safePn = (reportData.project.name || 'Project').replace(/[^a-zA-Z0-9]/g, '_')
+      link.download = `${safeCo}_${safePn}_HS_Report_WE_${weekEnd.replace(/-/g, '')}.pdf`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
-      toast.success('PDF downloaded')
+      // Increment the persistent report number, as the legacy generator did.
+      bumpReportCounter()
+      toast.success('PDF generated successfully')
     } catch (err) {
       console.error('Preview PDF failed:', err)
       toast.error('Failed to generate preview: ' + err.message)
@@ -1318,10 +646,7 @@ export default function HSReportGenerator() {
           <button onClick={saveDraft} className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-colors hover:bg-black/5" style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
             <Save size={16} /> Save Draft
           </button>
-          <LoadingButton loading={previewGenerating} onClick={previewPDF} className="bg-blue-600 hover:bg-blue-700 text-white text-sm">
-            <Eye size={16} /> Preview PDF
-          </LoadingButton>
-          <LoadingButton loading={generating} onClick={generatePDF} className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm">
+          <LoadingButton loading={previewGenerating} onClick={previewPDF} className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm">
             <Download size={16} /> Generate PDF
           </LoadingButton>
         </div>
@@ -1601,6 +926,9 @@ export default function HSReportGenerator() {
 
           {/* 11. Labour Return */}
           <SectionCard id="labour" title="Labour Return" icon={Calendar} refs={sectionRefs} badge={labourTotal > 0 ? `${labourTotal} total` : null}>
+            <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+              Auto-generated from site sign-in / sign-out attendance for the selected week. Edit site attendance to change these figures.
+            </p>
             <div className="overflow-x-auto">
               <table className="w-full text-xs border-collapse">
                 <thead>
@@ -1608,7 +936,6 @@ export default function HSReportGenerator() {
                     <th className="px-2 py-2 text-left font-semibold border-b" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Company / Trade</th>
                     {DAYS.map(d => <th key={d} className="px-2 py-2 text-center font-semibold border-b" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>{d}</th>)}
                     <th className="px-2 py-2 text-center font-semibold border-b" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Total</th>
-                    <th className="px-2 py-2 border-b" style={{ borderColor: 'var(--border-color)' }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1616,21 +943,17 @@ export default function HSReportGenerator() {
                     const total = r.days.reduce((a, b) => a + b, 0)
                     return (
                       <tr key={i} className="border-b" style={{ borderColor: 'var(--border-color)' }}>
-                        <td className="px-1 py-1">
-                          <input value={r.trade || r.company || ''} onChange={e => { const n = [...labourRows]; n[i] = { ...n[i], trade: e.target.value, company: e.target.value }; setLabourRows(n) }} className="w-full px-1.5 py-1 rounded border text-xs" style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} placeholder="Trade" />
-                        </td>
+                        <td className="px-2 py-1.5" style={{ color: 'var(--text-primary)' }}>{r.trade || r.company || '—'}</td>
                         {r.days.map((d, di) => (
-                          <td key={di} className="px-1 py-1">
-                            <input type="number" value={d} onChange={e => { const n = [...labourRows]; n[i] = { ...n[i], days: [...n[i].days] }; n[i].days[di] = parseInt(e.target.value) || 0; setLabourRows(n) }} className="w-full px-1.5 py-1 rounded border text-xs text-center" style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} min={0} />
-                          </td>
+                          <td key={di} className="px-2 py-1.5 text-center" style={{ color: 'var(--text-secondary)' }}>{d}</td>
                         ))}
-                        <td className="px-2 py-1 text-center font-bold" style={{ color: 'var(--text-primary)' }}>{total}</td>
-                        <td className="px-1 py-1">
-                          <button onClick={() => setLabourRows(prev => prev.filter((_, j) => j !== i))} className="p-1 rounded hover:bg-red-50 text-red-500"><Trash2 size={13} /></button>
-                        </td>
+                        <td className="px-2 py-1.5 text-center font-bold" style={{ color: 'var(--text-primary)' }}>{total}</td>
                       </tr>
                     )
                   })}
+                  {labourRows.length === 0 && (
+                    <tr><td colSpan={9} className="px-2 py-4 text-center" style={{ color: 'var(--text-muted)' }}>No attendance recorded this week</td></tr>
+                  )}
                   {/* Summary row */}
                   <tr style={{ backgroundColor: 'var(--bg-main)' }}>
                     <td className="px-2 py-2 font-bold text-xs" style={{ color: 'var(--text-primary)' }}>TOTAL</td>
@@ -1640,19 +963,9 @@ export default function HSReportGenerator() {
                       </td>
                     ))}
                     <td className="px-2 py-2 text-center font-bold text-xs" style={{ color: '#1560AA' }}>{labourTotal}</td>
-                    <td></td>
                   </tr>
                 </tbody>
               </table>
-            </div>
-            <div className="flex items-center gap-4 mt-3">
-              <button onClick={() => setLabourRows(prev => [...prev, { company: '', trade: '', days: [0, 0, 0, 0, 0, 0, 0] }])} className="flex items-center gap-1.5 text-xs font-medium text-[#1560AA] hover:text-[#1560AA]/80">
-                <Plus size={14} /> Add Row
-              </button>
-              <div className="flex items-center gap-2 ml-auto">
-                <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Completed by:</label>
-                <input value={labourCompletedBy} onChange={e => setLabourCompletedBy(e.target.value)} className="px-2 py-1 rounded border text-xs w-40" style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
-              </div>
             </div>
           </SectionCard>
 
