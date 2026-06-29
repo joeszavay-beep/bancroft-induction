@@ -3,19 +3,6 @@ import { C, FONT, SIZE } from './theme'
 import { formatDate } from './utils'
 import { PageFrame, SectionHeader } from './primitives'
 
-// ── Demo fallback data (Riverside Tower only) ──
-const DEMO_PROJECT = 'Riverside Tower - Phase 1'
-const DEMO_EQUIPMENT = [
-  { description: 'PECO Lift #1',       ref: 'PL-2024-0891', patExpiry: '2026-04-14', certExpiry: '2026-04-21', safe: 'Yes' },
-  { description: 'PECO Lift #2',       ref: 'PL-2024-0892', patExpiry: '2026-04-14', certExpiry: '2026-04-21', safe: 'Yes' },
-  { description: 'Scaffold Tower A',   ref: 'ST-2023-4410', patExpiry: '2026-04-07', certExpiry: '2026-04-14', safe: 'No' },
-  { description: 'Scaffold Tower B',   ref: 'ST-2023-4411', patExpiry: '2026-04-14', certExpiry: '2026-04-21', safe: 'Yes' },
-  { description: '110V Transformer',   ref: 'TX-2022-1190', patExpiry: '2026-03-10', certExpiry: '2026-06-10', safe: 'Yes' },
-  { description: 'SDS Drill (Hilti)',   ref: 'HD-2024-2281', patExpiry: '',           certExpiry: '',           safe: '' },
-  { description: 'Podium Steps #3',    ref: 'PS-2023-1003', patExpiry: '2026-04-14', certExpiry: '2026-04-21', safe: 'Yes' },
-  { description: 'Cable Drum Trailer', ref: 'CDT-001',      patExpiry: '2026-04-01', certExpiry: '2026-05-01', safe: 'Yes' },
-]
-
 // ── Layout ──
 const ROWS_FIRST_PAGE = 18
 const ROWS_PER_PAGE = 24
@@ -128,11 +115,10 @@ function DataRow({ row, index }) {
 }
 
 // ── Main component ──
-export default function EquipmentRegister({ equipmentRows, projectName, pageProps, theme }) {
-  // Resolve data — use demo fallback for Riverside Tower when empty
-  let rows = Array.isArray(equipmentRows) && equipmentRows.length > 0
-    ? equipmentRows
-    : (projectName === DEMO_PROJECT ? DEMO_EQUIPMENT : [])
+export default function EquipmentRegister({ equipmentRows, pageProps, theme }) {
+  // Auto-populated from the project's equipment register (PR-B). No demo fallback —
+  // an empty register renders the real empty state, never placeholder plant.
+  const rows = Array.isArray(equipmentRows) ? equipmentRows : []
 
   // Empty state
   if (rows.length === 0) {
