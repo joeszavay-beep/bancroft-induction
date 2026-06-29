@@ -228,7 +228,7 @@ export default function HSReportGenerator() {
     const we = weekEnd + 'T23:59:59.999Z'
 
     try {
-      const [talksRes, opsRes, docsRes, signoffsRes, attendanceRes, diaryRes, inspRes] = await Promise.all([
+      const [talksRes, opsRes, docsRes, signoffsRes, attendanceRes, diaryRes, inspRes, eqRes] = await Promise.all([
         supabase.from('toolbox_talks').select('*, toolbox_signatures(*)').eq('project_id', projectId)
           .gte('created_at', ws).lte('created_at', we),
         supabase.from('operative_projects').select('operatives(*)').eq('project_id', projectId),
@@ -241,6 +241,10 @@ export default function HSReportGenerator() {
           .gte('date', weekStart).lte('date', weekEnd),
         supabase.from('inspections').select('*').eq('company_id', cid).eq('project_id', projectId)
           .gte('created_at', ws).lte('created_at', we),
+        // Equipment register — company_id AND project_id both explicit (the §2.16
+        // isolation guard: the report can never pull another project's/tenant's plant).
+        supabase.from('equipment').select('id, description, serial_number, status, inspection_interval_days')
+          .eq('company_id', cid).eq('project_id', projectId),
       ])
 
       // Toolbox Talks — store both flattened (for UI) and raw (for PDF with signatures)
@@ -280,6 +284,47 @@ export default function HSReportGenerator() {
       setRamsRows(ramsData)
       // Store raw RAMS data for PDF component
       rawRamsRef.current = { docs, signoffs: soffs }
+
+      // Equipment Register — auto-populated from the project's plant register.
+      // Latest equipment_check per item supplies last-inspected / next-due / pass-fail.
+      // Scoped: the equipment read above is company+project filtered; the checks read
+      // is bounded to THIS project's equipment ids (+ company_id) — no cross-project bleed.
+      const equipment = eqRes.data || []
+      let eqChecks = []
+      if (equipment.length > 0) {
+        const eqIds = equipment.map(e => e.id)
+        const { data: checkData } = await supabase.from('equipment_checks')
+          .select('equipment_id, checked_at, all_passed')
+          .in('equipment_id', eqIds).eq('company_id', cid)
+        eqChecks = checkData || []
+      }
+      // Most-recent check per equipment item
+      const latestByEq = {}
+      eqChecks.forEach(c => {
+        const prev = latestByEq[c.equipment_id]
+        if (!prev || new Date(c.checked_at) > new Date(prev.checked_at)) latestByEq[c.equipment_id] = c
+      })
+      const eqRows = equipment
+        .slice()
+        .sort((a, b) => (a.description || '').localeCompare(b.description || ''))
+        .map(e => {
+          const chk = latestByEq[e.id]
+          let nextDue = ''
+          if (chk?.checked_at && e.inspection_interval_days) {
+            const nd = new Date(chk.checked_at)
+            nd.setDate(nd.getDate() + e.inspection_interval_days)
+            nextDue = nd.toISOString()
+          }
+          return {
+            description: e.description || '',
+            ref: e.serial_number || '',
+            patExpiry: chk?.checked_at || '',          // "Last inspected"
+            certExpiry: nextDue,                         // "Next due"
+            safe: chk ? (chk.all_passed ? 'Yes' : 'No') : '', // Inspected / Failed / Not inspected
+            fromDb: true,
+          }
+        })
+      setEquipmentRows(eqRows)
 
       // Attendance -> Labour Return. Use the shared buildLabourGrid() — the SAME
       // helper the PDF uses — so the preview and the PDF can never diverge. Counts
@@ -353,7 +398,7 @@ export default function HSReportGenerator() {
     if (!projectId || !weekStart) return toast.error('Select a project and week first')
     const draft = {
       reportNumber, issuedBy, role, companyName,
-      manualTalks, equipmentRows,
+      manualTalks,
       pmChecks, pmComments, pmInspector,
       envChecks, envComments, envInspector,
       opChecks, opComments, opInspector,
@@ -375,7 +420,6 @@ export default function HSReportGenerator() {
       if (d.role) setRole(d.role)
       if (d.companyName) setCompanyName(d.companyName)
       if (d.manualTalks) setManualTalks(d.manualTalks)
-      if (d.equipmentRows) setEquipmentRows(d.equipmentRows)
       if (d.pmChecks) setPmChecks(d.pmChecks)
       if (d.pmComments) setPmComments(d.pmComments)
       if (d.pmInspector) setPmInspector(d.pmInspector)
@@ -818,42 +862,40 @@ export default function HSReportGenerator() {
           </SectionCard>
 
           {/* 6. Equipment Register */}
-          <SectionCard id="equipment" title="Equipment Register" icon={Wrench} refs={sectionRefs}>
+          <SectionCard id="equipment" title="Equipment Register" icon={Wrench} refs={sectionRefs} badge={equipmentRows.length > 0 ? `${equipmentRows.length} items` : null}>
+            <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+              Auto-populated from this project&apos;s Plant &amp; Equipment register. Last inspected / next due / status come from the latest pre-use check — add checks in Plant &amp; Equipment to populate them.
+            </p>
             <div className="overflow-x-auto">
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr>
-                    {['#', 'Item', 'Serial/ID', 'Inspection Date', 'Next Due', 'Status', ''].map(h => (
+                    {['#', 'Item', 'Serial / ID', 'Last Inspected', 'Next Due', 'Status'].map(h => (
                       <th key={h} className="px-2 py-2 text-left font-semibold border-b" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {equipmentRows.map((r, i) => (
-                    <tr key={i} className="border-b" style={{ borderColor: 'var(--border-color)' }}>
-                      <td className="px-2 py-1">{i + 1}</td>
-                      <td className="px-1 py-1"><input value={r.description || ''} onChange={e => { const n = [...equipmentRows]; n[i].description = e.target.value; setEquipmentRows(n) }} className="w-full px-1.5 py-1 rounded border text-xs" style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} /></td>
-                      <td className="px-1 py-1"><input value={r.ref || ''} onChange={e => { const n = [...equipmentRows]; n[i].ref = e.target.value; setEquipmentRows(n) }} className="w-full px-1.5 py-1 rounded border text-xs" style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} /></td>
-                      <td className="px-1 py-1"><input value={r.certExpiry || ''} onChange={e => { const n = [...equipmentRows]; n[i].certExpiry = e.target.value; setEquipmentRows(n) }} className="w-full px-1.5 py-1 rounded border text-xs" style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} /></td>
-                      <td className="px-1 py-1"><input value={r.patExpiry || ''} onChange={e => { const n = [...equipmentRows]; n[i].patExpiry = e.target.value; setEquipmentRows(n) }} className="w-full px-1.5 py-1 rounded border text-xs" style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} /></td>
-                      <td className="px-1 py-1">
-                        <select value={r.safe || ''} onChange={e => { const n = [...equipmentRows]; n[i].safe = e.target.value; setEquipmentRows(n) }} className="w-full px-1.5 py-1 rounded border text-xs" style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
-                          <option value="">--</option>
-                          <option value="Yes">Yes</option>
-                          <option value="No">No</option>
-                        </select>
-                      </td>
-                      <td className="px-1 py-1">
-                        <button onClick={() => setEquipmentRows(prev => prev.filter((_, j) => j !== i))} className="p-1 rounded hover:bg-red-50 text-red-500"><Trash2 size={13} /></button>
-                      </td>
-                    </tr>
-                  ))}
+                  {equipmentRows.map((r, i) => {
+                    const status = r.safe === 'Yes' ? 'Inspected' : r.safe === 'No' ? 'Failed' : 'Not inspected'
+                    const statusColor = r.safe === 'Yes' ? '#2EA043' : r.safe === 'No' ? '#DA3633' : '#D29922'
+                    return (
+                      <tr key={i} className="border-b" style={{ borderColor: 'var(--border-color)' }}>
+                        <td className="px-2 py-1.5" style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
+                        <td className="px-2 py-1.5 font-medium" style={{ color: 'var(--text-primary)' }}>{r.description || '—'}</td>
+                        <td className="px-2 py-1.5" style={{ color: 'var(--text-secondary)' }}>{r.ref || '—'}</td>
+                        <td className="px-2 py-1.5" style={{ color: 'var(--text-secondary)' }}>{r.patExpiry ? fmtUK(r.patExpiry) : '—'}</td>
+                        <td className="px-2 py-1.5" style={{ color: 'var(--text-secondary)' }}>{r.certExpiry ? fmtUK(r.certExpiry) : '—'}</td>
+                        <td className="px-2 py-1.5 font-medium" style={{ color: statusColor }}>{status}</td>
+                      </tr>
+                    )
+                  })}
+                  {equipmentRows.length === 0 && (
+                    <tr><td colSpan={6} className="px-2 py-4 text-center" style={{ color: 'var(--text-muted)' }}>No equipment on the register for this project</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
-            <button onClick={() => setEquipmentRows(prev => [...prev, { ref: String(prev.length + 1), description: '', patExpiry: '', certExpiry: '', defects: '', safe: '', inspectedBy: issuedBy, comments: '' }])} className="flex items-center gap-1.5 text-xs font-medium text-[#1560AA] hover:text-[#1560AA]/80 mt-3">
-              <Plus size={14} /> Add Row
-            </button>
           </SectionCard>
 
           {/* 7. PM Inspection */}
