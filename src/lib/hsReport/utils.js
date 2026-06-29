@@ -198,3 +198,68 @@ export function computeReportSummary({ operatives, weekEnd, pmChecklist, envChec
     attentionItems,
   }
 }
+
+const LABOUR_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+/**
+ * Build the weekly Labour Return grid — the SINGLE source of truth shared by the
+ * on-screen preview (HSReportGenerator) and the PDF (LabourReturn). Having one
+ * helper guarantees the two can never drift (the bug this replaces: the preview
+ * counted every attendance row incl. sign-outs → ~2x the real headcount, while
+ * the PDF counted sign-in events → they disagreed).
+ *
+ * Counts UNIQUE operatives with a sign-in per day (true daily headcount):
+ *   - sign-IN events only (a sign-out is not a separate person on site)
+ *   - de-duplicated per day, so a re-scan (e.g. lunch re-entry) counts once
+ *   - grouped by trade (operative.role), 'General' when role is unknown
+ *   - rows without an operative_id are skipped (can't be de-duplicated into a headcount)
+ *
+ * Day buckets use the local weekday (Mon=0 … Sun=6), matching the rest of the report.
+ *
+ * @param {Array} rawAttendance — site_attendance rows ({ operative_id, type, recorded_at })
+ * @param {Array} operatives — operatives ({ id, role }) for trade lookup
+ * @returns {{ rows: Array<{trade, days:number[7], total, avg}>, dayCounts:number[7],
+ *             grandTotal:number, uniqueOps:number, avgDaily:string, peakDay:string }}
+ */
+export function buildLabourGrid(rawAttendance, operatives) {
+  const opMap = new Map()
+  if (Array.isArray(operatives)) operatives.forEach(op => { if (op && op.id) opMap.set(op.id, op) })
+
+  const tradeDaySets = {}                                   // trade -> [Set<opId> x7]
+  const daySets = Array.from({ length: 7 }, () => new Set()) // per-day unique opIds (any trade)
+  const weekOps = new Set()                                  // unique opIds across the week
+
+  const rows0 = Array.isArray(rawAttendance) ? rawAttendance : []
+  rows0.forEach(rec => {
+    if (!rec || rec.type !== 'sign_in' || !rec.operative_id) return
+    const d = new Date(rec.recorded_at)
+    if (isNaN(d.getTime())) return
+    const dow = d.getDay()                  // 0=Sun
+    const idx = dow === 0 ? 6 : dow - 1      // Mon=0 … Sun=6
+    const trade = opMap.get(rec.operative_id)?.role || 'General'
+    if (!tradeDaySets[trade]) tradeDaySets[trade] = Array.from({ length: 7 }, () => new Set())
+    tradeDaySets[trade][idx].add(rec.operative_id)
+    daySets[idx].add(rec.operative_id)
+    weekOps.add(rec.operative_id)
+  })
+
+  const rows = Object.keys(tradeDaySets)
+    .sort((a, b) => a.localeCompare(b))
+    .map(trade => {
+      const days = tradeDaySets[trade].map(s => s.size)
+      const total = days.reduce((x, y) => x + y, 0)
+      const activeDays = days.filter(n => n > 0).length
+      const avg = activeDays > 0 ? (total / activeDays).toFixed(1) : '0.0'
+      return { trade, days, total, avg }
+    })
+
+  const dayCounts = daySets.map(s => s.size)
+  const grandTotal = dayCounts.reduce((x, y) => x + y, 0)
+  const activeDaysOverall = dayCounts.filter(n => n > 0).length
+  const avgDaily = activeDaysOverall > 0 ? (grandTotal / activeDaysOverall).toFixed(1) : '0.0'
+  const peakVal = Math.max(0, ...dayCounts)
+  const peakIdx = dayCounts.indexOf(peakVal)
+  const peakDay = peakVal > 0 ? `${LABOUR_DAY_NAMES[peakIdx]} (${peakVal})` : '—'
+
+  return { rows, dayCounts, grandTotal, uniqueOps: weekOps.size, avgDaily, peakDay }
+}

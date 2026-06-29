@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
 import { getSession } from '../lib/storage'
 import { buildSectionList } from '../lib/hsReport/sectionRegistry'
+import { buildLabourGrid } from '../lib/hsReport/utils'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
 import {
@@ -131,11 +132,6 @@ function certCell(dateStr) {
   if (isExpired(dateStr)) return { text, cls: 'text-red-600 font-bold' }
   if (isExpiringSoon(dateStr)) return { text, cls: 'text-amber-600 font-semibold' }
   return { text, cls: 'text-green-700' }
-}
-
-function dayOfWeek(dateStr) {
-  const d = new Date(dateStr)
-  return d.getDay() // 0=Sun, 1=Mon...
 }
 
 // ── Main Component ──
@@ -285,23 +281,13 @@ export default function HSReportGenerator() {
       // Store raw RAMS data for PDF component
       rawRamsRef.current = { docs, signoffs: soffs }
 
-      // Attendance -> Labour Return
+      // Attendance -> Labour Return. Use the shared buildLabourGrid() — the SAME
+      // helper the PDF uses — so the preview and the PDF can never diverge. Counts
+      // unique operatives per day (sign-ins only), not raw attendance rows (the old
+      // code counted sign-ins AND sign-outs => ~2x the real headcount).
       const attendance = attendanceRes.data || []
       rawAttendanceRef.current = attendance
-      const labourMap = {}
-      attendance.forEach(rec => {
-        const op = ops.find(o => o.id === rec.operative_id)
-        const trade = op?.role || rec.trade || 'General'
-        const companyKey = op?.employer || trade
-        const key = `${companyKey}__${trade}`
-        if (!labourMap[key]) {
-          labourMap[key] = { company: companyKey, trade, days: [0, 0, 0, 0, 0, 0, 0] }
-        }
-        const dow = dayOfWeek(rec.recorded_at)
-        const idx = dow === 0 ? 6 : dow - 1
-        labourMap[key].days[idx]++
-      })
-      setLabourRows(Object.values(labourMap).length > 0 ? Object.values(labourMap) : [{ company: '', trade: '', days: [0, 0, 0, 0, 0, 0, 0] }])
+      setLabourRows(buildLabourGrid(attendance, ops).rows)
 
       // Site Diary -> Safe Start Cards
       const diary = diaryRes.data || []

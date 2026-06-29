@@ -1,60 +1,14 @@
 import { View, Text, StyleSheet } from '@react-pdf/renderer'
 import { C, FONT, SIZE } from './theme'
 import { PageFrame, SectionHeader } from './primitives'
+import { buildLabourGrid } from './utils'
 
+// Labour grid comes from the shared buildLabourGrid() in ./utils — the SAME helper
+// the on-screen preview (HSReportGenerator) uses, so the two can never diverge
+// (unique operatives per day, sign-ins only). Counting rules live in utils.js.
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const ROWS_FIRST_PAGE = 18
 const ROWS_PER_PAGE = 24
-
-// ── Helpers ──
-function dayIndex(dateStr) {
-  const d = new Date(dateStr)
-  const dow = d.getDay() // 0=Sun
-  return dow === 0 ? 6 : dow - 1 // Mon=0 .. Sun=6
-}
-
-function buildTradeGrid(attendance, operatives) {
-  const opMap = new Map()
-  if (Array.isArray(operatives)) {
-    operatives.forEach(op => opMap.set(op.id, op))
-  }
-
-  const signIns = (attendance || []).filter(r => r.type === 'sign_in')
-  const trades = {}
-  const uniqueOps = new Set()
-  const dayCounts = [0, 0, 0, 0, 0, 0, 0]
-
-  signIns.forEach(rec => {
-    const op = opMap.get(rec.operative_id)
-    const trade = op?.role || 'General'
-    if (!trades[trade]) trades[trade] = { trade, days: [0, 0, 0, 0, 0, 0, 0], total: 0 }
-    const idx = dayIndex(rec.recorded_at)
-    trades[trade].days[idx]++
-    trades[trade].total++
-    dayCounts[idx]++
-    if (rec.operative_id) uniqueOps.add(rec.operative_id)
-  })
-
-  // Sort alphabetically
-  const rows = Object.values(trades).sort((a, b) => a.trade.localeCompare(b.trade))
-
-  // Compute avg per trade: total / days where trade had ≥1 sign_in
-  rows.forEach(r => {
-    const activeDays = r.days.filter(d => d > 0).length
-    r.avg = activeDays > 0 ? (r.total / activeDays).toFixed(1) : '0.0'
-  })
-
-  // Grand totals
-  const grandTotal = signIns.length
-  const activeDaysOverall = dayCounts.filter(d => d > 0).length
-  const avgDaily = activeDaysOverall > 0 ? (grandTotal / activeDaysOverall).toFixed(1) : '0.0'
-
-  // Peak day
-  const peakIdx = dayCounts.indexOf(Math.max(...dayCounts))
-  const peakDay = dayCounts[peakIdx] > 0 ? `${DAY_NAMES[peakIdx]} (${dayCounts[peakIdx]})` : '\u2014'
-
-  return { rows, dayCounts, grandTotal, uniqueOps: uniqueOps.size, avgDaily, peakDay }
-}
 
 // ── Summary strip ──
 function SummaryStrip({ stats }) {
@@ -124,7 +78,7 @@ function TotalsRow({ dayCounts, grandTotal, avgDaily }) {
 
 // ── Main component ──
 export default function LabourReturn({ rawAttendance, operatives, pageProps, theme }) {
-  const stats = buildTradeGrid(rawAttendance, operatives)
+  const stats = buildLabourGrid(rawAttendance, operatives)
 
   // Empty state
   if (stats.grandTotal === 0) {
