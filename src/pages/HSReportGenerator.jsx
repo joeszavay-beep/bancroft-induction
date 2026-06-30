@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../lib/CompanyContext'
 import { getSession } from '../lib/storage'
-import { buildSectionList } from '../lib/hsReport/sectionRegistry'
+import { buildSectionList, DEFAULT_SECTIONS } from '../lib/hsReport/sectionRegistry'
 import { buildLabourGrid } from '../lib/hsReport/utils'
 import toast from 'react-hot-toast'
 import LoadingButton from '../components/LoadingButton'
@@ -60,6 +60,21 @@ const SECTIONS = [
   { id: 'cover', label: 'Cover Page', icon: FileText },
   ...registrySections,
 ]
+
+// Per-report section include/exclude config. Defaults to all-on; overlaid with the
+// company-wide default (company.settings.report.section_config) when available.
+function defaultSectionConfig() {
+  return DEFAULT_SECTIONS.map(s => ({ id: s.id, name: s.defaultName, included: true }))
+}
+function sectionConfigFromCompany(company) {
+  const saved = company?.settings?.report?.section_config
+  const base = defaultSectionConfig()
+  if (!Array.isArray(saved) || saved.length === 0) return base
+  return base.map(b => {
+    const o = saved.find(s => s.id === b.id)
+    return { id: b.id, name: o?.name || b.name, included: o ? o.included !== false : true }
+  })
+}
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -158,6 +173,10 @@ export default function HSReportGenerator() {
   const [role, setRole] = useState(managerData.role || 'Project Manager')
   const [companyName, setCompanyName] = useState(company?.name || '')
 
+  // Which sections to include in THIS report (per-report toggles).
+  const [sectionConfig, setSectionConfig] = useState(defaultSectionConfig)
+  const sectionConfigPinned = useRef(false) // true once the user customises or a draft restores it
+
   // ── Project data ──
   const [projectData, setProjectData] = useState(null)
 
@@ -198,6 +217,15 @@ export default function HSReportGenerator() {
   const [ssCompany, setSsCompany] = useState(company?.name || '')
   const [ssSupervisor, setSsSupervisor] = useState(managerData.name || '')
   const [ssTrade, setSsTrade] = useState('')
+
+  // Apply the company-wide section defaults once they load (unless the user has
+  // already customised the toggles or a draft restored a per-report selection).
+  useEffect(() => {
+    if (sectionConfigPinned.current) return
+    if (company?.settings?.report?.section_config) {
+      setSectionConfig(sectionConfigFromCompany(company))
+    }
+  }, [company])
 
   // ── Load projects ──
   useEffect(() => {
@@ -394,10 +422,16 @@ export default function HSReportGenerator() {
   }, [projectId, weekStart, cid])
 
   // ── Draft save/load ──
+  function toggleSection(id, included) {
+    sectionConfigPinned.current = true
+    setSectionConfig(prev => prev.map(s => (s.id === id ? { ...s, included } : s)))
+  }
+
   function saveDraft() {
     if (!projectId || !weekStart) return toast.error('Select a project and week first')
     const draft = {
       reportNumber, issuedBy, role, companyName,
+      sectionConfig,
       manualTalks,
       pmChecks, pmComments, pmInspector,
       envChecks, envComments, envInspector,
@@ -419,6 +453,7 @@ export default function HSReportGenerator() {
       if (d.issuedBy) setIssuedBy(d.issuedBy)
       if (d.role) setRole(d.role)
       if (d.companyName) setCompanyName(d.companyName)
+      if (Array.isArray(d.sectionConfig)) { setSectionConfig(d.sectionConfig); sectionConfigPinned.current = true }
       if (d.manualTalks) setManualTalks(d.manualTalks)
       if (d.pmChecks) setPmChecks(d.pmChecks)
       if (d.pmComments) setPmComments(d.pmComments)
@@ -520,6 +555,7 @@ export default function HSReportGenerator() {
         safeStartTrade: ssTrade || null,
         project: projectData || projects.find(p => p.id === projectId) || {},
         company,
+        sectionConfig,
         weekStart,
         weekEnd,
         reportNumber,
@@ -751,6 +787,29 @@ export default function HSReportGenerator() {
               <Field label="Address" value={project.address || project.location || ''} readOnly />
               <Field label="Client" value={project.client || ''} readOnly />
               <Field label="Job Ref" value={project.job_ref || project.reference || ''} readOnly />
+            </div>
+
+            {/* Sections to include in this report */}
+            <div className="mt-5 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+              <h4 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Sections to include</h4>
+              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                Choose which sections appear in this report. Excluded sections are skipped and the rest renumber automatically.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-0.5">
+                {sectionConfig.map((sec, i) => {
+                  const includedBefore = sectionConfig.slice(0, i).filter(s => s.included).length
+                  const num = sec.included ? String(includedBefore + 1).padStart(2, '0') : '—'
+                  return (
+                    <div key={sec.id} className="flex items-center justify-between gap-3 py-2 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                      <span className="flex items-center gap-2.5 text-sm" style={{ color: sec.included ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        <span className="font-mono text-xs w-5 text-right" style={{ color: 'var(--text-muted)' }}>{num}</span>
+                        {sec.name}
+                      </span>
+                      <Toggle checked={sec.included} onChange={v => toggleSection(sec.id, v)} />
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </SectionCard>
 
@@ -1062,6 +1121,19 @@ function Field({ label, value, onChange, readOnly, ...props }) {
       <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>{label}</label>
       <input value={value} onChange={onChange} readOnly={readOnly} className={`w-full px-3 py-2 rounded-lg border text-sm ${readOnly ? 'opacity-60 cursor-not-allowed' : ''}`} style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} {...props} />
     </div>
+  )
+}
+
+function Toggle({ checked, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      aria-pressed={checked}
+      className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${checked ? 'bg-[#1560AA]' : 'bg-slate-300'}`}
+    >
+      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${checked ? 'translate-x-5' : ''}`} />
+    </button>
   )
 }
 
