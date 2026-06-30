@@ -1,15 +1,13 @@
 import { View, Text, Image, StyleSheet } from '@react-pdf/renderer'
-import { C, FONT, SIZE } from './theme'
+import { PLEX, PW, PX } from './theme'
 import { formatDate } from './utils'
-import { PageFrame, SectionHeader, Pill, Eyebrow } from './primitives'
-
-const ROWS_PER_PAGE = 12 // signatures take vertical space
+import { PlexSectionHeader, StatusPill, EmptyState, SectionBlock } from './primitives'
 
 // ── Helpers ──
 function formatDateTime(d) {
-  if (!d) return '\u2014'
+  if (!d) return '—'
   const dt = new Date(d)
-  if (isNaN(dt.getTime())) return '\u2014'
+  if (isNaN(dt.getTime())) return '—'
   const day = String(dt.getDate()).padStart(2, '0')
   const month = String(dt.getMonth() + 1).padStart(2, '0')
   const year = String(dt.getFullYear()).slice(-2)
@@ -18,51 +16,45 @@ function formatDateTime(d) {
   return `${day}/${month}/${year} ${hours}:${mins}`
 }
 
-// ── Summary strip ──
-function SummaryStrip({ talkCount, totalAttendees, operativesCovered, totalOperatives }) {
+// ── Inline stat row ──
+function StatRow({ talkCount, totalAttendees, operativesCovered, totalOperatives }) {
+  const stats = [
+    { value: talkCount, label: 'Talks delivered' },
+    { value: totalAttendees, label: 'Attendances' },
+    { value: `${operativesCovered}/${totalOperatives}`, label: 'Operatives reached' },
+  ]
   return (
-    <View style={s.summaryRow}>
-      <View style={[s.summaryTile, { backgroundColor: C.surfaceMuted, borderColor: C.border }]}>
-        <Text style={[s.summaryValue, { color: C.textPrimary }]}>{talkCount}</Text>
-        <Text style={s.summaryLabel}>Talks delivered</Text>
-      </View>
-      <View style={[s.summaryTile, { backgroundColor: C.surfaceMuted, borderColor: C.border }]}>
-        <Text style={[s.summaryValue, { color: C.textPrimary }]}>{totalAttendees}</Text>
-        <Text style={s.summaryLabel}>Attendances</Text>
-      </View>
-      <View style={[s.summaryTile, { backgroundColor: C.greenBg, borderColor: C.green }]}>
-        <Text style={[s.summaryValue, { color: C.greenTextDark }]}>{operativesCovered}/{totalOperatives}</Text>
-        <Text style={s.summaryLabel}>Operatives reached</Text>
-      </View>
+    <View style={s.statRow}>
+      {stats.map((st, i) => (
+        <View key={i} style={s.stat}>
+          <Text style={s.statValue}>{st.value}</Text>
+          <Text style={s.statLabel}>{st.label}</Text>
+        </View>
+      ))}
     </View>
   )
 }
 
-// ── Attendee header row ──
+// ── Attendee table ──
 function AttendeeHeader() {
   return (
-    <View style={s.attendeeHeaderRow}>
-      <Text style={[s.attendeeHeaderText, { width: 160 }]}>Name</Text>
-      <Text style={[s.attendeeHeaderText, { width: 160, textAlign: 'center' }]}>Signature</Text>
-      <Text style={[s.attendeeHeaderText, { flex: 1 }]}>Signed at</Text>
+    <View style={s.attHead}>
+      <Text style={[s.attHeadCell, { width: 160 }]}>Name</Text>
+      <Text style={[s.attHeadCell, { width: 150, textAlign: 'center' }]}>Signature</Text>
+      <Text style={[s.attHeadCell, { flex: 1 }]}>Signed at</Text>
     </View>
   )
 }
 
-// ── Single attendee row ──
-function AttendeeRow({ sig, index }) {
-  const shaded = index % 2 === 1
+function AttendeeRow({ sig }) {
   const hasSignature = sig.signatureDataUrl != null
-
   return (
-    <View style={[s.attendeeRow, shaded ? s.rowShaded : null]} wrap={false}>
-      <Text style={s.attendeeName}>{sig.operative_name || '\u2014'}</Text>
-      <View style={s.signatureCell}>
-        {hasSignature ? (
-          <Image src={sig.signatureDataUrl} style={s.signatureImage} />
-        ) : (
-          <Pill text="Not signed" color="red" />
-        )}
+    <View style={s.attRow} wrap={false}>
+      <Text style={s.attName}>{sig.operative_name || '—'}</Text>
+      <View style={s.sigCell}>
+        {hasSignature
+          ? <Image src={sig.signatureDataUrl} style={s.sigImage} />
+          : <StatusPill label="NOT SIGNED" tone="red" />}
       </View>
       <Text style={s.signedAt}>{formatDateTime(sig.signed_at)}</Text>
     </View>
@@ -70,254 +62,165 @@ function AttendeeRow({ sig, index }) {
 }
 
 // ── Single talk block ──
-function TalkBlock({ talk, isFirst }) {
+function TalkBlock({ talk }) {
   const sigs = talk.toolbox_signatures || []
-  const signedSigs = sigs.filter(s => s.signatureDataUrl != null)
+  const signedSigs = sigs.filter(sig => sig.signatureDataUrl != null)
   const hasZeroAttendees = sigs.length === 0
-
-  // Manual talks are PM-entered (no in-app signing): they carry a typed attendee
-  // count and no signature sheet, so render the count rather than a red error.
   const isManual = talk.isManual === true
   const manualCount = isManual ? (parseInt(talk.attendeeCount, 10) || 0) : 0
+  const attendeeCount = isManual ? manualCount : sigs.length
+
+  const desc = talk.description
+    ? ` · ${talk.description.length > 80 ? talk.description.slice(0, 80) + '…' : talk.description}`
+    : ''
 
   return (
-    <View style={s.talkBlock}>
-      {/* Talk header: title + pill on row 1, meta on row 2 */}
+    <View style={s.talkBlock} wrap={false}>
       <View style={s.talkHeader}>
         <View style={s.talkTitleRow}>
-          <Text style={s.talkTitle}>{talk.title || '\u2014'}</Text>
-          {isManual && <Pill text="Manual entry" color="muted" />}
-          {!isManual && hasZeroAttendees && <Pill text="No attendees" color="red" />}
+          <Text style={s.talkTitle}>{talk.title || '—'}</Text>
+          {isManual && <StatusPill label="MANUAL ENTRY" tone="neutral" />}
+          {!isManual && hasZeroAttendees && <StatusPill label="NO ATTENDEES" tone="red" />}
         </View>
         <Text style={s.talkMeta}>
-          {formatDate(talk.created_at)} {'\u00b7'} {isManual ? `${manualCount} attendee${manualCount !== 1 ? 's' : ''}` : `${sigs.length} attendee${sigs.length !== 1 ? 's' : ''}`}
-          {talk.description ? ` \u00b7 ${talk.description.length > 80 ? talk.description.slice(0, 80) + '\u2026' : talk.description}` : ''}
+          {formatDate(talk.created_at)} · {attendeeCount} attendee{attendeeCount !== 1 ? 's' : ''}{desc}
         </Text>
       </View>
 
-      {/* Manual talk — no in-app signature sheet captured */}
       {isManual && (
-        <View style={s.noAttendeesBox}>
-          <Text style={s.noAttendeesText}>Manually recorded {'—'} no in-app signature sheet</Text>
-        </View>
+        <Text style={s.note}>Manually recorded — no in-app signature sheet</Text>
       )}
 
-      {/* Attendee table — only signed rows rendered */}
       {!isManual && sigs.length > 0 && signedSigs.length > 0 && (
-        <View style={s.attendeeTable}>
+        <View style={s.attTable}>
           <AttendeeHeader />
-          {signedSigs.map((sig, i) => (
-            <AttendeeRow key={sig.id || i} sig={sig} index={i} />
-          ))}
+          {signedSigs.map((sig, i) => <AttendeeRow key={sig.id || i} sig={sig} />)}
         </View>
       )}
 
-      {/* Has attendees but none signed */}
       {!isManual && sigs.length > 0 && signedSigs.length === 0 && (
-        <View style={s.noAttendeesBox}>
-          <Text style={s.noAttendeesText}>No signed attendees for this talk</Text>
-        </View>
+        <Text style={s.note}>No signed attendees for this talk</Text>
       )}
 
-      {/* Zero attendees callout */}
       {!isManual && hasZeroAttendees && (
-        <View style={s.noAttendeesBox}>
-          <Text style={s.noAttendeesText}>No attendees recorded for this talk</Text>
-        </View>
+        <Text style={s.note}>No attendees recorded for this talk</Text>
       )}
     </View>
   )
 }
 
 // ── Main component ──
-export default function ToolboxTalks({ rawTalks, operatives, pageProps, theme }) {
+export default function ToolboxTalks({ rawTalks, operatives, theme, number = 1 }) {
   const talks = Array.isArray(rawTalks) ? rawTalks : []
   const totalOperatives = Array.isArray(operatives) ? operatives.length : 0
+  const accent = theme?.accent || PX.accent
 
-  // Compute summary stats
   const totalAttendees = talks.reduce((sum, t) => sum + (t.toolbox_signatures || []).length, 0)
   const allAttendeeIds = new Set()
-  talks.forEach(t => (t.toolbox_signatures || []).forEach(s => { if (s.operative_id) allAttendeeIds.add(s.operative_id) }))
+  talks.forEach(t => (t.toolbox_signatures || []).forEach(sig => { if (sig.operative_id) allAttendeeIds.add(sig.operative_id) }))
   const operativesCovered = allAttendeeIds.size
 
-  // Empty state
   if (talks.length === 0) {
     return (
-      <PageFrame {...pageProps}>
-        <SectionHeader number={1} title="Toolbox talks" context="0 talks" theme={theme} />
-        <View style={s.emptyRow}>
-          <Text style={s.emptyText}>No toolbox talks recorded for this period</Text>
-        </View>
-      </PageFrame>
+      <SectionBlock keepTogether>
+        <PlexSectionHeader number={number} title="Toolbox talks" count="0 talks" accent={accent} />
+        <EmptyState text="No toolbox talks recorded for this period" />
+      </SectionBlock>
     )
   }
 
-  // Paginate: each talk is a block. Estimate: talk header ~30pt + rows * 40pt (signature height).
-  // We'll render each talk as a wrap={false} block and let react-pdf handle page breaks.
-  // For the "(continued)" header pattern, we track page overflow manually via chunking.
-  // Simple approach: one PageFrame, let content flow with wrap. Add continuation on overflow.
-
   return (
-    <PageFrame {...pageProps}>
-      <SectionHeader
-        number={1}
-        title="Toolbox talks"
-        context={`${talks.length} talk${talks.length !== 1 ? 's' : ''} delivered`}
-        theme={theme}
-      />
-      <SummaryStrip
-        talkCount={talks.length}
-        totalAttendees={totalAttendees}
-        operativesCovered={operativesCovered}
-        totalOperatives={totalOperatives}
-      />
-      {talks.map((talk, i) => (
-        <TalkBlock key={talk.id || i} talk={talk} isFirst={i === 0} />
-      ))}
-    </PageFrame>
+    <SectionBlock>
+      <View wrap={false}>
+        <PlexSectionHeader
+          number={number}
+          title="Toolbox talks"
+          count={`${talks.length} talk${talks.length !== 1 ? 's' : ''} delivered`}
+          accent={accent}
+        />
+        <StatRow
+          talkCount={talks.length}
+          totalAttendees={totalAttendees}
+          operativesCovered={operativesCovered}
+          totalOperatives={totalOperatives}
+        />
+      </View>
+      {talks.map((talk, i) => <TalkBlock key={talk.id || i} talk={talk} />)}
+    </SectionBlock>
   )
 }
 
 // ── Styles ──
 const s = StyleSheet.create({
-  // Summary strip
-  summaryRow: {
+  statRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
+    gap: 28,
+    marginTop: 14,
+    marginBottom: 18,
   },
-  summaryTile: {
-    flex: 1,
-    borderWidth: 0.5,
-    borderRadius: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: FONT.medium,
-  },
-  summaryLabel: {
-    fontSize: 8,
-    color: C.textMuted,
-    fontWeight: FONT.regular,
-  },
+  stat: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  statValue: { fontFamily: PLEX.sans, fontWeight: PW.semibold, fontSize: 13, color: PX.ink },
+  statLabel: { fontFamily: PLEX.sans, fontWeight: PW.regular, fontSize: 9, color: PX.grey },
 
-  // Talk block
   talkBlock: {
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 0.5,
-    borderColor: C.border,
-    borderRadius: 4,
-    overflow: 'hidden',
+    borderColor: PX.border,
+    borderRadius: 3,
   },
   talkHeader: {
-    backgroundColor: C.surfaceMuted,
-    paddingVertical: 8,
+    backgroundColor: PX.chipBg,
+    paddingVertical: 9,
     paddingHorizontal: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: C.border,
+    borderBottomColor: PX.border,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
   },
   talkTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-    marginBottom: 3,
   },
-  talkTitle: {
-    fontSize: 11,
-    fontWeight: FONT.medium,
-    color: C.textPrimary,
-    flex: 1,
-  },
-  talkMeta: {
-    fontSize: 8,
-    color: C.textMuted,
-    fontWeight: FONT.regular,
-    lineHeight: 1.3,
-    marginTop: 1,
-  },
+  talkTitle: { fontFamily: PLEX.sans, fontWeight: PW.semibold, fontSize: 10.5, color: PX.ink, flex: 1 },
+  talkMeta: { fontFamily: PLEX.sans, fontWeight: PW.regular, fontSize: 8, color: PX.muted, marginTop: 4, lineHeight: 1.3 },
 
-  // Attendee table
-  attendeeTable: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  attendeeHeaderRow: {
+  attTable: { paddingHorizontal: 12, paddingVertical: 6 },
+  attHead: {
     flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 0.5,
-    borderBottomColor: C.border,
-    paddingBottom: 3,
+    borderBottomWidth: 0.75,
+    borderBottomColor: PX.headRule,
+    paddingBottom: 6,
     marginBottom: 2,
   },
-  attendeeHeaderText: {
+  attHeadCell: {
+    fontFamily: PLEX.mono,
+    fontWeight: PW.semibold,
     fontSize: 7,
-    fontWeight: FONT.medium,
-    color: C.textSecondary,
-    letterSpacing: 0.3,
+    color: PX.muted,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
-  attendeeRow: {
+  attRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 32,
+    minHeight: 30,
     borderBottomWidth: 0.5,
-    borderBottomColor: C.borderMuted,
-    paddingVertical: 2,
+    borderBottomColor: PX.rowDivider,
+    paddingVertical: 3,
   },
-  rowShaded: {
-    backgroundColor: C.rowShade,
-  },
-  attendeeName: {
-    width: 160,
-    fontSize: 9,
-    fontWeight: FONT.medium,
-    color: C.textPrimary,
-    paddingRight: 4,
-  },
-  signatureCell: {
-    width: 160,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  signatureImage: {
-    width: 120,
-    height: 40,
-    objectFit: 'contain',
-  },
-  signedAt: {
-    flex: 1,
-    fontSize: 8,
-    color: C.textMuted,
-    fontWeight: FONT.regular,
-  },
+  attName: { width: 160, fontFamily: PLEX.sans, fontWeight: PW.medium, fontSize: 9, color: PX.ink, paddingRight: 4 },
+  sigCell: { width: 150, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  sigImage: { width: 120, height: 36, objectFit: 'contain' },
+  signedAt: { flex: 1, fontFamily: PLEX.mono, fontWeight: PW.regular, fontSize: 8, color: PX.muted },
 
-  // No attendees
-  noAttendeesBox: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-  },
-  noAttendeesText: {
+  note: {
+    fontFamily: PLEX.sans,
+    fontWeight: PW.regular,
     fontSize: 9,
-    color: C.textFaint,
-    fontWeight: FONT.regular,
+    color: PX.muted,
     textAlign: 'center',
-  },
-
-  // Empty state
-  emptyRow: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 10,
-    color: C.textFaint,
-    fontWeight: FONT.regular,
+    paddingVertical: 14,
   },
 })
