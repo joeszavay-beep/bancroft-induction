@@ -1,3 +1,12 @@
+-- ═══ AS APPLIED 2026-07-02 (owner-run, COMMITTED + verified) ═══
+-- Applied as a single self-contained DO block (see the rams-2 AS-APPLIED
+-- note for why): the signature-count guard, the company-pinned DELETE with
+-- del_count=1 abort, and a row-gone re-check all inside one block. Verified
+-- after: residue doc gone, Bancroft has exactly 1 doc left ("Cable Pulling
+-- RAMS", doc_type='general', kept per owner decision), 0 orphaned
+-- signatures globally, all tenant signature totals unchanged.
+-- ═══════════════════════════════════════════════════════════════
+--
 -- Owner-APPROVED 2026-07-02 (delete, not migrate). Run as apply step 4,
 -- AFTER rams-1 and rams-2.
 --

@@ -1,3 +1,19 @@
+-- ═══ AS APPLIED 2026-07-02 (owner-run, COMMITTED + verified) ═══
+-- The Supabase SQL editor does NOT reliably execute multi-statement
+-- BEGIN…COMMIT scripts atomically (a mid-script verify SELECT observed
+-- pre-update state), so the apply was run as a SINGLE self-contained DO
+-- block: the same pinned-UUID UPDATE + expected_count guard below, plus the
+-- V1–V4 verifies folded INSIDE the block as RAISE EXCEPTION guards (any
+-- mismatch = automatic rollback; clean completion = commit). The dry-run
+-- variant ended in a deliberate RAISE EXCEPTION carrying the verify numbers
+-- in the message (rollback by construction). Dry-run read
+-- 14 | 14 0 13 1 | 156/156 1 0 (all as expected); apply committed clean;
+-- independent AFTER re-capture (service-role, separate session): 47/47
+-- checks PASS — 14 docs doc_type='rams', per-doc signature counts identical
+-- to the BEFORE capture, 156/156 TW signatures, 0 orphans, Bancroft
+-- untouched. Use the single-DO pattern for ALL future manual applies.
+-- ═══════════════════════════════════════════════════════════════
+--
 -- RAMS dedicated section — Phase 2 (DATA): flip the owner-approved documents
 -- to doc_type='rams'. PROD CUSTOMER DATA — full ritual, every step manual.
 -- Requires rams-1-documents-doc-type.sql applied first.
