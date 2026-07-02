@@ -184,7 +184,7 @@ export default function HSReportGenerator() {
   // Toolbox Talks
   const [toolboxTalks, setToolboxTalks] = useState([])
   const rawTalksRef = useRef([])
-  const rawRamsRef = useRef({ docs: [], signoffs: [] })
+  const rawRamsRef = useRef({ docs: [], signatures: [], totalOps: 0 })
   const rawAttendanceRef = useRef([])
   const [manualTalks, setManualTalks] = useState([])
 
@@ -260,8 +260,11 @@ export default function HSReportGenerator() {
         supabase.from('toolbox_talks').select('*, toolbox_signatures(*)').eq('project_id', projectId)
           .gte('created_at', ws).lte('created_at', we),
         supabase.from('operative_projects').select('operatives(*)').eq('project_id', projectId),
-        supabase.from('document_hub').select('*').eq('company_id', cid).eq('project_id', projectId)
-          .eq('category', 'RAMS'),
+        // RAMS live in the dedicated Risk Assessments section: documents rows
+        // with doc_type='rams' (company + project scoped), signed via the
+        // standard signatures flow — NOT the retired document_hub category tag.
+        supabase.from('documents').select('*').eq('company_id', cid).eq('project_id', projectId)
+          .eq('doc_type', 'rams'),
         Promise.resolve({ data: [] }), // signoffs loaded separately after docs
         supabase.from('site_attendance').select('*').eq('company_id', cid).eq('project_id', projectId)
           .gte('recorded_at', ws).lte('recorded_at', we),
@@ -292,26 +295,31 @@ export default function HSReportGenerator() {
       const ops = (opsRes.data || []).map(r => r.operatives).filter(Boolean)
       setOperatives(ops)
 
-      // RAMS — load signoffs scoped to these documents
+      // RAMS — load valid operative signatures scoped to these documents
+      // (company_id explicit: the §2.16 isolation guard on the cross-section read)
       const docs = docsRes.data || []
-      let soffs = []
+      let ramsSigs = []
       if (docs.length > 0) {
         const docIds = docs.map(d => d.id)
-        const { data: soffData } = await supabase.from('document_signoffs').select('*').in('document_id', docIds)
-        soffs = soffData || []
+        const { data: sigData } = await supabase.from('signatures').select('*')
+          .in('document_id', docIds).eq('company_id', cid).eq('invalidated', false)
+        ramsSigs = sigData || []
       }
+      // Denominator = active operatives on this project (matches the
+      // project sign-off % on the dashboard)
+      const activeOps = ops.filter(o => !o.left_at)
       const ramsData = docs.map((d, i) => ({
         num: i + 1,
         title: d.title || '',
-        reference: d.reference || d.subcategory || '',
-        rev: d.version || '1',
-        issuedBy: d.uploaded_by || managerData.name || '',
-        approvedBy: soffs.find(s => s.document_id === d.id)?.signed_by || '',
+        reference: d.doc_ref || '',
+        rev: d.revision || `v${d.version || 1}`,
+        signed: `${ramsSigs.filter(s => s.document_id === d.id).length}/${activeOps.length}`,
+        reviewDate: d.review_date ? fmtUK(d.review_date) : '',
         fromDb: true,
       }))
       setRamsRows(ramsData)
       // Store raw RAMS data for PDF component
-      rawRamsRef.current = { docs, signoffs: soffs }
+      rawRamsRef.current = { docs, signatures: ramsSigs, totalOps: activeOps.length }
 
       // Equipment Register — auto-populated from the project's plant register.
       // Latest equipment_check per item supplies last-inspected / next-due / pass-fail.
@@ -1005,9 +1013,9 @@ export default function HSReportGenerator() {
           {/* 10. RAMS Matrix */}
           <SectionCard id="rams" title="RAMS Matrix" icon={FileCheck} refs={sectionRefs} badge={ramsRows.length > 0 ? `${ramsRows.length} docs` : null}>
             <DataTable
-              headers={['#', 'RAMS Title', 'Reference', 'Rev', 'Issued By', 'Approved By']}
-              rows={ramsRows.map(r => [String(r.num), r.title, r.reference, r.rev, r.issuedBy, r.approvedBy])}
-              emptyText="No RAMS documents found"
+              headers={['#', 'RAMS Title', 'Reference', 'Rev', 'Signed', 'Review Due']}
+              rows={ramsRows.map(r => [String(r.num), r.title, r.reference, r.rev, r.signed, r.reviewDate])}
+              emptyText="No risk assessments uploaded for this project — add them in the Risk Assessments section"
             />
           </SectionCard>
 

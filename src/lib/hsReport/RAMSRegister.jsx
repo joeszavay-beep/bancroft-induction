@@ -3,7 +3,11 @@ import { PLEX, PW, PX, PLEX_TABLE } from './theme'
 import { formatDate } from './utils'
 import { PlexSectionHeader, Chips, EmptyState, SectionBlock } from './primitives'
 
-const COL = { num: 16, ref: 64, rev: 28, issued: 56, review: 56, signoff: 44, uploaded: 70 }
+// Reads the dedicated Risk Assessments section: `documents` rows with
+// doc_type='rams' plus their valid operative `signatures` (loaded in
+// HSReportGenerator, company+project scoped). Sign-off = signatures held /
+// active operatives on the project.
+const COL = { num: 16, ref: 64, rev: 32, review: 56, signoff: 48 }
 
 function classifyReviewDate(reviewDate) {
   if (!reviewDate) return 'none'
@@ -33,27 +37,24 @@ function HeaderRow() {
       <Text style={[PLEX_TABLE.headCell, { width: COL.ref }]}>Reference</Text>
       <Text style={[PLEX_TABLE.headCell, { flex: 1 }]}>Title</Text>
       <Text style={[PLEX_TABLE.headCell, { width: COL.rev, textAlign: 'center' }]}>Rev</Text>
-      <Text style={[PLEX_TABLE.headCell, { width: COL.issued }]}>Issued for</Text>
       <Text style={[PLEX_TABLE.headCell, { width: COL.review }]}>Review due</Text>
       <Text style={[PLEX_TABLE.headCell, { width: COL.signoff, textAlign: 'center' }]}>Sign-off</Text>
-      <Text style={[PLEX_TABLE.headCell, { width: COL.uploaded }]}>Uploaded by</Text>
     </View>
   )
 }
 
 function DataRow({ row, index }) {
+  const complete = row.totalOps > 0 && row.signedCount >= row.totalOps
   return (
     <View style={PLEX_TABLE.row} wrap={false}>
       <Text style={[PLEX_TABLE.num, { width: COL.num }]}>{index + 1}</Text>
       <Text style={[s.mono, { width: COL.ref, color: PX.grey }]}>{row.doc_ref || '—'}</Text>
       <Text style={[PLEX_TABLE.primary, { flex: 1, paddingRight: 6 }]}>{row.title || '—'}</Text>
-      <Text style={[PLEX_TABLE.cellMuted, { width: COL.rev, textAlign: 'center' }]}>{row.revision || '—'}</Text>
-      <Text style={[PLEX_TABLE.cellMuted, { width: COL.issued, paddingRight: 4 }]}>{row.issued_for || '—'}</Text>
+      <Text style={[PLEX_TABLE.cellMuted, { width: COL.rev, textAlign: 'center' }]}>{row.revision || `v${row.version || 1}`}</Text>
       <ReviewCell date={row.review_date} />
-      <Text style={[s.mono, { width: COL.signoff, textAlign: 'center' }]}>
-        {row.requires_signoff ? `${row.signedCount}/${row.totalSignoffs}` : '—'}
+      <Text style={[s.mono, { width: COL.signoff, textAlign: 'center' }, complete ? { color: PX.green, fontWeight: PW.semibold } : null]}>
+        {row.signedCount}/{row.totalOps}
       </Text>
-      <Text style={[PLEX_TABLE.cellMuted, { width: COL.uploaded, paddingLeft: 4 }]}>{row.uploaded_by || '—'}</Text>
     </View>
   )
 }
@@ -78,28 +79,28 @@ function Legend() {
 
 export default function RAMSRegister({ rawRams, theme, number = 8 }) {
   const docs = rawRams?.docs || []
-  const signoffs = rawRams?.signoffs || []
+  const signatures = rawRams?.signatures || []
+  const totalOps = rawRams?.totalOps || 0
   const accent = theme?.accent || PX.accent
 
   const rows = docs
-    .filter(d => !d.is_archived)
-    .map(d => {
-      const docSigs = signoffs.filter(sig => sig.document_id === d.id)
-      const signedCount = docSigs.filter(sig => sig.status === 'signed').length
-      return { ...d, signedCount, totalSignoffs: docSigs.length }
-    })
+    .map(d => ({
+      ...d,
+      signedCount: signatures.filter(sig => sig.document_id === d.id).length,
+      totalOps,
+    }))
     .sort((a, b) => (a.title || '').localeCompare(b.title || ''))
 
   const active = rows.length
   const overdue = rows.filter(r => classifyReviewDate(r.review_date) === 'overdue').length
   const soon = rows.filter(r => classifyReviewDate(r.review_date) === 'soon').length
-  const incomplete = rows.filter(r => r.requires_signoff && r.signedCount < r.totalSignoffs).length
+  const incomplete = rows.filter(r => r.signedCount < r.totalOps).length
 
   if (rows.length === 0) {
     return (
       <SectionBlock keepTogether>
         <PlexSectionHeader number={number} title="RAMS register" count="0 documents" accent={accent} />
-        <EmptyState text="No RAMS documents registered for this project" />
+        <EmptyState text="No risk assessments registered for this project" />
       </SectionBlock>
     )
   }
