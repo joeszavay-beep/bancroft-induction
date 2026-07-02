@@ -618,7 +618,7 @@ function HomeTab({ op, unsignedDocs, unsignedTalks, snags, pendingActions, navig
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-[#1A1A2E] truncate">{doc.title}</p>
-                  <p className="text-xs font-medium" style={{ color: primaryColor }}>Awaiting your signature</p>
+                  <p className="text-xs font-medium" style={{ color: primaryColor }}>{doc.doc_type === 'rams' ? 'Risk assessment — awaiting your signature' : 'Awaiting your signature'}</p>
                 </div>
                 <ChevronRight size={16} className="text-[#B0B8C9]" />
               </button>
@@ -708,7 +708,9 @@ function DocumentsTab({ op, documents, signatures, signedDocIds, navigate }) {
                 <FileText size={20} className="text-amber-500 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-900 truncate">{doc.title}</p>
-                  {doc.version > 1 && <p className="text-xs text-slate-500">Version {doc.version}</p>}
+                  {(doc.doc_type === 'rams' || doc.version > 1) && (
+                    <p className="text-xs text-slate-500">{[doc.doc_type === 'rams' ? 'Risk assessment' : null, doc.version > 1 ? `Version ${doc.version}` : null].filter(Boolean).join(' · ')}</p>
+                  )}
                 </div>
                 <span className="text-xs font-semibold px-2 py-1 bg-amber-100 text-amber-700 rounded-full shrink-0">Sign</span>
               </button>

@@ -46,6 +46,7 @@ const NAV_SECTIONS = [
   {
     title: 'Documents',
     items: [
+      { label: 'Risk Assessments', path: '/app/rams', icon: Shield },
       { label: 'Document Hub', path: '/app/document-hub', icon: FolderOpen },
       { label: 'PDF Tools', path: '/app/pdf-tools', icon: Scissors },
       { label: 'Sign-off Portal', path: '/app/portal', icon: Globe, feature: 'portal' },

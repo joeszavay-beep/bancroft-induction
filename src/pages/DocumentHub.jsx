@@ -16,8 +16,11 @@ import {
 } from 'lucide-react'
 
 // ── Category configuration ──
+// 'RAMS' is deliberately absent: risk assessments have a dedicated home
+// (the Risk Assessments section, documents.doc_type='rams') that feeds the
+// H&S report RAMS register. Existing hub rows tagged RAMS still render
+// (CategoryBadge falls back to 'Other'), but new RAMS go to the new section.
 const CATEGORIES = {
-  'RAMS': { color: '#DC2626', label: 'RAMS' },
   'Method Statement': { color: '#EA580C', label: 'Method Statement' },
   'Drawing': { color: '#2563EB', label: 'Drawing' },
   'Policy': { color: '#7C3AED', label: 'Policy' },

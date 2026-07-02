@@ -210,11 +210,17 @@ async function ensureOperative(companyId, projectId) {
 
 async function ensureDocument(companyId, projectId) {
   const { data: existing } = await admin.from('documents')
-    .select('id').eq('project_id', projectId).eq('title', 'E2E RAMS').maybeSingle()
-  if (existing) { console.log(`✓ Document exists: (${existing.id})`); return existing.id }
+    .select('id, doc_type').eq('project_id', projectId).eq('title', 'E2E RAMS').maybeSingle()
+  if (existing) {
+    // Idempotent upgrade for pre-doc_type seeds: it's a RAMS by name.
+    if (existing.doc_type !== 'rams') await admin.from('documents').update({ doc_type: 'rams' }).eq('id', existing.id)
+    console.log(`✓ Document exists: (${existing.id})`)
+    return existing.id
+  }
   // file_url null → SignDocument lets the operative sign immediately (no "read" gate).
   const { data: doc, error } = await admin.from('documents').insert({
     project_id: projectId, company_id: companyId, title: 'E2E RAMS', file_url: null, file_name: null,
+    doc_type: 'rams',
   }).select().single()
   if (error) { console.error('document insert failed:', error.message); process.exit(1) }
   console.log(`✓ Created document (${doc.id})`)
