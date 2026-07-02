@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { ArrowLeft, FileText, CheckCircle2, Clock, Lock, AlertTriangle, User } from 'lucide-react'
+import { ArrowLeft, FileText, CheckCircle2, Clock, Lock, AlertTriangle, User, Shield } from 'lucide-react'
 import { getSession } from '../lib/storage'
 
 export default function OperativeDocuments() {
@@ -112,52 +112,69 @@ export default function OperativeDocuments() {
           )}
         </div>
 
-        {/* Document list */}
+        {/* Document list — RAMS grouped first, then general documents.
+            Sign-in-order locking applies within each group. */}
         {documents.length === 0 ? (
           <div className="text-center py-12 text-slate-400">
             <FileText size={40} className="mx-auto mb-3 opacity-50" />
             <p>No documents assigned yet</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {documents.map((doc, idx) => {
-              const isSigned = signedDocIds.has(doc.id)
-              const needsResign = invalidatedDocIds.has(doc.id) && !isSigned
-              // Must sign in order: lock if any previous doc is unsigned
-              const isLocked = !isSigned && !needsResign && documents.slice(0, idx).some(d => !signedDocIds.has(d.id))
+          <div className="space-y-4">
+            {[
+              { key: 'rams', label: 'Risk Assessments', docs: documents.filter(d => d.doc_type === 'rams') },
+              { key: 'general', label: 'Documents', docs: documents.filter(d => d.doc_type !== 'rams') },
+            ].filter(g => g.docs.length > 0).map((group, gi, groups) => (
+              <div key={group.key}>
+                {groups.length > 1 && (
+                  <div className="flex items-center gap-1.5 mb-2 px-1">
+                    {group.key === 'rams' && <Shield size={13} className="text-blue-500" />}
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{group.label}</p>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {group.docs.map((doc, idx) => {
+                    const isSigned = signedDocIds.has(doc.id)
+                    const needsResign = invalidatedDocIds.has(doc.id) && !isSigned
+                    // Must sign in order: lock if any previous doc in this group is unsigned
+                    const isLocked = !isSigned && !needsResign && group.docs.slice(0, idx).some(d => !signedDocIds.has(d.id))
 
-              return (
-                <button
-                  key={doc.id}
-                  disabled={(isSigned && !needsResign) || isLocked}
-                  onClick={() => navigate(`/operative/${operativeId}/sign/${doc.id}`)}
-                  className={`w-full flex items-center gap-3 bg-white border rounded-xl p-4 text-left transition-all ${
-                    needsResign
-                      ? 'border-warning/50 hover:border-warning active:scale-[0.98]'
-                      : isSigned
-                        ? 'border-success/30 opacity-70'
-                        : isLocked
-                          ? 'border-slate-200 opacity-40 cursor-not-allowed'
-                          : 'border-slate-200 hover:border-blue-400/50 active:scale-[0.98]'
-                  }`}
-                >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    needsResign ? 'bg-warning/10' : isSigned ? 'bg-success/10' : isLocked ? 'bg-slate-50' : 'bg-blue-50'
-                  }`}>
-                    {needsResign ? <AlertTriangle size={20} className="text-warning" /> :
-                     isSigned ? <CheckCircle2 size={20} className="text-success" /> :
-                     isLocked ? <Lock size={20} className="text-gray-600" /> :
-                     <FileText size={20} className="text-blue-500" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-medium truncate ${needsResign ? 'text-warning' : isSigned ? 'text-slate-500' : 'text-slate-900'}`}>{doc.title}</p>
-                    <p className="text-xs text-slate-400">
-                      {needsResign ? 'Document updated — re-sign required' : isSigned ? 'Signed' : isLocked ? 'Complete previous documents first' : 'Tap to review & sign'}
-                    </p>
-                  </div>
-                </button>
-              )
-            })}
+                    return (
+                      <button
+                        key={doc.id}
+                        disabled={(isSigned && !needsResign) || isLocked}
+                        onClick={() => navigate(`/operative/${operativeId}/sign/${doc.id}`)}
+                        className={`w-full flex items-center gap-3 bg-white border rounded-xl p-4 text-left transition-all ${
+                          needsResign
+                            ? 'border-warning/50 hover:border-warning active:scale-[0.98]'
+                            : isSigned
+                              ? 'border-success/30 opacity-70'
+                              : isLocked
+                                ? 'border-slate-200 opacity-40 cursor-not-allowed'
+                                : 'border-slate-200 hover:border-blue-400/50 active:scale-[0.98]'
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                          needsResign ? 'bg-warning/10' : isSigned ? 'bg-success/10' : isLocked ? 'bg-slate-50' : 'bg-blue-50'
+                        }`}>
+                          {needsResign ? <AlertTriangle size={20} className="text-warning" /> :
+                           isSigned ? <CheckCircle2 size={20} className="text-success" /> :
+                           isLocked ? <Lock size={20} className="text-gray-600" /> :
+                           doc.doc_type === 'rams' ? <Shield size={20} className="text-blue-500" /> :
+                           <FileText size={20} className="text-blue-500" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-medium truncate ${needsResign ? 'text-warning' : isSigned ? 'text-slate-500' : 'text-slate-900'}`}>{doc.title}</p>
+                          <p className="text-xs text-slate-400">
+                            {needsResign ? 'Document updated — re-sign required' : isSigned ? 'Signed' : isLocked ? 'Complete previous documents first' : 'Tap to review & sign'}
+                          </p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
